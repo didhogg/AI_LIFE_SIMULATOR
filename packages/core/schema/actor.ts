@@ -1,0 +1,472 @@
+// 4.3 角色层（主角 = 组件齐全的 NPC 特例）
+import { z } from 'zod';
+
+// ══════════════════════════════════════════
+// 公共子 schema（被其他文件引用）
+// ══════════════════════════════════════════
+
+// 意象条目（6.29 统一制式：地点 / NPC / 物品共用）
+export const 意象条目Schema = z.object({
+  标签: z.string().default(''),
+  情绪色彩: z.string().default(''),
+  强度: z.number().min(0).max(100).default(0),
+  来源: z.string().default(''), // '固有' | '事件烙印' | 事件id
+  衰减速率: z.number().min(0).default(0), // 每纪元分钟衰减量；0 = 永久
+});
+
+// 修饰通道引用（特质效果 / 状态标签效果复用）
+export const 修饰通道引用Schema = z.object({
+  通道: z.string().default(''),
+  op: z.enum(['乘', '加', '设上限', '设下限', '开关']).default('加'),
+  强度: z.number().default(0),
+});
+
+// ══════════════════════════════════════════
+// NPC 各组件 schema
+// ══════════════════════════════════════════
+
+const 属性Schema = z.object({
+  体质: z.number().int().min(0).max(100).default(10),
+  智慧: z.number().int().min(0).max(100).default(10),
+  感知: z.number().int().min(0).max(100).default(10),
+  魅力: z.number().int().min(0).max(120).default(10),
+  心理: z.number().int().min(0).max(100).default(10),
+});
+
+const 派生Schema = z.object({
+  HP: z.number().min(0).default(100),
+  HP上限: z.number().min(1).default(100),
+  精力: z.number().min(0).default(100),
+  精力上限: z.number().min(1).default(100),
+  颜值: z.number().min(0).max(100).default(50),
+  // 智商 🗑️ 不再单独存储，并入智慧轴口径
+});
+
+const 行动点Schema = z.object({
+  当前: z.number().int().min(0).default(15),
+  上限: z.number().int().min(0).default(15), // 0 = 无限（策略预设）
+});
+
+const 性格五轴Schema = z.object({
+  开放: z.number().min(0).max(100).default(50),
+  尽责: z.number().min(0).max(100).default(50),
+  外向: z.number().min(0).max(100).default(50),
+  宜人: z.number().min(0).max(100).default(50),
+  神经质: z.number().min(0).max(100).default(50),
+});
+
+const 特质效果Schema = z.object({
+  属性修正: z.record(z.string(), z.number()).default({}),
+  成长率或上限修正: z.array(修饰通道引用Schema).default([]),
+  检定修正: z.array(修饰通道引用Schema).default([]),
+  事件钩子: z.string().default(''),
+});
+
+const 特质条目Schema = z.object({
+  类别: z.string().default('后天'), // 天赋/性格/后天/身体/压力
+  来源: z.string().default(''),
+  强度: z.number().default(0),
+  稀有度: z.string().default(''),
+  已觉醒: z.boolean().default(true),
+  效果: 特质效果Schema.default({}),
+});
+
+const 情绪条目Schema = z.object({
+  情绪名: z.string().default(''),
+  极性: z.string().default('负'),
+  数值: z.number().default(0),
+  影响: z.array(修饰通道引用Schema).default([]),
+  到期: z.number().int().min(0).default(0), // 绝对纪元分钟
+  来源: z.string().default(''),
+  可叠加: z.boolean().default(false),
+});
+
+const 状态标签条目Schema = z.object({
+  效果: z.array(修饰通道引用Schema).default([]),
+  到期: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 永久
+  来源: z.string().default(''),
+});
+
+const 技能施放Schema = z.object({
+  精力消耗: z.number().min(0).default(0),
+  检定属性: z.string().default(''),
+  成本: z.string().default(''),
+  冷却: z.number().int().min(0).default(0), // 游戏时长（纪元分钟）
+  失败后果: z.array(z.string()).default([]),
+});
+
+const 技能条目Schema = z.object({
+  熟练度: z.number().min(0).max(100).default(0),
+  等级: z.number().int().min(0).max(10).default(0),
+  类别: z.string().default('通用'), // 开放串
+  来源: z.string().default(''),
+  施放: 技能施放Schema.default({}),
+});
+
+const 物品条目Schema = z.object({
+  数量: z.number().int().min(0).default(1),
+  重要级别: z.string().default('普通'),
+  类别: z.string().default(''),
+  效果: 修饰通道引用Schema.default({}),
+  到期: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 永久
+  遗失保护: z.boolean().default(false),
+  可携意象: z.array(意象条目Schema).default([]), // 6.29
+});
+
+const 衣物槽Schema = z.object({
+  物品名: z.string().default(''),
+  描述: z.string().default(''),
+});
+
+const 爱好条目Schema = z.object({
+  极性: z.string().default('中立'),
+  类别: z.string().default(''),
+  投入度: z.number().min(0).max(100).default(0),
+  状态: z.string().default('活跃'),
+  描述: z.string().default(''),
+});
+
+const 信念条目Schema = z.object({
+  类型: z.string().default('价值观体系'),
+  虔诚或认同: z.number().min(0).max(100).default(0),
+  核心主张: z.array(z.string()).default([]),
+  戒律: z.array(z.string()).default([]),
+  立场轴: z.string().default(''),
+  动摇度: z.number().min(0).max(100).default(0),
+});
+
+const 学籍Schema = z.object({
+  在学状态: z.string().default(''),
+  学段: z.string().default(''),
+  学校: z.string().default(''),
+  年级: z.string().default(''),
+  专业: z.string().default(''),
+});
+
+const 考试记录条目Schema = z.object({
+  名称: z.string().default(''),
+  类别: z.string().default(''),
+  科目或项目: z.string().default(''),
+  发生时间: z.number().int().min(0).default(0), // 纪元分钟
+  原始分: z.number().optional(),
+  是否通过: z.number().int().min(-1).max(1).default(-1),
+  评定: z.string().default(''),
+  证书产出: z.string().default(''),
+});
+
+const 学历档案条目Schema = z.object({
+  学段: z.string().default(''),
+  学校: z.string().default(''),
+  专业: z.string().default(''),
+  入学时间: z.number().int().min(0).default(0),
+  毕业时间: z.number().int().min(0).default(0),
+  状态: z.string().default('在读'),
+  学位: z.string().default(''),
+});
+
+const 资质证书条目Schema = z.object({
+  类别: z.string().default(''),
+  等级: z.string().default(''),
+  获得时间: z.number().int().min(0).default(0),
+  有效期到期: z.number().int().min(0).default(0),
+  颁发机构: z.string().default(''),
+});
+
+const 学业概况Schema = z.object({
+  当前阶段: z.string().default(''),
+  学业档位: z.string().default(''),
+  升学进度: z.object({
+    下一关卡: z.string().default(''),
+    目标: z.string().default(''),
+  }).default({}),
+});
+
+const 学业Schema = z.object({
+  学籍: 学籍Schema.default({}),
+  在修科目: z.record(z.string(), z.object({
+    发生时间: z.number().int().min(0).default(0),
+    备注: z.string().default(''),
+  })).default({}),
+  考试记录: z.record(z.string(), 考试记录条目Schema).default({}),
+  升学记录: z.record(z.string(), z.object({
+    关卡: z.string().default(''),
+    结果: z.string().default(''),
+    时间: z.number().int().min(0).default(0),
+  })).default({}),
+  学历档案: z.record(z.string(), 学历档案条目Schema).default({}),
+  资质证书: z.record(z.string(), 资质证书条目Schema).default({}),
+  学业概况: 学业概况Schema.default({}),
+});
+
+const 任职条目Schema = z.object({
+  体系ID: z.string().default(''),
+  级序: z.number().int().min(0).default(0),
+  职位: z.string().default(''),
+  雇主: z.string().default(''), // 组织实体键
+  性质: z.string().default('主业'), // 主业/副业/兼职/派遣/自雇/实习/义务
+  工时档: z.string().default(''),
+  在职状态: z.string().default('在职'),
+  报酬: z.string().default(''),
+  绩效: z.number().min(-5).max(5).default(0),
+  入职时间: z.number().int().min(0).default(0), // 绝对纪元分钟
+});
+
+const 职业Schema = z.object({
+  任职: z.array(任职条目Schema).default([]),
+  职业履历: z.record(z.string(), z.object({
+    职位: z.string().default(''),
+    雇主: z.string().default(''),
+    入职时间: z.number().int().min(0).default(0),
+    离职时间: z.number().int().min(0).default(0),
+    离任方式: z.string().default(''),
+  })).default({}),
+});
+
+const 目标Schema = z.object({
+  长期: z.array(z.string()).default([]), // 开放串
+  短期: z.array(z.string()).default([]), // 开放串
+});
+
+const 居留身份条目Schema = z.object({
+  国籍: z.string().default(''), // 政权组织实体键
+  签证类型: z.string().default(''),
+  到期: z.number().int().min(0).default(0), // 绝对纪元分钟
+});
+
+const 声誉Schema = z.object({
+  人望: z.number().min(-100).max(100).default(0),
+  知名度: z.number().min(0).max(100).default(0),
+  极性: z.string().default(''), // 正面/负面/中性
+  标签: z.string().default(''),
+});
+
+const 婚姻条目Schema = z.object({
+  配偶: z.string().default(''), // NPC 键
+  状态: z.string().default(''),
+  缔结: z.number().int().min(0).default(0),   // 绝对纪元分钟
+  终止: z.number().int().min(0).default(0),   // 0 = 未终止
+});
+
+const 关系条目Schema = z.object({
+  对象键: z.string().default(''),
+  类型: z.string().default(''), // 开放串
+  强度: z.number().min(-100).max(100).default(0),
+  极性: z.string().default(''),
+  信任: z.number().min(0).max(100).default(0),
+  深度: z.number().min(0).max(100).default(0),
+});
+
+const 所属组织条目Schema = z.object({
+  组织键: z.string().default(''),
+  职务: z.string().default(''),
+  派系: z.string().default(''),
+});
+
+const 职务条目Schema = z.object({
+  组织节点键: z.string().default(''),
+  职务名: z.string().default(''),
+  局部权力值: z.number().min(0).max(100).default(0),
+});
+
+const 忠诚条目Schema = z.object({
+  $真实值: z.number().min(0).max(100).default(50), // AI 不可见，引擎维护
+  伪装度: z.number().min(0).max(100).default(0),
+});
+
+// 作息模板：模式→时段→{状态:概率}
+const 作息Schema = z.record(
+  z.string(), // 模式键：常态/战时/逃亡/监禁/守孝 etc.
+  z.record(
+    z.string(), // 时段：早/午/晚 etc.
+    z.record(z.string(), z.number().min(0).max(100)), // 状态→概率
+  ),
+).default({});
+
+const 登场契约Schema = z.object({
+  日期: z.number().int().min(0).optional(), // 绝对纪元分钟
+  条件: z.string().default(''),
+  地点: z.string().default(''), // 节点键
+});
+
+const NPC记忆条目Schema = z.object({
+  记忆id: z.string().default(''),
+  摘要: z.string().default(''),
+  发生时间: z.number().int().min(0).default(0), // 绝对纪元分钟
+  类型: z.string().default('互动'),
+  情绪色彩: z.string().default(''),
+  重要度: z.number().int().min(1).max(3).default(1),
+  权重: z.number().min(0).max(100).default(50),
+  永久: z.boolean().default(false),
+  上次唤起时间: z.number().int().min(0).default(0),
+});
+
+const 体征Schema = z.object({
+  身高: z.number().min(0).default(0),   // cm
+  体重: z.number().min(0).default(0),   // kg
+  _BMI: z.number().min(0).default(0),   // 引擎只读
+  体型标签: z.string().default(''),
+  体型效果: z.array(修饰通道引用Schema).default([]),
+  // 发育阶段 🧮 派生（种族模板发育表），不存储
+});
+
+const 养育Schema = z.object({
+  教育投入: z.number().min(0).max(100).default(0),
+  陪伴度: z.number().min(0).max(100).default(0),
+  管教风格: z.string().default(''),
+  言传身教: z.array(z.string()).default([]),
+});
+
+const 亲子Schema = z.object({
+  来源: z.string().default('血亲'), // 血亲/养子/继子/过继/义子
+  其他双亲: z.string().default(''), // NPC 键
+  入族时间: z.number().int().min(0).default(0),
+});
+
+const 继承预案Schema = z.object({
+  继承顺位: z.number().int().min(0).default(0),
+  指定继承人: z.boolean().default(false),
+  继承意愿: z.string().default(''),
+});
+
+// ══════════════════════════════════════════
+// NPC 完整 schema
+// ══════════════════════════════════════════
+
+export const NpcSchema = z.object({
+  // ── 身份骨架 ──
+  姓名: z.string().default(''),
+  称呼: z.string().default(''),
+  性别: z.string().default(''),
+  种族: z.string().default('人类'), // 开放串
+  角色ID: z.string().default(''),
+  世代: z.number().int().min(1).default(1),
+  出生日期: z.number().int().min(0).default(0), // 绝对纪元分钟
+  出生地: z.string().default(''),               // 节点键
+  外貌: z.string().default(''),
+  背景: z.string().default(''),
+  备注: z.string().default(''),
+  存活状态: z.string().default('在世'),
+  死亡时间: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 健在
+  死因: z.string().default(''),
+  位置: z.string().default(''),    // 节点键（原主角位置/轨迹挂到此处）
+  轨迹: z.array(z.object({
+    节点: z.string().default(''),
+    时间: z.number().int().min(0).default(0), // 绝对纪元分钟
+  })).default([]),
+  虚拟位置: z.string().optional(), // 赛博化身专用
+  立绘引用: z.string().optional(), // 生图接口位，P2 前不实现
+
+  // ── 数值面 ──
+  属性: 属性Schema.default({}),
+  派生: 派生Schema.default({}),
+  行动点: 行动点Schema.default({}),
+  性格五轴: 性格五轴Schema.default({}),
+  // 性格标签 🧮 派生（五轴阈值映射），不存储
+  特质: z.record(z.string(), 特质条目Schema).default({}),
+  情绪栈: z.array(情绪条目Schema).default([]),
+  状态标签: z.record(z.string(), 状态标签条目Schema).default({}),
+  技能: z.record(z.string(), 技能条目Schema).default({}),
+  疾病: z.record(z.string(), z.object({
+    类型: z.string().default('急性'),
+    已确诊: z.boolean().default(false),
+    病程剩余: z.number().int().min(0).default(0), // 纪元分钟；0 = 慢性
+    受伤部位: z.string().default(''),
+    后遗症: z.string().default(''),
+  })).default({}),
+  体征: 体征Schema.default({}),
+
+  // ── 资产与社会面 ──
+  物品: z.record(z.string(), 物品条目Schema).default({}),
+  衣物: z.record(z.string(), 衣物槽Schema).default({}),
+  爱好: z.record(z.string(), 爱好条目Schema).default({}),
+  信念: z.record(z.string(), 信念条目Schema).default({}),
+  学业: 学业Schema.default({}),
+  职业: 职业Schema.default({}),
+  目标: 目标Schema.default({}),
+  居留身份: z.array(居留身份条目Schema).default([]),
+  头衔: z.array(z.string()).default([]),
+  称号: z.string().default(''),
+  成就: z.record(z.string(), z.object({
+    解锁时间: z.number().int().min(0).default(0),
+    描述: z.string().default(''),
+  })).default({}),
+  里程碑: z.record(z.string(), z.object({
+    时间: z.number().int().min(0).default(0),
+    标题: z.string().default(''),
+    描述: z.string().default(''),
+  })).default({}),
+  业力: z.number().default(0),
+  声誉: 声誉Schema.default({}),
+  婚姻: z.array(婚姻条目Schema).default([]),
+
+  // ── 关系与组织 ──
+  关系: z.array(关系条目Schema).default([]),
+  所属组织: z.array(所属组织条目Schema).default([]),
+  职务: z.array(职务条目Schema).default([]),
+  忠诚: z.record(z.string(), 忠诚条目Schema).default({}),
+  // 受制于 🧮 派生视图（七源关系图聚合），不存储
+  // 秘密索引 🧮 派生（filter 全局.秘密库），不存储
+
+  // ── LOD 与生成 ──
+  重要等级: z.string().default('路人'), // 路人/次要/重要/核心
+  召回权重: z.number().min(0).max(100).default(50),
+  意象: z.array(意象条目Schema).default([]), // 公共印象（6.29）
+  作息: 作息Schema.default({}),
+  当前作息模式: z.string().default('常态'),
+  履历: z.array(z.string()).default([]),    // 滚动短句
+  登场契约: 登场契约Schema.optional(),
+  记忆: z.array(NPC记忆条目Schema).default([]),
+  上次互动: z.number().int().min(0).default(0), // 绝对纪元分钟
+
+  // ── 焦点 / 子嗣型扩展位 ──
+  复活点: z.number().int().min(0).default(0),   // 0 = 无复活点
+  死亡豁免前置: z.string().default(''),
+  养育: 养育Schema.optional(),
+  亲子: 亲子Schema.optional(),
+  继承预案: 继承预案Schema.optional(),
+});
+
+// ── 已故 NPC 归档（L2 冻结层） ──
+export const 已故NPC归档Schema = z.record(
+  z.string(),
+  z.object({
+    称呼: z.string().default(''),
+    死亡时间: z.number().int().min(0).default(0),
+    关键记忆指针: z.string().default(''),
+    幽灵形态: z.boolean().default(false), // true = 不实例化，永驻占位
+  }),
+).default({});
+
+// ── 认知档案（6.12/6.37） ──
+const 印象条目Schema = z.object({
+  标签: z.string().default(''),
+  极性: z.string().default(''),
+  强度: z.number().min(0).max(100).default(0),
+  来源: z.string().default(''), // 事件id / 听闻自某NPC / 媒体渠道
+  获知时间: z.number().int().min(0).default(0), // 绝对纪元分钟
+  衰减速率: z.number().min(0).default(0),
+});
+
+const 认知档案条目Schema = z.object({
+  了解度: z.number().min(0).max(100).default(0),
+  误差表: z.record(z.string(), z.number()).default({}), // 字段→认知值偏差
+  印象: z.array(印象条目Schema).default([]),            // 6.37 条目制式
+  时效: z.number().int().min(0).default(0),             // 信息有效截至纪元分钟
+});
+
+export const 认知档案Schema = z.record(
+  z.string(), // 观察者 NPC 键
+  z.record(
+    z.string(), // 目标 NPC 键（含 self → 自我认知）
+    认知档案条目Schema,
+  ),
+).default({});
+
+// ── 顶层导出 ──
+export const NpcRecordSchema = z.record(z.string(), NpcSchema).default({});
+
+export type 意象条目Type = z.infer<typeof 意象条目Schema>;
+export type 修饰通道引用Type = z.infer<typeof 修饰通道引用Schema>;
+export type NpcType = z.infer<typeof NpcSchema>;
+export type 已故NPC归档Type = z.infer<typeof 已故NPC归档Schema>;
+export type 认知档案Type = z.infer<typeof 认知档案Schema>;

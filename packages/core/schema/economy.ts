@@ -1,0 +1,84 @@
+// 4.7 经济层
+import { z } from 'zod';
+
+// ── 币种定义 ──
+const 币种定义Schema = z.object({
+  名称: z.string().default(''),
+  类型: z.string().default(''), // 法币/虚拟/物品货币
+  量词: z.string().default(''),
+  单位: z.string().default(''),
+  符号: z.string().default(''),
+  时代适用: z.string().default(''), // era 锚定（非公历年份，防 Date.now）
+  地域适用: z.array(z.string()).default([]),
+  对基准汇率: z.number().min(0).default(1),
+});
+
+// ── 资产条目（E1：取代持仓七枚举，开放对象） ──
+const 资产条目Schema = z.object({
+  标的: z.string().default(''),
+  类别: z.string().default(''), // 开放串：股票/期货/地契/灵石/版权…
+  数量: z.number().default(0),
+  成本价: z.number().default(0),
+  现价: z.number().default(0),
+  杠杆: z.number().min(0).optional(),
+  保证金: z.number().min(0).optional(),
+  到期日: z.number().int().min(0).optional(), // 绝对纪元分钟
+  衍生品参数: z.record(z.string(), z.number()).optional(),
+});
+
+// ── 账户 ──
+const 账户Schema = z.object({
+  持有: z.record(z.string(), z.number()).default({}), // 币种→金额（允许为负=透支档）
+  储蓄: z.record(z.string(), z.number()).default({}),
+  本期收入: z.object({
+    总额: z.number().default(0),
+    明细: z.record(z.string(), z.number()).default({}), // 网点id/来源→金额
+  }).default({}),
+  本期支出: z.object({
+    总额: z.number().default(0),
+    明细: z.record(z.string(), z.number()).default({}),
+  }).default({}),
+  负债: z.record(z.string(), z.string()).default({}),  // 债务ID→约定库键
+  被动收入来源: z.record(z.string(), z.number()).default({}),
+  资产: z.array(资产条目Schema).default([]),
+});
+
+// ── 经济依附 ──
+const 经济依附Schema = z.object({
+  状态: z.string().default(''), // 依附/半独立/独立/赡养
+  对象: z.string().default(''), // NPC 键或组织键
+  每期模式: z.string().default(''),
+});
+
+// ── 市场状态 ──
+const 市场状态Schema = z.object({
+  激活: z.boolean().default(false),
+  大盘景气: z.number().min(0).max(100).default(50),
+  通胀率: z.number().default(0),    // 年化（纪元时间）
+  基准利率: z.number().default(0),  // 年化
+  行业景气: z.record(z.string(), z.number().min(0).max(100)).default({}),
+  时代风波: z.string().default(''),
+  // 区域物价 → 引用地图侧（不双写）
+});
+
+// ══════════════════════════════════════════
+// 货币系统（顶层键）
+// ══════════════════════════════════════════
+
+export const 货币系统Schema = z.object({
+  币种定义: z.record(z.string(), 币种定义Schema).default({}),
+  基准币种: z.string().default(''),
+  汇率: z.record(z.string(), z.number().min(0)).default({}), // 币种→对基准汇率
+  换汇登记: z.array(z.object({
+    时间: z.number().int().min(0).default(0),
+    从: z.string().default(''),
+    到: z.string().default(''),
+    金额: z.number().default(0),
+  })).default([]),
+  经济依附: 经济依附Schema.default({}),
+  账户: 账户Schema.default({}),
+  市场状态: 市场状态Schema.default({}),
+});
+
+export type 货币系统Type = z.infer<typeof 货币系统Schema>;
+export type 资产条目Type = z.infer<typeof 资产条目Schema>;
