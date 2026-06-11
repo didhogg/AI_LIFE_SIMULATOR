@@ -1,0 +1,12 @@
+{
+  "name": "@ai-life-sim/web-debug",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@ai-life-sim/core": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}

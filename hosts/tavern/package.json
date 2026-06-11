@@ -1,0 +1,9 @@
+{
+  "name": "@ai-life-sim/tavern",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@ai-life-sim/core": "workspace:*"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@ai-life-sim/core",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./schema/index.ts"
+  },
+  "dependencies": {
+    "pure-rand": "^6.1.0",
+    "zod": "^3.25.0"
+  }
+}

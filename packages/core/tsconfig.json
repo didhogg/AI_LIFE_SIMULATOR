@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "include": [
+    "schema/**/*.ts",
+    "engine/**/*.ts",
+    "prompt/**/*.ts",
+    "migration/**/*.ts",
+    "tests/**/*.ts"
+  ]
+}
