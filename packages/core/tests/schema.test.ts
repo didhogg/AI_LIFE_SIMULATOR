@@ -47,7 +47,7 @@ describe('4.1 System layer', () => {
     expect(() => TickSchema.parse({ id: 'tick-1', 拍计数: 0, 难度系数组指纹: 'abc' })).not.toThrow();
   });
   it('valid NarrativeSettingSchema', () => {
-    expect(() => NarrativeSettingSchema.parse({ 叙事风格: '纪实', 人称: '第三人称' })).not.toThrow();
+    expect(() => NarrativeSettingSchema.parse({ 人称: '第三人称', 叙事偏好: '纪实风格，少用修辞' })).not.toThrow();
   });
   it('valid StateMachineSchema', () => {
     expect(() => StateMachineSchema.parse({
@@ -87,9 +87,18 @@ describe('4.1 System layer', () => {
   it('invalid: 叙事偏好 wrong type', () => {
     expect(NarrativeSettingSchema.safeParse({ 叙事偏好: 42 }).success).toBe(false);
   });
-  // 收口检查：事件倾向已退役
+  // 收口防回归断言
   it('事件倾向 已从 NarrativeSettingSchema 移除', () => {
     expect('事件倾向' in NarrativeSettingSchema.shape).toBe(false);
+  });
+  it('写实度 已从 NarrativeSettingSchema 移除（→$玩家偏好.写实程度）', () => {
+    expect('写实度' in NarrativeSettingSchema.shape).toBe(false);
+  });
+  it('叙事风格 已从 NarrativeSettingSchema 移除（并入叙事偏好）', () => {
+    expect('叙事风格' in NarrativeSettingSchema.shape).toBe(false);
+  });
+  it('NarrativeSettingSchema 最终形态仅含 人称 + 叙事偏好', () => {
+    expect(Object.keys(NarrativeSettingSchema.shape).sort()).toEqual(['人称', '叙事偏好'].sort());
   });
 });
 

@@ -39,14 +39,11 @@ export const TickSchema = z.object({
   难度系数组指纹: z.string().default(''), // 系数组快照的哈希
 });
 
-// ── 叙事设置（AI 只读） ──
+// ── 叙事设置（AI 可见；最终形态：{ 人称, 叙事偏好 }）──
+// 退役：叙事风格（并入叙事偏好）、写实度（→$玩家偏好.写实程度）、事件倾向（→$玩家偏好.母题权重）
 export const NarrativeSettingSchema = z.object({
-  叙事风格: z.string().default('影视化分镜'),
   人称: z.string().default('第二人称'),
-  写实度: z.string().default('轻度戏剧化'),
-  // 事件倾向已退役（双轨收口）：结构化权重→$玩家偏好.母题权重，自然语言→叙事偏好
-  // 拍板一：玩家在前端直接输入、AI 可见的自然语言偏好提示词，进 prompt 组装
-  叙事偏好: z.string().default(''),
+  叙事偏好: z.string().default(''), // 玩家自由文本，进 prompt 组装
 });
 
 // ── 状态机 ──
