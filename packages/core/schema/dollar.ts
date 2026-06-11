@@ -103,12 +103,22 @@ export const $模型画像Schema = z.record(
 // ── $沉浸模式 ──
 export const $沉浸模式Schema = z.boolean().default(false);
 
+// ── $天命重掷券（命运重掷限量券·复活闸软救济·AI 永不可见） ──
+// 出厂张数与补充规则住玩法预设；每周目重置；$ 层 AI 永不可见
+export const $天命重掷券Schema = z.object({
+  剩余张数: z.number().int().min(0).default(0),
+  已用记录: z.array(z.object({
+    拍号: z.number().int(),
+    事由: z.string(),
+  })).default([]),
+});
+
 // ── $隐藏记忆库（AI 不可见·延时种子 + 彩蛋池） ──
 
 const 延时种子条目Schema = z.object({
   载荷: z.string().default(''),
   类型: z.string().default('伏笔'),
-  成熟日: z.number().int().min(0).default(0), // 绝对纪元分钟
+  成熟日: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 立即成熟（无到期约束）
   权重: z.number().min(0).max(100).default(10),
   重要等级: z.string().default('中'),          // 普通/重要/命运
   已结算标记: z.number().int().min(0).max(1).default(0),
@@ -166,3 +176,4 @@ export const $metaSchema = z.object({
 
 export type $隐藏记忆库Type = z.infer<typeof $隐藏记忆库Schema>;
 export type $metaType = z.infer<typeof $metaSchema>;
+export type $天命重掷券Type = z.infer<typeof $天命重掷券Schema>;

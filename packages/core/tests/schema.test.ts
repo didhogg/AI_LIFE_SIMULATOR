@@ -27,11 +27,13 @@ import {
   行动卡库Schema,
   仲裁器Schema,
   mod注册表Schema,
+  播报条目Schema,
   $运气Schema,
   $寿命预期Schema,
   $流速Schema,
   $战斗暂存Schema,
   $隐藏记忆库Schema,
+  $天命重掷券Schema,
   $metaSchema,
 } from '../schema/index.js';
 
@@ -367,6 +369,18 @@ describe('4.8 Memory / Schedule layer', () => {
   it('invalid: 工作记忆 not array', () => {
     expect(工作记忆Schema.safeParse({ id: '1' }).success).toBe(false);
   });
+  // P0-1.1 收口：播报条目 打断级别 / 最迟期限 预埋
+  it('播报条目: 含打断级别和最迟期限的条目 parse 通过', () => {
+    expect(播报条目Schema.safeParse({
+      播报id: 'b001', 内容: '事件爆发', 打断级别: '硬闯', 最迟期限: 1440,
+    }).success).toBe(true);
+  });
+  it('播报条目: 不含打断级别/最迟期限的旧格式条目兼容通过', () => {
+    expect(播报条目Schema.safeParse({ 播报id: 'b002', 内容: '普通播报' }).success).toBe(true);
+  });
+  it('播报条目: 非法打断级别被拒', () => {
+    expect(播报条目Schema.safeParse({ 打断级别: '强制' }).success).toBe(false);
+  });
 });
 
 describe('4.9 $ layer', () => {
@@ -440,6 +454,24 @@ describe('4.9 $ layer', () => {
   });
   it('invalid: $玩家偏好 写实程度 < 0', () => {
     expect(RootSchema.shape.$玩家偏好.safeParse({ 写实程度: -0.1 }).success).toBe(false);
+  });
+  // P0-1.1 收口：$天命重掷券
+  it('$天命重掷券: 空状态 parse 后剩余张数=0', () => {
+    const res = $天命重掷券Schema.parse({});
+    expect(res.剩余张数).toBe(0);
+    expect(res.已用记录).toEqual([]);
+  });
+  it('$天命重掷券: 带已用记录 parse 通过', () => {
+    expect($天命重掷券Schema.safeParse({
+      剩余张数: 2, 已用记录: [{ 拍号: 5, 事由: '复活' }],
+    }).success).toBe(true);
+  });
+  it('$天命重掷券: 剩余张数为负被拒', () => {
+    expect($天命重掷券Schema.safeParse({ 剩余张数: -1 }).success).toBe(false);
+  });
+  it('RootSchema: 空状态 parse 后含 $天命重掷券 且剩余张数=0', () => {
+    const state = RootSchema.parse({});
+    expect(state.$天命重掷券.剩余张数).toBe(0);
   });
 });
 
@@ -525,7 +557,7 @@ describe('blueprint ↔ schema consistency', () => {
 
     expect(inSchemaNotBlueprint).toEqual([]);
     expect(inBlueprintNotSchema).toEqual([]);
-    expect(schemaKeys.size).toBe(39);
+    expect(schemaKeys.size).toBe(40);
   });
 
   it('BLUEPRINT_KEYS has no duplicates', () => {

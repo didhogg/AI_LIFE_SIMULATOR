@@ -88,7 +88,7 @@ const 行动卡条目Schema = z.object({
 export const 行动卡库Schema = z.record(z.string(), 行动卡条目Schema).default({});
 
 // ══════════════════════════════════════════
-// 播报条目（渠道标签扩展·6.9）
+// 播报条目（渠道标签 + 打断控制扩展·6.9/6.40）
 // ══════════════════════════════════════════
 
 export const 播报条目Schema = z.object({
@@ -97,6 +97,10 @@ export const 播报条目Schema = z.object({
   重要度: z.string().default('普通'),
   发生时间: z.number().int().min(0).default(0),
   渠道标签: z.string().optional(), // 6.9 可空
+  // P0 预埋·行为实现在 P1：缺省视为挂起；AI 仅可提案，硬闯由引擎第④闸按白名单终裁
+  打断级别: z.enum(['挂起', '闪念', '硬闯']).optional(),
+  // P0 预埋·行为实现在 P1：绝对纪元分钟；超期由引擎降级系统文本强制出队
+  最迟期限: z.number().int().min(0).optional(),
   已读: z.boolean().default(false),
 });
 

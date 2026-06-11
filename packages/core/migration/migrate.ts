@@ -232,8 +232,7 @@ function migrateArchiveItem(raw: Record<string, unknown>, p2e: (n: number) => nu
 
 function migrateSeed(raw: Record<string, unknown>, p2e: (n: number) => number, log: MigLog[]): Record<string, unknown> {
   const 成熟日cycle = asNum(raw['成熟日'], -1);
-  // TODO: P0-1 #2 — 成熟日 needs .optional(); Zod fills undefined→0 until then.
-  const 成熟日: number | undefined = 成熟日cycle === -1 ? undefined : p2e(成熟日cycle);
+  const 成熟日: number = 成熟日cycle === -1 ? 0 : p2e(成熟日cycle); // 0 = 立即成熟（无到期约束）
 
   // K7: preserve possible_years original in migration log
   if (raw['possible_years'] !== undefined) {
@@ -483,14 +482,21 @@ function migrate主角NPC(
   const 居留身份 = asArr(主角['居留身份']).map(item => {
     const it = asRec(item);
     const 到期周期 = asNum(it['到期周期'], -1);
-    // -1 → undefined; TODO P0-1 #2 (Zod fills 0 post-parse until schema uses .optional())
-    return { 国籍: asStr(it['国籍']), 签证类型: asStr(it['签证类型']), 到期: 到期周期 === -1 ? undefined : p2e(到期周期) };
+    return { 国籍: asStr(it['国籍']), 签证类型: asStr(it['签证类型']), 到期: 到期周期 === -1 ? 0 : p2e(到期周期) }; // 0 = 永久
   });
 
   const 学业v31 = asRec(主角['学业']);
   const 学籍v31 = asRec(学业v31['学籍']);
   const 概况v31 = asRec(学业v31['学业概况']);
   const 升学进度v31 = asRec(概况v31['升学进度']);
+
+  // 拍板：学校画像归组织实体/地点侧，在校表现为派生量 — 不得静默丢弃
+  if (学籍v31['学校画像'] !== undefined) {
+    log.push({ level: 'info', path: 'NPC.学业.学籍.学校画像', msg: '拍板丢弃：学校画像归组织实体/地点侧存储，迁移不搬运', orig: 学籍v31['学校画像'] });
+  }
+  if (概况v31['在校表现'] !== undefined) {
+    log.push({ level: 'info', path: 'NPC.学业.学业概况.在校表现', msg: '拍板丢弃：在校表现为派生量（引擎只读），迁移不搬运', orig: 概况v31['在校表现'] });
+  }
 
   const 成就: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(asRec(主角['成就']))) {
@@ -517,7 +523,7 @@ function migrate主角NPC(
     世代: asNum(主角['世代'], 1), 出生日期,
     出生地: asStr(主角['出生地']), 外貌: asStr(主角['外貌描述']),
     背景: '', 备注: '', 存活状态: '在世',
-    死亡时间: undefined, // 0=健在 after Zod parse; TODO P0-1 #2
+    死亡时间: 0, // 0 = 健在
     死因: asStr(主角['死因']),
     位置: asStr(root['主角位置']),
     轨迹: asArr(root['主角轨迹']).map(n => ({ 节点: asStr(n), 时间: worldEpochMin })),
@@ -557,7 +563,7 @@ function migrate主角NPC(
     成就, 里程碑,
     业力: asNum(主角['业力']),
     声誉: { 人望: asNum(主角['人望']), 知名度: asNum(主角['知名度']), 极性: '', 标签: asStr(主角['声望标签']) },
-    婚姻: asArr(asRec(root['家庭'])['婚姻']).map(item => { const it = asRec(item); return { 配偶: asStr(it['配偶']), 状态: asStr(it['状态']), 缔结: asNum(it['缔结']), 终止: asNum(it['终止']) }; }),
+    婚姻: asArr(asRec(root['家庭'])['婚姻']).map(item => { const it = asRec(item); const 终止raw = asNum(it['终止'], -1); return { 配偶: asStr(it['配偶']), 状态: asStr(it['状态']), 缔结: asNum(it['缔结']), 终止: 终止raw <= 0 ? 0 : 终止raw }; }), // 0 = 未终止
     关系: [], // populated after NPC loop
     所属组织: asArr(主角['所属组织']).map(o => { const oe = asRec(o); return { 组织键: asStr(oe['组织键']), 职务: asStr(oe['职务']), 派系: asStr(oe['派系']) }; }),
     职务: [], 忠诚: {},
@@ -600,8 +606,7 @@ function migrateSimpleNPC(
 
   const 上次互动周期 = asNum(npc['上次互动周期'], 0);
   const 死亡周期 = asNum(npc['死亡周期'], -1);
-  // fix ④: 已故NPC归档内部周期字段也过锚定函数
-  const 死亡时间: number | undefined = 死亡周期 === -1 ? undefined : p2e(死亡周期);
+  const 死亡时间: number = 死亡周期 === -1 ? 0 : p2e(死亡周期); // 0 = 健在
 
   if (asStr(npc['性格'])) log.push({ level: 'info', path: `NPC.${npcKey}.性格`, msg: '缺口#6: 派生量，已丢弃' });
 
@@ -643,11 +648,10 @@ function migrateChild(
   p2e: (n: number) => number,
   主角关系: unknown[],
   log: MigLog[],
+  主角世代: number,
 ): Record<string, unknown> {
   const 好感度 = asNum(child['好感度'], 50);
   const 关系深度 = asNum(child['关系深度'], 0);
-  const 存活str = asStr(child['存活状态'], '存活');
-  const 存活 = 存活str !== '已故' && 存活str !== '死亡';
   const 属性v31 = asRec(child['属性']);
 
   主角关系.push({ 对象键: childKey, 类型: '子嗣', 强度: 好感度 - 50, 极性: 好感度 >= 50 ? '正' : '负', 信任: 50, 深度: 关系深度 });
@@ -655,9 +659,9 @@ function migrateChild(
 
   return {
     姓名: asStr(child['称呼']), 称呼: asStr(child['称呼']), 性别: asStr(child['性别']),
-    种族: '人类', 角色ID: '', 世代: 2, 出生日期: 0, 出生地: '', 外貌: '',
-    背景: '', 备注: '', 存活状态: 存活 ? '在世' : '已故',
-    死亡时间: 存活 ? undefined : 0, 死因: '',
+    种族: '人类', 角色ID: '', 世代: 主角世代 + 1, 出生日期: 0, 出生地: '', 外貌: '',
+    背景: '', 备注: '', 存活状态: asStr(child['存活状态'], '存活') !== '已故' && asStr(child['存活状态'], '存活') !== '死亡' ? '在世' : '已故',
+    死亡时间: 0, 死因: '', // 0 = 健在哨兵（V3.1 子嗣无死亡时刻记录）
     位置: '', 轨迹: [],
     属性: { 体质: asNum(属性v31['体质'], 10), 智慧: asNum(属性v31['智慧'], 10), 感知: 10, 魅力: asNum(属性v31['魅力'], 10), 心理: asNum(属性v31['心理'], 10) },
     派生: { HP: 100, HP上限: 100, 精力: 100, 精力上限: 100, 颜值: 50 },
@@ -725,8 +729,11 @@ export function buildV41Raw(input: unknown): MigrateRawResult {
   }
 
   // ── 子嗣 → NPC 库 ──────────────────────────────────────────────────────────
+  const 主角世代 = asNum(主角v31['世代'], 1);
+  const 子嗣键列表: string[] = [];
   for (const [childKey, childVal] of Object.entries(asRec(主角v31['子嗣']))) {
-    npcV41[childKey] = migrateChild(childKey, asRec(childVal), 主角键, worldEpochMin, p2e, 主角关系, log);
+    npcV41[childKey] = migrateChild(childKey, asRec(childVal), 主角键, worldEpochMin, p2e, 主角关系, log, 主角世代);
+    子嗣键列表.push(childKey);
   }
 
   // Populate protagonist 关系[] and register in NPC map
@@ -758,6 +765,37 @@ export function buildV41Raw(input: unknown): MigrateRawResult {
 
   const 出生日期 = parseChineseDateToEpochMin(asStr(主角v31['出生日期'])) || worldEpochMin;
   const 家族树 = migrate家族树(主角键, asRec(主角v31['血缘']), 全局v31, 出生日期);
+
+  // Fix P0-2 #1: write child nodes + double-parent edges into 家族树
+  if (子嗣键列表.length > 0) {
+    // In V3.1, ongoing marriage has 终止 = -1
+    const 家庭v31 = asRec(root['家庭']);
+    const 当前婚姻 = asArr(家庭v31['婚姻']).find(m => {
+      const it = asRec(m); return asNum(it['终止'], -1) === -1 && asStr(it['配偶']);
+    });
+    const 当前配偶键 = 当前婚姻 ? asStr(asRec(当前婚姻)['配偶']) : '';
+    const 树边 = asRec(家族树['边']);
+    const 树幽灵 = asRec(家族树['幽灵节点']);
+    let 配偶幽灵键 = '';
+    for (const childKey of 子嗣键列表) {
+      const 他方 = 当前配偶键 || (() => {
+        if (!配偶幽灵键) {
+          配偶幽灵键 = `幽灵_${主角键}_配偶`;
+          树幽灵[配偶幽灵键] = { 称谓: '配偶', 姓氏: '', 生卒约束: '' };
+          log.push({ level: 'info', path: `全局.家族树.幽灵节点.${配偶幽灵键}`, msg: '子嗣无已知另一方双亲，按 6.30 创建幽灵节点' });
+        }
+        return 配偶幽灵键;
+      })();
+      树边[childKey] = {
+        双亲边: [
+          { parent_id: 主角键, 边类型: '血亲' },
+          { parent_id: 他方, 边类型: '血亲' },
+        ],
+        生卒: { 出生: 0 }, // V3.1 子嗣无出生日期字段
+        总评: '', 关键成就: [], 传家宝: [],
+      };
+    }
+  }
 
   // ── 组织关系网 (条约 → 约定库) ─────────────────────────────────────────────
   const 组织关系网v41: Record<string, unknown> = {};

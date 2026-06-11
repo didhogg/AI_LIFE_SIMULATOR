@@ -79,28 +79,24 @@ describe('migrate V3.1 → V4.1', () => {
   });
 
   // ── 防回归断言② ────────────────────────────────────────────────────────────────
-  // Pre-parse: 截止型时刻字段 = undefined when V3.1 source had -1.
-  // Note: Zod fills undefined→0 post-parse until P0-1 #2 adds .optional().
-  it('断言②: 居留身份.到期 = undefined in raw when 到期周期 = -1 (rich)', () => {
+  // #2 拍板：截止型时刻字段统一 .default(0)，0 = 哨兵（永久/健在/未记录）
+  // 迁移直接写 0，不依赖 Zod 回填
+  it('断言②: 居留身份.到期 = 0 when 到期周期 = -1 (永久)', () => {
     const { raw } = buildV41Raw(richV31);
     const npcRec = asRec(raw['NPC']);
     const protagonist = asRec(npcRec['邓婉清']);
     const residencies = asArr(protagonist['居留身份']);
 
-    // Rich fixture has [{ 国籍: '中国', ..., 到期周期: -1 }]
     expect(residencies.length).toBeGreaterThan(0);
     for (const r of residencies) {
-      // Pre-parse: -1 → undefined (not yet filled by Zod default 0)
-      // TODO: P0-1 #2 will make 到期 .optional() so post-parse also stays undefined
-      expect(asRec(r)['到期']).toBeUndefined();
+      expect(asRec(r)['到期']).toBe(0); // 0 = 永久哨兵
     }
   });
 
-  it('断言②: 死亡时间 = undefined in raw for living protagonist (rich)', () => {
+  it('断言②: 死亡时间 = 0 for living protagonist (健在哨兵)', () => {
     const { raw } = buildV41Raw(richV31);
     const protagonist = asRec(asRec(raw['NPC'])['邓婉清']);
-    // Pre-parse: alive person → 死亡时间 = undefined; Zod post-parse fills 0 (0=健在)
-    expect(protagonist['死亡时间']).toBeUndefined();
+    expect(protagonist['死亡时间']).toBe(0); // 0 = 健在
   });
 
   // ── 防回归断言③ ────────────────────────────────────────────────────────────────
@@ -341,5 +337,216 @@ describe('migrate V3.1 → V4.1', () => {
     const 忠诚 = asRec(npc['忠诚']);
     const entry = asRec(忠诚['邓婉清']);
     expect(asNum(entry['$真实值'])).toBe(70);
+  });
+
+  // ── P0-2 Fix #1: 子嗣→家族树双亲边 ──────────────────────────────────────────
+
+  it('子嗣→家族树双亲边写入 (with 配偶，世代=主角世代+1)', () => {
+    const syntheticV31: Record<string, unknown> = {
+      ...richV31,
+      主角: {
+        ...asRec(richV31['主角']),
+        子嗣: {
+          子一: { 称呼: '子一', 性别: '男', 好感度: 80, 关系深度: 30, 存活状态: '存活', 属性: {}, 子嗣工作记忆: [], 继承意愿: '' },
+        },
+      },
+      家庭: { 父亲状态: '健在', 母亲状态: '健在', 婚姻: [{ 配偶: '配偶甲', 状态: '已婚', 缔结: 0, 终止: -1 }], 婚姻状态: '已婚', 配偶姓名: '配偶甲', 子女数量: 1, 子女名单: {} },
+    };
+    const result = migrate(syntheticV31);
+    const 主角键 = asStr(result.state['镜头焦点角色']);
+    const 家族树 = asRec(asRec(result.state['全局'])['家族树']);
+    const 边 = asRec(家族树['边']);
+
+    expect('子一' in 边).toBe(true);
+    const 双亲边 = asArr(asRec(边['子一'])['双亲边']);
+    expect(双亲边.some(e => asStr(asRec(e)['parent_id']) === 主角键)).toBe(true);
+    expect(双亲边.some(e => asStr(asRec(e)['parent_id']) === '配偶甲')).toBe(true);
+
+    const 主角世代 = asNum(asRec(asRec(result.state['NPC'])[主角键])['世代']);
+    const 子一世代 = asNum(asRec(asRec(result.state['NPC'])['子一'])['世代']);
+    expect(子一世代).toBe(主角世代 + 1);
+  });
+
+  it('子嗣→家族树: 无配偶时创建 6.30 幽灵节点', () => {
+    const syntheticV31: Record<string, unknown> = {
+      ...richV31,
+      主角: {
+        ...asRec(richV31['主角']),
+        子嗣: {
+          孤儿: { 称呼: '孤儿', 性别: '女', 好感度: 60, 关系深度: 20, 存活状态: '存活', 属性: {}, 子嗣工作记忆: [], 继承意愿: '' },
+        },
+      },
+      家庭: { 父亲状态: '健在', 母亲状态: '健在', 婚姻: [], 婚姻状态: '未婚', 配偶姓名: '', 子女数量: 0, 子女名单: {} },
+    };
+    const result = migrate(syntheticV31);
+    const 主角键 = asStr(result.state['镜头焦点角色']);
+    const 家族树 = asRec(asRec(result.state['全局'])['家族树']);
+    const 边 = asRec(家族树['边']);
+    const 幽灵节点 = asRec(家族树['幽灵节点']);
+
+    expect('孤儿' in 边).toBe(true);
+    const 双亲边 = asArr(asRec(边['孤儿'])['双亲边']);
+    expect(双亲边.some(e => asStr(asRec(e)['parent_id']) === 主角键)).toBe(true);
+    const 鬼亲 = 双亲边.find(e => asStr(asRec(e)['parent_id']) !== 主角键);
+    expect(鬼亲).toBeDefined();
+    const ghostKey = asStr(asRec(鬼亲!)['parent_id']);
+    expect(ghostKey in 幽灵节点).toBe(true);
+  });
+
+  // ── P0-2 Fix #2: 🗑️ 12键显式防回归 ─────────────────────────────────────────
+
+  it('🗑️ 删键防回归: 11个旧顶层键迁移后消失；NPC无印象标签', () => {
+    const syntheticInput: Record<string, unknown> = {
+      ...richV31,
+      NPC: {
+        ...asRec(richV31['NPC']),
+        有标签NPC: { ...asRec(asRec(richV31['NPC'])['邓照']), 印象标签: ['测试标签', '旧字段'] },
+      },
+    };
+    const state = migrate(syntheticInput).state as Record<string, unknown>;
+
+    // 11 个 V3.1 旧顶层键（Zod strip 模式静默丢弃）
+    expect(state).not.toHaveProperty('主角');
+    expect(state).not.toHaveProperty('家庭');
+    expect(state).not.toHaveProperty('关系网');
+    expect(state).not.toHaveProperty('约束状态');
+    expect(state).not.toHaveProperty('待结算事件');
+    expect(state).not.toHaveProperty('事件队列指针');
+    expect(state).not.toHaveProperty('记忆库');
+    expect(state).not.toHaveProperty('行动卡片池');
+    expect(state).not.toHaveProperty('主角位置');
+    expect(state).not.toHaveProperty('主角轨迹');
+    expect(state).not.toHaveProperty('流程状态');
+
+    // 无 NPC 应在迁移后含有 印象标签（V3.1 标签已归认知档案）
+    for (const npcVal of Object.values(asRec(state['NPC']))) {
+      expect(asRec(npcVal)).not.toHaveProperty('印象标签');
+    }
+  });
+
+  // ── P0-2 Fix #3: 彩蛋池 / 工作记忆 ≥0 分支 ──────────────────────────────────
+
+  it('彩蛋池 上次浮现周期 ≥0 → 上次浮现时间 = p2e(周期)', () => {
+    const 世界 = asRec(richV31['世界']);
+    const worldEpochMin = parseChineseDateToEpochMin(asStr(世界['当前日期']));
+    const tickMin = getTickMinutes(asStr(世界['当前时间粒度']));
+    const 周期数 = asNum(世界['周期数']);
+    const targetPeriod = 5;
+    const expected = worldEpochMin - (周期数 - targetPeriod) * tickMin;
+
+    const syntheticV31: Record<string, unknown> = {
+      ...richV31,
+      $隐藏记忆库: {
+        延时种子: {},
+        彩蛋池: {
+          egg1: { 原记忆id: 'mem1', 摘要: '测试彩蛋', 模糊钥匙: [], 关联地点: [], 关联物品: [], 关联意象: [], 关联NPC: [], 情绪基调: '', 录入时间: -1, 冷却到期: -1, 可浮现: 1, 已浮现: 0, 上次浮现时间: targetPeriod },
+        },
+      },
+    };
+    const result = migrate(syntheticV31);
+    const egg1 = asRec(asRec(asRec(result.state['$隐藏记忆库'])['彩蛋池'])['egg1']);
+    expect(asNum(egg1['上次浮现时间'])).toBe(expected);
+  });
+
+  it('工作记忆 上次浮现周期 ≥0 → 上次浮现时间 = p2e(周期)', () => {
+    const 世界 = asRec(richV31['世界']);
+    const worldEpochMin = parseChineseDateToEpochMin(asStr(世界['当前日期']));
+    const tickMin = getTickMinutes(asStr(世界['当前时间粒度']));
+    const 周期数 = asNum(世界['周期数']);
+    const targetPeriod = 3;
+    const expected = worldEpochMin - (周期数 - targetPeriod) * tickMin;
+
+    const syntheticV31: Record<string, unknown> = {
+      ...richV31,
+      工作记忆: [{ 记忆id: 'wmem1', 周期: -1, 标题: '测试记忆', 摘要: '工作记忆测试', 上次浮现周期: targetPeriod }],
+    };
+    const result = migrate(syntheticV31);
+    const 工作记忆 = asArr(result.state['工作记忆']);
+    expect(工作记忆.length).toBeGreaterThan(0);
+    expect(asNum(asRec(工作记忆[0])['上次浮现时间'])).toBe(expected);
+  });
+
+  // ── P0-2 Fix #4: 已故NPC归档·死亡时间 + 记忆.上次唤起时间 ─────────────────────
+
+  it('已故NPC归档: 死亡周期>0 → 死亡时间=p2e；记忆.上次唤起周期>0 → 上次唤起时间=p2e', () => {
+    const 周期数base = 10;
+    const 世界 = asRec(richV31['世界']);
+    const worldEpochMin = parseChineseDateToEpochMin(asStr(世界['当前日期']));
+    const tickMin = getTickMinutes(asStr(世界['当前时间粒度']));
+    const p2e = (n: number) => worldEpochMin - (周期数base - n) * tickMin;
+
+    const syntheticV31: Record<string, unknown> = {
+      ...richV31,
+      世界: { ...世界, 周期数: 周期数base },
+      NPC: {
+        已故甲: {
+          称呼: '已故甲', 关系标签: '邻居', 标签: [], 性格: '', 背景: '', 备注: '',
+          好感度: 50, 基线: 50, 信任度: 40, 关系深度: 10, 是否在场: 0, 关联地点: '', 关系大类: '邻居', 性别: '男',
+          死亡周期: 3,
+          记忆: [{ 记忆id: 'nm1', 摘要: '旧事', 发生周期: 1, 类型: '互动', 情绪色彩: '', 重要度: 1, 权重: 50, 永久: false, 上次唤起周期: 7 }],
+        },
+      },
+    };
+    const result = migrate(syntheticV31);
+    const npc = asRec(asRec(result.state['NPC'])['已故甲']);
+
+    expect(asNum(npc['死亡时间'])).toBe(p2e(3));
+    const memories = asArr(npc['记忆']);
+    expect(memories.length).toBeGreaterThan(0);
+    expect(asNum(asRec(memories[0])['上次唤起时间'])).toBe(p2e(7));
+  });
+
+  // ── P0-2 Fix #5: 认知档案方向 ────────────────────────────────────────────────
+
+  it('认知档案方向: 主角为观察者，NPC为目标；来源=迁移推定；NPC不作为观察者顶层键', () => {
+    const syntheticV31: Record<string, unknown> = {
+      ...richV31,
+      NPC: {
+        测试观察目标: { 称呼: '测试观察目标', 关系标签: '朋友', 标签: ['乐观', '可靠'], 性格: '热情开朗', 背景: '商人之子', 备注: '', 好感度: 70, 基线: 70, 信任度: 60, 关系深度: 30, 是否在场: 1, 关联地点: '家', 关系大类: '朋友', 性别: '男' },
+      },
+    };
+    const result = migrate(syntheticV31);
+    const 主角键 = asStr(result.state['镜头焦点角色']);
+    const 认知档案 = asRec(result.state['认知档案']);
+
+    // 档案[主角键] 存在，主角是观察者
+    expect(认知档案[主角键]).toBeDefined();
+    const protagonistView = asRec(认知档案[主角键]);
+
+    // NPC 作为目标出现在主角视图中
+    expect(protagonistView['测试观察目标']).toBeDefined();
+    const npcEntry = asRec(protagonistView['测试观察目标']);
+    const impressions = asArr(npcEntry['印象']);
+    expect(impressions.length).toBeGreaterThan(0);
+    for (const imp of impressions) {
+      expect(asStr(asRec(imp)['来源'])).toBe('迁移推定');
+    }
+
+    // NPC 不作为观察者顶层键（方向未颠倒）
+    expect(认知档案['测试观察目标']).toBeUndefined();
+  });
+
+  // ── P0-2 Fix #6: V4.1 必有键 20 项 ──────────────────────────────────────────
+
+  describe('V4.1 必有键 20 项 (rich fixture)', () => {
+    const state = migrate(richV31).state as Record<string, unknown>;
+
+    const TOP18 = [
+      '_系统版本', '_tick', '系统', '_叙事设置', '状态机',
+      '世界', '镜头焦点角色', 'NPC', '已故NPC归档', '认知档案',
+      '全局', '地图', '货币系统', '工作记忆', '仲裁器',
+      '$运气', '$隐藏记忆库', '$meta',
+    ] as const;
+
+    for (const key of TOP18) {
+      it(`has ${key}`, () => { expect(state).toHaveProperty(key); });
+    }
+
+    it('has _叙事设置.叙事偏好', () => {
+      expect(state).toHaveProperty(['_叙事设置', '叙事偏好']);
+    });
+    it('has 地图.区域物价', () => {
+      expect(state).toHaveProperty(['地图', '区域物价']);
+    });
   });
 });

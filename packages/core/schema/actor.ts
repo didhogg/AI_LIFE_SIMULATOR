@@ -76,7 +76,7 @@ const 情绪条目Schema = z.object({
   极性: z.string().default('负'),
   数值: z.number().default(0),
   影响: z.array(修饰通道引用Schema).default([]),
-  到期: z.number().int().min(0).default(0), // 绝对纪元分钟
+  到期: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 永久
   来源: z.string().default(''),
   可叠加: z.boolean().default(false),
 });
@@ -158,8 +158,8 @@ const 学历档案条目Schema = z.object({
   学段: z.string().default(''),
   学校: z.string().default(''),
   专业: z.string().default(''),
-  入学时间: z.number().int().min(0).default(0),
-  毕业时间: z.number().int().min(0).default(0),
+  入学时间: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 未记录
+  毕业时间: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 未记录
   状态: z.string().default('在读'),
   学位: z.string().default(''),
 });
@@ -167,8 +167,8 @@ const 学历档案条目Schema = z.object({
 const 资质证书条目Schema = z.object({
   类别: z.string().default(''),
   等级: z.string().default(''),
-  获得时间: z.number().int().min(0).default(0),
-  有效期到期: z.number().int().min(0).default(0),
+  获得时间: z.number().int().min(0).default(0),   // 绝对纪元分钟；0 = 未记录
+  有效期到期: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 永久有效
   颁发机构: z.string().default(''),
 });
 
@@ -208,7 +208,7 @@ const 任职条目Schema = z.object({
   在职状态: z.string().default('在职'),
   报酬: z.string().default(''),
   绩效: z.number().min(-5).max(5).default(0),
-  入职时间: z.number().int().min(0).default(0), // 绝对纪元分钟
+  入职时间: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 未记录
 });
 
 const 职业Schema = z.object({
@@ -230,7 +230,7 @@ const 目标Schema = z.object({
 const 居留身份条目Schema = z.object({
   国籍: z.string().default(''), // 政权组织实体键
   签证类型: z.string().default(''),
-  到期: z.number().int().min(0).default(0), // 绝对纪元分钟
+  到期: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 永久
 });
 
 const 声誉Schema = z.object({
@@ -387,11 +387,11 @@ export const NpcSchema = z.object({
   头衔: z.array(z.string()).default([]),
   称号: z.string().default(''),
   成就: z.record(z.string(), z.object({
-    解锁时间: z.number().int().min(0).default(0),
+    解锁时间: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 未记录
     描述: z.string().default(''),
   })).default({}),
   里程碑: z.record(z.string(), z.object({
-    时间: z.number().int().min(0).default(0),
+    时间: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 未记录
     标题: z.string().default(''),
     描述: z.string().default(''),
   })).default({}),
