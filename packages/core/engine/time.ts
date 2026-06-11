@@ -96,13 +96,26 @@ export function makePeriodConverter(
 
 // ── Calendar skin rendering ───────────────────────────────────────────────────
 
+/** Traditional Chinese month names for the {月名} template token. */
+export const MONTH_NAMES: Readonly<Record<number, string>> = {
+  1: '正月', 2: '二月', 3: '三月', 4: '四月', 5: '五月', 6: '六月',
+  7: '七月', 8: '八月', 9: '九月', 10: '十月', 11: '冬月', 12: '腊月',
+};
+
 export interface CalendarConfig {
   纪年法: string;
   /** Epoch minutes corresponding to year-1 of this calendar era. 0 = same anchor as Gregorian. */
   纪元锚点: number;
   年号表: ReadonlyArray<{ 年号: string; 起始纪元分钟: number }>;
   月制: string;
-  /** Template string. Tokens: {year} {month} {day} {年号} {年号年} {公元年} */
+  /**
+   * Template string. Tokens:
+   * {year} {month} {day} — era-relative year / numeric month / numeric day
+   * {年号} {年号年} — era name / year-within-era
+   * {公元年} — Gregorian year always
+   * {月名}   — traditional Chinese month name (正月…腊月)
+   * {daysSinceAnchor} — integer days since 纪元锚点 (天数历 / "Day N" format)
+   */
   显示模板: string;
 }
 
@@ -140,13 +153,19 @@ export function renderCalendar(epochMin: number, config: CalendarConfig): string
     relativeYear = gyear - anchorGreg.year + 1;
   }
 
+  const daysSinceAnchor = config.纪元锚点 > 0
+    ? Math.floor((epochMin - config.纪元锚点) / MINUTES_PER_DAY)
+    : Math.floor(epochMin / MINUTES_PER_DAY);
+
   return config.显示模板
     .replace('{公元年}', String(gyear))
     .replace('{年号年}', String(relativeYear))
     .replace('{年号}', yearLabel)
     .replace('{year}', String(relativeYear))
     .replace('{month}', String(month))
-    .replace('{day}', String(day));
+    .replace('{day}', String(day))
+    .replace('{月名}', MONTH_NAMES[month] ?? String(month))
+    .replace('{daysSinceAnchor}', String(daysSinceAnchor));
 }
 
 // ── Granularity stack ─────────────────────────────────────────────────────────
@@ -249,4 +268,48 @@ export function probOverSpan(monthProb: number, spanMonths: number): number {
  */
 export function isExpired(deadline: number, now: number): boolean {
   return deadline > 0 ? now >= deadline : false;
+}
+
+// ── Derived display values ────────────────────────────────────────────────────
+
+const SEASON_NORTH: Readonly<Record<number, string>> = {
+  1: '冬', 2: '冬', 3: '春', 4: '春', 5: '春',
+  6: '夏', 7: '夏', 8: '夏', 9: '秋', 10: '秋', 11: '秋', 12: '冬',
+};
+const SEASON_SOUTH: Readonly<Record<number, string>> = {
+  1: '夏', 2: '夏', 3: '秋', 4: '秋', 5: '秋',
+  6: '冬', 7: '冬', 8: '冬', 9: '春', 10: '春', 11: '春', 12: '夏',
+};
+
+/**
+ * Derive season label from month and climate zone (气候带).
+ * Recognised zones: '南温带'|'南半球' → southern reversal; '热带' → '无四季';
+ * anything else → northern temperate.
+ */
+export function getSeason(month: number, 气候带: string): string {
+  if (气候带 === '热带') return '无四季';
+  if (气候带 === '南温带' || 气候带 === '南半球') return SEASON_SOUTH[month] ?? '未知';
+  return SEASON_NORTH[month] ?? '未知';
+}
+
+/**
+ * Derive age in whole years from birth epoch minute to now epoch minute.
+ * Returns 0 if now is before birth (not yet born).
+ * Handles leap-day birthdays (2000-02-29): ages normally on Mar 1 in non-leap years.
+ */
+export function getAge(birthEpochMin: number, nowEpochMin: number): number {
+  if (nowEpochMin <= birthEpochMin) return 0;
+  const birth = epochMinToGregorian(birthEpochMin);
+  const now = epochMinToGregorian(nowEpochMin);
+  let age = now.year - birth.year;
+  // Birthday not yet reached this year
+  const birthMonth = birth.month;
+  const birthDay = birth.day;
+  if (
+    now.month < birthMonth ||
+    (now.month === birthMonth && now.day < birthDay)
+  ) {
+    age -= 1;
+  }
+  return Math.max(0, age);
 }

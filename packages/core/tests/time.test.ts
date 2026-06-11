@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import prand from 'pure-rand';
 import {
   EPOCH_ANCHOR_YEAR,
   MINUTES_PER_DAY,
@@ -6,6 +7,7 @@ import {
   MINUTES_PER_YEAR,
   TICK_MINUTES,
   GRANULARITY_STACK_MAX,
+  MONTH_NAMES,
   isLeapYear,
   gregorianToEpochMin,
   epochMinToGregorian,
@@ -25,6 +27,8 @@ import {
   compound,
   probOverSpan,
   isExpired,
+  getSeason,
+  getAge,
 } from '../engine/time.js';
 
 // ── isLeapYear ────────────────────────────────────────────────────────────────
@@ -448,5 +452,184 @@ describe('isExpired', () => {
   });
   it('deadline = 1 with now = 1 → expired', () => {
     expect(isExpired(1, 1)).toBe(true);
+  });
+});
+
+// ── 甲1a: pre-1970 behavior (current: clamps — 甲1c anchor fix pending) ────────
+
+describe('pre-1970 date handling (current limitation: clamps to 0)', () => {
+  it('618-06-18: gregorianToEpochMin returns 0 (lossy — pre-anchor clamp)', () => {
+    expect(gregorianToEpochMin(618, 6, 18)).toBe(0);
+  });
+  it('1691-01-01: gregorianToEpochMin returns 0 (lossy — pre-anchor clamp)', () => {
+    expect(gregorianToEpochMin(1691, 1, 1)).toBe(0);
+  });
+  it('1969-12-31: returns 0 (one day before anchor, boundary clamp)', () => {
+    expect(gregorianToEpochMin(1969, 12, 31)).toBe(0);
+  });
+  it('roundtrip lossy: all three pre-1970 dates collapse to 1970-01-01', () => {
+    const anchor = { year: EPOCH_ANCHOR_YEAR, month: 1, day: 1 };
+    for (const [y, m, d] of [[618, 6, 18], [1691, 1, 1], [1969, 12, 31]] as [number, number, number][]) {
+      expect(epochMinToGregorian(gregorianToEpochMin(y, m, d))).toEqual(anchor);
+    }
+  });
+});
+
+// ── 乙4: property test (pure-rand, seed=42) ───────────────────────────────────
+
+describe('property roundtrip: date→em→date (500 pure-rand samples, seed=42)', () => {
+  it('em→date→em roundtrip: epochMin always equals dayStart of its Gregorian date', () => {
+    const rng = prand.xoroshiro128plus(42);
+    const maxDays = Math.floor(gregorianToEpochMin(2099, 12, 31) / MINUTES_PER_DAY);
+    for (let i = 0; i < 500; i++) {
+      const dayOffset = prand.unsafeUniformIntDistribution(0, maxDays, rng);
+      const em = dayOffset * MINUTES_PER_DAY;
+      const { year, month, day } = epochMinToGregorian(em);
+      expect(gregorianToEpochMin(year, month, day)).toBe(em);
+    }
+  });
+});
+
+// ── 乙5: 天数历 + 月名渲染 ───────────────────────────────────────────────────
+
+describe('renderCalendar — 天数历 {daysSinceAnchor} and {月名}', () => {
+  it('天数历: "灾变后 Day N" snapshot (纪元锚点 = Day 0)', () => {
+    const 灾变纪元 = gregorianToEpochMin(2050, 3, 15);
+    const cfg: CalendarConfig = {
+      纪年法: '天数历', 纪元锚点: 灾变纪元, 年号表: [], 月制: '',
+      显示模板: '灾变后 Day {daysSinceAnchor}',
+    };
+    // 4021 days after anchor
+    const em = 灾变纪元 + 4021 * MINUTES_PER_DAY;
+    expect(renderCalendar(em, cfg)).toBe('灾变后 Day 4021');
+  });
+
+  it('天数历: Day 0 at the anchor itself', () => {
+    const 锚 = gregorianToEpochMin(2050, 3, 15);
+    const cfg: CalendarConfig = {
+      纪年法: '天数历', 纪元锚点: 锚, 年号表: [], 月制: '',
+      显示模板: 'Day {daysSinceAnchor}',
+    };
+    expect(renderCalendar(锚, cfg)).toBe('Day 0');
+  });
+
+  it('{月名} renders 正月 for month 1 and 腊月 for month 12', () => {
+    const 贞观起始 = gregorianToEpochMin(2027, 1, 1);
+    const cfg: CalendarConfig = {
+      纪年法: '年号制', 纪元锚点: 贞观起始,
+      年号表: [{ 年号: '贞观', 起始纪元分钟: 贞观起始 }],
+      月制: '太阴历', 显示模板: '{年号}{year}年{月名}{day}日',
+    };
+    // game 2027-01-15 = 贞观元年正月15日
+    expect(renderCalendar(gregorianToEpochMin(2027, 1, 15), cfg)).toBe('贞观1年正月15日');
+    // game 2027-12-20 = 贞观元年腊月20日
+    expect(renderCalendar(gregorianToEpochMin(2027, 12, 20), cfg)).toBe('贞观1年腊月20日');
+  });
+
+  it('MONTH_NAMES covers all 12 months with correct traditional names', () => {
+    const expected = ['正月','二月','三月','四月','五月','六月','七月','八月','九月','十月','冬月','腊月'];
+    for (let m = 1; m <= 12; m++) {
+      expect(MONTH_NAMES[m]).toBe(expected[m - 1]);
+    }
+  });
+});
+
+// ── 甲2: getSeason ────────────────────────────────────────────────────────────
+
+describe('getSeason', () => {
+  it('北温带: 月份3/4/5 → 春', () => {
+    for (const m of [3, 4, 5]) expect(getSeason(m, '北温带')).toBe('春');
+  });
+  it('北温带: 月份6/7/8 → 夏', () => {
+    for (const m of [6, 7, 8]) expect(getSeason(m, '北温带')).toBe('夏');
+  });
+  it('北温带: 月份9/10/11 → 秋', () => {
+    for (const m of [9, 10, 11]) expect(getSeason(m, '北温带')).toBe('秋');
+  });
+  it('北温带: 月份12/1/2 → 冬', () => {
+    for (const m of [12, 1, 2]) expect(getSeason(m, '北温带')).toBe('冬');
+  });
+  it('默认（空字符串气候带）→ 北半球季节', () => {
+    expect(getSeason(6, '')).toBe('夏');
+    expect(getSeason(12, '')).toBe('冬');
+  });
+  it('南温带: 月份6 → 冬（南北反转）', () => {
+    expect(getSeason(6, '南温带')).toBe('冬');
+  });
+  it('南半球: 月份12 → 夏（南北反转）', () => {
+    expect(getSeason(12, '南半球')).toBe('夏');
+  });
+  it('南半球: 月份3 → 秋', () => {
+    expect(getSeason(3, '南半球')).toBe('秋');
+  });
+  it('热带: 任意月份 → 无四季', () => {
+    for (const m of [1, 6, 12]) expect(getSeason(m, '热带')).toBe('无四季');
+  });
+  it('南北半球季节完全相反（6月）', () => {
+    expect(getSeason(6, '北温带')).toBe('夏');
+    expect(getSeason(6, '南半球')).toBe('冬');
+  });
+});
+
+// ── 甲2: getAge ───────────────────────────────────────────────────────────────
+
+describe('getAge', () => {
+  it('exact birthday: age increments on the birthday', () => {
+    const birth = gregorianToEpochMin(2000, 6, 15);
+    const birthday2030 = gregorianToEpochMin(2030, 6, 15);
+    expect(getAge(birth, birthday2030)).toBe(30);
+  });
+  it('day before birthday: still one year younger', () => {
+    const birth = gregorianToEpochMin(2000, 6, 15);
+    const dayBefore = gregorianToEpochMin(2030, 6, 14);
+    expect(getAge(birth, dayBefore)).toBe(29);
+  });
+  it('day after birthday: already incremented', () => {
+    const birth = gregorianToEpochMin(2000, 6, 15);
+    const dayAfter = gregorianToEpochMin(2030, 6, 16);
+    expect(getAge(birth, dayAfter)).toBe(30);
+  });
+  it('before birth: returns 0', () => {
+    const birth = gregorianToEpochMin(2010, 1, 1);
+    const before = gregorianToEpochMin(2009, 12, 31);
+    expect(getAge(birth, before)).toBe(0);
+  });
+  it('same minute as birth: returns 0', () => {
+    const birth = gregorianToEpochMin(2000, 1, 1);
+    expect(getAge(birth, birth)).toBe(0);
+  });
+  it('leap-day birthday (2000-02-29): ages on Mar 1 in non-leap years', () => {
+    const birth = gregorianToEpochMin(2000, 2, 29);
+    // 2001 is not leap — Feb has only 28 days; age check on Mar 1
+    const mar1 = gregorianToEpochMin(2001, 3, 1);
+    const feb28 = gregorianToEpochMin(2001, 2, 28);
+    expect(getAge(birth, mar1)).toBe(1);
+    expect(getAge(birth, feb28)).toBe(0);
+  });
+  it('age 0 at first minute of life', () => {
+    const birth = gregorianToEpochMin(1990, 5, 20);
+    expect(getAge(birth, birth + 1)).toBe(0);
+  });
+});
+
+// ── 乙9: dual clock lens ≥ world invariant ────────────────────────────────────
+
+describe('dual clock: lens ≥ world invariant during RP_FOCUS', () => {
+  it('lens.epochMin ≥ world.epochMin holds throughout RP_FOCUS', () => {
+    const c0 = makeDualClock(5000);
+    // Initially equal
+    expect(c0.lens.epochMin).toBeGreaterThanOrEqual(c0.world.epochMin);
+    // After entering RP_FOCUS: still equal
+    const c1 = enterRpFocus(c0);
+    expect(c1.lens.epochMin).toBeGreaterThanOrEqual(c1.world.epochMin);
+    // After advancing lens: lens > world (world frozen)
+    const c2 = advanceLens(c1, 1440);
+    expect(c2.lens.epochMin).toBeGreaterThan(c2.world.epochMin);
+    // After more lens time: still holds
+    const c3 = advanceLens(c2, 43200);
+    expect(c3.lens.epochMin).toBeGreaterThanOrEqual(c3.world.epochMin);
+    // On exit: world catches up to lens, equality restored
+    const c4 = exitRpFocus(c3, 1440 + 43200);
+    expect(c4.lens.epochMin).toBeGreaterThanOrEqual(c4.world.epochMin);
   });
 });
