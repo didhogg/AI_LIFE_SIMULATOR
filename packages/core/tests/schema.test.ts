@@ -87,6 +87,10 @@ describe('4.1 System layer', () => {
   it('invalid: 叙事偏好 wrong type', () => {
     expect(NarrativeSettingSchema.safeParse({ 叙事偏好: 42 }).success).toBe(false);
   });
+  // 收口检查：事件倾向已退役
+  it('事件倾向 已从 NarrativeSettingSchema 移除', () => {
+    expect('事件倾向' in NarrativeSettingSchema.shape).toBe(false);
+  });
 });
 
 describe('4.2 World layer', () => {
@@ -278,6 +282,25 @@ describe('4.6 Map / War layer', () => {
       地点: { loc_A: { 显示坐标: { x: 10 } } },
     }).success).toBe(false);
   });
+  // P0-1.2：地点.边界
+  it('valid: 地点 with 边界 polygon', () => {
+    expect(地图Schema.safeParse({
+      地点: {
+        loc_A: {
+          边界: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }],
+        },
+      },
+    }).success).toBe(true);
+  });
+  it('valid: 边界 is optional (absent = ok)', () => {
+    const res = 地图Schema.parse({ 地点: { loc_A: {} } });
+    expect(res.地点['loc_A']?.边界).toBeUndefined();
+  });
+  it('invalid: 边界 element missing y', () => {
+    expect(地图Schema.safeParse({
+      地点: { loc_A: { 边界: [{ x: 5 }] } },
+    }).success).toBe(false);
+  });
 });
 
 describe('4.7 Economy layer', () => {
@@ -392,6 +415,22 @@ describe('4.9 $ layer', () => {
   });
   it('invalid: $玩家偏好 母题权重 negative value', () => {
     expect(RootSchema.shape.$玩家偏好.safeParse({ 母题权重: { 宫斗: -1 } }).success).toBe(false);
+  });
+  // P0-1.2：$玩家偏好.写实程度（0–1）
+  it('valid: $玩家偏好 写实程度 boundary values', () => {
+    expect(RootSchema.shape.$玩家偏好.safeParse({ 写实程度: 0 }).success).toBe(true);
+    expect(RootSchema.shape.$玩家偏好.safeParse({ 写实程度: 1 }).success).toBe(true);
+    expect(RootSchema.shape.$玩家偏好.safeParse({ 写实程度: 0.5 }).success).toBe(true);
+  });
+  it('valid: $玩家偏好 写实程度 defaults to 0.5', () => {
+    const res = RootSchema.shape.$玩家偏好.parse({});
+    expect(res.写实程度).toBe(0.5);
+  });
+  it('invalid: $玩家偏好 写实程度 > 1', () => {
+    expect(RootSchema.shape.$玩家偏好.safeParse({ 写实程度: 1.01 }).success).toBe(false);
+  });
+  it('invalid: $玩家偏好 写实程度 < 0', () => {
+    expect(RootSchema.shape.$玩家偏好.safeParse({ 写实程度: -0.1 }).success).toBe(false);
   });
 });
 

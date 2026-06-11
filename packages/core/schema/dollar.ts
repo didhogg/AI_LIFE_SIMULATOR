@@ -62,7 +62,10 @@ export const $战斗暂存Schema = z.object({
 export const $玩家偏好Schema = z.object({
   // 母题→权重倍率；开放串键，事件包可自带新母题标签，无需改 schema
   母题权重: z.record(z.string(), z.number().min(0)).default({}),
-  // 写实度权重（0=纯幻想 / 100=写实硬核），引擎事件过滤用
+  // 写实程度（0=纯幻想/轻松 / 1=写实/硬核）：全局残酷/难度系数
+  // 引擎用于统一检定 DC 偏置、结果严酷度、负面涟漪强度；前端"简单/普通/困难"映射到此
+  写实程度: z.number().min(0).max(1).default(0.5),
+  // 写实度权重（0–100，引擎事件过滤用，粒度更细）
   写实度权重: z.number().min(0).max(100).default(50),
   // 事件偏好标签权重；同为开放串键
   事件偏好权重: z.record(z.string(), z.number().min(0)).default({}),

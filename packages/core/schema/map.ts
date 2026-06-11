@@ -54,8 +54,10 @@ const 地点条目Schema = z.object({
   seed: z.string().default(''), // 地形栅格程序生成种子（hash 可现算）
   // 拍板二：大地图连通拓扑（权威字段，门户仅用于建筑/室内）
   相邻: z.array(相邻条目Schema).default([]),
-  // 拍板二：前端世界地图绘制用坐标，引擎逻辑不依赖
+  // 前端绘图辅助：中心坐标，引擎逻辑不依赖
   显示坐标: z.object({ x: z.number(), y: z.number() }).optional(),
+  // 前端绘图辅助：疆域/区域轮廓多边形顶点（顺序连接成闭合多边形），引擎逻辑不依赖
+  边界: z.array(z.object({ x: z.number(), y: z.number() })).optional(),
 });
 
 // ══════════════════════════════════════════

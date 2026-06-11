@@ -44,7 +44,7 @@ export const NarrativeSettingSchema = z.object({
   叙事风格: z.string().default('影视化分镜'),
   人称: z.string().default('第二人称'),
   写实度: z.string().default('轻度戏剧化'),
-  事件倾向: z.record(z.string(), z.number()).default({}), // 流派→权重
+  // 事件倾向已退役（双轨收口）：结构化权重→$玩家偏好.母题权重，自然语言→叙事偏好
   // 拍板一：玩家在前端直接输入、AI 可见的自然语言偏好提示词，进 prompt 组装
   叙事偏好: z.string().default(''),
 });
