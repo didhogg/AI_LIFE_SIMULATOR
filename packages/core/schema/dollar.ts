@@ -56,9 +56,16 @@ export const $战斗暂存Schema = z.object({
   zoc: z.string().optional(),
 });
 
-// ── $玩家偏好（母题权重，§2 最终归属层待拍板） ──
+// ── $玩家偏好（引擎幕后加权，AI 不可见；拍板一）──
+// 结构化权重由引擎在事件抽取/种子萌发时加权使用，绝不进 prompt。
+// 自然语言偏好归 _叙事设置.叙事偏好（AI 可见）。
 export const $玩家偏好Schema = z.object({
-  母题权重: z.record(z.string(), z.number().min(0)).default({}), // 母题→权重倍率
+  // 母题→权重倍率；开放串键，事件包可自带新母题标签，无需改 schema
+  母题权重: z.record(z.string(), z.number().min(0)).default({}),
+  // 写实度权重（0=纯幻想 / 100=写实硬核），引擎事件过滤用
+  写实度权重: z.number().min(0).max(100).default(50),
+  // 事件偏好标签权重；同为开放串键
+  事件偏好权重: z.record(z.string(), z.number().min(0)).default({}),
 });
 
 // ── $会话状态（6.1） ──

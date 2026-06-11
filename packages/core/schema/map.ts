@@ -23,6 +23,13 @@ const 产出Schema = z.object({
   })).default([]),
 });
 
+// 拍板二：大地图连通拓扑条目（单写者铁律：可达性只读此字段）
+const 相邻条目Schema = z.object({
+  目标: z.string().default(''),    // 目标地点键
+  方式: z.string().optional(),     // 徒步/水路/传送…
+  距离: z.number().min(0).optional(), // 抽象距离，单位由预设定义
+});
+
 const 地点条目Schema = z.object({
   名称: z.string().default(''),
   类别: z.string().default(''),
@@ -45,6 +52,10 @@ const 地点条目Schema = z.object({
   情报度: z.number().min(0).max(100).default(0),
   人口规模: z.string().default(''),
   seed: z.string().default(''), // 地形栅格程序生成种子（hash 可现算）
+  // 拍板二：大地图连通拓扑（权威字段，门户仅用于建筑/室内）
+  相邻: z.array(相邻条目Schema).default([]),
+  // 拍板二：前端世界地图绘制用坐标，引擎逻辑不依赖
+  显示坐标: z.object({ x: z.number(), y: z.number() }).optional(),
 });
 
 // ══════════════════════════════════════════

@@ -45,6 +45,8 @@ export const NarrativeSettingSchema = z.object({
   人称: z.string().default('第二人称'),
   写实度: z.string().default('轻度戏剧化'),
   事件倾向: z.record(z.string(), z.number()).default({}), // 流派→权重
+  // 拍板一：玩家在前端直接输入、AI 可见的自然语言偏好提示词，进 prompt 组装
+  叙事偏好: z.string().default(''),
 });
 
 // ── 状态机 ──

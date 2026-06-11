@@ -74,6 +74,19 @@ describe('4.1 System layer', () => {
   it('unknown keys rejected in strict mode', () => {
     expect(SystemSchema.strict().safeParse({ unknownField: 'x' }).success).toBe(false);
   });
+  // 拍板一：_叙事设置.叙事偏好
+  it('valid NarrativeSettingSchema with 叙事偏好', () => {
+    const res = NarrativeSettingSchema.safeParse({ 叙事偏好: '偏向宫斗与权谋，少写打斗细节' });
+    expect(res.success).toBe(true);
+    expect((res.data as { 叙事偏好: string }).叙事偏好).toBe('偏向宫斗与权谋，少写打斗细节');
+  });
+  it('valid: 叙事偏好 defaults to empty string', () => {
+    const res = NarrativeSettingSchema.parse({});
+    expect(res.叙事偏好).toBe('');
+  });
+  it('invalid: 叙事偏好 wrong type', () => {
+    expect(NarrativeSettingSchema.safeParse({ 叙事偏好: 42 }).success).toBe(false);
+  });
 });
 
 describe('4.2 World layer', () => {
@@ -226,6 +239,45 @@ describe('4.6 Map / War layer', () => {
   it('invalid: 战争状态 wrong type', () => {
     expect(战争状态Schema.safeParse({ war: '交战' }).success).toBe(false);
   });
+  // 拍板二：地点.相邻 / 显示坐标
+  it('valid: 地点 with 相邻 entries', () => {
+    expect(地图Schema.safeParse({
+      地点: {
+        loc_A: {
+          名称: '东京汴梁',
+          相邻: [
+            { 目标: 'loc_B', 方式: '官道', 距离: 3 },
+            { 目标: 'loc_C' },
+          ],
+        },
+      },
+    }).success).toBe(true);
+  });
+  it('valid: 地点 with 显示坐标', () => {
+    expect(地图Schema.safeParse({
+      地点: {
+        loc_A: { 显示坐标: { x: 120.5, y: -30.2 } },
+      },
+    }).success).toBe(true);
+  });
+  it('valid: 相邻 defaults to empty array', () => {
+    const res = 地图Schema.parse({ 地点: { loc_A: {} } });
+    expect(res.地点['loc_A']?.相邻).toEqual([]);
+  });
+  it('valid: 显示坐标 is optional (absent = ok)', () => {
+    const res = 地图Schema.parse({ 地点: { loc_A: {} } });
+    expect(res.地点['loc_A']?.显示坐标).toBeUndefined();
+  });
+  it('invalid: 相邻 距离 negative', () => {
+    expect(地图Schema.safeParse({
+      地点: { loc_A: { 相邻: [{ 目标: 'loc_B', 距离: -1 }] } },
+    }).success).toBe(false);
+  });
+  it('invalid: 显示坐标 missing y', () => {
+    expect(地图Schema.safeParse({
+      地点: { loc_A: { 显示坐标: { x: 10 } } },
+    }).success).toBe(false);
+  });
 });
 
 describe('4.7 Economy layer', () => {
@@ -318,6 +370,28 @@ describe('4.9 $ layer', () => {
   });
   it('invalid: $meta 历代角色数 below min', () => {
     expect($metaSchema.safeParse({ 历代角色数: 0 }).success).toBe(false);
+  });
+  // 拍板一：$玩家偏好 结构化权重（开放键，引擎加权用）
+  it('valid $玩家偏好 with open-string 母题权重', () => {
+    const RootRef = { $玩家偏好: RootSchema.shape.$玩家偏好 };
+    const res = RootRef.$玩家偏好.safeParse({
+      母题权重: { 宫斗: 2.0, 克苏鲁: 1.5, 修真: 0.5 },
+      写实度权重: 60,
+      事件偏好权重: { 战斗: 0.8, 爱情: 1.2 },
+    });
+    expect(res.success).toBe(true);
+  });
+  it('valid: $玩家偏好 empty defaults', () => {
+    const res = RootSchema.shape.$玩家偏好.parse({});
+    expect(res.母题权重).toEqual({});
+    expect(res.写实度权重).toBe(50);
+    expect(res.事件偏好权重).toEqual({});
+  });
+  it('invalid: $玩家偏好 写实度权重 out of range', () => {
+    expect(RootSchema.shape.$玩家偏好.safeParse({ 写实度权重: 200 }).success).toBe(false);
+  });
+  it('invalid: $玩家偏好 母题权重 negative value', () => {
+    expect(RootSchema.shape.$玩家偏好.safeParse({ 母题权重: { 宫斗: -1 } }).success).toBe(false);
   });
 });
 
