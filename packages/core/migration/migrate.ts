@@ -2,6 +2,14 @@
 // No IO, no Date.now, no Math.random (ESLint bans in packages/core/).
 
 import { RootSchema, type RootState } from '../schema/index.js';
+import {
+  parseChineseDateToEpochMin,
+  getTickMinutes,
+  makePeriodConverter,
+} from '../engine/time.js';
+
+// Re-export for migration tests that import these from migrate.ts
+export { parseChineseDateToEpochMin, getTickMinutes } from '../engine/time.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -44,39 +52,8 @@ const PROSPERITY_MAP: Record<string, number> = {
 };
 
 // ── Time helpers ──────────────────────────────────────────────────────────────
-
-export function getTickMinutes(粒度: string): number {
-  const m: Record<string, number> = {
-    即时: 5, 日常: 1440, 发展: 43200, 月: 43200,
-    日: 1440,
-    年: 518400,  // 12 × 43200 (game calendar: 12 months × 30 days)
-    世代: 518400,
-  };
-  return m[粒度] ?? 43200;
-}
-
-function isLeapYear(y: number): boolean {
-  return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
-}
-
-/** Parse "YYYY年MM月DD日" → absolute epoch minutes (Gregorian base 1970-01-01). */
-export function parseChineseDateToEpochMin(s: string): number {
-  const m = /^(\d+)年(\d+)月(\d+)日$/.exec(s.trim());
-  if (!m) return 0;
-  const year = Number(m[1]), month = Number(m[2]), day = Number(m[3]);
-  if (year < 1970) return 0;
-  let days = 0;
-  for (let y = 1970; y < year; y++) days += isLeapYear(y) ? 366 : 365;
-  const md = [0, 31, isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  for (let mo = 1; mo < month; mo++) days += md[mo] ?? 30;
-  days += day - 1;
-  return days * 1440;
-}
-
-/** periodToEpochMin: worldEpochMin − (周期数 − N) × tickMinutes */
-function makePeriodConverter(worldEpochMin: number, 周期数: number, tickMin: number) {
-  return (n: number): number => worldEpochMin - (周期数 - n) * tickMin;
-}
+// Implementations live in engine/time.ts (single source of truth).
+// parseChineseDateToEpochMin, getTickMinutes, makePeriodConverter imported above.
 
 // ── Coercion helpers ──────────────────────────────────────────────────────────
 
