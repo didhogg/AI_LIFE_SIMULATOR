@@ -5,7 +5,7 @@ import {
   MINUTES_PER_DAY,
   MINUTES_PER_MONTH,
   MINUTES_PER_YEAR,
-  TICK_MINUTES,
+  MIGRATION_TICK_MINUTES,
   GRANULARITY_STACK_MAX,
   MONTH_NAMES,
   isLeapYear,
@@ -29,6 +29,14 @@ import {
   isExpired,
   getSeason,
   getAge,
+  dayFloor,
+  timeOfDayMinutes,
+  writeEpochMinute,
+  earliestDeadline,
+  minutesSinceLast,
+  nextMonthStart,
+  nextYearSameDay,
+  computeTickSpan,
 } from '../engine/time.js';
 
 // ── isLeapYear ────────────────────────────────────────────────────────────────
@@ -40,6 +48,11 @@ describe('isLeapYear', () => {
   it('2100 is not leap (div 100, not 400)', () => { expect(isLeapYear(2100)).toBe(false); });
   it('2023 is not leap', () => { expect(isLeapYear(2023)).toBe(false); });
   it('1970 is not leap', () => { expect(isLeapYear(1970)).toBe(false); });
+  // ⑪ Negative / year-0 axis
+  it('year 0 (1 BCE) is leap (0 % 400 = 0)', () => { expect(isLeapYear(0)).toBe(true); });
+  it('year -4 is leap (-4 % 4 = 0)', () => { expect(isLeapYear(-4)).toBe(true); });
+  it('year -100 is not leap (-100 % 100 = 0, -100 % 400 ≠ 0)', () => { expect(isLeapYear(-100)).toBe(false); });
+  it('year -400 is leap (-400 % 400 = 0)', () => { expect(isLeapYear(-400)).toBe(true); });
 });
 
 // ── gregorianToEpochMin ───────────────────────────────────────────────────────
@@ -54,11 +67,16 @@ describe('gregorianToEpochMin', () => {
   it('1970-02-01 → 31 × 1440', () => {
     expect(gregorianToEpochMin(1970, 2, 1)).toBe(31 * MINUTES_PER_DAY);
   });
-  it('pre-1970 year → 0', () => {
-    expect(gregorianToEpochMin(1969, 12, 31)).toBe(0);
+  it('1969-12-31 → -1440 (one day before anchor)', () => {
+    expect(gregorianToEpochMin(1969, 12, 31)).toBe(-MINUTES_PER_DAY);
+  });
+  it('1691-01-01: produces large negative epoch minute (negative-axis lossless)', () => {
+    expect(gregorianToEpochMin(1691, 1, 1)).toBeLessThan(0);
+  });
+  it('618-06-18: produces large negative epoch minute (deep antiquity)', () => {
+    expect(gregorianToEpochMin(618, 6, 18)).toBeLessThan(0);
   });
   it('2000-01-01 → correct (spanning non-leap centuries)', () => {
-    // Days from 1970 to 2000: 30 years
     // Leap years in [1970,1999]: 1972,1976,1980,1984,1988,1992,1996 = 7 leap years
     const days = 30 * 365 + 7;
     expect(gregorianToEpochMin(2000, 1, 1)).toBe(days * MINUTES_PER_DAY);
@@ -91,6 +109,10 @@ describe('epochMinToGregorian roundtrip', () => {
     [2024, 2, 29],   // recent leap day
     [2025, 1, 1],
     [2100, 1, 1],    // 2100 not leap
+    // negative axis
+    [1969, 12, 31],  // one day before anchor
+    [1691, 1, 1],    // Qing Dynasty start area
+    [618, 6, 18],    // Tang Dynasty founding
   ];
 
   for (const [y, m, d] of cases) {
@@ -103,13 +125,17 @@ describe('epochMinToGregorian roundtrip', () => {
   it('epoch 0 → 1970-01-01', () => {
     expect(epochMinToGregorian(0)).toEqual({ year: EPOCH_ANCHOR_YEAR, month: 1, day: 1 });
   });
-  it('negative em → clamps to 1970-01-01', () => {
-    expect(epochMinToGregorian(-1)).toEqual({ year: EPOCH_ANCHOR_YEAR, month: 1, day: 1 });
+  it('em = -1440 → 1969-12-31', () => {
+    expect(epochMinToGregorian(-MINUTES_PER_DAY)).toEqual({ year: 1969, month: 12, day: 31 });
   });
-  it('intra-day minutes resolve to same day', () => {
+  it('intra-day minutes (positive) resolve to same day', () => {
     const start = gregorianToEpochMin(2000, 6, 15);
     expect(epochMinToGregorian(start + 60)).toEqual({ year: 2000, month: 6, day: 15 });
     expect(epochMinToGregorian(start + MINUTES_PER_DAY - 1)).toEqual({ year: 2000, month: 6, day: 15 });
+  });
+  it('intra-day minutes (negative axis) resolve to same day', () => {
+    const start = gregorianToEpochMin(1691, 1, 1);
+    expect(epochMinToGregorian(start + 510)).toEqual({ year: 1691, month: 1, day: 1 });
   });
 });
 
@@ -131,8 +157,11 @@ describe('parseChineseDateToEpochMin', () => {
   it('empty string → 0', () => {
     expect(parseChineseDateToEpochMin('')).toBe(0);
   });
-  it('year < 1970 → 0', () => {
-    expect(parseChineseDateToEpochMin('1969年12月31日')).toBe(0);
+  it('1969年12月31日 → -1440 (one day before anchor)', () => {
+    expect(parseChineseDateToEpochMin('1969年12月31日')).toBe(-MINUTES_PER_DAY);
+  });
+  it('618年6月18日 → correct negative epoch (Tang founding, lossless)', () => {
+    expect(parseChineseDateToEpochMin('618年6月18日')).toBe(gregorianToEpochMin(618, 6, 18));
   });
   it('matches gregorianToEpochMin for same date', () => {
     expect(parseChineseDateToEpochMin('2000年2月29日')).toBe(gregorianToEpochMin(2000, 2, 29));
@@ -152,8 +181,8 @@ describe('getTickMinutes', () => {
   it('unknown key falls back to MINUTES_PER_MONTH', () => {
     expect(getTickMinutes('___unknown___')).toBe(MINUTES_PER_MONTH);
   });
-  it('TICK_MINUTES constants consistent with getTickMinutes', () => {
-    for (const [key, val] of Object.entries(TICK_MINUTES)) {
+  it('MIGRATION_TICK_MINUTES constants consistent with getTickMinutes', () => {
+    for (const [key, val] of Object.entries(MIGRATION_TICK_MINUTES)) {
       expect(getTickMinutes(key)).toBe(val);
     }
   });
@@ -429,6 +458,13 @@ describe('probOverSpan', () => {
       expect(r).toBeLessThanOrEqual(1);
     }
   });
+  // ⑫ Fractional spans
+  it('5-minute span (5/43200 months) → probability > 0', () => {
+    expect(probOverSpan(0.05, 5 / MINUTES_PER_MONTH)).toBeGreaterThan(0);
+  });
+  it('probOverSpan(0.05, 1) ≈ 0.05 (exactly one month)', () => {
+    expect(probOverSpan(0.05, 1)).toBeCloseTo(0.05, 10);
+  });
 });
 
 // ── isExpired ─────────────────────────────────────────────────────────────────
@@ -453,40 +489,15 @@ describe('isExpired', () => {
   it('deadline = 1 with now = 1 → expired', () => {
     expect(isExpired(1, 1)).toBe(true);
   });
-});
-
-// ── 甲1a: pre-1970 behavior (current: clamps — 甲1c anchor fix pending) ────────
-
-describe('pre-1970 date handling (current limitation: clamps to 0)', () => {
-  it('618-06-18: gregorianToEpochMin returns 0 (lossy — pre-anchor clamp)', () => {
-    expect(gregorianToEpochMin(618, 6, 18)).toBe(0);
+  // Negative deadline tests (③ sentinel change enables these)
+  it('negative deadline: now(0) > deadline(-5000) → expired', () => {
+    expect(isExpired(-5000, 0)).toBe(true);
   });
-  it('1691-01-01: gregorianToEpochMin returns 0 (lossy — pre-anchor clamp)', () => {
-    expect(gregorianToEpochMin(1691, 1, 1)).toBe(0);
+  it('negative deadline: now(-500) > deadline(-1000) → expired', () => {
+    expect(isExpired(-1000, -500)).toBe(true);
   });
-  it('1969-12-31: returns 0 (one day before anchor, boundary clamp)', () => {
-    expect(gregorianToEpochMin(1969, 12, 31)).toBe(0);
-  });
-  it('roundtrip lossy: all three pre-1970 dates collapse to 1970-01-01', () => {
-    const anchor = { year: EPOCH_ANCHOR_YEAR, month: 1, day: 1 };
-    for (const [y, m, d] of [[618, 6, 18], [1691, 1, 1], [1969, 12, 31]] as [number, number, number][]) {
-      expect(epochMinToGregorian(gregorianToEpochMin(y, m, d))).toEqual(anchor);
-    }
-  });
-});
-
-// ── 乙4: property test (pure-rand, seed=42) ───────────────────────────────────
-
-describe('property roundtrip: date→em→date (500 pure-rand samples, seed=42)', () => {
-  it('em→date→em roundtrip: epochMin always equals dayStart of its Gregorian date', () => {
-    const rng = prand.xoroshiro128plus(42);
-    const maxDays = Math.floor(gregorianToEpochMin(2099, 12, 31) / MINUTES_PER_DAY);
-    for (let i = 0; i < 500; i++) {
-      const dayOffset = prand.unsafeUniformIntDistribution(0, maxDays, rng);
-      const em = dayOffset * MINUTES_PER_DAY;
-      const { year, month, day } = epochMinToGregorian(em);
-      expect(gregorianToEpochMin(year, month, day)).toBe(em);
-    }
+  it('negative deadline: now(-200) < deadline(-100) → not expired', () => {
+    expect(isExpired(-100, -200)).toBe(false);
   });
 });
 
@@ -534,6 +545,242 @@ describe('renderCalendar — 天数历 {daysSinceAnchor} and {月名}', () => {
   });
 });
 
+// ── 7a: dayFloor / timeOfDayMinutes ──────────────────────────────────────────
+
+describe('dayFloor', () => {
+  it('dayFloor(0) = 0 (epoch anchor is day start)', () => {
+    expect(dayFloor(0)).toBe(0);
+  });
+  it('dayFloor(1439) = 0 (last minute of first day)', () => {
+    expect(dayFloor(1439)).toBe(0);
+  });
+  it('dayFloor(1440) = 1440 (start of second day)', () => {
+    expect(dayFloor(1440)).toBe(MINUTES_PER_DAY);
+  });
+  it('dayFloor(2000) = 1440 (mid second day)', () => {
+    expect(dayFloor(2000)).toBe(MINUTES_PER_DAY);
+  });
+  it('dayFloor(-30) = -1440 (negative: floors to previous day start)', () => {
+    expect(dayFloor(-30)).toBe(-MINUTES_PER_DAY);
+  });
+  it('dayFloor(-1440) = -1440 (exact day start on negative axis)', () => {
+    expect(dayFloor(-MINUTES_PER_DAY)).toBe(-MINUTES_PER_DAY);
+  });
+});
+
+describe('timeOfDayMinutes', () => {
+  it('timeOfDayMinutes(0) = 0 (midnight)', () => {
+    expect(timeOfDayMinutes(0)).toBe(0);
+  });
+  it('timeOfDayMinutes(510) = 510 (08:30)', () => {
+    expect(timeOfDayMinutes(510)).toBe(510);
+  });
+  it('timeOfDayMinutes(1439) = 1439 (23:59)', () => {
+    expect(timeOfDayMinutes(1439)).toBe(1439);
+  });
+  it('timeOfDayMinutes(-30) = 1410 (23:30 of the day before anchor)', () => {
+    expect(timeOfDayMinutes(-30)).toBe(1410);
+  });
+  // 7a spec: 1691-01-01 08:30
+  it('1691-01-01 08:30: dayFloor extracts day start, timeOfDayMinutes = 510', () => {
+    const dayStart = gregorianToEpochMin(1691, 1, 1);
+    const em = dayStart + 510; // 08:30
+    expect(dayFloor(em)).toBe(dayStart);
+    expect(timeOfDayMinutes(em)).toBe(510);
+  });
+  it('result always in [0, 1439] for arbitrary epoch minutes', () => {
+    for (const em of [-100000, -1440, -1, 0, 1, 1440, 2880, 100000]) {
+      const tod = timeOfDayMinutes(em);
+      expect(tod).toBeGreaterThanOrEqual(0);
+      expect(tod).toBeLessThan(MINUTES_PER_DAY);
+    }
+  });
+});
+
+// ── 7e: writeEpochMinute ──────────────────────────────────────────────────────
+
+describe('writeEpochMinute', () => {
+  it('writeEpochMinute(0) → 1 (shifts away from sentinel)', () => {
+    expect(writeEpochMinute(0)).toBe(1);
+  });
+  it('writeEpochMinute(1) → 1 (non-zero unchanged)', () => {
+    expect(writeEpochMinute(1)).toBe(1);
+  });
+  it('writeEpochMinute(-1440) → -1440 (negative non-zero unchanged)', () => {
+    expect(writeEpochMinute(-1440)).toBe(-1440);
+  });
+  it('writeEpochMinute(999999) → 999999 (large positive unchanged)', () => {
+    expect(writeEpochMinute(999999)).toBe(999999);
+  });
+});
+
+// ── 7c: earliestDeadline ─────────────────────────────────────────────────────
+
+describe('earliestDeadline', () => {
+  it('[0, -5000, 3000] → -5000 (sentinel 0 excluded, negative wins)', () => {
+    expect(earliestDeadline([0, -5000, 3000])).toBe(-5000);
+  });
+  it('[3000, 5000] → 3000', () => {
+    expect(earliestDeadline([3000, 5000])).toBe(3000);
+  });
+  it('[0, 0] → undefined (all sentinels)', () => {
+    expect(earliestDeadline([0, 0])).toBeUndefined();
+  });
+  it('[] → undefined (empty)', () => {
+    expect(earliestDeadline([])).toBeUndefined();
+  });
+  it('[0] → undefined (sole sentinel)', () => {
+    expect(earliestDeadline([0])).toBeUndefined();
+  });
+  it('[-100, -200, 0, 50] → -200 (most negative non-sentinel wins)', () => {
+    expect(earliestDeadline([-100, -200, 0, 50])).toBe(-200);
+  });
+});
+
+// ── 7d: minutesSinceLast ──────────────────────────────────────────────────────
+
+describe('minutesSinceLast', () => {
+  it('lastEpochMin = 0 → null (never happened)', () => {
+    expect(minutesSinceLast(0, 5000)).toBeNull();
+  });
+  it('1000 → 5000: elapsed = 4000', () => {
+    expect(minutesSinceLast(1000, 5000)).toBe(4000);
+  });
+  it('negative axis: last=-1440, now=0 → 1440 (one day elapsed)', () => {
+    expect(minutesSinceLast(-MINUTES_PER_DAY, 0)).toBe(MINUTES_PER_DAY);
+  });
+  it('same moment: elapsed = 0', () => {
+    expect(minutesSinceLast(5000, 5000)).toBe(0);
+  });
+});
+
+// ── 8b: nextMonthStart ───────────────────────────────────────────────────────
+
+describe('nextMonthStart', () => {
+  it('Jan 15 → Feb 1 (standard month boundary)', () => {
+    const em = gregorianToEpochMin(2000, 1, 15);
+    expect(nextMonthStart(em)).toBe(gregorianToEpochMin(2000, 2, 1));
+  });
+  it('Dec 15 → Jan 1 next year (December rollover)', () => {
+    const em = gregorianToEpochMin(2000, 12, 15);
+    expect(nextMonthStart(em)).toBe(gregorianToEpochMin(2001, 1, 1));
+  });
+  it('Feb 15 in leap year → Mar 1', () => {
+    const em = gregorianToEpochMin(2000, 2, 15);
+    expect(nextMonthStart(em)).toBe(gregorianToEpochMin(2000, 3, 1));
+  });
+  it('Feb 1 itself → Mar 1 (already at month start advances to next)', () => {
+    const em = gregorianToEpochMin(2000, 2, 1);
+    expect(nextMonthStart(em)).toBe(gregorianToEpochMin(2000, 3, 1));
+  });
+  it('negative axis: 1691-01-15 → 1691-02-01', () => {
+    const em = gregorianToEpochMin(1691, 1, 15);
+    expect(nextMonthStart(em)).toBe(gregorianToEpochMin(1691, 2, 1));
+  });
+  it('Mar 17 → Apr 1 (short first tick scenario)', () => {
+    const em = gregorianToEpochMin(2000, 3, 17);
+    expect(nextMonthStart(em)).toBe(gregorianToEpochMin(2000, 4, 1));
+  });
+});
+
+// ── 8b: nextYearSameDay ──────────────────────────────────────────────────────
+
+describe('nextYearSameDay', () => {
+  it('normal date: 2000-03-15 → 2001-03-15', () => {
+    const em = gregorianToEpochMin(2000, 3, 15);
+    expect(nextYearSameDay(em)).toBe(gregorianToEpochMin(2001, 3, 15));
+  });
+  it('Dec 15 → next year same day (year rollover)', () => {
+    const em = gregorianToEpochMin(2000, 12, 15);
+    expect(nextYearSameDay(em)).toBe(gregorianToEpochMin(2001, 12, 15));
+  });
+  it('Feb 29 (leap) → Feb 28 in non-leap target year', () => {
+    const em = gregorianToEpochMin(2000, 2, 29); // 2000 leap, 2001 not leap
+    expect(nextYearSameDay(em)).toBe(gregorianToEpochMin(2001, 2, 28));
+  });
+  it('Feb 29 (1996 leap) → Feb 28 in 1997 (not leap)', () => {
+    const em = gregorianToEpochMin(1996, 2, 29);
+    expect(nextYearSameDay(em)).toBe(gregorianToEpochMin(1997, 2, 28));
+  });
+  it('negative axis: 1691-06-15 → 1692-06-15', () => {
+    const em = gregorianToEpochMin(1691, 6, 15);
+    expect(nextYearSameDay(em)).toBe(gregorianToEpochMin(1692, 6, 15));
+  });
+});
+
+// ── 8c: computeTickSpan ───────────────────────────────────────────────────────
+
+describe('computeTickSpan', () => {
+  it('1月31日 → 2月1日 (发展, 1-day span)', () => {
+    const now = gregorianToEpochMin(2000, 1, 31);
+    const r = computeTickSpan({ nowEpochMin: now, granularity: '发展', deterministicExpiries: [] });
+    expect(r.spanMinutes).toBe(gregorianToEpochMin(2000, 2, 1) - now);
+    expect(r.truncatedBy).toBeUndefined();
+  });
+  it('leap year Feb boundary: Feb 28 → Mar 1 (发展)', () => {
+    const now = gregorianToEpochMin(2000, 2, 28);
+    const r = computeTickSpan({ nowEpochMin: now, granularity: '发展', deterministicExpiries: [] });
+    expect(r.spanMinutes).toBe(gregorianToEpochMin(2000, 3, 1) - now);
+  });
+  it('Dec rollover: Dec 15 → Jan 1 next year (发展)', () => {
+    const now = gregorianToEpochMin(2000, 12, 15);
+    const r = computeTickSpan({ nowEpochMin: now, granularity: '发展', deterministicExpiries: [] });
+    expect(r.spanMinutes).toBe(gregorianToEpochMin(2001, 1, 1) - now);
+  });
+  it('2/29 → 2/28 in plain year (世代)', () => {
+    const now = gregorianToEpochMin(2000, 2, 29); // 2000 leap; target 2001 not leap
+    const r = computeTickSpan({ nowEpochMin: now, granularity: '世代', deterministicExpiries: [] });
+    expect(r.spanMinutes).toBe(gregorianToEpochMin(2001, 2, 28) - now);
+  });
+  it('negative axis: 1691-01-15 → 1691-02-01 (发展)', () => {
+    const now = gregorianToEpochMin(1691, 1, 15);
+    const r = computeTickSpan({ nowEpochMin: now, granularity: '发展', deterministicExpiries: [] });
+    expect(r.spanMinutes).toBe(gregorianToEpochMin(1691, 2, 1) - now);
+  });
+  it('short first tick: Mar 17 → Apr 1 (发展)', () => {
+    const now = gregorianToEpochMin(2000, 3, 17);
+    const r = computeTickSpan({ nowEpochMin: now, granularity: '发展', deterministicExpiries: [] });
+    expect(r.spanMinutes).toBe(gregorianToEpochMin(2000, 4, 1) - now);
+  });
+  it('multiple expiries → nearest truncates span', () => {
+    const now = gregorianToEpochMin(2000, 1, 1);
+    const e1 = now + 5000;
+    const e2 = now + 3000;
+    const r = computeTickSpan({ nowEpochMin: now, granularity: '发展', deterministicExpiries: [e1, e2] });
+    expect(r.spanMinutes).toBe(3000);
+    expect(r.truncatedBy).toBe(e2);
+  });
+  it('expiry == now filtered out (not strictly after now)', () => {
+    const now = gregorianToEpochMin(2000, 1, 1);
+    const r = computeTickSpan({ nowEpochMin: now, granularity: '发展', deterministicExpiries: [now] });
+    const expected = gregorianToEpochMin(2000, 2, 1) - now;
+    expect(r.spanMinutes).toBe(expected);
+    expect(r.truncatedBy).toBeUndefined();
+  });
+  it('no expiry, 即时 → fixed 5 minutes', () => {
+    const now = gregorianToEpochMin(2000, 6, 15);
+    const r = computeTickSpan({ nowEpochMin: now, granularity: '即时', deterministicExpiries: [] });
+    expect(r.spanMinutes).toBe(5);
+  });
+  it('no expiry, 日常 → fixed 1440 minutes', () => {
+    const now = gregorianToEpochMin(2000, 6, 15);
+    const r = computeTickSpan({ nowEpochMin: now, granularity: '日常', deterministicExpiries: [] });
+    expect(r.spanMinutes).toBe(MINUTES_PER_DAY);
+  });
+  it('sentinel expiry 0 excluded, uses full calendar boundary', () => {
+    const now = gregorianToEpochMin(2000, 3, 1);
+    const r = computeTickSpan({ nowEpochMin: now, granularity: '发展', deterministicExpiries: [0, 0] });
+    expect(r.spanMinutes).toBe(gregorianToEpochMin(2000, 4, 1) - now);
+    expect(r.truncatedBy).toBeUndefined();
+  });
+  it('spanMinutes is always ≥ 1', () => {
+    // Force boundary == now (edge case)
+    const now = gregorianToEpochMin(2000, 1, 1);
+    const r = computeTickSpan({ nowEpochMin: now, granularity: '发展', deterministicExpiries: [] });
+    expect(r.spanMinutes).toBeGreaterThanOrEqual(1);
+  });
+});
+
 // ── 甲2: getSeason ────────────────────────────────────────────────────────────
 
 describe('getSeason', () => {
@@ -569,6 +816,15 @@ describe('getSeason', () => {
     expect(getSeason(6, '北温带')).toBe('夏');
     expect(getSeason(6, '南半球')).toBe('冬');
   });
+  // 7b negative axis cases
+  it('负轴 1691-03: 北温带 → 春（月份正确派生）', () => {
+    const { month } = epochMinToGregorian(gregorianToEpochMin(1691, 3, 1));
+    expect(getSeason(month, '北温带')).toBe('春');
+  });
+  it('负轴 618-12: 北温带 → 冬', () => {
+    const { month } = epochMinToGregorian(gregorianToEpochMin(618, 12, 1));
+    expect(getSeason(month, '北温带')).toBe('冬');
+  });
 });
 
 // ── 甲2: getAge ───────────────────────────────────────────────────────────────
@@ -600,7 +856,6 @@ describe('getAge', () => {
   });
   it('leap-day birthday (2000-02-29): ages on Mar 1 in non-leap years', () => {
     const birth = gregorianToEpochMin(2000, 2, 29);
-    // 2001 is not leap — Feb has only 28 days; age check on Mar 1
     const mar1 = gregorianToEpochMin(2001, 3, 1);
     const feb28 = gregorianToEpochMin(2001, 2, 28);
     expect(getAge(birth, mar1)).toBe(1);
@@ -609,6 +864,32 @@ describe('getAge', () => {
   it('age 0 at first minute of life', () => {
     const birth = gregorianToEpochMin(1990, 5, 20);
     expect(getAge(birth, birth + 1)).toBe(0);
+  });
+  // ⑨ Negative axis (康熙, born 1661 in history; game uses negative axis)
+  it('康熙: born 1681-05-04, day before 10th birthday still age 9', () => {
+    const birth = gregorianToEpochMin(1681, 5, 4);
+    const dayBefore = gregorianToEpochMin(1691, 5, 3);
+    expect(getAge(birth, dayBefore)).toBe(9);
+  });
+  it('康熙: born 1681-05-04, age 10 on 1691-07-01', () => {
+    const birth = gregorianToEpochMin(1681, 5, 4);
+    const now = gregorianToEpochMin(1691, 7, 1);
+    expect(getAge(birth, now)).toBe(10);
+  });
+  // ⑨ Long span
+  it('born 2000-03-01: age 69 on 2070-02-28 (birthday not yet reached)', () => {
+    const birth = gregorianToEpochMin(2000, 3, 1);
+    expect(getAge(birth, gregorianToEpochMin(2070, 2, 28))).toBe(69);
+  });
+  it('born 2000-03-01: age 70 on 2070-03-01 (exactly on birthday)', () => {
+    const birth = gregorianToEpochMin(2000, 3, 1);
+    expect(getAge(birth, gregorianToEpochMin(2070, 3, 1))).toBe(70);
+  });
+  // 7b negative axis
+  it('born negative axis, now also negative: correct age gap', () => {
+    const birth = gregorianToEpochMin(618, 1, 1);
+    const age25 = gregorianToEpochMin(643, 1, 1);
+    expect(getAge(birth, age25)).toBe(25);
   });
 });
 
@@ -631,5 +912,21 @@ describe('dual clock: lens ≥ world invariant during RP_FOCUS', () => {
     // On exit: world catches up to lens, equality restored
     const c4 = exitRpFocus(c3, 1440 + 43200);
     expect(c4.lens.epochMin).toBeGreaterThanOrEqual(c4.world.epochMin);
+  });
+});
+
+// ── 乙4: property test (pure-rand, seed=42, ±1000 years) ─────────────────────
+
+describe('property roundtrip: date→em→date (500 pure-rand samples, seed=42, ±1000yr)', () => {
+  it('em→date→em roundtrip holds for both positive and negative epoch minutes', () => {
+    const rng = prand.xoroshiro128plus(42);
+    const minDays = Math.floor(gregorianToEpochMin(970, 1, 1) / MINUTES_PER_DAY);
+    const maxDays = Math.floor(gregorianToEpochMin(2970, 12, 31) / MINUTES_PER_DAY);
+    for (let i = 0; i < 500; i++) {
+      const dayOffset = prand.unsafeUniformIntDistribution(minDays, maxDays, rng);
+      const em = dayOffset * MINUTES_PER_DAY;
+      const { year, month, day } = epochMinToGregorian(em);
+      expect(gregorianToEpochMin(year, month, day)).toBe(em);
+    }
   });
 });

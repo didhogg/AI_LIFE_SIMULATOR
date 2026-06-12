@@ -1,5 +1,6 @@
 // Ring 0 time-system primitives — pure functions, zero side effects.
 // Epoch anchor: 1970-01-01 00:00:00 Gregorian = epoch minute 0.
+// Pre-1970 dates return negative epoch minutes (full integer axis support).
 // ESLint bans enforced by CI: Date.now(), new Date(), Math.random() absent.
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -11,8 +12,12 @@ export const MINUTES_PER_DAY = 1440;
 export const MINUTES_PER_MONTH = 43200;   // 30-day game month
 export const MINUTES_PER_YEAR = 518400;   // 12 × MINUTES_PER_MONTH
 
-/** Tick duration in epoch minutes, indexed by granularity key. */
-export const TICK_MINUTES: Readonly<Record<string, number>> = {
+/**
+ * Nominal tick duration in minutes, indexed by granularity key.
+ * Used by migrate.ts backward conversion and probOverSpan standard-month denominator.
+ * Engine runtime tick spans use calendar-aligned functions (computeTickSpan), not this table.
+ */
+export const MIGRATION_TICK_MINUTES: Readonly<Record<string, number>> = {
   即时: 5,
   日常: MINUTES_PER_DAY,
   发展: MINUTES_PER_MONTH,
@@ -22,7 +27,7 @@ export const TICK_MINUTES: Readonly<Record<string, number>> = {
   世代: MINUTES_PER_YEAR,
 } as const;
 
-export const VALID_GRANULARITIES: ReadonlySet<string> = new Set(Object.keys(TICK_MINUTES));
+export const VALID_GRANULARITIES: ReadonlySet<string> = new Set(Object.keys(MIGRATION_TICK_MINUTES));
 
 /** Maximum granularity stack depth before push throws. */
 export const GRANULARITY_STACK_MAX = 8;
@@ -40,28 +45,43 @@ function daysInMonth(year: number, month: number): number {
 
 /**
  * Gregorian date → absolute epoch minutes.
+ * Supports the full integer range: pre-1970 dates return negative epoch minutes.
  * Canonical implementation — the sole source of truth for this conversion in core.
- * Returns 0 for dates before 1970-01-01.
  */
 export function gregorianToEpochMin(year: number, month: number, day: number): number {
-  if (year < EPOCH_ANCHOR_YEAR) return 0;
-  let days = 0;
-  for (let y = EPOCH_ANCHOR_YEAR; y < year; y++) days += isLeapYear(y) ? 366 : 365;
-  for (let mo = 1; mo < month; mo++) days += daysInMonth(year, mo);
-  days += day - 1;
+  let days: number;
+  if (year >= EPOCH_ANCHOR_YEAR) {
+    days = 0;
+    for (let y = EPOCH_ANCHOR_YEAR; y < year; y++) days += isLeapYear(y) ? 366 : 365;
+    for (let mo = 1; mo < month; mo++) days += daysInMonth(year, mo);
+    days += day - 1;
+  } else {
+    // Sum days from year/month/day forward to 1970-01-01, then negate.
+    let daysToAnchor = 0;
+    for (let y = year; y < EPOCH_ANCHOR_YEAR; y++) daysToAnchor += isLeapYear(y) ? 366 : 365;
+    let dayOfYear = day - 1;
+    for (let mo = 1; mo < month; mo++) dayOfYear += daysInMonth(year, mo);
+    days = dayOfYear - daysToAnchor;
+  }
   return days * MINUTES_PER_DAY;
 }
 
-/** Absolute epoch minutes → Gregorian {year, month, day}. */
+/** Absolute epoch minutes → Gregorian {year, month, day}. Supports negative epoch minutes. */
 export function epochMinToGregorian(em: number): { year: number; month: number; day: number } {
-  if (em < 0) return { year: EPOCH_ANCHOR_YEAR, month: 1, day: 1 };
   let remaining = Math.floor(em / MINUTES_PER_DAY);
   let year = EPOCH_ANCHOR_YEAR;
-  for (;;) {
-    const diy = isLeapYear(year) ? 366 : 365;
-    if (remaining < diy) break;
-    remaining -= diy;
-    year++;
+  if (remaining >= 0) {
+    for (;;) {
+      const diy = isLeapYear(year) ? 366 : 365;
+      if (remaining < diy) break;
+      remaining -= diy;
+      year++;
+    }
+  } else {
+    while (remaining < 0) {
+      year--;
+      remaining += isLeapYear(year) ? 366 : 365;
+    }
   }
   let month = 1;
   while (month <= 12) {
@@ -73,16 +93,16 @@ export function epochMinToGregorian(em: number): { year: number; month: number; 
   return { year, month, day: remaining + 1 };
 }
 
-/** Parse "YYYY年MM月DD日" → absolute epoch minutes (base 1970-01-01 = 0). */
+/** Parse "YYYY年MM月DD日" → absolute epoch minutes. Pre-1970 returns negative. Invalid format → 0. */
 export function parseChineseDateToEpochMin(s: string): number {
   const m = /^(\d+)年(\d+)月(\d+)日$/.exec(s.trim());
   if (!m) return 0;
   return gregorianToEpochMin(Number(m[1]), Number(m[2]), Number(m[3]));
 }
 
-/** Return tick duration in epoch minutes for a granularity key. Falls back to MINUTES_PER_MONTH. */
+/** Return nominal tick duration in minutes for a granularity key. Falls back to MINUTES_PER_MONTH. */
 export function getTickMinutes(粒度: string): number {
-  return TICK_MINUTES[粒度] ?? MINUTES_PER_MONTH;
+  return MIGRATION_TICK_MINUTES[粒度] ?? MINUTES_PER_MONTH;
 }
 
 /** periodToEpochMin factory: worldEpochMin − (周期数 − N) × tickMinutes */
@@ -254,7 +274,8 @@ export function compound(annualRate: number, spanMin: number): number {
 
 /**
  * Probability of at least one occurrence over spanMonths given per-month probability.
- * Formula: 1 − (1 − monthProb)^spanMonths
+ * Formula: 1 − (1 − monthProb)^spanMonths.
+ * spanMonths = spanMinutes / MINUTES_PER_MONTH (caller converts via MIGRATION_TICK_MINUTES).
  */
 export function probOverSpan(monthProb: number, spanMonths: number): number {
   return 1 - Math.pow(1 - monthProb, spanMonths);
@@ -265,9 +286,118 @@ export function probOverSpan(monthProb: number, spanMonths: number): number {
 /**
  * True if deadline has passed relative to now.
  * Sentinel: deadline === 0 means eternal — never expires.
+ * Negative deadlines (ancient absolute timestamps) expire normally when now >= deadline.
  */
 export function isExpired(deadline: number, now: number): boolean {
-  return deadline > 0 ? now >= deadline : false;
+  return deadline === 0 ? false : now >= deadline;
+}
+
+// ── Floor-safe day arithmetic ─────────────────────────────────────────────────
+
+/** Floor epoch minute to the start of its day. Safe for negative epoch minutes. */
+export function dayFloor(epochMin: number): number {
+  return Math.floor(epochMin / MINUTES_PER_DAY) * MINUTES_PER_DAY;
+}
+
+/** Minutes elapsed since start of day (always in [0, 1439]). Safe for negative epoch minutes. */
+export function timeOfDayMinutes(epochMin: number): number {
+  return epochMin - dayFloor(epochMin);
+}
+
+// ── Sentinel-safe epoch-minute write ─────────────────────────────────────────
+
+/**
+ * Collision guard: epoch minute 0 is the sentinel ("eternal" / "never happened").
+ * Shift the anchor-coincident value to 1 so real event writes never overwrite the sentinel.
+ */
+export function writeEpochMinute(epochMin: number): number {
+  return epochMin === 0 ? 1 : epochMin;
+}
+
+// ── Deadline utilities ────────────────────────────────────────────────────────
+
+/**
+ * Earliest non-sentinel deadline from an array.
+ * 0 is the eternal sentinel and is excluded from consideration.
+ */
+export function earliestDeadline(deadlines: readonly number[]): number | undefined {
+  let result: number | undefined;
+  for (const d of deadlines) {
+    if (d !== 0 && (result === undefined || d < result)) result = d;
+  }
+  return result;
+}
+
+/**
+ * Minutes elapsed since lastEpochMin.
+ * Returns null if lastEpochMin === 0 (sentinel: event has never happened).
+ */
+export function minutesSinceLast(lastEpochMin: number, nowEpochMin: number): number | null {
+  if (lastEpochMin === 0) return null;
+  return nowEpochMin - lastEpochMin;
+}
+
+// ── Calendar tick boundaries ──────────────────────────────────────────────────
+
+/** Next calendar month start from epochMin. Handles December → January rollover. */
+export function nextMonthStart(epochMin: number): number {
+  const { year, month } = epochMinToGregorian(epochMin);
+  if (month === 12) return gregorianToEpochMin(year + 1, 1, 1);
+  return gregorianToEpochMin(year, month + 1, 1);
+}
+
+/**
+ * Same calendar date one year later.
+ * Feb 29 in a leap year maps to Feb 28 in non-leap target years.
+ */
+export function nextYearSameDay(epochMin: number): number {
+  const { year, month, day } = epochMinToGregorian(epochMin);
+  const targetYear = year + 1;
+  if (month === 2 && day === 29 && !isLeapYear(targetYear)) {
+    return gregorianToEpochMin(targetYear, 2, 28);
+  }
+  return gregorianToEpochMin(targetYear, month, day);
+}
+
+export interface TickSpanInput {
+  nowEpochMin: number;
+  granularity: string;
+  deterministicExpiries: number[];
+}
+
+export interface TickSpanResult {
+  spanMinutes: number;
+  truncatedBy?: number;
+}
+
+/**
+ * Compute the next tick span in minutes for a given granularity.
+ * 即时: fixed 5 min. 日常/日: fixed 1440 min.
+ * 发展/月: calendar-aligned to start of next month.
+ * 世代/年: calendar-aligned to same day next year.
+ * Span is truncated to the earliest non-sentinel expiry strictly after now.
+ * spanMinutes is always ≥ 1.
+ */
+export function computeTickSpan({ nowEpochMin, granularity, deterministicExpiries }: TickSpanInput): TickSpanResult {
+  let boundary: number;
+  if (granularity === '即时') {
+    boundary = nowEpochMin + 5;
+  } else if (granularity === '日常' || granularity === '日') {
+    boundary = nowEpochMin + MINUTES_PER_DAY;
+  } else if (granularity === '发展' || granularity === '月') {
+    boundary = nextMonthStart(nowEpochMin);
+  } else {
+    boundary = nextYearSameDay(nowEpochMin); // 世代/年
+  }
+
+  const validExpiries = deterministicExpiries.filter(e => e !== 0 && e > nowEpochMin);
+  let truncatedBy: number | undefined;
+  let earliest = boundary;
+  for (const e of validExpiries) {
+    if (e < earliest) { earliest = e; truncatedBy = e; }
+  }
+  const spanMinutes = Math.max(1, earliest - nowEpochMin);
+  return truncatedBy !== undefined ? { spanMinutes, truncatedBy } : { spanMinutes };
 }
 
 // ── Derived display values ────────────────────────────────────────────────────

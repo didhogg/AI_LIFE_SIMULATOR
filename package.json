@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
+    "test:tz-utc": "TZ=UTC vitest run",
+    "test:tz-tokyo": "TZ=Asia/Tokyo vitest run",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },

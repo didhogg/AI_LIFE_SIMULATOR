@@ -123,14 +123,27 @@ describe('4.2 World layer', () => {
       主世界: { 玩法预设引用: 'preset-01', 域时钟: 0, 封存状态: false },
     })).not.toThrow();
   });
-  it('invalid: 纪元分钟 negative', () => {
-    expect(世界Schema.safeParse({ 纪元分钟: -1 }).success).toBe(false);
+  it('valid: 纪元分钟 accepts negative (pre-1970 ancient-date absolute timestamp)', () => {
+    expect(世界Schema.safeParse({ 纪元分钟: -1 }).success).toBe(true);
   });
   it('invalid: 纪元分钟 wrong type', () => {
     expect(世界Schema.safeParse({ 纪元分钟: '1000' }).success).toBe(false);
   });
   it('unknown key strict rejection', () => {
     expect(世界Schema.strict().safeParse({ 季节: '春' }).success).toBe(false); // 季节 is derived
+  });
+  // 13a: 对齐模式 in GranularityTemplateSchema
+  it('_粒度模板: 对齐模式 defaults to 固定跨度', () => {
+    const world = 世界Schema.parse({});
+    expect(world._粒度模板.即时.对齐模式).toBe('固定跨度');
+    expect(world._粒度模板.发展.对齐模式).toBe('固定跨度');
+  });
+  it('_粒度模板: 对齐模式 accepts 历法对齐', () => {
+    const result = 世界Schema.parse({ _粒度模板: { 发展: { 对齐模式: '历法对齐' } } });
+    expect(result._粒度模板.发展.对齐模式).toBe('历法对齐');
+  });
+  it('_粒度模板: 对齐模式 rejects unknown value', () => {
+    expect(世界Schema.safeParse({ _粒度模板: { 即时: { 对齐模式: '自由' } } }).success).toBe(false);
   });
 });
 

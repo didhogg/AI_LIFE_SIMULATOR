@@ -58,7 +58,7 @@ const 约定库条目Schema = z.object({
   条款: z.array(条款条目Schema).default([]),
   约束力: z.number().min(0).max(100).default(0),
   维系手段: z.string().default(''),
-  期限: z.number().int().min(0).optional(), // 绝对纪元分钟；无 = 永久
+  期限: z.number().int().optional(), // 绝对纪元分钟；无 = 永久
   状态: z.string().default('有效'),
 });
 
@@ -87,8 +87,8 @@ const 双亲边Schema = z.object({
 const 家族树节点Schema = z.object({
   双亲边: z.array(双亲边Schema).default([]),
   生卒: z.object({
-    出生: z.number().int().min(0).default(0), // 绝对纪元分钟
-    死亡: z.number().int().min(0).optional(),
+    出生: z.number().int().default(0), // 绝对纪元分钟；0=未记录
+    死亡: z.number().int().optional(), // 绝对纪元分钟；0=健在/未记录
   }).default({}),
   总评: z.string().default(''),
   关键成就: z.array(z.string()).default([]),
@@ -112,7 +112,7 @@ const 家族树Schema = z.object({
 // ══════════════════════════════════════════
 
 const 覆写日志条目Schema = z.object({
-  时间: z.number().int().min(0).default(0), // 绝对纪元分钟
+  时间: z.number().int().default(0), // 绝对纪元分钟
   授权源: z.string().default(''),
   级别: z.string().default(''),             // L1大额数值/L2改判定档/L3归零
   目标: z.string().default(''),

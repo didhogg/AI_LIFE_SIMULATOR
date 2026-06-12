@@ -22,7 +22,7 @@ const 资产条目Schema = z.object({
   现价: z.number().default(0),
   杠杆: z.number().min(0).optional(),
   保证金: z.number().min(0).optional(),
-  到期日: z.number().int().min(0).optional(), // 绝对纪元分钟
+  到期日: z.number().int().optional(), // 绝对纪元分钟
   衍生品参数: z.record(z.string(), z.number()).optional(),
 });
 
@@ -70,7 +70,7 @@ export const 货币系统Schema = z.object({
   基准币种: z.string().default(''),
   汇率: z.record(z.string(), z.number().min(0)).default({}), // 币种→对基准汇率
   换汇登记: z.array(z.object({
-    时间: z.number().int().min(0).default(0),
+    时间: z.number().int().default(0), // 绝对纪元分钟
     从: z.string().default(''),
     到: z.string().default(''),
     金额: z.number().default(0),

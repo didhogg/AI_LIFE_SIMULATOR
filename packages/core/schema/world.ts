@@ -8,6 +8,7 @@ const GranularityTemplateSchema = z.object({
   精力激活: z.boolean().default(true),
   HP模型: z.string().default(''), // 回合血条/体力/寿元等
   自动结算: z.array(z.string()).default([]), // 月结/经济等自动结算项
+  对齐模式: z.enum(['固定跨度', '历法对齐']).default('固定跨度'),
 });
 
 // ── 历法 ──
@@ -24,7 +25,7 @@ const CalendarSchema = z.object({
 
 // ── 世界 ──
 export const 世界Schema = z.object({
-  纪元分钟: z.number().int().min(0).default(0), // 唯一整型真相
+  纪元分钟: z.number().int().default(0), // 唯一整型真相
   历法: CalendarSchema.default({}),
   // 当前日期(显示串) 🧮 派生，不存储
   // 季节 🧮 派生 f(月, 气候带)，不存储
@@ -32,7 +33,7 @@ export const 世界Schema = z.object({
   气候带: z.string().default(''),
   当前粒度: z.string().default('日常'), // 粒度模板键
   粒度栈: z.array(z.string()).default([]),
-  周期数: z.number().int().min(0).default(0), // 只读统计
+  周期数: z.number().int().min(0).default(0), // 只读统计；拍计数≠时间，禁止用拍数折算时长
   _本拍跨度: z.number().int().min(1).default(43200), // 只读，单位纪元分钟（默认一天=1440*30）
   _粒度模板: z.object({
     即时: GranularityTemplateSchema.default({}),
@@ -47,7 +48,7 @@ export const 世界域Schema = z.record(
   z.string(), // 域 ID（mod 命名空间同机制）
   z.object({
     玩法预设引用: z.string().default(''),
-    域时钟: z.number().int().min(0).default(0), // 该域独立纪元分钟
+    域时钟: z.number().int().default(0), // 该域独立纪元分钟
     封存状态: z.boolean().default(false),
   }),
 ).default({});

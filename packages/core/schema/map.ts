@@ -79,7 +79,7 @@ const 战役条目Schema = z.object({
   交战方: z.array(z.string()).default([]), // 组织键列表
   所属战争键: z.string().default(''),
   态势: z.string().default(''),
-  起拍: z.number().int().min(0).default(0), // 绝对纪元分钟
+  起拍: z.number().int().default(0), // 绝对纪元分钟
   争夺区域: z.array(争夺区域条目Schema).default([]),
 });
 

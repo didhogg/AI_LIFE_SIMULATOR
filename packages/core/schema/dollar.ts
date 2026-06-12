@@ -24,7 +24,7 @@ export const $涟漪候选Schema = z.record(
 // ── $RP暂存（微行为聚合缓冲，§2.3） ──
 export const $RP暂存Schema = z.object({
   本场摘要: z.string().default(''),
-  起始时间: z.number().int().min(0).default(0), // 绝对纪元分钟
+  起始时间: z.number().int().default(0), // 绝对纪元分钟
   本场新登场: z.array(z.object({
     类型: z.string().default('NPC'),
     名称: z.string().default(''),
@@ -73,7 +73,7 @@ export const $玩家偏好Schema = z.object({
 
 // ── $会话状态（6.1） ──
 export const $会话状态Schema = z.object({
-  最后交互时间戳: z.number().int().min(0).default(0), // 绝对纪元分钟（合法出现的墙钟触点）
+  最后交互时间戳: z.number().int().default(0), // 绝对纪元分钟（合法出现的墙钟触点）
   未读播报数: z.number().int().min(0).default(0),
   崩溃恢复指针: z.string().default(''),
 });
@@ -118,7 +118,7 @@ export const $天命重掷券Schema = z.object({
 const 延时种子条目Schema = z.object({
   载荷: z.string().default(''),
   类型: z.string().default('伏笔'),
-  成熟日: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 立即成熟（无到期约束）
+  成熟日: z.number().int().default(0), // 绝对纪元分钟；0 = 立即成熟（无到期约束）
   权重: z.number().min(0).max(100).default(10),
   重要等级: z.string().default('中'),          // 普通/重要/命运
   已结算标记: z.number().int().min(0).max(1).default(0),
@@ -147,11 +147,11 @@ const 彩蛋条目Schema = z.object({
   关联意象: z.array(z.string()).default([]),
   关联NPC: z.array(z.string()).default([]),
   情绪基调: z.string().default(''),
-  录入时间: z.number().int().min(0).default(0),
-  冷却到期: z.number().int().min(0).default(0), // 绝对纪元分钟
+  录入时间: z.number().int().default(0),
+  冷却到期: z.number().int().default(0), // 绝对纪元分钟；0 = 无冷却
   可浮现: z.boolean().default(true),
   已浮现: z.boolean().default(false),
-  上次浮现时间: z.number().int().min(0).default(0),
+  上次浮现时间: z.number().int().default(0),
 });
 
 export const $隐藏记忆库Schema = z.object({
@@ -161,14 +161,14 @@ export const $隐藏记忆库Schema = z.object({
 
 // ── $meta（跨周目存档层） ──
 export const $metaSchema = z.object({
-  总回合数: z.number().int().min(0).default(0),
+  总回合数: z.number().int().min(0).default(0), // 拍计数≠时间，禁止用拍数折算时长
   上帝之手次数: z.number().int().min(0).default(0),
   聆听心声次数: z.number().int().min(0).default(0),
   历代角色数: z.number().int().min(1).default(1),
   周目谱系: z.record(z.string(), z.object({  // 带 parent 指针的存档树
     parent: z.string().optional(),
     快照引用: z.string().default(''),
-    创建时间: z.number().int().min(0).default(0),
+    创建时间: z.number().int().default(0),
     角色键: z.string().default(''),
   })).default({}),
   峰值记录: z.record(z.string(), z.number()).default({}), // 各维度峰值

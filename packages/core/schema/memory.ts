@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 export const 记忆条目Schema = z.object({
   记忆id: z.string().default(''),
-  发生时间: z.number().int().min(0).default(0), // 绝对纪元分钟（原"周期"重标定）
+  发生时间: z.number().int().default(0), // 绝对纪元分钟（原"周期"重标定）
   标题: z.string().default(''),
   摘要: z.string().default(''),
   涉及人物: z.string().default(''),
@@ -20,7 +20,7 @@ export const 记忆条目Schema = z.object({
   情绪基调: z.string().default(''),
   思念权重: z.number().min(0).max(100).default(0),
   权重: z.number().min(0).max(100).default(50),
-  上次浮现时间: z.number().int().min(0).default(0),
+  上次浮现时间: z.number().int().default(0),
   可浮现: z.boolean().default(true),
   因果: z.object({
     起因事件id: z.string().default(''),
@@ -31,7 +31,7 @@ export const 记忆条目Schema = z.object({
 
 // 长期归档扩展字段
 const 归档记忆条目Schema = 记忆条目Schema.extend({
-  归档时间: z.number().int().min(0).default(0), // 绝对纪元分钟
+  归档时间: z.number().int().default(0), // 绝对纪元分钟
   来源时间范围: z.string().default(''),
 });
 
@@ -95,12 +95,12 @@ export const 播报条目Schema = z.object({
   播报id: z.string().default(''),
   内容: z.string().default(''),
   重要度: z.string().default('普通'),
-  发生时间: z.number().int().min(0).default(0),
+  发生时间: z.number().int().default(0),
   渠道标签: z.string().optional(), // 6.9 可空
   // P0 预埋·行为实现在 P1：缺省视为挂起；AI 仅可提案，硬闯由引擎第④闸按白名单终裁
   打断级别: z.enum(['挂起', '闪念', '硬闯']).optional(),
   // P0 预埋·行为实现在 P1：绝对纪元分钟；超期由引擎降级系统文本强制出队
-  最迟期限: z.number().int().min(0).optional(),
+  最迟期限: z.number().int().optional(), // 绝对纪元分钟；0=哨兵/永不降级
   已读: z.boolean().default(false),
 });
 
@@ -109,7 +109,7 @@ export const 播报条目Schema = z.object({
 // ══════════════════════════════════════════
 
 export const 仲裁器Schema = z.object({
-  冷却表: z.record(z.string(), z.number().int().min(0)).default({}), // 冷却键→到期纪元分钟
+  冷却表: z.record(z.string(), z.number().int()).default({}), // 冷却键→到期纪元分钟
   本轮种子包: z.array(z.string()).default([]),    // 本拍成熟的种子 ID 列表
   播报队列: z.array(播报条目Schema).default([]),  // 待播报条目
 });

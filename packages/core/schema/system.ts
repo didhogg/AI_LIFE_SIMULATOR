@@ -4,7 +4,7 @@ import { z } from 'zod';
 // ── tick 日志条目 ──
 export const TickLogEntrySchema = z.object({
   tick_id: z.string().default(''),
-  拍计数: z.number().int().min(0).default(0),
+  拍计数: z.number().int().min(0).default(0), // 拍计数≠时间，禁止用拍数折算时长
   结果摘要: z.string().default(''),
   系数组指纹: z.string().default(''),
 });
@@ -13,7 +13,7 @@ export const TickLogEntrySchema = z.object({
 export const SystemSchema = z.object({
   schema_version: z.number().int().min(0).default(0),
   migration_version: z.number().int().min(0).default(0),
-  last_migration: z.number().int().min(0).default(0), // 绝对时间（纪元分钟）
+  last_migration: z.number().int().default(0), // 绝对时间（纪元分钟）
   tick_log: z.array(TickLogEntrySchema).default([]),  // 轮转封顶，引擎维护
   已结算标记: z.record(
     z.string(),
@@ -35,7 +35,7 @@ export const SystemSchema = z.object({
 // ── 拍级元数据（AI 只读，引擎写） ──
 export const TickSchema = z.object({
   id: z.string().default(''),
-  拍计数: z.number().int().min(0).default(0),
+  拍计数: z.number().int().min(0).default(0), // 拍计数≠时间，禁止用拍数折算时长
   难度系数组指纹: z.string().default(''), // 系数组快照的哈希
 });
 
@@ -52,8 +52,8 @@ export const StateMachineSchema = z.object({
   模态栈: z.array(z.string()).max(4).default([]),
   timeMode: z.enum(['PAUSED', 'TURN', 'AUTO']).default('PAUSED'),
   双时钟: z.object({
-    世界钟: z.number().int().min(0).default(0), // 纪元分钟
-    镜头钟: z.number().int().min(0).default(0), // 纪元分钟（RP 细档时与世界钟分离）
+    世界钟: z.number().int().default(0), // 纪元分钟
+    镜头钟: z.number().int().default(0), // 纪元分钟（RP 细档时与世界钟分离）
   }).default({}),
 });
 

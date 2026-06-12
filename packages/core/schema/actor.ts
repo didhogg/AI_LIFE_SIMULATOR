@@ -76,14 +76,14 @@ const 情绪条目Schema = z.object({
   极性: z.string().default('负'),
   数值: z.number().default(0),
   影响: z.array(修饰通道引用Schema).default([]),
-  到期: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 永久
+  到期: z.number().int().default(0), // 绝对纪元分钟；0 = 永久
   来源: z.string().default(''),
   可叠加: z.boolean().default(false),
 });
 
 const 状态标签条目Schema = z.object({
   效果: z.array(修饰通道引用Schema).default([]),
-  到期: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 永久
+  到期: z.number().int().default(0), // 绝对纪元分钟；0 = 永久
   来源: z.string().default(''),
 });
 
@@ -108,7 +108,7 @@ const 物品条目Schema = z.object({
   重要级别: z.string().default('普通'),
   类别: z.string().default(''),
   效果: 修饰通道引用Schema.default({}),
-  到期: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 永久
+  到期: z.number().int().default(0), // 绝对纪元分钟；0 = 永久
   遗失保护: z.boolean().default(false),
   可携意象: z.array(意象条目Schema).default([]), // 6.29
 });
@@ -147,7 +147,7 @@ const 考试记录条目Schema = z.object({
   名称: z.string().default(''),
   类别: z.string().default(''),
   科目或项目: z.string().default(''),
-  发生时间: z.number().int().min(0).default(0), // 纪元分钟
+  发生时间: z.number().int().default(0), // 绝对纪元分钟
   原始分: z.number().optional(),
   是否通过: z.number().int().min(-1).max(1).default(-1),
   评定: z.string().default(''),
@@ -158,8 +158,8 @@ const 学历档案条目Schema = z.object({
   学段: z.string().default(''),
   学校: z.string().default(''),
   专业: z.string().default(''),
-  入学时间: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 未记录
-  毕业时间: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 未记录
+  入学时间: z.number().int().default(0), // 绝对纪元分钟；0 = 未记录
+  毕业时间: z.number().int().default(0), // 绝对纪元分钟；0 = 未记录
   状态: z.string().default('在读'),
   学位: z.string().default(''),
 });
@@ -167,8 +167,8 @@ const 学历档案条目Schema = z.object({
 const 资质证书条目Schema = z.object({
   类别: z.string().default(''),
   等级: z.string().default(''),
-  获得时间: z.number().int().min(0).default(0),   // 绝对纪元分钟；0 = 未记录
-  有效期到期: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 永久有效
+  获得时间: z.number().int().default(0),   // 绝对纪元分钟；0 = 未记录
+  有效期到期: z.number().int().default(0), // 绝对纪元分钟；0 = 永久有效
   颁发机构: z.string().default(''),
 });
 
@@ -184,14 +184,14 @@ const 学业概况Schema = z.object({
 const 学业Schema = z.object({
   学籍: 学籍Schema.default({}),
   在修科目: z.record(z.string(), z.object({
-    发生时间: z.number().int().min(0).default(0),
+    发生时间: z.number().int().default(0), // 绝对纪元分钟
     备注: z.string().default(''),
   })).default({}),
   考试记录: z.record(z.string(), 考试记录条目Schema).default({}),
   升学记录: z.record(z.string(), z.object({
     关卡: z.string().default(''),
     结果: z.string().default(''),
-    时间: z.number().int().min(0).default(0),
+    时间: z.number().int().default(0), // 绝对纪元分钟
   })).default({}),
   学历档案: z.record(z.string(), 学历档案条目Schema).default({}),
   资质证书: z.record(z.string(), 资质证书条目Schema).default({}),
@@ -208,7 +208,7 @@ const 任职条目Schema = z.object({
   在职状态: z.string().default('在职'),
   报酬: z.string().default(''),
   绩效: z.number().min(-5).max(5).default(0),
-  入职时间: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 未记录
+  入职时间: z.number().int().default(0), // 绝对纪元分钟；0 = 未记录
 });
 
 const 职业Schema = z.object({
@@ -216,8 +216,8 @@ const 职业Schema = z.object({
   职业履历: z.record(z.string(), z.object({
     职位: z.string().default(''),
     雇主: z.string().default(''),
-    入职时间: z.number().int().min(0).default(0),
-    离职时间: z.number().int().min(0).default(0),
+    入职时间: z.number().int().default(0), // 绝对纪元分钟；0 = 未记录
+    离职时间: z.number().int().default(0), // 绝对纪元分钟；0 = 未记录
     离任方式: z.string().default(''),
   })).default({}),
 });
@@ -230,7 +230,7 @@ const 目标Schema = z.object({
 const 居留身份条目Schema = z.object({
   国籍: z.string().default(''), // 政权组织实体键
   签证类型: z.string().default(''),
-  到期: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 永久
+  到期: z.number().int().default(0), // 绝对纪元分钟；0 = 永久
 });
 
 const 声誉Schema = z.object({
@@ -243,8 +243,8 @@ const 声誉Schema = z.object({
 const 婚姻条目Schema = z.object({
   配偶: z.string().default(''), // NPC 键
   状态: z.string().default(''),
-  缔结: z.number().int().min(0).default(0),   // 绝对纪元分钟
-  终止: z.number().int().min(0).default(0),   // 0 = 未终止
+  缔结: z.number().int().default(0),   // 绝对纪元分钟；0 = 未记录
+  终止: z.number().int().default(0),   // 绝对纪元分钟；0 = 未终止
 });
 
 const 关系条目Schema = z.object({
@@ -291,13 +291,13 @@ const 登场契约Schema = z.object({
 const NPC记忆条目Schema = z.object({
   记忆id: z.string().default(''),
   摘要: z.string().default(''),
-  发生时间: z.number().int().min(0).default(0), // 绝对纪元分钟
+  发生时间: z.number().int().default(0), // 绝对纪元分钟
   类型: z.string().default('互动'),
   情绪色彩: z.string().default(''),
   重要度: z.number().int().min(1).max(3).default(1),
   权重: z.number().min(0).max(100).default(50),
   永久: z.boolean().default(false),
-  上次唤起时间: z.number().int().min(0).default(0),
+  上次唤起时间: z.number().int().default(0), // 绝对纪元分钟
 });
 
 const 体征Schema = z.object({
@@ -319,7 +319,7 @@ const 养育Schema = z.object({
 const 亲子Schema = z.object({
   来源: z.string().default('血亲'), // 血亲/养子/继子/过继/义子
   其他双亲: z.string().default(''), // NPC 键
-  入族时间: z.number().int().min(0).default(0),
+  入族时间: z.number().int().default(0), // 绝对纪元分钟
 });
 
 const 继承预案Schema = z.object({
@@ -340,18 +340,18 @@ export const NpcSchema = z.object({
   种族: z.string().default('人类'), // 开放串
   角色ID: z.string().default(''),
   世代: z.number().int().min(1).default(1),
-  出生日期: z.number().int().min(0).default(0), // 绝对纪元分钟
+  出生日期: z.number().int().default(0), // 绝对纪元分钟；0 = 未记录
   出生地: z.string().default(''),               // 节点键
   外貌: z.string().default(''),
   背景: z.string().default(''),
   备注: z.string().default(''),
   存活状态: z.string().default('在世'),
-  死亡时间: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 健在
+  死亡时间: z.number().int().default(0), // 绝对纪元分钟；0 = 健在
   死因: z.string().default(''),
   位置: z.string().default(''),    // 节点键（原主角位置/轨迹挂到此处）
   轨迹: z.array(z.object({
     节点: z.string().default(''),
-    时间: z.number().int().min(0).default(0), // 绝对纪元分钟
+    时间: z.number().int().default(0), // 绝对纪元分钟
   })).default([]),
   虚拟位置: z.string().optional(), // 赛博化身专用
   立绘引用: z.string().optional(), // 生图接口位，P2 前不实现
@@ -387,11 +387,11 @@ export const NpcSchema = z.object({
   头衔: z.array(z.string()).default([]),
   称号: z.string().default(''),
   成就: z.record(z.string(), z.object({
-    解锁时间: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 未记录
+    解锁时间: z.number().int().default(0), // 绝对纪元分钟；0 = 未记录
     描述: z.string().default(''),
   })).default({}),
   里程碑: z.record(z.string(), z.object({
-    时间: z.number().int().min(0).default(0), // 绝对纪元分钟；0 = 未记录
+    时间: z.number().int().default(0), // 绝对纪元分钟；0 = 未记录
     标题: z.string().default(''),
     描述: z.string().default(''),
   })).default({}),
@@ -416,10 +416,10 @@ export const NpcSchema = z.object({
   履历: z.array(z.string()).default([]),    // 滚动短句
   登场契约: 登场契约Schema.optional(),
   记忆: z.array(NPC记忆条目Schema).default([]),
-  上次互动: z.number().int().min(0).default(0), // 绝对纪元分钟
+  上次互动: z.number().int().default(0), // 绝对纪元分钟；0 = 从未互动
 
   // ── 焦点 / 子嗣型扩展位 ──
-  复活点: z.number().int().min(0).default(0),   // 0 = 无复活点
+  复活点: z.number().int().default(0),   // 绝对纪元分钟；0 = 无复活点
   死亡豁免前置: z.string().default(''),
   养育: 养育Schema.optional(),
   亲子: 亲子Schema.optional(),
@@ -431,7 +431,7 @@ export const 已故NPC归档Schema = z.record(
   z.string(),
   z.object({
     称呼: z.string().default(''),
-    死亡时间: z.number().int().min(0).default(0),
+    死亡时间: z.number().int().default(0), // 绝对纪元分钟；0 = 健在
     关键记忆指针: z.string().default(''),
     幽灵形态: z.boolean().default(false), // true = 不实例化，永驻占位
   }),
@@ -443,7 +443,7 @@ const 印象条目Schema = z.object({
   极性: z.string().default(''),
   强度: z.number().min(0).max(100).default(0),
   来源: z.string().default(''), // 事件id / 听闻自某NPC / 媒体渠道
-  获知时间: z.number().int().min(0).default(0), // 绝对纪元分钟
+  获知时间: z.number().int().default(0), // 绝对纪元分钟
   衰减速率: z.number().min(0).default(0),
 });
 
@@ -451,7 +451,7 @@ const 认知档案条目Schema = z.object({
   了解度: z.number().min(0).max(100).default(0),
   误差表: z.record(z.string(), z.number()).default({}), // 字段→认知值偏差
   印象: z.array(印象条目Schema).default([]),            // 6.37 条目制式
-  时效: z.number().int().min(0).default(0),             // 信息有效截至纪元分钟
+  时效: z.number().int().default(0),             // 信息有效截至纪元分钟；0 = 永久有效
 });
 
 export const 认知档案Schema = z.record(
