@@ -107,8 +107,18 @@ describe('4.1 System layer', () => {
   it('叙事风格 已从 NarrativeSettingSchema 移除（并入叙事偏好）', () => {
     expect('叙事风格' in NarrativeSettingSchema.shape).toBe(false);
   });
-  it('NarrativeSettingSchema 最终形态仅含 人称 + 叙事偏好', () => {
-    expect(Object.keys(NarrativeSettingSchema.shape).sort()).toEqual(['人称', '叙事偏好'].sort());
+  it('NarrativeSettingSchema 最终形态仅含 人称 + 叙事偏好 + 启用文风键（6.42）', () => {
+    expect(Object.keys(NarrativeSettingSchema.shape).sort()).toEqual(['人称', '叙事偏好', '启用文风键'].sort());
+  });
+  // 2. _叙事设置.启用文风键 (6.42)
+  it('启用文风键: 缺省 parse 得 []', () => {
+    expect(NarrativeSettingSchema.parse({}).启用文风键).toEqual([]);
+  });
+  it('启用文风键: 字符串数组通过', () => {
+    expect(NarrativeSettingSchema.safeParse({ 启用文风键: ['wuxia', 'noir'] }).success).toBe(true);
+  });
+  it('启用文风键: 非字符串元素拒收', () => {
+    expect(NarrativeSettingSchema.safeParse({ 启用文风键: [42] }).success).toBe(false);
   });
   // 5. 骰面量化层①：判定骰型快照
   it('TickSchema: 判定骰型快照 absent → valid (optional)', () => {

@@ -46,6 +46,8 @@ export const TickSchema = z.object({
 export const NarrativeSettingSchema = z.object({
   人称: z.string().default('第二人称'),
   叙事偏好: z.string().default(''), // 玩家自由文本，进 prompt 组装
+  // 6.42·指向叙事风格预设库的键集·多选可叠加·玩家手动开关·缺包回退默认·切换落拍边界
+  启用文风键: z.array(z.string()).default([]),
 });
 
 // ── 状态机 ──
