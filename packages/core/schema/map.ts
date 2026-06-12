@@ -79,7 +79,8 @@ const 战役条目Schema = z.object({
   交战方: z.array(z.string()).default([]), // 组织键列表
   所属战争键: z.string().default(''),
   态势: z.string().default(''),
-  起拍: z.number().int().default(0), // 绝对纪元分钟
+  起拍: z.number().int().min(0).default(0), // 拍号（计数·仅审计痕迹）
+  // TODO P0-7: 战役时长统计须用起始时刻(绝对纪元分钟·允许负值·0=哨兵)，禁用起拍拍号折算时长——P0-7 前补
   争夺区域: z.array(争夺区域条目Schema).default([]),
 });
 

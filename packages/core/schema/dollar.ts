@@ -73,7 +73,7 @@ export const $玩家偏好Schema = z.object({
 
 // ── $会话状态（6.1） ──
 export const $会话状态Schema = z.object({
-  最后交互时间戳: z.number().int().default(0), // 绝对纪元分钟（合法出现的墙钟触点）
+  最后交互时间戳: z.number().int().default(0), // 现实时间·宿主提供·禁止 Ring 0 内生成
   未读播报数: z.number().int().min(0).default(0),
   崩溃恢复指针: z.string().default(''),
 });

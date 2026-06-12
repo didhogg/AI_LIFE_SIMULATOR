@@ -419,7 +419,7 @@ export const NpcSchema = z.object({
   上次互动: z.number().int().default(0), // 绝对纪元分钟；0 = 从未互动
 
   // ── 焦点 / 子嗣型扩展位 ──
-  复活点: z.number().int().default(0),   // 绝对纪元分钟；0 = 无复活点
+  复活点: z.number().int().min(0).default(0), // B类计数；0 = 无复活次数
   死亡豁免前置: z.string().default(''),
   养育: 养育Schema.optional(),
   亲子: 亲子Schema.optional(),
@@ -451,7 +451,7 @@ const 认知档案条目Schema = z.object({
   了解度: z.number().min(0).max(100).default(0),
   误差表: z.record(z.string(), z.number()).default({}), // 字段→认知值偏差
   印象: z.array(印象条目Schema).default([]),            // 6.37 条目制式
-  时效: z.number().int().default(0),             // 信息有效截至纪元分钟；0 = 永久有效
+  时效: z.number().int().default(0),             // 绝对时刻·0=永不过期哨兵
 });
 
 export const 认知档案Schema = z.record(

@@ -6,6 +6,7 @@ import {
   parseChineseDateToEpochMin,
   getTickMinutes,
   makePeriodConverter,
+  writeEpochMinute,
 } from '../engine/time.js';
 
 // Re-export for migration tests that import these from migrate.ts
@@ -350,12 +351,12 @@ function build认知档案(
     const 印象: unknown[] = [];
     for (const tag of asArr(npc['标签'])) {
       const s = asStr(tag);
-      if (s) 印象.push({ 标签: s, 极性: '中', 强度: 50, 来源: '迁移推定', 获知时间: worldEpochMin, 衰减速率: 0 });
+      if (s) 印象.push({ 标签: s, 极性: '中', 强度: 50, 来源: '迁移推定', 获知时间: writeEpochMinute(worldEpochMin), 衰减速率: 0 });
     }
     const 性格 = asStr(npc['性格']);
-    if (性格) 印象.push({ 标签: 性格, 极性: '中', 强度: 50, 来源: '迁移推定', 获知时间: worldEpochMin, 衰减速率: 0 });
+    if (性格) 印象.push({ 标签: 性格, 极性: '中', 强度: 50, 来源: '迁移推定', 获知时间: writeEpochMinute(worldEpochMin), 衰减速率: 0 });
     const 背景 = asStr(npc['背景']);
-    if (背景) 印象.push({ 标签: 背景, 极性: '中', 强度: 30, 来源: '迁移推定', 获知时间: worldEpochMin, 衰减速率: 0 });
+    if (背景) 印象.push({ 标签: 背景, 极性: '中', 强度: 30, 来源: '迁移推定', 获知时间: writeEpochMinute(worldEpochMin), 衰减速率: 0 });
 
     protagonistView[npcKey] = { 了解度: Math.min(100, asNum(npc['关系深度'])), 误差表: {}, 印象, 时效: 0 };
   }
@@ -379,10 +380,10 @@ function migrate货币(v31: Record<string, unknown>, worldEpochMin: number, log:
   }
 
   const 换汇登记 = asArr(v31['换汇登记']).map(entry => {
-    if (typeof entry === 'string') return { 时间: worldEpochMin, 从: '', 到: '', 金额: 0 };
+    if (typeof entry === 'string') return { 时间: writeEpochMinute(worldEpochMin), 从: '', 到: '', 金额: 0 };
     const e = asRec(entry);
     const t = asNum(e['时间']);
-    return { 时间: t > 0 ? t : worldEpochMin, 从: asStr(e['从']), 到: asStr(e['到']), 金额: asNum(e['金额']) };
+    return { 时间: t > 0 ? t : writeEpochMinute(worldEpochMin), 从: asStr(e['从']), 到: asStr(e['到']), 金额: asNum(e['金额']) };
   });
 
   const 账户v31 = asRec(v31['账户']);
@@ -610,7 +611,7 @@ function migrateSimpleNPC(
     职务: [], 忠诚,
     重要等级: '重要', 召回权重: 70, 意象: [], 作息: {}, 当前作息模式: '常态', 履历: [],
     记忆: asArr(npc['记忆']).map(m => migrateNpcMemory(asRec(m), p2e)),
-    上次互动: 上次互动周期 > 0 ? p2e(上次互动周期) : worldEpochMin,
+    上次互动: 上次互动周期 > 0 ? p2e(上次互动周期) : writeEpochMinute(worldEpochMin),
     复活点: 0, 死亡豁免前置: '',
   };
 }
@@ -724,7 +725,7 @@ export function buildV41Raw(input: unknown): MigrateRawResult {
     const 死亡周期 = asNum(g['死亡周期'], 0);
     已故v41[k] = {
       称呼: asStr(g['称呼']),
-      死亡时间: 死亡周期 > 0 ? p2e(死亡周期) : (死亡周期 === 0 ? worldEpochMin : 0),
+      死亡时间: 死亡周期 > 0 ? p2e(死亡周期) : (死亡周期 === 0 ? writeEpochMinute(worldEpochMin) : 0),
       关键记忆指针: asStr(g['关键记忆指针']),
       幽灵形态: asBool(g['幽灵形态']),
     };
@@ -877,9 +878,9 @@ export function buildV41Raw(input: unknown): MigrateRawResult {
       事件来源权重: { 事件包: 50, AI自发: 50 },
     },
     _叙事设置: { 人称: asStr(流程v31['人称'], '第二人称'), 叙事偏好: asStr(叙v31['叙事风格']) },
-    状态机: { 当前态, 模态栈: [], timeMode: 'PAUSED', 双时钟: { 世界钟: worldEpochMin, 镜头钟: worldEpochMin } },
+    状态机: { 当前态, 模态栈: [], timeMode: 'PAUSED', 双时钟: { 世界钟: writeEpochMinute(worldEpochMin), 镜头钟: writeEpochMinute(worldEpochMin) } },
     世界: {
-      纪元分钟: worldEpochMin,
+      纪元分钟: writeEpochMinute(worldEpochMin),
       历法: {},
       年代背景: asStr(世界v31['年代背景']),
       气候带: asStr(世界v31['气候']),

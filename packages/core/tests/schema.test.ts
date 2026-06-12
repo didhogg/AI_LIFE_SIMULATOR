@@ -196,6 +196,9 @@ describe('4.3 Actor layer', () => {
   it('unknown key strict rejection on NpcSchema', () => {
     expect(NpcSchema.strict().safeParse({ 性格标签: 'ENTJ' }).success).toBe(false); // 派生字段
   });
+  it('invalid: 复活点 negative', () => {
+    expect(NpcSchema.safeParse({ 复活点: -1 }).success).toBe(false);
+  });
 });
 
 describe('4.4 Org layer', () => {
