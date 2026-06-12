@@ -51,11 +51,19 @@ describe('P0-5 RNG — rngForFate (fate checks)', () => {
     }
   });
 
-  it('rerollSalt does NOT change fate result (ordinary salt ignored)', () => {
-    // rngForFate has no rerollSalt param — fateRerollIndex=0 baseline
-    const u0 = rngForFate(1, 1, '天命:战斗', 0);
-    const u1 = rngForFate(1, 1, '天命:战斗', 0);
-    expect(u0).toBe(u1);
+  it('普通重掷盐变化时，rngForFate 天命通道结果完全不变', () => {
+    // Explicit contrast: varying ordinary rerollSalt changes ordinary rolls,
+    // but fate with same fateRerollIndex=0 is always identical.
+    const seed = 7, tick = 3;
+    const fateRef = rngForFate(seed, tick, '天命:命运', 0);
+
+    const ord0 = rngFor(seed, tick, '检定:魅力', 0);
+    const ord1 = rngFor(seed, tick, '检定:魅力', 5);
+    expect(ord0).not.toBe(ord1); // confirms salt mechanism works for ordinary
+
+    for (let salt = 1; salt <= 20; salt++) {
+      expect(rngForFate(seed, tick, '天命:命运', 0)).toBe(fateRef);
+    }
   });
 
   it('fateRerollIndex change → result changes', () => {
