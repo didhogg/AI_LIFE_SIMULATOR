@@ -1,5 +1,6 @@
 // 4.5 秘密·约定·家族·全局层
 import { z } from 'zod';
+import { HISTORY_TEXT_MAX } from './constants.js';
 
 // ── 受众选择器（开放串：实体/派系/关系/标签/血缘距离谓词） ──
 const 受众选择器 = z.string();
@@ -108,6 +109,32 @@ const 家族树Schema = z.object({
 });
 
 // ══════════════════════════════════════════
+// 编年史（6.43）
+// ══════════════════════════════════════════
+
+const 媒介附件Schema = z.object({
+  格式模板键: z.string().default(''),
+  渠道标签: z.string(), // 必填
+  // 只读展示件，引擎判定永不读；永久保存为默认；玩家删除只删展示件、事实条目软隐藏（隐藏收藏清单字段归 P1 增补）；丢失/被删走同事实包+模板+seed 重生成；导出可剥离
+  渲染缓存全文: z.string().max(HISTORY_TEXT_MAX).default(''),
+});
+
+export const 编年史条目Schema = z.object({
+  // append-only；L2 折叠 = 软折叠收冷区不物理删；玩家收藏豁免；媒介附件正文与玩家造物原文不参与折叠（折叠实装归 P1）
+  // 知情过滤后才入册；covert 事不入册，declassify 后补「真相大白」新条
+  序号: z.number().int(), // 单调递增主键
+  时间: z.number().int().default(0), // 纪元分钟绝对时刻；0=哨兵；负值合法（史前/古代背景）
+  标题: z.string().default(''),
+  地点键: z.string().optional(),
+  母题: z.string().optional(), // 开放串
+  结果摘要行: z.string().default(''),
+  关联实体键: z.array(z.string()).default([]),
+  事件id: z.string().optional(),
+  重要等级: z.string().default('重要'), // 路人/次要/重要/核心 同 NpcSchema.重要等级
+  媒介附件: 媒介附件Schema.optional(),
+});
+
+// ══════════════════════════════════════════
 // 覆写日志（附录H）
 // ══════════════════════════════════════════
 
@@ -131,6 +158,7 @@ export const 全局Schema = z.object({
   家族树: 家族树Schema.default({}),
   覆写日志: z.array(覆写日志条目Schema).default([]),
   作弊标记: z.boolean().default(false), // 本周目不可逆
+  编年史: z.array(编年史条目Schema).default([]), // append-only 既成事实记录
 });
 
 export type 全局Type = z.infer<typeof 全局Schema>;

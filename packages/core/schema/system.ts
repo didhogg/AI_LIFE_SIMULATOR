@@ -15,6 +15,7 @@ export const SystemSchema = z.object({
   migration_version: z.number().int().min(0).default(0),
   last_migration: z.number().int().default(0), // 绝对时间（纪元分钟）
   tick_log: z.array(TickLogEntrySchema).default([]),  // 轮转封顶，引擎维护
+  叙事流高水位序号: z.number().int().default(0), // 热区只存高水位，日志本体住存档冷区；拍前快照不复制日志
   已结算标记: z.record(
     z.string(),
     z.object({
@@ -36,7 +37,7 @@ export const SystemSchema = z.object({
 export const TickSchema = z.object({
   id: z.string().default(''),
   拍计数: z.number().int().min(0).default(0), // 拍计数≠时间，禁止用拍数折算时长
-  难度系数组指纹: z.string().default(''), // 系数组快照的哈希
+  难度系数组指纹: z.string().default(''), // 系数组快照的哈希；P0-5 把哈希取材扩到影响判定的预设数值面（检定配方表/难度系数组/钳制表/判定骰型）
   // 骰面量化层①·开局锁定随档快照·与难度系数组指纹同机制·P1 实装时启用
   判定骰型快照: z.union([z.literal(100), z.literal(20)]).optional(),
 });

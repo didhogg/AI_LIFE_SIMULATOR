@@ -2,6 +2,7 @@
 import { z } from 'zod';
 
 // ── Layer exports (re-export all sub-schemas) ──
+export * from './constants.js';
 export * from './system.js';
 export * from './world.js';
 export * from './actor.js';

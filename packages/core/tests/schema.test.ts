@@ -43,7 +43,10 @@ import {
   开局装配数据Schema,
   叙事风格预设库Schema,
   叙事模板正文长度上限,
+  HISTORY_TEXT_MAX,
+  编年史条目Schema,
 } from '../schema/index.js';
+import { 叙事流条目Schema } from '../schema/narrativeStream.js';
 
 // ══════════════════════════════════════════
 // (a) Per-layer parse tests
@@ -764,5 +767,98 @@ describe('blueprint ↔ schema consistency', () => {
   it('BLUEPRINT_KEYS has no duplicates', () => {
     const set = new Set(BLUEPRINT_KEYS);
     expect(set.size).toBe(BLUEPRINT_KEYS.length);
+  });
+});
+
+// ══════════════════════════════════════════
+// 6.43 编年史 · 叙事流
+// ══════════════════════════════════════════
+
+describe('6.43 编年史（全局.编年史）', () => {
+  it('全局Schema: 编年史默认为空数组', () => {
+    expect(全局Schema.parse({}).编年史).toEqual([]);
+  });
+  it('编年史条目: 时间负值（史前/古代背景）必须通过', () => {
+    expect(编年史条目Schema.safeParse({
+      序号: 1,
+      时间: -525600, // 公元前1年附近
+      标题: '大战爆发',
+      结果摘要行: '联军击溃蛮族',
+    }).success).toBe(true);
+  });
+  it('编年史条目: 时间=0（哨兵）通过', () => {
+    expect(编年史条目Schema.safeParse({ 序号: 1, 标题: '创世', 结果摘要行: '' }).success).toBe(true);
+  });
+  it('编年史条目: 媒介附件 渲染缓存全文超 HISTORY_TEXT_MAX 拒收', () => {
+    expect(编年史条目Schema.safeParse({
+      序号: 2,
+      标题: '头版',
+      结果摘要行: '',
+      媒介附件: { 渠道标签: '邸报', 渲染缓存全文: 'x'.repeat(HISTORY_TEXT_MAX + 1) },
+    }).success).toBe(false);
+  });
+  it('媒介附件: 缺渠道标签拒收', () => {
+    expect(编年史条目Schema.safeParse({
+      序号: 3,
+      标题: '号外',
+      结果摘要行: '',
+      媒介附件: { 格式模板键: 'tpl_01', 渲染缓存全文: '正文' },
+    }).success).toBe(false);
+  });
+  it('媒介附件: 渠道标签存在且正文在限内通过', () => {
+    expect(编年史条目Schema.safeParse({
+      序号: 4,
+      标题: '要闻',
+      结果摘要行: '天下太平',
+      媒介附件: { 渠道标签: '邸报', 渲染缓存全文: '正文' },
+    }).success).toBe(true);
+  });
+  it('HISTORY_TEXT_MAX 与 叙事模板正文长度上限 是不同常量', () => {
+    expect(HISTORY_TEXT_MAX).toBe(8000);
+    expect(叙事模板正文长度上限).toBe(4000);
+    expect(HISTORY_TEXT_MAX).not.toBe(叙事模板正文长度上限);
+  });
+  it('SystemSchema: 叙事流高水位序号 默认=0', () => {
+    expect(SystemSchema.parse({}).叙事流高水位序号).toBe(0);
+  });
+});
+
+describe('6.43 叙事流条目Schema（不进 RootSchema）', () => {
+  const 基础条目 = { 序号: 1, 来源: 'AI叙事' as const, 正文: '一行叙事' };
+
+  it('叙事流: 时刻.读数负值（史前）必须通过', () => {
+    expect(叙事流条目Schema.safeParse({
+      ...基础条目,
+      时刻: { 读数: -1440, 钟源: '世界钟' },
+    }).success).toBe(true);
+  });
+  it('叙事流: 时刻.读数=0（哨兵）通过', () => {
+    expect(叙事流条目Schema.safeParse(基础条目).success).toBe(true);
+  });
+  it('叙事流正文超 HISTORY_TEXT_MAX 拒收', () => {
+    expect(叙事流条目Schema.safeParse({
+      ...基础条目,
+      正文: 'x'.repeat(HISTORY_TEXT_MAX + 1),
+    }).success).toBe(false);
+  });
+  it('叙事流: 来源合法枚举全部通过', () => {
+    const sources = ['AI叙事', '玩家输入', '引擎系统行', '降级文本'] as const;
+    for (const 来源 of sources) {
+      expect(叙事流条目Schema.safeParse({ ...基础条目, 来源 }).success).toBe(true);
+    }
+  });
+  it('叙事流: 来源非法枚举拒收', () => {
+    expect(叙事流条目Schema.safeParse({ ...基础条目, 来源: '未知' }).success).toBe(false);
+  });
+  it('叙事流: strip 姿态——未知字段被剥除不报错', () => {
+    const res = 叙事流条目Schema.safeParse({ ...基础条目, 未知字段: '应被剥除' });
+    expect(res.success).toBe(true);
+    if (res.success) expect((res.data as Record<string, unknown>)['未知字段']).toBeUndefined();
+  });
+  it('叙事流: 缺 序号 拒收', () => {
+    expect(叙事流条目Schema.safeParse({ 来源: 'AI叙事', 正文: '正文' }).success).toBe(false);
+  });
+  it('叙事流: 缺 正文 拒收', () => {
+    expect(叙事流条目Schema.safeParse({ 序号: 1, 来源: 'AI叙事' }).success).toBe(false);
   });
 });
