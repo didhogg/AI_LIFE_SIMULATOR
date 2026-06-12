@@ -37,11 +37,12 @@ import {
   $metaSchema,
   $模型画像Schema,
   玩法预设Schema,
-  叙事格式表Schema,
+  媒介登记表Schema,
+  叙事分发表Schema,
   母题词汇表Schema,
   实体模板库Schema,
   开局装配数据Schema,
-  叙事风格预设库Schema,
+  文风库Schema,
   叙事模板正文长度上限,
   HISTORY_TEXT_MAX,
   编年史条目Schema,
@@ -666,24 +667,40 @@ describe('4.10 Preset layer', () => {
   it('检定骰面: invalid 暴击映射 wrong string (not 关)', () => {
     expect(玩法预设Schema.safeParse({ 检定骰面: { 暴击映射: '开' } }).success).toBe(false);
   });
-  // 1b. 叙事格式表
-  it('叙事格式表: 默认 parse 为空 record', () => {
+  // 1b. 媒介登记表（6.44）
+  it('媒介登记表: 默认 parse 为空 record', () => {
     const res = 玩法预设Schema.parse({});
-    expect(res.叙事格式表).toEqual({});
+    expect(res.媒介登记表).toEqual({});
   });
-  it('叙事格式表: valid 含模板条目', () => {
-    expect(叙事格式表Schema.safeParse({
-      战斗序幕: { 模板正文: '{{角色}}提起剑', 必填槽位: ['角色'], 引擎槽位: [] },
+  it('媒介登记表: valid 含媒介条目', () => {
+    expect(媒介登记表Schema.safeParse({
+      报纸: { 模板正文: '{{日期}}号外', 必填槽位: ['日期'], 引擎槽位: [], 渠道标签: '公开' },
     }).success).toBe(true);
   });
-  it('叙事格式表: invalid 模板正文超长度上限', () => {
-    expect(叙事格式表Schema.safeParse({
-      锚点A: { 模板正文: 'x'.repeat(叙事模板正文长度上限 + 1) },
+  it('媒介登记表: invalid 模板正文超长度上限', () => {
+    expect(媒介登记表Schema.safeParse({
+      日记: { 模板正文: 'x'.repeat(叙事模板正文长度上限 + 1) },
     }).success).toBe(false);
   });
-  it('叙事格式表: invalid 缺少必填 模板正文 字段', () => {
-    expect(叙事格式表Schema.safeParse({
-      锚点A: { 必填槽位: ['角色'] },
+  it('媒介登记表: invalid 缺少必填 模板正文 字段', () => {
+    expect(媒介登记表Schema.safeParse({
+      告示板: { 必填槽位: ['地点'] },
+    }).success).toBe(false);
+  });
+  // 1b-2. 叙事分发表（6.44）
+  it('叙事分发表: 默认 parse 为空 record', () => {
+    const res = 玩法预设Schema.parse({});
+    expect(res.叙事分发表).toEqual({});
+  });
+  it('叙事分发表: valid 含分发条目', () => {
+    expect(叙事分发表Schema.safeParse({
+      战斗开始: { 媒介键引用: '报纸', 优先级: 1 },
+      市场交易: { 媒介键引用: '告示板' },
+    }).success).toBe(true);
+  });
+  it('叙事分发表: invalid 优先级非整数', () => {
+    expect(叙事分发表Schema.safeParse({
+      锚点A: { 媒介键引用: '日记', 优先级: 1.5 },
     }).success).toBe(false);
   });
   // 1c. 母题词汇表
@@ -725,25 +742,38 @@ describe('4.10 Preset layer', () => {
       序章模板: { 模式: '自由发挥' },
     }).success).toBe(false);
   });
-  // 1f. 叙事风格预设库
-  it('叙事风格预设库: 默认 parse 为空数组', () => {
+  // 1f. 文风库（6.44，原叙事风格预设库更名）
+  it('文风库: 默认 parse 为空数组', () => {
     const res = 玩法预设Schema.parse({});
-    expect(res.叙事风格预设库).toEqual([]);
+    expect(res.文风库).toEqual([]);
   });
-  it('叙事风格预设库: valid 含风格条目', () => {
-    expect(叙事风格预设库Schema.safeParse([
+  it('文风库: valid 含风格条目', () => {
+    expect(文风库Schema.safeParse([
       { 键: 'wuxia', 名称: '武侠', 风格提示词: '古典武侠，意境深远', 默认开: true },
     ]).success).toBe(true);
   });
-  it('叙事风格预设库: invalid 风格提示词超长度上限', () => {
-    expect(叙事风格预设库Schema.safeParse([
+  it('文风库: invalid 风格提示词超长度上限', () => {
+    expect(文风库Schema.safeParse([
       { 键: 'a', 名称: 'b', 风格提示词: 'x'.repeat(叙事模板正文长度上限 + 1) },
     ]).success).toBe(false);
   });
-  it('叙事风格预设库: invalid 风格提示词缺失 (required field)', () => {
-    expect(叙事风格预设库Schema.safeParse([
+  it('文风库: invalid 风格提示词缺失 (required field)', () => {
+    expect(文风库Schema.safeParse([
       { 键: 'a', 名称: 'b' },
     ]).success).toBe(false);
+  });
+  // 6.44 防回归断言：旧键名已从 玩法预设 和文风条目中删除
+  it('防回归: 玩法预设Schema.shape 不含旧键「叙事格式表」', () => {
+    expect('叙事格式表' in 玩法预设Schema.shape).toBe(false);
+  });
+  it('防回归: 玩法预设Schema.shape 不含旧键「叙事风格预设库」', () => {
+    expect('叙事风格预设库' in 玩法预设Schema.shape).toBe(false);
+  });
+  it('防回归: 文风库条目 parse 后不含已删字段「适用场景」（strip 验证）', () => {
+    const res = 文风库Schema.parse([
+      { 键: 'a', 名称: 'b', 风格提示词: '测试', 适用场景: '武侠世界' },
+    ]);
+    expect(res[0]).not.toHaveProperty('适用场景');
   });
 });
 

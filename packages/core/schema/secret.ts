@@ -113,7 +113,7 @@ const 家族树Schema = z.object({
 // ══════════════════════════════════════════
 
 const 媒介附件Schema = z.object({
-  格式模板键: z.string().default(''),
+  格式模板键: z.string().default(''), // 取值 = 媒介登记表的媒介键（6.44）
   渠道标签: z.string(), // 必填
   // 只读展示件，引擎判定永不读；永久保存为默认；玩家删除只删展示件、事实条目软隐藏（隐藏收藏清单字段归 P1 增补）；丢失/被删走同事实包+模板+seed 重生成；导出可剥离
   渲染缓存全文: z.string().max(HISTORY_TEXT_MAX).default(''),

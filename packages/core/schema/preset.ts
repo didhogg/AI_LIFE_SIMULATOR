@@ -213,16 +213,28 @@ export const 检定骰面Schema = z.object({
   暴击映射: 暴击映射Schema.default('关'),
 });
 
-// 1b. 叙事格式表（6.41）
-const 叙事格式条目Schema = z.object({
+// 1b. 媒介登记表（6.44）— 键 = 媒介键（报纸/个人日记/告示板/论坛/书信…）
+const 媒介登记条目Schema = z.object({
   模板正文: z.string().max(叙事模板正文长度上限), // 6.41⑦ 注入面防护
   必填槽位: z.array(z.string()).default([]),
   引擎槽位: z.array(z.string()).default([]),
+  文风键引用: z.string().optional(),
   禁词表引用: z.string().optional(),
+  渠道标签: z.string().optional(),
+  配图意图: z.string().optional(),
+  渲染缓存上限: z.number().int().min(0).optional(),
+});
+
+export const 媒介登记表Schema = z.record(z.string(), 媒介登记条目Schema).default({});
+
+// 1b-2. 叙事分发表（6.44）— 键 = 场景锚点（行动名/设施类型/事件标签）
+// 多锚点可指同一媒介；优先序 行动名＞设施＞事件标签，同级平局按键字典序（6.41②）
+const 叙事分发条目Schema = z.object({
+  媒介键引用: z.string().default(''),
   优先级: z.number().int().optional(),
 });
 
-export const 叙事格式表Schema = z.record(z.string(), 叙事格式条目Schema).default({});
+export const 叙事分发表Schema = z.record(z.string(), 叙事分发条目Schema).default({});
 
 // 1c. 母题词汇表
 export const 母题词汇表Schema = z.record(
@@ -257,17 +269,16 @@ export const 开局装配数据Schema = z.object({
   序章模板: 序章模板Schema.default({}),
 });
 
-// 1f. 叙事风格预设库（6.42）
-const 叙事风格条目Schema = z.object({
+// 1f. 文风库（6.44，原叙事风格预设库更名）
+const 文风条目Schema = z.object({
   键: z.string().default(''),
   名称: z.string().default(''),
   风格提示词: z.string().max(叙事模板正文长度上限), // 6.41⑦同款
   禁词表引用: z.string().optional(),
-  适用场景: z.string().optional(),
   默认开: z.boolean().default(false),
 });
 
-export const 叙事风格预设库Schema = z.array(叙事风格条目Schema).default([]);
+export const 文风库Schema = z.array(文风条目Schema).default([]);
 
 // ══════════════════════════════════════════
 // 玩法预设根（顶层）
@@ -300,13 +311,14 @@ export const 玩法预设Schema = z.object({
   赛事结构模板: 赛事结构模板Schema,
   穿越契约: 穿越契约Schema.optional(),
   规则补丁: 规则补丁Schema,
-  // ── 4.11 · 6.41 · 6.42 新增容器字段 ──
+  // ── 4.11 · 6.41 · 6.42 · 6.44 新增容器字段 ──
   检定骰面: 检定骰面Schema.default({}),
-  叙事格式表: 叙事格式表Schema,
+  媒介登记表: 媒介登记表Schema,
+  叙事分发表: 叙事分发表Schema,
   母题词汇表: 母题词汇表Schema,
   实体模板库: 实体模板库Schema.default({}),
   开局装配数据: 开局装配数据Schema.default({}),
-  叙事风格预设库: 叙事风格预设库Schema,
+  文风库: 文风库Schema,
 });
 
 export type 玩法预设Type = z.infer<typeof 玩法预设Schema>;
