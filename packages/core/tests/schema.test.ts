@@ -30,6 +30,7 @@ import {
   播报条目Schema,
   $运气Schema,
   $寿命预期Schema,
+  $存档种子Schema,
   $流速Schema,
   $战斗暂存Schema,
   $隐藏记忆库Schema,
@@ -37,6 +38,8 @@ import {
   $metaSchema,
   $模型画像Schema,
   玩法预设Schema,
+  检定档切分表Schema,
+  钳制表Schema,
   媒介登记表Schema,
   叙事分发表Schema,
   母题词汇表Schema,
@@ -762,6 +765,70 @@ describe('4.10 Preset layer', () => {
       { 键: 'a', 名称: 'b' },
     ]).success).toBe(false);
   });
+  // P0-5 检定档切分表 防回归断言
+  it('检定档切分表: 默认切分界 大胜下限=40, 胜下限=15, 惨胜下限=1, 败下限=-24', () => {
+    const res = 检定档切分表Schema.parse({});
+    expect(res.大胜下限).toBe(40);
+    expect(res.胜下限).toBe(15);
+    expect(res.惨胜下限).toBe(1);
+    expect(res.败下限).toBe(-24);
+  });
+  it('检定档切分表: 在 玩法预设 中存在并含默认值', () => {
+    const res = 玩法预设Schema.parse({});
+    expect(res.检定档切分表.大胜下限).toBe(40);
+    expect(res.检定档切分表.胜下限).toBe(15);
+  });
+  it('检定档切分表: 可被预设覆盖', () => {
+    const res = 玩法预设Schema.parse({
+      检定档切分表: { 大胜下限: 50, 胜下限: 20, 惨胜下限: 5, 败下限: -20 },
+    });
+    expect(res.检定档切分表.大胜下限).toBe(50);
+  });
+  // P0-5 钳制表 防回归断言
+  it('钳制表: 默认按重要等级为空对象, 按字段为空 record', () => {
+    const res = 钳制表Schema.parse({});
+    expect(res.按重要等级).toEqual({});
+    expect(res.按字段).toEqual({});
+  });
+  it('钳制表: 在 玩法预设 中存在并含默认值', () => {
+    const res = 玩法预设Schema.parse({});
+    expect(res.钳制表.按重要等级).toEqual({});
+    expect(res.钳制表.按字段).toEqual({});
+  });
+  it('钳制表: valid 双层结构', () => {
+    expect(钳制表Schema.safeParse({
+      按重要等级: { 路人: 5, 次要: 10, 重要: 20, 核心: 30 },
+      按字段: { '属性.智慧': { 单次Δ上限: 5, 最小值: 0, 最大值: 100 } },
+    }).success).toBe(true);
+  });
+  // P0-5 $存档种子 防回归断言
+  it('$存档种子: 默认值为 0（哨兵）', () => {
+    expect($存档种子Schema.parse(undefined)).toBe(0);
+  });
+  it('$存档种子: 在 RootSchema 中存在且默认值=0', () => {
+    const state = RootSchema.parse({});
+    expect(state.$存档种子).toBe(0);
+  });
+  it('$存档种子: 可接受整数', () => {
+    expect($存档种子Schema.safeParse(12345).success).toBe(true);
+  });
+  it('$存档种子: 拒绝非整数', () => {
+    expect($存档种子Schema.safeParse(1.5).success).toBe(false);
+  });
+  // P0-5 $会话状态.本拍重掷序号 防回归断言
+  it('$会话状态: 含 本拍重掷序号 字段，默认=0', () => {
+    const state = RootSchema.parse({});
+    expect(state.$会话状态.本拍重掷序号).toBe(0);
+  });
+  it('$会话状态: 既有字段未受影响（最后交互时间戳/未读播报数/崩溃恢复指针）', () => {
+    const res = RootSchema.parse({});
+    expect(res.$会话状态.最后交互时间戳).toBe(0);
+    expect(res.$会话状态.未读播报数).toBe(0);
+    expect(res.$会话状态.崩溃恢复指针).toBe('');
+  });
+  it('$会话状态: 本拍重掷序号拒绝负值', () => {
+    expect(RootSchema.shape.$会话状态.safeParse({ 本拍重掷序号: -1 }).success).toBe(false);
+  });
   // 6.44 防回归断言：旧键名已从 玩法预设 和文风条目中删除
   it('防回归: 玩法预设Schema.shape 不含旧键「叙事格式表」', () => {
     expect('叙事格式表' in 玩法预设Schema.shape).toBe(false);
@@ -791,7 +858,7 @@ describe('blueprint ↔ schema consistency', () => {
 
     expect(inSchemaNotBlueprint).toEqual([]);
     expect(inBlueprintNotSchema).toEqual([]);
-    expect(schemaKeys.size).toBe(40);
+    expect(schemaKeys.size).toBe(41); // P0-5 +$存档种子
   });
 
   it('BLUEPRINT_KEYS has no duplicates', () => {

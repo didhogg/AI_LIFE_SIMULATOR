@@ -5,6 +5,10 @@ import { z } from 'zod';
 export const $运气Schema = z.number().int().min(1).max(100).default(50);
 export const $寿命预期Schema = z.number().int().min(1).max(200).default(75);
 
+// ── $存档种子（P0-5·Ring 0 RNG 根种子） ──
+// 0=哨兵；开局/读档时由 Ring 0 生成一次后只读（P0-7 接线）；AI 永不可见；纯函数遇 0 照常计算
+export const $存档种子Schema = z.number().int().default(0);
+
 // ── $聆听心声触发 / $浮现记忆ID ──
 export const $聆听心声触发Schema = z.boolean().default(false);
 export const $浮现记忆IDSchema = z.string().default('');
@@ -76,6 +80,7 @@ export const $会话状态Schema = z.object({
   最后交互时间戳: z.number().int().default(0), // 现实时间·宿主提供·禁止 Ring 0 内生成
   未读播报数: z.number().int().min(0).default(0),
   崩溃恢复指针: z.string().default(''),
+  本拍重掷序号: z.number().int().min(0).default(0), // 不随拍前快照回滚还原（blueprint 4.11③）
 });
 
 // ── $预算控制台（6.7） ──

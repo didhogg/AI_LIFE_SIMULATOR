@@ -1,4 +1,4 @@
-// V4.1 RootSchema — 40 top-level keys as per blueprint 4.0 (rev: +$天命重掷券)
+// V4.1 RootSchema — 41 top-level keys as per blueprint 4.0 (rev: +$天命重掷券, P0-5: +$存档种子)
 import { z } from 'zod';
 
 // ── Layer exports (re-export all sub-schemas) ──
@@ -41,6 +41,7 @@ import {
 import {
   $运气Schema,
   $寿命预期Schema,
+  $存档种子Schema,
   $聆听心声触发Schema,
   $浮现记忆IDSchema,
   $涟漪候选Schema,
@@ -57,7 +58,7 @@ import {
   $metaSchema,
 } from './dollar.js';
 
-// ── Authoritative 40-key list from blueprint 4.0 (rev: +$天命重掷券) ──
+// ── Authoritative 41-key list from blueprint 4.0 (rev: +$天命重掷券, P0-5: +$存档种子) ──
 export const BLUEPRINT_KEYS = [
   '_系统版本',
   '_tick',
@@ -98,6 +99,7 @@ export const BLUEPRINT_KEYS = [
   '$模型画像',
   '$沉浸模式',
   '$天命重掷券',
+  '$存档种子',
   '$meta',
 ] as const;
 
@@ -159,6 +161,7 @@ export const RootSchema = z.object({
   $模型画像: $模型画像Schema,
   $沉浸模式: $沉浸模式Schema,
   $天命重掷券: $天命重掷券Schema.default({}),
+  $存档种子: $存档种子Schema,
   $meta: $metaSchema.default({}),
 });
 

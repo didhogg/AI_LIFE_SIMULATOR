@@ -281,6 +281,39 @@ const 文风条目Schema = z.object({
 export const 文风库Schema = z.array(文风条目Schema).default([]);
 
 // ══════════════════════════════════════════
+// P0-5 检定判定层（余量制·双层钳制·进指纹）
+// ══════════════════════════════════════════
+
+// 检定档切分表（余量制：M = 公式值 − u，u ∈ [0,99]）
+// 切分界是数据·住玩法预设层·可被规则补丁覆盖·进指纹
+export const 检定档切分表Schema = z.object({
+  大胜下限: z.number().int().default(40),   // M >= 大胜下限 → 大胜
+  胜下限: z.number().int().default(15),     // 胜下限 <= M < 大胜下限 → 胜
+  惨胜下限: z.number().int().default(1),    // 惨胜下限 <= M < 胜下限 → 惨胜
+  败下限: z.number().int().default(-24),    // 败下限 <= M < 惨胜下限 → 败
+  // M < 败下限 → 溃
+}).default({});
+
+// 双层钳制表（P0-5 占位·P0-6 闸逻辑接线）
+// 字段级优先·重要等级兜底·进指纹
+export const 钳制表Schema = z.object({
+  按重要等级: z.object({
+    路人: z.number().optional(),
+    次要: z.number().optional(),
+    重要: z.number().optional(),
+    核心: z.number().optional(),
+  }).default({}),
+  按字段: z.record(
+    z.string(), // 字段路径键（如 "属性.智慧" / "技能.*"）
+    z.object({
+      单次Δ上限: z.number().optional(),
+      最小值: z.number().optional(),
+      最大值: z.number().optional(),
+    }),
+  ).default({}),
+}).default({});
+
+// ══════════════════════════════════════════
 // 玩法预设根（顶层）
 // ══════════════════════════════════════════
 
@@ -319,6 +352,9 @@ export const 玩法预设Schema = z.object({
   实体模板库: 实体模板库Schema.default({}),
   开局装配数据: 开局装配数据Schema.default({}),
   文风库: 文风库Schema,
+  // ── P0-5 检定判定层 ──
+  检定档切分表: 检定档切分表Schema,
+  钳制表: 钳制表Schema,
 });
 
 export type 玩法预设Type = z.infer<typeof 玩法预设Schema>;
