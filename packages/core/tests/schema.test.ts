@@ -35,6 +35,14 @@ import {
   $隐藏记忆库Schema,
   $天命重掷券Schema,
   $metaSchema,
+  $模型画像Schema,
+  玩法预设Schema,
+  叙事格式表Schema,
+  母题词汇表Schema,
+  实体模板库Schema,
+  开局装配数据Schema,
+  叙事风格预设库Schema,
+  叙事模板正文长度上限,
 } from '../schema/index.js';
 
 // ══════════════════════════════════════════
@@ -101,6 +109,19 @@ describe('4.1 System layer', () => {
   });
   it('NarrativeSettingSchema 最终形态仅含 人称 + 叙事偏好', () => {
     expect(Object.keys(NarrativeSettingSchema.shape).sort()).toEqual(['人称', '叙事偏好'].sort());
+  });
+  // 5. 骰面量化层①：判定骰型快照
+  it('TickSchema: 判定骰型快照 absent → valid (optional)', () => {
+    expect(TickSchema.safeParse({ id: 't1', 拍计数: 0, 难度系数组指纹: '' }).success).toBe(true);
+  });
+  it('TickSchema: 判定骰型快照=100 → valid', () => {
+    expect(TickSchema.safeParse({ 判定骰型快照: 100 }).success).toBe(true);
+  });
+  it('TickSchema: 判定骰型快照=20 → valid', () => {
+    expect(TickSchema.safeParse({ 判定骰型快照: 20 }).success).toBe(true);
+  });
+  it('TickSchema: invalid 判定骰型快照=6 (out of enum)', () => {
+    expect(TickSchema.safeParse({ 判定骰型快照: 6 }).success).toBe(false);
   });
 });
 
@@ -328,6 +349,35 @@ describe('4.6 Map / War layer', () => {
       地点: { loc_A: { 边界: [{ x: 5 }] } },
     }).success).toBe(false);
   });
+  // 4a. 占位形态 (6.33)
+  it('valid: 地点 with 占位形态', () => {
+    expect(地图Schema.safeParse({
+      地点: {
+        loc_A: {
+          占位形态: { 名称: '未开发地带', 父节点: 'loc_城市', 相对方位: '北门外', seed: 'abc123' },
+        },
+      },
+    }).success).toBe(true);
+  });
+  it('valid: 占位形态 absent → undefined (optional)', () => {
+    const res = 地图Schema.parse({ 地点: { loc_A: {} } });
+    expect(res.地点['loc_A']?.占位形态).toBeUndefined();
+  });
+  it('invalid: 占位形态 wrong type (string)', () => {
+    expect(地图Schema.safeParse({
+      地点: { loc_A: { 占位形态: '北门外' } },
+    }).success).toBe(false);
+  });
+  // 4b. 分区键 (6.42)
+  it('valid: 地点 with 分区键', () => {
+    expect(地图Schema.safeParse({
+      地点: { loc_A: { 分区键: 'zone_northern' } },
+    }).success).toBe(true);
+  });
+  it('valid: 分区键 absent → undefined (optional)', () => {
+    const res = 地图Schema.parse({ 地点: { loc_A: {} } });
+    expect(res.地点['loc_A']?.分区键).toBeUndefined();
+  });
 });
 
 describe('4.7 Economy layer', () => {
@@ -489,6 +539,21 @@ describe('4.9 $ layer', () => {
     const state = RootSchema.parse({});
     expect(state.$天命重掷券.剩余张数).toBe(0);
   });
+  // 3. $模型画像 禁词表 (6.41)
+  it('$模型画像: entry with 禁词表 → valid', () => {
+    expect($模型画像Schema.safeParse({
+      claude: { 风格补正提示词: '简洁', 采样参数: {}, 禁词表: ['意境', '古风'] },
+    }).success).toBe(true);
+  });
+  it('$模型画像: 禁词表 defaults to [] when absent', () => {
+    const res = $模型画像Schema.parse({ claude: { 风格补正提示词: '' } });
+    expect(res['claude']?.禁词表).toEqual([]);
+  });
+  it('$模型画像: invalid 禁词表 wrong type (string instead of array)', () => {
+    expect($模型画像Schema.safeParse({
+      claude: { 禁词表: '八股' },
+    }).success).toBe(false);
+  });
 });
 
 // ══════════════════════════════════════════
@@ -556,6 +621,116 @@ describe('minimum playable state', () => {
       $寿命预期: 65,
     };
     expect(() => RootSchema.parse(fixture)).not.toThrow();
+  });
+});
+
+// ══════════════════════════════════════════
+// 4.10 Preset layer (4.11 · 6.41 · 6.42 additive fields)
+// ══════════════════════════════════════════
+
+describe('4.10 Preset layer', () => {
+  // 1a. 检定骰面
+  it('玩法预设: 空对象 parse 通过（全新字段含默认值）', () => {
+    expect(() => 玩法预设Schema.parse({})).not.toThrow();
+  });
+  it('检定骰面: 默认 判定骰型=100, 显骰=false, 暴击映射=关', () => {
+    const res = 玩法预设Schema.parse({});
+    expect(res.检定骰面.判定骰型).toBe(100);
+    expect(res.检定骰面.显骰).toBe(false);
+    expect(res.检定骰面.暴击映射).toBe('关');
+  });
+  it('检定骰面: valid 判定骰型=20', () => {
+    expect(玩法预设Schema.safeParse({ 检定骰面: { 判定骰型: 20 } }).success).toBe(true);
+  });
+  it('检定骰面: valid 暴击映射 object form', () => {
+    expect(玩法预设Schema.safeParse({
+      检定骰面: { 暴击映射: { 顶格升一档: true, 底格降一档: true } },
+    }).success).toBe(true);
+  });
+  it('检定骰面: invalid 判定骰型=6 (out of enum)', () => {
+    expect(玩法预设Schema.safeParse({ 检定骰面: { 判定骰型: 6 } }).success).toBe(false);
+  });
+  it('检定骰面: invalid 暴击映射 wrong string (not 关)', () => {
+    expect(玩法预设Schema.safeParse({ 检定骰面: { 暴击映射: '开' } }).success).toBe(false);
+  });
+  // 1b. 叙事格式表
+  it('叙事格式表: 默认 parse 为空 record', () => {
+    const res = 玩法预设Schema.parse({});
+    expect(res.叙事格式表).toEqual({});
+  });
+  it('叙事格式表: valid 含模板条目', () => {
+    expect(叙事格式表Schema.safeParse({
+      战斗序幕: { 模板正文: '{{角色}}提起剑', 必填槽位: ['角色'], 引擎槽位: [] },
+    }).success).toBe(true);
+  });
+  it('叙事格式表: invalid 模板正文超长度上限', () => {
+    expect(叙事格式表Schema.safeParse({
+      锚点A: { 模板正文: 'x'.repeat(叙事模板正文长度上限 + 1) },
+    }).success).toBe(false);
+  });
+  it('叙事格式表: invalid 缺少必填 模板正文 字段', () => {
+    expect(叙事格式表Schema.safeParse({
+      锚点A: { 必填槽位: ['角色'] },
+    }).success).toBe(false);
+  });
+  // 1c. 母题词汇表
+  it('母题词汇表: 默认 parse 为空 record', () => {
+    const res = 玩法预设Schema.parse({});
+    expect(res.母题词汇表).toEqual({});
+  });
+  it('母题词汇表: valid 含词条', () => {
+    expect(母题词汇表Schema.safeParse({
+      权谋: { 词条: ['阴谋', '暗算', '联盟'], 调味提示词: '尔虞我诈' },
+    }).success).toBe(true);
+  });
+  it('母题词汇表: invalid 词条 wrong type (string instead of array)', () => {
+    expect(母题词汇表Schema.safeParse({ 权谋: { 词条: '阴谋' } }).success).toBe(false);
+  });
+  // 1d. 实体模板库
+  it('实体模板库: 默认 parse 含空数组', () => {
+    const res = 玩法预设Schema.parse({});
+    expect(res.实体模板库.NPC模板).toEqual([]);
+    expect(res.实体模板库.组织模板).toEqual([]);
+    expect(res.实体模板库.物品模板).toEqual([]);
+  });
+  it('实体模板库: invalid NPC模板 wrong type (object instead of array)', () => {
+    expect(实体模板库Schema.safeParse({ NPC模板: {}, 组织模板: [], 物品模板: [] }).success).toBe(false);
+  });
+  // 1e. 开局装配数据
+  it('开局装配数据: 默认 parse 通过', () => {
+    const res = 玩法预设Schema.parse({});
+    expect(res.开局装配数据.家境装配包).toEqual([]);
+    expect(res.开局装配数据.序章模板.模式).toBe('AI自由');
+  });
+  it('开局装配数据: valid 序章模板.模式=固定文本', () => {
+    expect(开局装配数据Schema.safeParse({
+      序章模板: { 模式: '固定文本', 正文: '你出生在一个普通家庭' },
+    }).success).toBe(true);
+  });
+  it('开局装配数据: invalid 序章模板.模式 非法枚举值', () => {
+    expect(开局装配数据Schema.safeParse({
+      序章模板: { 模式: '自由发挥' },
+    }).success).toBe(false);
+  });
+  // 1f. 叙事风格预设库
+  it('叙事风格预设库: 默认 parse 为空数组', () => {
+    const res = 玩法预设Schema.parse({});
+    expect(res.叙事风格预设库).toEqual([]);
+  });
+  it('叙事风格预设库: valid 含风格条目', () => {
+    expect(叙事风格预设库Schema.safeParse([
+      { 键: 'wuxia', 名称: '武侠', 风格提示词: '古典武侠，意境深远', 默认开: true },
+    ]).success).toBe(true);
+  });
+  it('叙事风格预设库: invalid 风格提示词超长度上限', () => {
+    expect(叙事风格预设库Schema.safeParse([
+      { 键: 'a', 名称: 'b', 风格提示词: 'x'.repeat(叙事模板正文长度上限 + 1) },
+    ]).success).toBe(false);
+  });
+  it('叙事风格预设库: invalid 风格提示词缺失 (required field)', () => {
+    expect(叙事风格预设库Schema.safeParse([
+      { 键: 'a', 名称: 'b' },
+    ]).success).toBe(false);
   });
 });
 

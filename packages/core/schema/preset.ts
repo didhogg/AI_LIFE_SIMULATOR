@@ -192,6 +192,84 @@ const 规则补丁条目Schema = z.object({
 export const 规则补丁Schema = z.record(z.string(), 规则补丁条目Schema).default({});
 
 // ══════════════════════════════════════════
+// 骰面量化层 / 叙事层 / 开局层（4.11 · 6.41 · 6.42）
+// ══════════════════════════════════════════
+
+// 6.41⑦ 注入面防护：超过此长度的模板正文/风格提示词导入时拒收
+export const 叙事模板正文长度上限 = 4000;
+
+// 1a. 检定骰面（骰面量化层①）
+const 暴击映射Schema = z.union([
+  z.literal('关'),
+  z.object({
+    顶格升一档: z.boolean().default(true),
+    底格降一档: z.boolean().default(true),
+  }),
+]);
+
+export const 检定骰面Schema = z.object({
+  判定骰型: z.union([z.literal(100), z.literal(20)]).default(100),
+  显骰: z.boolean().default(false),
+  暴击映射: 暴击映射Schema.default('关'),
+});
+
+// 1b. 叙事格式表（6.41）
+const 叙事格式条目Schema = z.object({
+  模板正文: z.string().max(叙事模板正文长度上限), // 6.41⑦ 注入面防护
+  必填槽位: z.array(z.string()).default([]),
+  引擎槽位: z.array(z.string()).default([]),
+  禁词表引用: z.string().optional(),
+  优先级: z.number().int().optional(),
+});
+
+export const 叙事格式表Schema = z.record(z.string(), 叙事格式条目Schema).default({});
+
+// 1c. 母题词汇表
+export const 母题词汇表Schema = z.record(
+  z.string(), // 母题键
+  z.object({
+    词条: z.array(z.string()).default([]),
+    调味提示词: z.string().optional(),
+  }),
+).default({});
+
+// 1d. 实体模板库（结构待 P0-7+ 补全，先占位）
+export const 实体模板库Schema = z.object({
+  NPC模板: z.array(z.unknown()).default([]),
+  组织模板: z.array(z.unknown()).default([]),
+  物品模板: z.array(z.unknown()).default([]),
+});
+
+// 1e. 开局装配数据（6.42）
+const 序章模板Schema = z.object({
+  模式: z.enum(['固定文本', '锚点引导', 'AI自由']).default('AI自由'),
+  正文: z.string().optional(),
+  锚点契约: z.string().optional(),
+  引擎槽位: z.array(z.string()).default([]),
+});
+
+export const 开局装配数据Schema = z.object({
+  // 家境装配包=开局记账动词脚本；运行期必过五道闸落账，禁直塞存档树（6.42①）
+  家境装配包: z.array(z.unknown()).default([]),
+  // 凸成本点购曲线；不进 _tick.难度系数组指纹（6.42⑧）
+  凸成本点购曲线: z.array(z.unknown()).default([]),
+  出厂行动卡集: z.array(z.string()).default([]),
+  序章模板: 序章模板Schema.default({}),
+});
+
+// 1f. 叙事风格预设库（6.42）
+const 叙事风格条目Schema = z.object({
+  键: z.string().default(''),
+  名称: z.string().default(''),
+  风格提示词: z.string().max(叙事模板正文长度上限), // 6.41⑦同款
+  禁词表引用: z.string().optional(),
+  适用场景: z.string().optional(),
+  默认开: z.boolean().default(false),
+});
+
+export const 叙事风格预设库Schema = z.array(叙事风格条目Schema).default([]);
+
+// ══════════════════════════════════════════
 // 玩法预设根（顶层）
 // ══════════════════════════════════════════
 
@@ -222,6 +300,13 @@ export const 玩法预设Schema = z.object({
   赛事结构模板: 赛事结构模板Schema,
   穿越契约: 穿越契约Schema.optional(),
   规则补丁: 规则补丁Schema,
+  // ── 4.11 · 6.41 · 6.42 新增容器字段 ──
+  检定骰面: 检定骰面Schema.default({}),
+  叙事格式表: 叙事格式表Schema,
+  母题词汇表: 母题词汇表Schema,
+  实体模板库: 实体模板库Schema.default({}),
+  开局装配数据: 开局装配数据Schema.default({}),
+  叙事风格预设库: 叙事风格预设库Schema,
 });
 
 export type 玩法预设Type = z.infer<typeof 玩法预设Schema>;

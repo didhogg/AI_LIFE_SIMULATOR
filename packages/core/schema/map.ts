@@ -58,6 +58,16 @@ const 地点条目Schema = z.object({
   显示坐标: z.object({ x: z.number(), y: z.number() }).optional(),
   // 前端绘图辅助：疆域/区域轮廓多边形顶点（顺序连接成闭合多边形），引擎逻辑不依赖
   边界: z.array(z.object({ x: z.number(), y: z.number() })).optional(),
+  // 6.33 地点占位形态（惰性展开，实例化管线 P0-7+）
+  占位形态: z.object({
+    名称: z.string().default(''),
+    父节点: z.string().default(''),
+    相对方位: z.string().default(''),
+    seed: z.string().default(''),
+    模板引用: z.string().optional(),
+  }).optional(),
+  // 6.42 分区惰性·进区才展开下级占位
+  分区键: z.string().optional(),
 });
 
 // ══════════════════════════════════════════

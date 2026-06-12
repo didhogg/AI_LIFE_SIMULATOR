@@ -97,6 +97,7 @@ export const $模型画像Schema = z.record(
   z.object({
     风格补正提示词: z.string().default(''),
     采样参数: z.record(z.string(), z.unknown()).default({}),
+    禁词表: z.array(z.string()).default([]), // 6.41 反八股校验规则（非替换规则）·按 provider 分表
   }),
 ).default({});
 

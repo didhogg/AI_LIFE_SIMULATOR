@@ -37,6 +37,8 @@ export const TickSchema = z.object({
   id: z.string().default(''),
   拍计数: z.number().int().min(0).default(0), // 拍计数≠时间，禁止用拍数折算时长
   难度系数组指纹: z.string().default(''), // 系数组快照的哈希
+  // 骰面量化层①·开局锁定随档快照·与难度系数组指纹同机制·P1 实装时启用
+  判定骰型快照: z.union([z.literal(100), z.literal(20)]).optional(),
 });
 
 // ── 叙事设置（AI 可见；最终形态：{ 人称, 叙事偏好 }）──
