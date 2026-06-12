@@ -3,8 +3,11 @@ import * as prand from 'pure-rand';
 import {
   dispatch,
   assertInvariants,
+  assertLlmNonBlockingTopology,
+  _runTopologyCheckFor,
   isSafeSeam,
   SMTransitionError,
+  LLM_WAIT_MODALS,
 } from '../engine/stateMachine.js';
 import type { StateMachineState, SMEvent } from '../engine/stateMachine.js';
 
@@ -597,5 +600,41 @@ describe('P0-4 fuzz（pure-rand 随机事件 × 200轮）', () => {
         }
       }
     }
+  });
+});
+
+// ── P0-4b LLM 非阻塞拓扑验证（Invariant 6 结构自证）────────────────────────────
+
+describe('P0-4b LLM_WAIT_MODALS 失败出口拓扑', () => {
+  it('LLM_WAIT_MODALS 含 OPENING / EVENT_BROADCAST / RP_FOCUS / COMBAT', () => {
+    expect(LLM_WAIT_MODALS.has('OPENING')).toBe(true);
+    expect(LLM_WAIT_MODALS.has('EVENT_BROADCAST')).toBe(true);
+    expect(LLM_WAIT_MODALS.has('RP_FOCUS')).toBe(true);
+    expect(LLM_WAIT_MODALS.has('COMBAT')).toBe(true);
+    expect(LLM_WAIT_MODALS.has('SCHEDULE_PLAN')).toBe(false);
+  });
+
+  it('OPENING: LLM超时 + LLM失败 均能降级弹栈', () => {
+    expect(() => _runTopologyCheckFor(new Set(['OPENING']))).not.toThrow();
+  });
+
+  it('EVENT_BROADCAST: LLM超时 + LLM失败 均能降级弹栈', () => {
+    expect(() => _runTopologyCheckFor(new Set(['EVENT_BROADCAST']))).not.toThrow();
+  });
+
+  it('RP_FOCUS: LLM超时 + LLM失败 均能降级弹栈', () => {
+    expect(() => _runTopologyCheckFor(new Set(['RP_FOCUS']))).not.toThrow();
+  });
+
+  it('COMBAT: LLM超时 + LLM失败 均能降级弹栈', () => {
+    expect(() => _runTopologyCheckFor(new Set(['COMBAT']))).not.toThrow();
+  });
+
+  it('反例：SCHEDULE_PLAN 无失败出口 → 拓扑断言报 Invariant 6（检测力验证）', () => {
+    expect(() => _runTopologyCheckFor(new Set(['SCHEDULE_PLAN']))).toThrow(/Invariant 6/);
+  });
+
+  it('assertLlmNonBlockingTopology 不抛错（模块加载缓存已通过）', () => {
+    expect(() => assertLlmNonBlockingTopology()).not.toThrow();
   });
 });

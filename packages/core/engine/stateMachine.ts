@@ -8,7 +8,7 @@ import type { StateMachine } from '../schema/system.js';
 export interface StateMachineState extends StateMachine {
   /** EVENT_BROADCAST push 时保存的 timeMode，pop 时还原 */
   _savedTimeMode?: 'PAUSED' | 'TURN' | 'AUTO';
-  /** META_OVERLAY 是否打开；打开时不触碰模态栈与 timeMode */
+  /** META_OVERLAY 不入栈 = 布尔旁路——正式口径，禁止改状态枚举（当前态永不为 'META_OVERLAY'） */
   _meta?: boolean;
 }
 
@@ -64,6 +64,7 @@ export type SMErrorCode =
   | 'ERR_TICK_IN_SETUP'
   | 'ERR_INVALID_TRANSITION';
 
+// 非法迁移 = throw SMTransitionError（带 error code）——正式口径，拍板禁止改 Result 形式
 export class SMTransitionError extends Error {
   constructor(
     public readonly code: SMErrorCode,
@@ -93,6 +94,17 @@ const MODAL_STATES = new Set([
 
 const LLM_WAIT_STATES = new Set(['OPENING', 'EVENT_BROADCAST', 'RP_FOCUS', 'COMBAT']);
 
+/**
+ * LLM 等待模态完整名单（「等 AI 的房间」）。
+ * 每间须有一扇不靠 AI 也能打开的门（超时/失败降级出口）。
+ * - OPENING: LLM 生成开场叙事
+ * - EVENT_BROADCAST: LLM 处理广播事件叙事
+ * - RP_FOCUS: LLM 持续产出 RP 对话
+ * - COMBAT: LLM 生成战斗解算叙事
+ * SCHEDULE_PLAN 排除：玩家主动操作 UI，无 LLM 阻塞调用
+ */
+export const LLM_WAIT_MODALS: ReadonlySet<string> = LLM_WAIT_STATES;
+
 // 安全接缝白名单：广播可出队的模态（P1 行为，接口先到位）
 const SAFE_SEAM_MODALS = new Set(['PLAYING', 'EVENT_BROADCAST', 'RP_FOCUS']);
 
@@ -102,17 +114,19 @@ function stackTop(s: StateMachineState): string {
   return s.模态栈.length > 0 ? s.模态栈[s.模态栈.length - 1]! : s.当前态;
 }
 
-// exactOptionalPropertyTypes requires deleting optional keys rather than assigning undefined
+// exactOptionalPropertyTypes: use delete to remove optional key rather than assigning undefined
 function dropSavedTimeMode(s: StateMachineState): StateMachineState {
-  const { _savedTimeMode: _dropped, ...rest } = s;
-  return rest;
+  const result = { ...s };
+  delete result._savedTimeMode;
+  return result;
 }
 
 // flush: 清栈到 base(PLAYING)，返回两条固定效果指令
 function flush(s: StateMachineState): { state: StateMachineState; effects: EffectInstruction[] } {
-  const { _savedTimeMode: _dropped, ...rest } = s;
+  const base = { ...s };
+  delete base._savedTimeMode;
   const state: StateMachineState = {
-    ...rest,
+    ...base,
     当前态: 'PLAYING',
     模态栈: [],
     timeMode: 'PAUSED',
@@ -423,11 +437,59 @@ export function assertInvariants(state: StateMachineState): void {
     throw new Error(`Invariant 5 [单写者] violated: 非法 timeMode '${timeMode}'`);
   }
 
-  // 6. LLM 非阻塞：每个 LLM 等待模态有超时/失败出口边（设计保证，此处断言已知集合完整性）
-  for (const modal of 模态栈) {
-    if (!MODAL_STATES.has(modal)) {
-      throw new Error(`Invariant 6 [LLM非阻塞] violated: 模态 '${modal}' 不在已知集合`);
+  // 6. LLM 非阻塞：读取模块加载时已完成的拓扑结构验证（O(1) 缓存查询）
+  assertLlmNonBlockingTopology();
+}
+
+// ── LLM 非阻塞拓扑验证 ────────────────────────────────────────────────────────
+
+function _makeMinLlmState(modal: string): StateMachineState {
+  return { 当前态: 'PLAYING', 模态栈: [modal], timeMode: 'PAUSED', 双时钟: { 世界钟: 0, 镜头钟: 0 } };
+}
+
+/**
+ * 对任意模态集合结构验证 LLM 非阻塞性质：
+ * 每个模态在栈顶时，dispatch LLM超时 + LLM失败 均能成功降级弹栈。
+ * 供模块加载缓存和测试反例共用。dispatch 内部不得调用（防递归）。
+ */
+export function _runTopologyCheckFor(modals: ReadonlySet<string>): void {
+  for (const modal of modals) {
+    const minState = _makeMinLlmState(modal);
+    for (const evType of ['LLM超时', 'LLM失败'] as const) {
+      let result: DispatchResult;
+      try {
+        result = dispatch(minState, { type: evType });
+      } catch (e) {
+        throw new Error(
+          `Invariant 6 [LLM非阻塞拓扑] violated: 模态 '${modal}' + '${evType}' 无降级出口` +
+          (e instanceof Error ? ` (${e.message})` : ''),
+        );
+      }
+      if (result.新机器状态.模态栈.length >= minState.模态栈.length) {
+        throw new Error(
+          `Invariant 6 [LLM非阻塞拓扑] violated: 模态 '${modal}' + '${evType}' 未弹栈`,
+        );
+      }
     }
+  }
+}
+
+// 模块加载时立即运行拓扑验证，结果缓存，O(1) 后续查询
+let _topologyChecked = false;
+let _topologyError: Error | null = null;
+(() => {
+  try {
+    _runTopologyCheckFor(LLM_WAIT_MODALS);
+    _topologyChecked = true;
+  } catch (e) {
+    _topologyError = e instanceof Error ? e : new Error(String(e));
+  }
+})();
+
+/** 读取模块加载时已缓存的 LLM 非阻塞拓扑验证结果。assertInvariants 第 6 条调用此函数。 */
+export function assertLlmNonBlockingTopology(): void {
+  if (!_topologyChecked || _topologyError !== null) {
+    throw _topologyError ?? new Error('Invariant 6 [LLM非阻塞拓扑]: 拓扑检查未运行');
   }
 }
 
