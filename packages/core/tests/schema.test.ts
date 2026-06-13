@@ -146,6 +146,19 @@ describe('4.1 System layer', () => {
     const res = SystemSchema.parse({ 功能开关表: { mod_自定义特性: true } });
     expect((res.功能开关表 as Record<string, unknown>)['mod_自定义特性']).toBe(true);
   });
+  // 6.76 观战推进模式（第5开关）
+  it('功能开关表: 观战推进模式 默认=手动步进', () => {
+    const res = SystemSchema.parse({});
+    expect(res.功能开关表.观战推进模式).toBe('手动步进');
+  });
+  it('功能开关表: 观战推进模式 三值全合法', () => {
+    for (const v of ['手动步进', '自动连播', '快播到事件'] as const) {
+      expect(SystemSchema.safeParse({ 功能开关表: { 观战推进模式: v } }).success).toBe(true);
+    }
+  });
+  it('功能开关表: 观战推进模式 拒绝非法值', () => {
+    expect(SystemSchema.safeParse({ 功能开关表: { 观战推进模式: '全速' } }).success).toBe(false);
+  });
   // 6.75 tick_log 盐值
   it('TickLogEntrySchema: 盐值 absent → valid (optional)', () => {
     expect(TickLogEntrySchema.safeParse({ tick_id: 't1', 拍计数: 0, 结果摘要: '', 系数组指纹: '' }).success).toBe(true);
@@ -203,17 +216,38 @@ describe('4.1 System layer', () => {
   it('人称: 旧版字符串格式拒绝（无法向前兼容）', () => {
     expect(NarrativeSettingSchema.safeParse({ 人称: '第三人称' }).success).toBe(false);
   });
-  // 6.75 叙事权限
-  it('叙事权限: 默认值 玩家角色写权限="玩家独占"', () => {
-    const res = NarrativeSettingSchema.parse({});
-    expect(res.叙事权限.玩家角色写权限).toBe('玩家独占');
+  // 6.76 视角锁定（二元选择）
+  it('人称: 视角锁定 默认=锁定单一宿主', () => {
+    expect(NarrativeSettingSchema.parse({}).人称.视角锁定).toBe('锁定单一宿主');
   });
-  it('叙事权限: 可设为"模型可代写"', () => {
-    const res = NarrativeSettingSchema.parse({ 叙事权限: { 玩家角色写权限: '模型可代写' } });
-    expect(res.叙事权限.玩家角色写权限).toBe('模型可代写');
+  it('人称: 视角锁定 可切换出场角色', () => {
+    expect(NarrativeSettingSchema.safeParse({ 人称: { 视角锁定: '可切换出场角色' } }).success).toBe(true);
+  });
+  it('人称: 视角锁定 拒绝非法值', () => {
+    expect(NarrativeSettingSchema.safeParse({ 人称: { 视角锁定: '自由切换' } }).success).toBe(false);
+  });
+  // 6.76 叙事权限·三档决策权限（细化 6.75 两档）
+  it('叙事权限: 默认值 玩家角色决策权限="玩家独占"', () => {
+    const res = NarrativeSettingSchema.parse({});
+    expect(res.叙事权限.玩家角色决策权限).toBe('玩家独占');
+  });
+  it('叙事权限: 可设为"模型可代写·需确认"', () => {
+    const res = NarrativeSettingSchema.parse({ 叙事权限: { 玩家角色决策权限: '模型可代写·需确认' } });
+    expect(res.叙事权限.玩家角色决策权限).toBe('模型可代写·需确认');
+  });
+  it('叙事权限: 可设为"模型可代写·自动"', () => {
+    const res = NarrativeSettingSchema.parse({ 叙事权限: { 玩家角色决策权限: '模型可代写·自动' } });
+    expect(res.叙事权限.玩家角色决策权限).toBe('模型可代写·自动');
+  });
+  it('叙事权限: 拒绝旧二值格式「模型可代写」（已细化为三档）', () => {
+    expect(NarrativeSettingSchema.safeParse({ 叙事权限: { 玩家角色决策权限: '模型可代写' } }).success).toBe(false);
   });
   it('叙事权限: 拒绝非法枚举值', () => {
-    expect(NarrativeSettingSchema.safeParse({ 叙事权限: { 玩家角色写权限: '随意' } }).success).toBe(false);
+    expect(NarrativeSettingSchema.safeParse({ 叙事权限: { 玩家角色决策权限: '随意' } }).success).toBe(false);
+  });
+  it('防回归: 叙事权限 不含旧字段「玩家角色写权限」', () => {
+    const res = NarrativeSettingSchema.parse({});
+    expect(res.叙事权限).not.toHaveProperty('玩家角色写权限');
   });
   // 2. _叙事设置.启用文风键 (6.42)
   it('启用文风键: 缺省 parse 得 []', () => {
@@ -2163,14 +2197,19 @@ describe('P0-1 minimum empty state', () => {
   });
   it('empty state: _叙事设置.叙事权限 has default', () => {
     const state = RootSchema.parse({});
-    expect(state._叙事设置.叙事权限.玩家角色写权限).toBe('玩家独占');
+    expect(state._叙事设置.叙事权限.玩家角色决策权限).toBe('玩家独占');
   });
-  it('empty state: 系统.功能开关表 has all 6.75 defaults', () => {
+  it('empty state: _叙事设置.人称.视角锁定 默认=锁定单一宿主', () => {
+    const state = RootSchema.parse({});
+    expect(state._叙事设置.人称.视角锁定).toBe('锁定单一宿主');
+  });
+  it('empty state: 系统.功能开关表 has all 6.75/6.76 defaults', () => {
     const state = RootSchema.parse({});
     expect(state.系统.功能开关表.观战模式).toBe(false);
     expect(state.系统.功能开关表.舞台追踪).toBe('自动按场景');
     expect(state.系统.功能开关表.二审严格度).toBe(50);
     expect(state.系统.功能开关表.二审维度开关).toEqual({});
+    expect(state.系统.功能开关表.观战推进模式).toBe('手动步进');
   });
   it('empty state: 世界域 defaults to {}', () => {
     const state = RootSchema.parse({});

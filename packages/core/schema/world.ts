@@ -51,13 +51,13 @@ export const 活跃区间条目Schema = z.object({
 });
 
 // ── 世界域（多世界穿越·6.36，开局单域） ──
-// 域时钟 🧮 派生展示量（f(累计活跃区间表)），不存储
+// 域时钟 🧮 派生/版本化展示量（f(累计活跃区间表)）·非时间真相·不存储；全局时刻才是唯一真相主键（G-1）
 export const 世界域Schema = z.record(
   z.string(), // 域 ID（mod 命名空间同机制）
   z.object({
     玩法预设引用: z.string().default(''),
     封存状态: z.boolean().default(false),
-    // G-1: 域钟唯一派生输入，线性追加，随线版本化
+    // G-1·6.54·域钟唯一派生输入·随时间线分块版本化·随 fork/SL 分叉回滚·绝不游离快照外
     累计活跃区间表: z.array(活跃区间条目Schema).default([]),
   }),
 ).default({});
