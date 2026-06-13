@@ -22,6 +22,9 @@ import {
   占位解析槽Schema,
   组织实体Schema,
   组织关系网Schema,
+  组织属性轴条目Schema,
+  离场演化契约Schema,
+  组织占位形态Schema,
   全局Schema,
   地图Schema,
   战争状态Schema,
@@ -489,21 +492,248 @@ describe('4.3 Actor layer', () => {
 });
 
 describe('4.4 Org layer', () => {
-  it('valid empty parse', () => {
+  // ── 最小开局状态 ─────────────────────────────────────────────────────────────
+  it('valid empty parse (minimal state)', () => {
     expect(() => 组织实体Schema.parse({})).not.toThrow();
     expect(() => 组织关系网Schema.parse({})).not.toThrow();
   });
-  it('valid org entity', () => {
+  it('minimal-state: RootSchema parse with empty 组织实体', () => {
+    expect(() => RootSchema.parse({ 组织实体: {}, 组织关系网: {} })).not.toThrow();
+  });
+
+  // ── 身份骨架 ─────────────────────────────────────────────────────────────────
+  it('valid org entity with identity fields', () => {
     expect(() => 组织实体Schema.parse({
-      org_001: {
-        名称: '天下商行',
-        类型: '商业',
-        规模: '大型',
-      },
+      org_001: { 父组织: 'org_parent', 类型: '商业', 行业: '贸易', 状态: '运营', 占股: 30, 经营范围: ['丝绸', '茶叶'], 风险: 20, 币种: '金两' },
     })).not.toThrow();
+  });
+  it('valid: 父组织 absent (顶层实体)', () => {
+    expect(() => 组织实体Schema.parse({ org_001: {} })).not.toThrow();
   });
   it('invalid: 占股 out of range', () => {
     expect(组织实体Schema.safeParse({ org: { 占股: 200 } }).success).toBe(false);
+  });
+
+  // ── 财务 ─────────────────────────────────────────────────────────────────────
+  it('valid 财务 block', () => {
+    expect(() => 组织实体Schema.parse({
+      org: { 财务: { 投入本金: 50000, 估值: 200000, 本期营收: 10000, 本期成本: 7000, 本期净利: 3000, 累计盈亏: 15000 } },
+    })).not.toThrow();
+  });
+  it('valid: 财务 allows negative values (亏损)', () => {
+    expect(() => 组织实体Schema.parse({
+      org: { 财务: { 累计盈亏: -5000, 本期净利: -1000 } },
+    })).not.toThrow();
+  });
+
+  // ── 用工（士气🗑️已收编出厂轴）───────────────────────────────────────────────
+  it('valid 用工 block without 士气', () => {
+    expect(() => 组织实体Schema.parse({
+      org: { 用工: { 员工数: 50, 岗位: { 账房: { 人数: 5, 月薪: 200, 技能等级: '中级' } }, 人力成本: 1000, 产能系数: 1.2, 关键员工: ['npc_boss'] } },
+    })).not.toThrow();
+  });
+  it('invalid: 用工.员工数 negative', () => {
+    expect(组织实体Schema.safeParse({ org: { 用工: { 员工数: -1 } } }).success).toBe(false);
+  });
+
+  // ── 属性轴?（6.45/6.48·出厂七轴·可扩可休眠·键名冻结）──────────────────────
+  it('valid 属性轴 with 出厂七轴', () => {
+    expect(() => 组织属性轴条目Schema.parse({ 数值: 60, 域: '治理' })).not.toThrow();
+    expect(() => 组织实体Schema.parse({
+      org: {
+        属性轴: {
+          掌控度: { 数值: 70, 域: '治理' },
+          合法性: { 数值: 60, 域: '治理' },
+          民心: { 数值: 50, 域: '治理' },
+          凝聚力: { 数值: 65, 域: '治理' },
+          士气: { 数值: 80, 域: '军事' },
+          强制度: { 数值: 40, 域: '信念' },
+          异端容忍: { 数值: 55, 域: '信念' },
+        },
+      },
+    })).not.toThrow();
+  });
+  it('valid 属性轴 显示名 (仅换皮，修真「香火」=民心)', () => {
+    expect(() => 组织属性轴条目Schema.parse({ 数值: 50, 显示名: '香火', 域: '治理' })).not.toThrow();
+  });
+  it('valid 属性轴 停用=true (休眠出厂轴)', () => {
+    expect(() => 组织属性轴条目Schema.parse({ 数值: 0, 停用: true, 域: '信念' })).not.toThrow();
+  });
+  it('valid 属性轴 自定义扩展轴', () => {
+    expect(() => 组织实体Schema.parse({
+      org: { 属性轴: { 民主程度: { 数值: 30, 域: '治理' }, 军工能力: { 数值: 60, 域: '军事' } } },
+    })).not.toThrow();
+  });
+  it('valid: 属性轴 absent (optional)', () => {
+    expect(() => 组织实体Schema.parse({ org: {} })).not.toThrow();
+    const parsed = 组织实体Schema.parse({ org: {} });
+    expect(parsed['org']!.属性轴).toBeUndefined();
+  });
+  it('invalid: 属性轴.衰减速率 negative', () => {
+    expect(组织属性轴条目Schema.safeParse({ 数值: 50, 衰减速率: -1 }).success).toBe(false);
+  });
+
+  // ── 治理（连续数值已收编出厂轴，只保留结构性字段）──────────────────────────────
+  it('valid 治理 block (no 掌控度/合法性/民心/凝聚力)', () => {
+    expect(() => 组织实体Schema.parse({
+      org: { 治理: { 追随者规模: 5000, 控制区: ['node_都城', 'node_边境'], 关联职级体系ID: 'rank_官制' } },
+    })).not.toThrow();
+  });
+  it('invalid: 治理.追随者规模 negative', () => {
+    expect(组织实体Schema.safeParse({ org: { 治理: { 追随者规模: -1 } } }).success).toBe(false);
+  });
+  it('防回归: 治理 无 掌控度/合法性/民心/凝聚力 字段（已收编出厂轴）', () => {
+    const parsed = 组织实体Schema.parse({ org: { 治理: {} } });
+    const 治理 = parsed['org']!.治理;
+    expect(治理).not.toHaveProperty('掌控度');
+    expect(治理).not.toHaveProperty('合法性');
+    expect(治理).not.toHaveProperty('民心');
+    expect(治理).not.toHaveProperty('凝聚力');
+  });
+
+  // ── 军事（士气🗑️已收编出厂轴）───────────────────────────────────────────────
+  it('valid 军事 block', () => {
+    expect(() => 组织实体Schema.parse({
+      org: {
+        军事: { 兵力: 10000, 战力档: '精锐', 装备: '重装步兵', 补给: 80, 兵种: '步骑混合', 主将: 'npc_大将军', 驻地: 'node_军营',
+          部队: [{ 编制: '先锋营', 姿态: '强攻', 战术引用: 'tactic_001' }] },
+      },
+    })).not.toThrow();
+  });
+  it('防回归: 军事 无 士气 字段（已收编出厂轴）', () => {
+    const parsed = 组织实体Schema.parse({ org: { 军事: {} } });
+    expect(parsed['org']!.军事).not.toHaveProperty('士气');
+  });
+  it('invalid: 军事.补给 out of range', () => {
+    expect(组织实体Schema.safeParse({ org: { 军事: { 补给: 101 } } }).success).toBe(false);
+  });
+
+  // ── 信念（6.45/6.48 瘦身·强制度/异端容忍收编出厂轴）────────────────────────
+  it('valid 信念 瘦身形态 {官方体系, 思潮派系}', () => {
+    expect(() => 组织实体Schema.parse({
+      org: { 信念: { 官方体系: '儒家', 思潮派系: '保守派' } },
+    })).not.toThrow();
+  });
+  it('防回归: 信念 无 强制度/异端容忍 字段（已收编出厂轴）', () => {
+    const parsed = 组织实体Schema.parse({ org: { 信念: {} } });
+    const 信念 = parsed['org']!.信念;
+    expect(信念).not.toHaveProperty('强制度');
+    expect(信念).not.toHaveProperty('异端容忍');
+  });
+
+  // ── 离场演化契约?（6.45/6.66）────────────────────────────────────────────────
+  it('valid 离场演化契约 optional', () => {
+    expect(() => 离场演化契约Schema.parse({
+      演化速率: 0.5,
+      随机事件表: 'event_table_朝廷',
+      晋升倾轧规则: '每10拍随机晋升一名下属',
+      关联声明: ['全局.皇帝死亡', '外部.战争爆发'],
+    })).not.toThrow();
+  });
+  it('valid: 离场演化契约 absent (optional)', () => {
+    const parsed = 组织实体Schema.parse({ org: {} });
+    expect(parsed['org']!.离场演化契约).toBeUndefined();
+  });
+  it('valid: 离场演化契约.关联声明 absent', () => {
+    expect(() => 离场演化契约Schema.parse({ 演化速率: 1.0 })).not.toThrow();
+  });
+  it('invalid: 离场演化契约.演化速率 negative', () => {
+    expect(离场演化契约Schema.safeParse({ 演化速率: -0.1 }).success).toBe(false);
+  });
+
+  // ── 进展树 ───────────────────────────────────────────────────────────────────
+  it('valid 进展树 DAG + 当前节点', () => {
+    expect(() => 组织实体Schema.parse({
+      org: { 进展树: { 政体: { nodes: { 封建制: { 前置: [], 进度: 100, 投入: '100年积累', 解锁效果: '增强掌控度' }, 君主立宪: { 前置: ['封建制'], 进度: 30, 投入: '改革浪潮', 解锁效果: '提升合法性' } }, 当前节点: '封建制' } } },
+    })).not.toThrow();
+  });
+
+  // ── 派系登记 ─────────────────────────────────────────────────────────────────
+  it('valid 派系登记[]', () => {
+    expect(() => 组织实体Schema.parse({
+      org: { 派系登记: [{ 诉求: '保守主义', 领袖: 'npc_保守派', 成员: 'role:大臣&态度:保守' }] },
+    })).not.toThrow();
+  });
+
+  // ── 网点 & 传播 ──────────────────────────────────────────────────────────────
+  it('valid 网点[] + 传播{}', () => {
+    expect(() => 组织实体Schema.parse({
+      org: {
+        网点: [{ 地点键: 'node_扬州', 营收: 5000, 规模: 70, 风险: 20, 状态: '正常', 生产方式: '贸易' }],
+        传播: { region_江南: 60, region_塞北: 10 },
+      },
+    })).not.toThrow();
+  });
+  it('invalid: 传播 渗透度 out of range', () => {
+    expect(组织实体Schema.safeParse({ org: { 传播: { 江南: 101 } } }).success).toBe(false);
+  });
+
+  // ── 项目档?（6.34）───────────────────────────────────────────────────────────
+  it('valid 项目档 with 进展树/财务/传播/用工', () => {
+    expect(() => 组织实体Schema.parse({
+      org: {
+        项目档: {
+          进展树: { 研究: { nodes: { 基础研究: { 前置: [], 进度: 50, 投入: '时间', 解锁效果: '' } }, 当前节点: '基础研究' } },
+          财务: { 投入本金: 1000, 累计盈亏: -200 },
+          传播: { region_本地: 80 },
+          用工: { 员工数: 3, 关键员工: ['npc_研究员'] },
+        },
+      },
+    })).not.toThrow();
+  });
+  it('valid: 项目档 absent (optional)', () => {
+    const parsed = 组织实体Schema.parse({ org: {} });
+    expect(parsed['org']!.项目档).toBeUndefined();
+  });
+
+  // ── 占位形态?（6.33/6.52）────────────────────────────────────────────────────
+  it('valid 占位形态 with 模板快照', () => {
+    expect(() => 组织占位形态Schema.parse({
+      名称: '神秘商会', 实体类型: '商业组织', 硬约束: ['规模:中型'],
+      来源拍号: 50, 模板引用: 'tpl_商会', 模板快照: { 类型: '商业', 行业: '贸易' },
+    })).not.toThrow();
+  });
+  it('valid: 占位形态 absent', () => {
+    const parsed = 组织实体Schema.parse({ org: {} });
+    expect(parsed['org']!.占位形态).toBeUndefined();
+  });
+
+  // ── 组织关系网 ───────────────────────────────────────────────────────────────
+  it('valid 组织关系网 edge', () => {
+    expect(() => 组织关系网Schema.parse({
+      edge_001: { A组织: 'org_汉', B组织: 'org_匈奴', 关系: '敌对', 关系值: -80, 约定引用键: 'pact_和亲' },
+    })).not.toThrow();
+  });
+  it('invalid: 组织关系网 关系值 out of range', () => {
+    expect(组织关系网Schema.safeParse({ e: { 关系值: 150 } }).success).toBe(false);
+  });
+
+  // ── 综合样例：完整组织实体一次 parse ───────────────────────────────────────────
+  it('valid: full org entity (all blocks)', () => {
+    expect(() => 组织实体Schema.parse({
+      org_大汉: {
+        类型: '政权', 行业: '统治', 状态: '运营', 占股: 0, 经营范围: ['军事', '税收'], 风险: 15, 币种: '五铢钱',
+        财务: { 投入本金: 0, 估值: 1000000, 本期营收: 100000, 本期成本: 80000, 本期净利: 20000, 累计盈亏: 500000 },
+        用工: { 员工数: 10000, 关键员工: ['npc_丞相'] },
+        属性轴: {
+          掌控度: { 数值: 80, 域: '治理' },
+          合法性: { 数值: 90, 域: '治理' },
+          民心: { 数值: 60, 域: '治理' },
+          凝聚力: { 数值: 70, 域: '治理' },
+          士气: { 数值: 85, 域: '军事' },
+          强制度: { 数值: 50, 域: '信念' },
+          异端容忍: { 数值: 30, 域: '信念' },
+        },
+        治理: { 追随者规模: 50000000, 控制区: ['node_长安'], 关联职级体系ID: 'rank_汉官制' },
+        军事: { 兵力: 500000, 战力档: '精锐', 装备: '骑兵+步兵', 补给: 90, 兵种: '混合', 主将: 'npc_卫青', 驻地: 'node_长城', 部队: [] },
+        信念: { 官方体系: '儒家', 思潮派系: '今文经学' },
+        进展树: {},
+        派系登记: [{ 诉求: '强干弱枝', 领袖: 'npc_丞相', 成员: 'role:重臣' }],
+        网点: [{ 地点键: 'node_长安', 营收: 100000, 规模: 100, 风险: 5, 状态: '正常', 生产方式: '税收' }],
+        传播: { region_中原: 95, region_西域: 40 },
+        离场演化契约: { 演化速率: 0.1, 随机事件表: 'evt_table_皇朝演化', 晋升倾轧规则: '每20拍一次权臣事件' },
+      },
+    })).not.toThrow();
   });
 });
 
