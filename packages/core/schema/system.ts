@@ -16,7 +16,7 @@ export const SystemSchema = z.object({
   schema_version: z.number().int().min(0).default(0),
   migration_version: z.number().int().min(0).default(0),
   last_migration: z.number().int().default(0), // 绝对时间（纪元分钟）
-  tick_log: z.array(TickLogEntrySchema).default([]),  // 轮转封顶，引擎维护
+  tick_log: z.array(TickLogEntrySchema).default([]),  // 环形缓冲 N 住预设 (6.65 W6)·轮转封顶，引擎维护
   叙事流高水位序号: z.number().int().default(0), // 热区只存高水位，日志本体住存档冷区；拍前快照不复制日志
   已结算标记: z.record(
     z.string(),

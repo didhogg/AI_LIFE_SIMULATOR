@@ -203,7 +203,8 @@ export const 存档头Schema = z.object({
     墙钟时间: z.string().default(''), // 纯展示·禁止参与引擎判定
   })).optional(),
 
-  // N2·系统事件镜像：只读白名单，引擎写，内容侧只读
+  // N2·系统事件镜像：终身累计·只读 vs G9b 树内换角计数器(每线重计) 两量并存·非双写 (AA11)
+  // 引擎写·内容侧只读白名单；随存档整体保存·绝不随快照回滚
   系统事件镜像: z.object({
     全局回滚次数: z.number().int().min(0).default(0),
     周目数: z.number().int().min(0).default(0),

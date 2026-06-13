@@ -435,6 +435,7 @@ export const NpcSchema = z.object({
   婚姻: z.array(婚姻条目Schema).default([]),
 
   // ── 关系与组织 ──
+  // 6.65 W4·强度跌破门槛 → 转 L2 归档摘要、不留活跃边；边数上限住预设
   关系: z.array(关系条目Schema).default([]),
   所属组织: z.array(所属组织条目Schema).default([]),
   职务: z.array(职务条目Schema).default([]),
