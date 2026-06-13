@@ -57,6 +57,10 @@ import {
   钳制表Schema,
   媒介登记表Schema,
   叙事分发表Schema,
+  二审维度条目Schema,
+  小剧场剧本条目Schema,
+  死亡拦截器条目Schema,
+  换角许可Schema,
   母题词汇表Schema,
   实体模板库Schema,
   开局装配数据Schema,
@@ -1978,6 +1982,157 @@ describe('4.10 Preset layer', () => {
   it('$会话状态: 演出层草稿计数拒绝负值', () => {
     expect(RootSchema.shape.$会话状态.safeParse({ 演出层草稿计数: -1 }).success).toBe(false);
   });
+  // ── 缺口一·二审维度库（6.75）──────────────────────────────────────────────────
+  it('二审维度库: absent (optional)', () => {
+    expect(玩法预设Schema.parse({}).二审维度库).toBeUndefined();
+  });
+  it('二审维度库: 检测方式=机械 valid', () => {
+    expect(二审维度条目Schema.safeParse({
+      键: 'anti_mary_sue', 名称: '反玛丽苏', 检测方式: '机械', 规则或提示词: 'rule:...',
+    }).success).toBe(true);
+  });
+  it('二审维度库: 检测方式=审稿提示词 valid', () => {
+    expect(二审维度条目Schema.safeParse({
+      键: 'anti_oil', 名称: '反油腻', 检测方式: '审稿提示词', 规则或提示词: '请检查是否有油腻描写…',
+      阈值: 0.8, 默认开: true,
+    }).success).toBe(true);
+  });
+  it('二审维度库: 检测方式 二分枚举（无第三值）', () => {
+    expect(二审维度条目Schema.safeParse({ 键: 'x', 检测方式: '权重评分' }).success).toBe(false);
+  });
+  it('二审维度库: 阈值/默认开 absent (optional)', () => {
+    const res = 二审维度条目Schema.parse({ 键: 'x', 检测方式: '机械', 规则或提示词: 'r' });
+    expect(res.阈值).toBeUndefined();
+    expect(res.默认开).toBeUndefined();
+  });
+  it('二审维度库: 在 玩法预设 中 valid array', () => {
+    expect(玩法预设Schema.safeParse({
+      二审维度库: [
+        { 键: 'anti_mary_sue', 名称: '反玛丽苏', 检测方式: '机械', 规则或提示词: '规则A' },
+        { 键: 'logic_check', 名称: '单拍物理矛盾', 检测方式: '审稿提示词', 规则或提示词: '提示词B', 默认开: false },
+      ],
+    }).success).toBe(true);
+  });
+
+  // ── 缺口二·小剧场剧本库（6.75）──────────────────────────────────────────────
+  it('小剧场剧本库: absent (optional)', () => {
+    expect(玩法预设Schema.parse({}).小剧场剧本库).toBeUndefined();
+  });
+  it('小剧场剧本库: valid 剧本条目（含所有字段）', () => {
+    expect(小剧场剧本条目Schema.safeParse({
+      键: 'dream_seq', 名称: '梦境序列', 图标: '🌙', 分类: '奇幻',
+      描述: '主角进入梦境', 提示词: '现在开始叙述一段梦境…',
+      读历史默认: true, 输出格式: 'prose',
+    }).success).toBe(true);
+  });
+  it('小剧场剧本库: 读历史默认 absent (optional)', () => {
+    const res = 小剧场剧本条目Schema.parse({ 键: 'x', 检测方式: '机械' });
+    expect(res.读历史默认).toBeUndefined();
+  });
+  it('小剧场剧本库: 无触发条件字段（strip 验证）', () => {
+    const res = 小剧场剧本条目Schema.parse({ 键: 'x', 触发条件: '到达城市' });
+    expect(res).not.toHaveProperty('触发条件');
+  });
+  it('小剧场剧本库: 在 玩法预设 中 valid array', () => {
+    expect(玩法预设Schema.safeParse({
+      小剧场剧本库: [{ 键: 's1', 名称: '占卜', 图标: '🔮', 分类: '神秘', 描述: '…', 提示词: '…', 输出格式: 'structured' }],
+    }).success).toBe(true);
+  });
+
+  // ── 缺口三·死亡拦截器条目（6.45·list）────────────────────────────────────────
+  it('死亡拦截器条目: absent (optional)', () => {
+    expect(玩法预设Schema.parse({}).死亡拦截器条目).toBeUndefined();
+  });
+  it('死亡拦截器条目: valid 单条（注册者/优先级/条件引用/目标动词）', () => {
+    expect(死亡拦截器条目Schema.safeParse({
+      注册者: '系统', 优先级: 10,
+      条件引用: '触发契约.天命_必活', 目标动词: '穿越契约.转世',
+    }).success).toBe(true);
+  });
+  it('死亡拦截器条目: 无概率参数（概率住检定配方表）', () => {
+    const res = 死亡拦截器条目Schema.parse({ 注册者: 'x', 条件引用: 'c', 目标动词: 'v' });
+    expect(res).not.toHaveProperty('概率');
+    expect(res).not.toHaveProperty('触发概率');
+  });
+  it('死亡拦截器条目: 优先级默认0', () => {
+    expect(死亡拦截器条目Schema.parse({ 注册者: 'x', 条件引用: 'c', 目标动词: 'v' }).优先级).toBe(0);
+  });
+  it('死亡拦截器条目: 负优先级拒收', () => {
+    expect(死亡拦截器条目Schema.safeParse({ 注册者: 'x', 优先级: -1, 条件引用: 'c', 目标动词: 'v' }).success).toBe(false);
+  });
+  it('死亡拦截器条目: 在 玩法预设 中 valid list', () => {
+    expect(玩法预设Schema.safeParse({
+      死亡拦截器条目: [
+        { 注册者: '系统', 优先级: 100, 条件引用: '天命通道.必活', 目标动词: '穿越.同世界转世' },
+        { 注册者: 'mod_复仇者', 优先级: 50, 条件引用: '概率.20pct_天命', 目标动词: '穿越.换角' },
+      ],
+    }).success).toBe(true);
+  });
+
+  // ── 缺口四·换角许可（6.45）──────────────────────────────────────────────────
+  it('换角许可: absent (optional，缺省=单人单角)', () => {
+    expect(玩法预设Schema.parse({}).换角许可).toBeUndefined();
+  });
+  it('换角许可: valid（候选选择器/冷却/次数上限/谢幕卡开关）', () => {
+    expect(换角许可Schema.safeParse({
+      候选选择器: 'NPC.关系≥亲密', 冷却: 43200, 次数上限: 3, 谢幕卡开关: true,
+    }).success).toBe(true);
+  });
+  it('换角许可: 次数上限 absent (optional)', () => {
+    expect(换角许可Schema.parse({}).次数上限).toBeUndefined();
+  });
+  it('换角许可: 谢幕卡开关 默认 true', () => {
+    expect(换角许可Schema.parse({}).谢幕卡开关).toBe(true);
+  });
+  it('换角许可: 冷却 默认 0', () => {
+    expect(换角许可Schema.parse({}).冷却).toBe(0);
+  });
+  it('换角许可: 次数上限 负数拒收', () => {
+    expect(换角许可Schema.safeParse({ 次数上限: -1 }).success).toBe(false);
+  });
+
+  // ── 缺口五·世界遗产白名单出厂值（6.45）──────────────────────────────────────
+  it('世界遗产白名单出厂值: absent (optional)', () => {
+    expect(玩法预设Schema.parse({}).世界遗产白名单出厂值).toBeUndefined();
+  });
+  it('世界遗产白名单出厂值: valid 路径列表', () => {
+    expect(玩法预设Schema.safeParse({
+      世界遗产白名单出厂值: ['$meta.周目谱系', '全局.家族树', '全局.编年史'],
+    }).success).toBe(true);
+  });
+  it('世界遗产白名单出厂值: 空数组合法（mod 可覆盖）', () => {
+    expect(玩法预设Schema.safeParse({ 世界遗产白名单出厂值: [] }).success).toBe(true);
+  });
+
+  // ── 缺口六确认·穿越契约（无需新增，现状即是预设级定义）────────────────────────
+  it('穿越契约: 现有 optional 即预设级定义（无单独出厂值字段）', () => {
+    expect(玩法预设Schema.parse({}).穿越契约).toBeUndefined();
+    expect(玩法预设Schema.safeParse({
+      穿越契约: { 属性映射: { '智慧': '智力' }, 货币处理: '按汇率', 时间比率: 2 },
+    }).success).toBe(true);
+  });
+
+  // ── 顺手·离场演化契约出厂模板（6.45·契约来路②兜底）────────────────────────
+  it('离场演化契约出厂模板: absent (optional)', () => {
+    expect(玩法预设Schema.parse({}).离场演化契约出厂模板).toBeUndefined();
+  });
+  it('离场演化契约出厂模板: valid record(组织类型→模板)', () => {
+    expect(玩法预设Schema.safeParse({
+      离场演化契约出厂模板: {
+        '朝廷机构': { 解散概率: 0.1, 继承者: '户部' },
+        '商会': { 解散概率: 0.3, 继承者: null },
+      },
+    }).success).toBe(true);
+  });
+
+  // ── 实体模板库确认·保持 z.unknown() 占位 ──────────────────────────────────
+  it('实体模板库: z.unknown() 占位，各模板数组默认空', () => {
+    const res = 玩法预设Schema.parse({});
+    expect(res.实体模板库.NPC模板).toEqual([]);
+    expect(res.实体模板库.组织模板).toEqual([]);
+    expect(res.实体模板库.物品模板).toEqual([]);
+  });
+
   // 6.44 防回归断言：旧键名已从 玩法预设 和文风条目中删除
   it('防回归: 玩法预设Schema.shape 不含旧键「叙事格式表」', () => {
     expect('叙事格式表' in 玩法预设Schema.shape).toBe(false);

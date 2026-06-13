@@ -322,6 +322,52 @@ export const 钳制表Schema = z.object({
 }).default({});
 
 // ══════════════════════════════════════════
+// P0-1 4.10 缺口：六项补全
+// ══════════════════════════════════════════
+
+// 缺口一·二审维度库（6.75）
+// 开放·不枚举：反玛丽苏/反油腻/单拍物理矛盾等都是条目，非写死固定项
+// 检测方式二分：机械=跑规则；审稿提示词=喂另一个 AI 评（无权重/评分标尺）
+export const 二审维度条目Schema = z.object({
+  键: z.string().default(''),
+  名称: z.string().default(''),
+  检测方式: z.enum(['机械', '审稿提示词']),
+  规则或提示词: z.string().default(''),
+  阈值: z.number().optional(),
+  默认开: z.boolean().optional(),
+}).strip();
+
+// 缺口二·小剧场剧本库（6.75）
+// 玩家主动点击触发的脑洞剧本（无触发条件、无NPC角色表）
+export const 小剧场剧本条目Schema = z.object({
+  键: z.string().default(''),       // 剧本ID
+  名称: z.string().default(''),
+  图标: z.string().default(''),
+  分类: z.string().default(''),
+  描述: z.string().default(''),
+  提示词: z.string().default(''),
+  读历史默认: z.boolean().optional(),
+  输出格式: z.string().default(''),
+}).strip();
+
+// 缺口三·死亡拦截器条目（缺口1/6.45·list）
+// ⚠ 概率参数住检定配方表（进指纹），本结构只放配方引用，不直接写概率
+export const 死亡拦截器条目Schema = z.object({
+  注册者: z.string().default(''),    // 注册方标识（系统/mod/玩法预设键）
+  优先级: z.number().int().min(0).default(0),
+  条件引用: z.string().default(''),  // 触发契约四类·概率条件强制天命通道（配方引用键）
+  目标动词: z.string().default(''),  // 穿越契约引用键
+}).strip();
+
+// 缺口四·换角许可（6.45·缺省=单人单角）
+export const 换角许可Schema = z.object({
+  候选选择器: z.string().default(''),          // 开放串·候选角色选择器表达式
+  冷却: z.number().int().min(0).default(0),    // 游戏时长（纪元分钟）
+  次数上限: z.number().int().min(0).optional(),
+  谢幕卡开关: z.boolean().default(true),
+}).strip();
+
+// ══════════════════════════════════════════
 // 玩法预设根（顶层）
 // ══════════════════════════════════════════
 
@@ -363,6 +409,21 @@ export const 玩法预设Schema = z.object({
   // ── P0-5 检定判定层 ──
   检定档切分表: 检定档切分表Schema,
   钳制表: 钳制表Schema,
+
+  // ── P0-1 4.10 缺口 ──────────────────────────────────────────────────────────
+  // 缺口一·二审维度库（6.75·开放·叙事质量二审维度注册表）
+  二审维度库: z.array(二审维度条目Schema).optional(),
+  // 缺口二·小剧场剧本库（6.75·玩家主动点击触发）
+  小剧场剧本库: z.array(小剧场剧本条目Schema).optional(),
+  // 缺口三·死亡拦截器（6.45·list·谁能拦死亡的预设注册表）
+  死亡拦截器条目: z.array(死亡拦截器条目Schema).optional(),
+  // 缺口四·换角许可（6.45·缺省=单人单角）
+  换角许可: 换角许可Schema.optional(),
+  // 缺口五·世界遗产白名单出厂值（6.45·路径列表·mod可覆盖）
+  // 继承结算时拷贝成 secret.ts 继承包.世界遗产白名单 运行实例（非双写）
+  世界遗产白名单出厂值: z.array(z.string()).optional(),
+  // 顺手·离场演化契约出厂模板（6.45·契约来路②兜底·record(组织类型→模板)）
+  离场演化契约出厂模板: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type 玩法预设Type = z.infer<typeof 玩法预设Schema>;
