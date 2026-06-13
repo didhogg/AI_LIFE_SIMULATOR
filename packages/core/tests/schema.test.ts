@@ -12,10 +12,14 @@ import {
   世界Schema,
   世界域Schema,
   活跃区间条目Schema,
+  席位表Schema,
   NpcSchema,
   NpcRecordSchema,
   已故NPC归档Schema,
   认知档案Schema,
+  关系声明条目Schema,
+  既往记忆种子条目Schema,
+  占位解析槽Schema,
   组织实体Schema,
   组织关系网Schema,
   全局Schema,
@@ -296,10 +300,48 @@ describe('4.2 World layer', () => {
 });
 
 describe('4.3 Actor layer', () => {
+  // ── 席位表（6.53 C1）────────────────────────────────────────────────────────
+  describe('席位表', () => {
+    it('valid: empty record (no players yet)', () => {
+      expect(() => 席位表Schema.parse({})).not.toThrow();
+    });
+    it('valid: 单机 single seat 本机', () => {
+      expect(() => 席位表Schema.parse({
+        本机: { 焦点角色键: 'npc_主角', 控制者: '人类', 连接状态: '本地' },
+      })).not.toThrow();
+    });
+    it('valid: 控制者=AI', () => {
+      expect(() => 席位表Schema.parse({
+        seat_01: { 焦点角色键: 'npc_bot', 控制者: 'AI', 连接状态: '在线' },
+      })).not.toThrow();
+    });
+    it('valid: 控制者=空 (unoccupied seat)', () => {
+      expect(() => 席位表Schema.parse({
+        seat_02: { 控制者: '空' },
+      })).not.toThrow();
+    });
+    it('invalid: 控制者 illegal value', () => {
+      expect(席位表Schema.safeParse({
+        本机: { 控制者: '玩家' }, // 非枚举值
+      }).success).toBe(false);
+    });
+    it('minimal-state parse: RootSchema with empty 席位表', () => {
+      // 最小开局状态：席位表为空 record，schema defaults 填充其他字段
+      expect(() => RootSchema.parse({ 席位表: {} })).not.toThrow();
+    });
+    it('minimal-state: 单机单席位整合 parse', () => {
+      expect(() => RootSchema.parse({
+        席位表: { 本机: { 焦点角色键: '', 控制者: '人类', 连接状态: '本地' } },
+        NPC: {},
+      })).not.toThrow();
+    });
+  });
+
+  // ── NPC 全组件 ──────────────────────────────────────────────────────────────
   it('valid empty NpcSchema parse', () => {
     expect(() => NpcSchema.parse({})).not.toThrow();
   });
-  it('valid NPC with attributes', () => {
+  it('valid NPC with 属性五轴 + 性格五轴 + 派生', () => {
     expect(() => NpcSchema.parse({
       姓名: '李明',
       性别: '男',
@@ -308,12 +350,82 @@ describe('4.3 Actor layer', () => {
       性格五轴: { 开放: 70, 尽责: 80, 外向: 40, 宜人: 60, 神经质: 30 },
     })).not.toThrow();
   });
+  it('valid NPC with 特质/情绪栈/状态标签/技能/物品/信念/声誉/婚姻/关系/组织/忠诚', () => {
+    expect(() => NpcSchema.parse({
+      姓名: '王芳',
+      特质: { 敏锐: { 类别: '天赋', 来源: '天生', 强度: 80, 稀有度: '稀有', 已觉醒: true, 效果: {} } },
+      情绪栈: [{ 情绪名: '喜悦', 极性: '正', 数值: 60, 影响: [], 到期: 0, 来源: 'event-1', 可叠加: false }],
+      状态标签: { 受伤: { 效果: [], 到期: 10000, 来源: 'combat' } },
+      技能: { 剑术: { 熟练度: 40, 等级: 2, 类别: '战斗', 来源: '自学', 施放: {} } },
+      物品: { 长剑: { 数量: 1, 重要级别: '重要', 类别: '武器', 效果: {}, 到期: 0, 遗失保护: true, 可携意象: [] } },
+      信念: { 儒家: { 类型: '价值观体系', 虔诚或认同: 70, 核心主张: ['仁'], 戒律: [], 立场轴: '中立', 动摇度: 10 } },
+      声誉: { 人望: 20, 知名度: 30, 极性: '正面', 标签: '侠义' },
+      婚姻: [{ 配偶: 'npc_配偶', 状态: '已婚', 缔结: 5000, 终止: 0 }],
+      关系: [{ 对象键: 'npc_师父', 类型: '师徒', 强度: 80, 极性: '正', 信任: 90, 深度: 70 }],
+      所属组织: [{ 组织键: 'org_001', 职务: '学徒', 派系: '' }],
+      忠诚: { 师门: { $真实值: 80, 伪装度: 0 } },
+    })).not.toThrow();
+  });
   it('valid NpcRecordSchema', () => {
     expect(() => NpcRecordSchema.parse({
       npc_001: { 姓名: '王芳' },
     })).not.toThrow();
   });
-  it('valid 认知档案 with 印象', () => {
+
+  // ── 占位形态（K4/6.52）─────────────────────────────────────────────────────
+  it('valid NPC with 占位形态', () => {
+    expect(() => NpcSchema.parse({
+      姓名: '神秘信使',
+      占位形态: { 名称: '神秘信使', 实体类型: 'NPC', 硬约束: ['性别:男'], 来源拍号: 100 },
+    })).not.toThrow();
+  });
+  it('valid NPC 占位形态 with 模板快照', () => {
+    expect(() => NpcSchema.parse({
+      占位形态: { 名称: 'X', 实体类型: 'NPC', 硬约束: [], 来源拍号: 0, 模板引用: 'tpl_guard', 模板快照: { 属性: {} } },
+    })).not.toThrow();
+  });
+
+  // ── 6.72 卡格式可空段 ───────────────────────────────────────────────────────
+  it('valid 关系声明 Z2 五类方向槽', () => {
+    expect(() => 关系声明条目Schema.parse({ 对象: 'npc_hero', 方向: '双向', 类型: '朋友', 强度: 70 })).not.toThrow();
+    expect(() => 关系声明条目Schema.parse({ 对象: 'user', 方向: '从属', 类型: '主仆', 强度: -30 })).not.toThrow();
+    expect(() => 关系声明条目Schema.parse({ 对象: 'char', 方向: '敌对', 类型: '仇家', 强度: -80 })).not.toThrow();
+  });
+  it('invalid: 关系声明 方向 illegal value', () => {
+    expect(关系声明条目Schema.safeParse({ 方向: '横向' }).success).toBe(false);
+  });
+  it('valid 既往记忆种子 with 来源=导入预设', () => {
+    expect(() => 既往记忆种子条目Schema.parse({
+      摘要: '童年被抛弃，在孤儿院长大',
+      发生时间_约: '十二岁以前',
+      重要度: 2,
+      情绪色彩: '悲伤',
+      来源: '导入预设',
+    })).not.toThrow();
+  });
+  it('invalid: 既往记忆种子 重要度 out of range', () => {
+    expect(既往记忆种子条目Schema.safeParse({ 重要度: 4 }).success).toBe(false);
+  });
+  it('valid NPC with 开场白[] (素材包数组)', () => {
+    expect(() => NpcSchema.parse({
+      开场白: ['你好，旅人。', '我们是否在哪里见过？'],
+    })).not.toThrow();
+  });
+  it('valid 占位解析槽 user/char → 实体键', () => {
+    expect(() => 占位解析槽Schema.parse({ user: 'npc_主角', char: 'npc_林小雨' })).not.toThrow();
+    expect(() => 占位解析槽Schema.parse({})).not.toThrow(); // both optional
+  });
+  it('valid NPC with all 6.72 optional fields', () => {
+    expect(() => NpcSchema.parse({
+      关系声明: [{ 对象: 'user', 方向: '单向→', 类型: '崇拜', 强度: 60, 备注: '' }],
+      既往记忆种子: [{ 摘要: '幼年丧母', 发生时间_约: '五岁', 重要度: 3, 情绪色彩: '悲', 来源: '导入预设' }],
+      开场白: ['初次见面，请多关照。'],
+      占位解析槽: { user: 'npc_主角', char: 'npc_林小雨' },
+    })).not.toThrow();
+  });
+
+  // ── 认知档案（6.12/6.37）────────────────────────────────────────────────────
+  it('valid 认知档案 with 印象 (来源=事件id)', () => {
     expect(() => 认知档案Schema.parse({
       npc_001: {
         npc_002: {
@@ -325,27 +437,54 @@ describe('4.3 Actor layer', () => {
       },
     })).not.toThrow();
   });
+  it('valid 认知档案 来源=导入预设 (6.72)', () => {
+    expect(() => 认知档案Schema.parse({
+      npc_hero: {
+        npc_hero: { 印象: [{ 标签: '自信', 极性: '正', 强度: 50, 来源: '导入预设', 获知时间: 0, 衰减速率: 0 }] },
+      },
+    })).not.toThrow();
+  });
+  it('valid 自我认知 [主角][主角] (含自我认知规范)', () => {
+    expect(() => 认知档案Schema.parse({
+      npc_主角: {
+        npc_主角: { 了解度: 80, 误差表: { 体质: 5 }, 印象: [], 时效: 0 },
+      },
+    })).not.toThrow();
+  });
   it('invalid: 性格五轴 value out of range', () => {
     expect(NpcSchema.safeParse({ 性格五轴: { 开放: 150 } }).success).toBe(false);
   });
   it('invalid: 了解度 out of range', () => {
-    expect(认知档案Schema.safeParse({
-      a: { b: { 了解度: 200 } },
-    }).success).toBe(false);
+    expect(认知档案Schema.safeParse({ a: { b: { 了解度: 200 } } }).success).toBe(false);
   });
   it('invalid: 印象 强度 out of range', () => {
-    expect(认知档案Schema.safeParse({
-      a: { b: { 印象: [{ 强度: -1 }] } },
-    }).success).toBe(false);
+    expect(认知档案Schema.safeParse({ a: { b: { 印象: [{ 强度: -1 }] } } }).success).toBe(false);
   });
+
+  // ── 已故NPC归档（L2冻结层）──────────────────────────────────────────────────
   it('valid empty 已故NPC归档', () => {
     expect(() => 已故NPC归档Schema.parse({})).not.toThrow();
   });
-  it('unknown key strict rejection on NpcSchema', () => {
-    expect(NpcSchema.strict().safeParse({ 性格标签: 'ENTJ' }).success).toBe(false); // 派生字段
+  it('valid 已故NPC归档 entry', () => {
+    expect(() => 已故NPC归档Schema.parse({
+      npc_旧主: { 称呼: '旧主', 死亡时间: 52560, 关键记忆指针: 'mem-001', 幽灵形态: false },
+    })).not.toThrow();
   });
-  it('invalid: 复活点 negative', () => {
+
+  // ── 纪律检查 ────────────────────────────────────────────────────────────────
+  it('unknown key strict rejection on NpcSchema (派生字段不进 schema)', () => {
+    expect(NpcSchema.strict().safeParse({ 性格标签: 'ENTJ' }).success).toBe(false);
+  });
+  it('invalid: 复活点 negative (min=0)', () => {
     expect(NpcSchema.safeParse({ 复活点: -1 }).success).toBe(false);
+  });
+  it('time fields: 出生日期 allows negative (史前允许负值)', () => {
+    expect(() => NpcSchema.parse({ 出生日期: -525960 })).not.toThrow();
+  });
+  it('time fields: 到期 allows 0 (哨兵=永不过期)', () => {
+    expect(() => NpcSchema.parse({
+      情绪栈: [{ 情绪名: '平静', 极性: '中', 数值: 20, 影响: [], 到期: 0, 来源: '', 可叠加: false }],
+    })).not.toThrow();
   });
 });
 
@@ -1005,7 +1144,7 @@ describe('blueprint ↔ schema consistency', () => {
 
     expect(inSchemaNotBlueprint).toEqual([]);
     expect(inBlueprintNotSchema).toEqual([]);
-    expect(schemaKeys.size).toBe(41); // P0-5 +$存档种子
+    expect(schemaKeys.size).toBe(41); // P0-5 +$存档种子; P0-1 镜头焦点角色→席位表(rename, count unchanged)
   });
 
   it('BLUEPRINT_KEYS has no duplicates', () => {

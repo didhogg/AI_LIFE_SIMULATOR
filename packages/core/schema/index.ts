@@ -1,4 +1,4 @@
-// V4.1 RootSchema — 41 top-level keys as per blueprint 4.0 (rev: +$天命重掷券, P0-5: +$存档种子)
+// V4.1 RootSchema — 41 top-level keys as per blueprint 4.0 (rev: +$天命重掷券, P0-5: +$存档种子, P0-1: 镜头焦点角色→席位表)
 import { z } from 'zod';
 
 // ── Layer exports (re-export all sub-schemas) ──
@@ -22,6 +22,7 @@ import {
 } from './system.js';
 import { 世界Schema, 世界域Schema } from './world.js';
 import {
+  席位表Schema,
   NpcRecordSchema,
   已故NPC归档Schema,
   认知档案Schema,
@@ -67,7 +68,7 @@ export const BLUEPRINT_KEYS = [
   '状态机',
   '世界',
   '世界域',
-  '镜头焦点角色',
+  '席位表',
   'NPC',
   '已故NPC归档',
   '认知档案',
@@ -117,7 +118,8 @@ export const RootSchema = z.object({
   世界域: 世界域Schema,
 
   // 4.3 Actor
-  镜头焦点角色: z.string().default(''),
+  // 席位表替代旧镜头焦点角色字符串指针（6.53 C1·P0-1·迁移映射见 migrate.ts）
+  席位表: 席位表Schema,
   NPC: NpcRecordSchema,
   已故NPC归档: 已故NPC归档Schema,
   认知档案: 认知档案Schema,

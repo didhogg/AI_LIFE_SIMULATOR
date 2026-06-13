@@ -891,7 +891,8 @@ export function buildV41Raw(input: unknown): MigrateRawResult {
       _粒度模板: {},
     },
     世界域: {},
-    镜头焦点角色: 主角键,
+    // 6.53 C1: 旧 镜头焦点角色 字符串指针升格为席位表（单机退化为单席位「本机」）
+    席位表: { 本机: { 焦点角色键: 主角键, 控制者: '人类', 连接状态: '本地' } },
     NPC: npcV41,
     已故NPC归档: 已故v41,
     认知档案: build认知档案(主角键, npcV31, worldEpochMin),

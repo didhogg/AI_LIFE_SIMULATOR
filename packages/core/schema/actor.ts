@@ -288,6 +288,41 @@ const 登场契约Schema = z.object({
   地点: z.string().default(''), // 节点键
 });
 
+// 占位形态（K4/6.52·NPC 侧）
+const NPC占位形态Schema = z.object({
+  名称: z.string().default(''),
+  实体类型: z.string().default('NPC'),   // 开放串
+  硬约束: z.array(z.string()).default([]),
+  来源拍号: z.number().int().default(0),
+  模板引用: z.string().optional(),
+  模板快照: z.unknown().optional(),       // 包卸载后脱包兜底
+});
+
+// ── 6.72 酒馆角色卡迁移可空段 ───────────────────────────────────────────────
+// 关系声明：Z2 五类方向槽，导入时建关系边＋双向认知档案
+export const 关系声明条目Schema = z.object({
+  对象: z.string().default(''),          // NPC键 / 'user' / 'char' 占位
+  方向: z.enum(['单向→', '单向←', '双向', '敌对', '从属']).default('双向'),
+  类型: z.string().default(''),          // 开放串关系名
+  强度: z.number().min(-100).max(100).default(0),
+  备注: z.string().default(''),
+});
+
+// 既往记忆种子：有界数组；来源固定为'导入预设'
+export const 既往记忆种子条目Schema = z.object({
+  摘要: z.string().default(''),
+  发生时间_约: z.string().default(''),   // 模糊描述，非绝对时刻
+  重要度: z.number().int().min(1).max(3).default(1),
+  情绪色彩: z.string().default(''),
+  来源: z.string().default('导入预设'),  // 枚举值：导入预设 / 事件id / 听闻自
+});
+
+// 占位解析槽：user/char → 实体键（渲染拍现取显示名）
+export const 占位解析槽Schema = z.object({
+  user: z.string().optional(),
+  char: z.string().optional(),
+});
+
 const NPC记忆条目Schema = z.object({
   记忆id: z.string().default(''),
   摘要: z.string().default(''),
@@ -415,8 +450,16 @@ export const NpcSchema = z.object({
   当前作息模式: z.string().default('常态'),
   履历: z.array(z.string()).default([]),    // 滚动短句
   登场契约: 登场契约Schema.optional(),
+  占位形态: NPC占位形态Schema.optional(), // K4/6.52·与登场契约正交
   记忆: z.array(NPC记忆条目Schema).default([]),
   上次互动: z.number().int().default(0), // 绝对纪元分钟；0 = 从未互动
+
+  // ── 6.72 卡格式可空段 ──────────────────────────────────────────────────────
+  // 禁与旧"固定开场白?{}"双轨；来源枚举须含'导入预设'
+  关系声明: z.array(关系声明条目Schema).optional(),       // Z2 五类方向槽
+  既往记忆种子: z.array(既往记忆种子条目Schema).optional(), // 有界·来源=导入预设
+  开场白: z.array(z.string()).optional(),                  // 素材包数组
+  占位解析槽: 占位解析槽Schema.optional(),               // user/char→实体键
 
   // ── 焦点 / 子嗣型扩展位 ──
   复活点: z.number().int().min(0).default(0), // B类计数；0 = 无复活次数
@@ -437,12 +480,28 @@ export const 已故NPC归档Schema = z.record(
   }),
 ).default({});
 
+// ── 席位表（6.53 C1）──────────────────────────────────────────────────────────
+// 会话本地视角·引擎结算不读·单机=单一席位「本机」退化·多人=表内多席位零迁移
+export const 席位表Schema = z.record(
+  z.string(), // 席位id；单机时为'本机'
+  z.object({
+    焦点角色键: z.string().default(''), // NPC键指针
+    控制者: z.enum(['人类', 'AI', '空']).default('人类'),
+    连接状态: z.string().default('本地'), // 本地/在线/离线/旁观
+  }),
+).default({});
+
 // ── 认知档案（6.12/6.37） ──
+// 印象涟漪写入分级（6.65 W1）：
+//   个体条目三条件：①一跳内 ②涉事方 ③超强度阈值
+//   广域：落区域/组织级聚合条目；个体读取=聚合×个体修正现算派生
+//   含自我认知 [主角][主角]
 const 印象条目Schema = z.object({
   标签: z.string().default(''),
   极性: z.string().default(''),
   强度: z.number().min(0).max(100).default(0),
-  来源: z.string().default(''), // 事件id / 听闻自某NPC / 媒体渠道
+  // 来源合法值：事件id / '听闻自:<NPC键>' / 媒体渠道键 / '导入预设'（6.72）
+  来源: z.string().default(''),
   获知时间: z.number().int().default(0), // 绝对纪元分钟
   衰减速率: z.number().min(0).default(0),
 });
@@ -470,3 +529,7 @@ export type 修饰通道引用Type = z.infer<typeof 修饰通道引用Schema>;
 export type NpcType = z.infer<typeof NpcSchema>;
 export type 已故NPC归档Type = z.infer<typeof 已故NPC归档Schema>;
 export type 认知档案Type = z.infer<typeof 认知档案Schema>;
+export type 席位表Type = z.infer<typeof 席位表Schema>;
+export type 关系声明条目Type = z.infer<typeof 关系声明条目Schema>;
+export type 既往记忆种子条目Type = z.infer<typeof 既往记忆种子条目Schema>;
+export type 占位解析槽Type = z.infer<typeof 占位解析槽Schema>;
