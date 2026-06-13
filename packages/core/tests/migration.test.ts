@@ -551,3 +551,33 @@ describe('migrate V3.1 → V4.1', () => {
     });
   });
 });
+
+// ── 播报队列迁移：旧条目缺 渠道 字段补默认值 '系统' ─────────────────────────────────
+describe('播报队列 tagged union 迁移映射', () => {
+  it('旧播报条目（无渠道）→ 迁移后 渠道=系统', () => {
+    const oldSave = {
+      ...richV31,
+      仲裁器: {
+        冷却表: {},
+        本轮种子包: { 主种子id: '', 副种子ids: [] },
+        播报队列: [
+          { 播报id: 'b001', 内容: '事件爆发！', 重要度: '重要', 发生时间: 1000, 已读: false },
+          { 播报id: 'b002', 内容: '战役开始', 重要度: '普通', 发生时间: 1001, 已读: true },
+        ],
+      },
+    };
+    const result = migrate(oldSave);
+    const 队列 = result.state['仲裁器'].播报队列 as Array<Record<string, unknown>>;
+    expect(队列.length).toBe(2);
+    expect(队列[0]!['渠道']).toBe('系统');
+    expect(队列[0]!['内容']).toBe('事件爆发！');
+    expect(队列[1]!['渠道']).toBe('系统');
+  });
+
+  it('空播报队列 → 迁移后仍为空数组', () => {
+    const result = migrate(richV31);
+    const 队列 = result.state['仲裁器'].播报队列 as unknown[];
+    expect(Array.isArray(队列)).toBe(true);
+    expect(队列.length).toBe(0);
+  });
+});

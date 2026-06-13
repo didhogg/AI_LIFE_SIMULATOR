@@ -810,6 +810,13 @@ export function buildV41Raw(input: unknown): MigrateRawResult {
   const 副种子 = asArr(种子包v31['副种子ids']).map(x => asStr(x));
   const 本轮种子包 = [主种子, ...副种子].filter(s => s !== '');
 
+  // 播报队列迁移：旧条目缺 渠道 字段时补默认值 '系统'（tagged union 升格·§10）
+  const 播报队列v41 = asArr(仲裁器v31['播报队列']).map(item => {
+    const it = asRec(item);
+    if (asStr(it['渠道']) === '') return { 渠道: '系统', 内容: asStr(it['内容']), 播报id: asStr(it['播报id']), 重要度: asStr(it['重要度'], '普通'), 发生时间: asNum(it['发生时间']), 已读: asBool(it['已读']) };
+    return it;
+  });
+
   // ── $隐藏记忆库 ───────────────────────────────────────────────────────────────
   const 隐v31 = asRec(root['$隐藏记忆库']);
   const 延时种子v41: Record<string, unknown> = {};
@@ -907,7 +914,7 @@ export function buildV41Raw(input: unknown): MigrateRawResult {
     长期归档: 长期归档v41,
     日程: asRec(root['日程']),
     行动卡库: asRec(root['行动卡库']),
-    仲裁器: { 冷却表: 冷却表v41, 本轮种子包, 播报队列: [] },
+    仲裁器: { 冷却表: 冷却表v41, 本轮种子包, 播报队列: 播报队列v41 },
     mod注册表: asRec(root['事件库注册表']),
     $运气: asNum(root['$运气'], 50),
     $寿命预期: asNum(root['$寿命预期'], 75),

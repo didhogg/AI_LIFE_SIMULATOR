@@ -1153,17 +1153,35 @@ describe('4.8 Memory / Schedule layer', () => {
   it('invalid: 工作记忆 not array', () => {
     expect(工作记忆Schema.safeParse({ id: '1' }).success).toBe(false);
   });
-  // P0-1.1 收口：播报条目 打断级别 / 最迟期限 预埋
-  it('播报条目: 含打断级别和最迟期限的条目 parse 通过', () => {
+  // P0-1.1 收口：播报条目 tagged union（渠道 discriminant·6.9/6.40）
+  it('播报条目: 渠道=系统 含打断级别和最迟期限 parse 通过', () => {
     expect(播报条目Schema.safeParse({
-      播报id: 'b001', 内容: '事件爆发', 打断级别: '硬闯', 最迟期限: 1440,
+      渠道: '系统', 播报id: 'b001', 内容: '事件爆发', 打断级别: '硬闯', 最迟期限: 1440,
     }).success).toBe(true);
   });
-  it('播报条目: 不含打断级别/最迟期限的旧格式条目兼容通过', () => {
-    expect(播报条目Schema.safeParse({ 播报id: 'b002', 内容: '普通播报' }).success).toBe(true);
+  it('播报条目: 渠道=系统 旧格式迁移后最简形态通过', () => {
+    expect(播报条目Schema.safeParse({ 渠道: '系统', 播报id: 'b002', 内容: '普通播报' }).success).toBe(true);
+  });
+  it('播报条目: 渠道 缺失（旧存档未迁移格式）被拒', () => {
+    expect(播报条目Schema.safeParse({ 播报id: 'b003', 内容: '无渠道' }).success).toBe(false);
   });
   it('播报条目: 非法打断级别被拒', () => {
-    expect(播报条目Schema.safeParse({ 打断级别: '强制' }).success).toBe(false);
+    expect(播报条目Schema.safeParse({ 渠道: '系统', 打断级别: '强制' }).success).toBe(false);
+  });
+  it('播报条目: 渠道=对话 with 说话者键/称谓/对白', () => {
+    expect(播报条目Schema.safeParse({ 渠道: '对话', 说话者键: 'npc_001', 说话者称谓: '张大人', 对白内容: '且慢！' }).success).toBe(true);
+  });
+  it('播报条目: 渠道=旁白 with 内容/叙述视角', () => {
+    expect(播报条目Schema.safeParse({ 渠道: '旁白', 内容: '夜色渐深', 叙述视角: '第三人称' }).success).toBe(true);
+  });
+  it('播报条目: 渠道=媒介 with 媒介附件引用键', () => {
+    expect(播报条目Schema.safeParse({ 渠道: '媒介', 媒介附件引用键: 'media_邸报_001', 渲染缓存摘要: '今日要闻…' }).success).toBe(true);
+  });
+  it('播报条目: 渠道=思绪 with 内容/可见性', () => {
+    expect(播报条目Schema.safeParse({ 渠道: '思绪', 内容: '此人不可信', 可见性: '私有' }).success).toBe(true);
+  });
+  it('播报条目: 渠道=未知枚举值 被拒', () => {
+    expect(播报条目Schema.safeParse({ 渠道: '广播' }).success).toBe(false);
   });
 });
 
@@ -1695,5 +1713,76 @@ describe('6.43 叙事流条目Schema（不进 RootSchema）', () => {
   });
   it('叙事流: 缺 正文 拒收', () => {
     expect(叙事流条目Schema.safeParse({ 序号: 1, 来源: 'AI叙事' }).success).toBe(false);
+  });
+
+  // ── X5: 演出层草稿计数（原重掷序号·血统水印·永不进盐·永不进判定）────────────────
+  it('X5: 演出层草稿计数 默认=0', () => {
+    const res = 叙事流条目Schema.safeParse(基础条目);
+    expect(res.success && res.data.演出层草稿计数).toBe(0);
+  });
+  it('X5: 演出层草稿计数 可递增', () => {
+    expect(叙事流条目Schema.safeParse({ ...基础条目, 演出层草稿计数: 3 }).success).toBe(true);
+  });
+  it('X5: 演出层草稿计数 负值拒收', () => {
+    expect(叙事流条目Schema.safeParse({ ...基础条目, 演出层草稿计数: -1 }).success).toBe(false);
+  });
+
+  // ── X2: 说话者（typed 实体键）────────────────────────────────────────────────
+  it('X2: 说话者 typed 实体键 optional', () => {
+    expect(叙事流条目Schema.safeParse({ ...基础条目, 说话者: 'npc_001' }).success).toBe(true);
+  });
+  it('X2: 说话者 absent OK', () => {
+    const res = 叙事流条目Schema.safeParse(基础条目);
+    expect(res.success && res.data.说话者).toBeUndefined();
+  });
+
+  // ── X3: 信息源哨兵（实体键 | '匿名' | '未知'）────────────────────────────────
+  it('X3: 信息源哨兵 实体键 通过', () => {
+    expect(叙事流条目Schema.safeParse({ ...基础条目, 信息源哨兵: 'npc_神秘人' }).success).toBe(true);
+  });
+  it('X3: 信息源哨兵 匿名/未知 内置值通过', () => {
+    expect(叙事流条目Schema.safeParse({ ...基础条目, 信息源哨兵: '匿名' }).success).toBe(true);
+    expect(叙事流条目Schema.safeParse({ ...基础条目, 信息源哨兵: '未知' }).success).toBe(true);
+  });
+  it('X3: 信息源哨兵 absent OK', () => {
+    const res = 叙事流条目Schema.safeParse(基础条目);
+    expect(res.success && res.data.信息源哨兵).toBeUndefined();
+  });
+
+  // ── X1: 渠道标签 + 线程键（多源线程分组）──────────────────────────────────────
+  it('X1: 渠道标签 + 线程键 optional', () => {
+    expect(叙事流条目Schema.safeParse({
+      ...基础条目, 渠道标签: '对话', 线程键: 'thread_酒馆会面',
+    }).success).toBe(true);
+  });
+  it('X1: 渠道标签/线程键 absent OK', () => {
+    const res = 叙事流条目Schema.safeParse(基础条目);
+    expect(res.success && res.data.渠道标签).toBeUndefined();
+    expect(res.success && res.data.线程键).toBeUndefined();
+  });
+
+  // ── X4: 修正目标序号（撤回/更正）──────────────────────────────────────────────
+  it('X4: 修正目标序号 指向原条目', () => {
+    expect(叙事流条目Schema.safeParse({
+      ...基础条目, 序号: 42, 修正目标序号: 38,
+    }).success).toBe(true);
+  });
+  it('X4: 修正目标序号 absent = 非修正行', () => {
+    const res = 叙事流条目Schema.safeParse(基础条目);
+    expect(res.success && res.data.修正目标序号).toBeUndefined();
+  });
+
+  // ── 综合 X1-X5 全字段 ────────────────────────────────────────────────────────
+  it('X1-X5 全字段完整条目 parse 通过', () => {
+    expect(叙事流条目Schema.safeParse({
+      序号: 100, 拍号: 5, 演出层草稿计数: 2,
+      时刻: { 读数: 3600, 钟源: '镜头钟' },
+      来源: 'AI叙事', 类型标签: '对白落账',
+      说话者: 'npc_权臣', 信息源哨兵: 'npc_权臣',
+      渠道标签: '对话', 线程键: 'thread_朝堂',
+      修正目标序号: 99,
+      正文: '陛下，臣以为此事不妥。',
+      结构化附注: { 情绪: '强硬', 场景: '朝堂' },
+    }).success).toBe(true);
   });
 });

@@ -88,21 +88,52 @@ const 行动卡条目Schema = z.object({
 export const 行动卡库Schema = z.record(z.string(), 行动卡条目Schema).default({});
 
 // ══════════════════════════════════════════
-// 播报条目（渠道标签 + 打断控制扩展·6.9/6.40）
+// 播报条目（tagged union by 渠道·6.9/6.40）
+// 渠道 = required discriminant（旧 渠道标签 optional string 升格为 literal）
+// 旧存档迁移：缺 渠道 字段的条目在 migrate.ts 补默认值 '系统'
 // ══════════════════════════════════════════
 
-export const 播报条目Schema = z.object({
+// 共享基础字段（所有渠道共用）
+const 播报基础 = z.object({
   播报id: z.string().default(''),
-  内容: z.string().default(''),
   重要度: z.string().default('普通'),
   发生时间: z.number().int().default(0),
-  渠道标签: z.string().optional(), // 6.9 可空
   // P0 预埋·行为实现在 P1：缺省视为挂起；AI 仅可提案，硬闯由引擎第④闸按白名单终裁
   打断级别: z.enum(['挂起', '闪念', '硬闯']).optional(),
   // P0 预埋·行为实现在 P1：绝对纪元分钟；超期由引擎降级系统文本强制出队
   最迟期限: z.number().int().optional(), // 绝对纪元分钟；0=哨兵/永不降级
   已读: z.boolean().default(false),
 });
+
+export const 播报条目Schema = z.discriminatedUnion('渠道', [
+  // 系统：引擎日志/通知；也是旧存档默认迁移目标
+  播报基础.extend({ 渠道: z.literal('系统'), 内容: z.string().default('') }),
+  // 对话：NPC/角色台词广播
+  播报基础.extend({
+    渠道: z.literal('对话'),
+    说话者键: z.string().default(''),     // 实体键
+    说话者称谓: z.string().default(''),
+    对白内容: z.string().default(''),
+  }),
+  // 旁白：叙事性旁白段落
+  播报基础.extend({
+    渠道: z.literal('旁白'),
+    内容: z.string().default(''),
+    叙述视角: z.string().default(''),
+  }),
+  // 媒介：报刊/情报/书信等格式化媒介
+  播报基础.extend({
+    渠道: z.literal('媒介'),
+    媒介附件引用键: z.string().default(''), // 媒介登记表键
+    渲染缓存摘要: z.string().default(''),
+  }),
+  // 思绪：主角内心独白（仅渲染，不广播给其他实体）
+  播报基础.extend({
+    渠道: z.literal('思绪'),
+    内容: z.string().default(''),
+    可见性: z.string().default('私有'),   // 私有/可被特定角色感知
+  }),
+]);
 
 // ══════════════════════════════════════════
 // 仲裁器（附录B′·延后队列已删除）
