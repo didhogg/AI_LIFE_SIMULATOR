@@ -1,4 +1,4 @@
-// V4.1 RootSchema — 41 top-level keys as per blueprint 4.0 (rev: +$天命重掷券, P0-5: +$存档种子, P0-1: 镜头焦点角色→席位表)
+// V4.1 RootSchema — 43 top-level keys (rev: +$天命重掷券, P0-5: +$存档种子, P0-1: 镜头焦点角色→席位表, P0-1 4.8: +调用类型注册表 +Ring2在途调用信封)
 import { z } from 'zod';
 
 // ── Layer exports (re-export all sub-schemas) ──
@@ -38,6 +38,8 @@ import {
   行动卡库Schema,
   仲裁器Schema,
   mod注册表Schema,
+  调用类型注册表Schema,
+  Ring2在途调用信封Schema,
 } from './memory.js';
 import {
   $运气Schema,
@@ -85,6 +87,8 @@ export const BLUEPRINT_KEYS = [
   '行动卡库',
   '仲裁器',
   'mod注册表',
+  '调用类型注册表',
+  'Ring2在途调用信封',
   '$运气',
   '$寿命预期',
   '$聆听心声触发',
@@ -146,6 +150,8 @@ export const RootSchema = z.object({
   行动卡库: 行动卡库Schema,
   仲裁器: 仲裁器Schema.default({}),
   mod注册表: mod注册表Schema,
+  调用类型注册表: 调用类型注册表Schema,
+  Ring2在途调用信封: Ring2在途调用信封Schema,
 
   // 4.9 $ layer (AI-invisible)
   $运气: $运气Schema,

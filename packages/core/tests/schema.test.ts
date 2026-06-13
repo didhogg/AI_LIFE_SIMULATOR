@@ -37,6 +37,10 @@ import {
   行动卡库Schema,
   仲裁器Schema,
   mod注册表Schema,
+  调用类型注册表Schema,
+  Ring2在途调用信封Schema,
+  落账记录条目Schema,
+  渲染模式枚举,
   播报条目Schema,
   $运气Schema,
   $寿命预期Schema,
@@ -1286,37 +1290,40 @@ describe('4.7 Economy layer', () => {
 });
 
 describe('4.8 Memory / Schedule layer', () => {
-  it('valid empty parse', () => {
+  // ── 最小开局状态 ──────────────────────────────────────────────────────────────
+  it('valid empty parse (minimal state)', () => {
     expect(() => 工作记忆Schema.parse([])).not.toThrow();
     expect(() => 长期归档Schema.parse([])).not.toThrow();
     expect(() => 日程Schema.parse({})).not.toThrow();
     expect(() => 行动卡库Schema.parse({})).not.toThrow();
     expect(() => 仲裁器Schema.parse({})).not.toThrow();
     expect(() => mod注册表Schema.parse({})).not.toThrow();
+    expect(() => 调用类型注册表Schema.parse({})).not.toThrow();
+    expect(() => Ring2在途调用信封Schema.parse({})).not.toThrow();
   });
+  it('minimal-state: RootSchema with new 4.8 keys', () => {
+    expect(() => RootSchema.parse({ 调用类型注册表: {}, Ring2在途调用信封: {} })).not.toThrow();
+  });
+
+  // ── 工作记忆 / 长期归档 ──────────────────────────────────────────────────────
   it('valid memory entry', () => {
     expect(() => 工作记忆Schema.parse([{
-      记忆id: 'm001',
-      发生时间: 1440,
-      标题: '初遇李明',
-      摘要: '在集市偶遇',
-      重要度: '重要',
+      记忆id: 'm001', 发生时间: 1440, 标题: '初遇李明', 摘要: '在集市偶遇', 重要度: '重要',
     }])).not.toThrow();
-  });
-  it('valid schedule', () => {
-    expect(() => 日程Schema.parse({
-      上午: [{ 行动: '练剑', 地点: 'loc_001', 行动点消耗: 2 }],
-    })).not.toThrow();
-  });
-  it('invalid: 行动点消耗 out of range', () => {
-    expect(行动卡库Schema.safeParse({
-      card: { 行动点消耗: 25 },
-    }).success).toBe(false);
   });
   it('invalid: 工作记忆 not array', () => {
     expect(工作记忆Schema.safeParse({ id: '1' }).success).toBe(false);
   });
-  // P0-1.1 收口：播报条目 tagged union（渠道 discriminant·6.9/6.40）
+
+  // ── 日程 / 行动卡 ────────────────────────────────────────────────────────────
+  it('valid schedule', () => {
+    expect(() => 日程Schema.parse({ 上午: [{ 行动: '练剑', 地点: 'loc_001', 行动点消耗: 2 }] })).not.toThrow();
+  });
+  it('invalid: 行动点消耗 out of range', () => {
+    expect(行动卡库Schema.safeParse({ card: { 行动点消耗: 25 } }).success).toBe(false);
+  });
+
+  // ── 播报条目 tagged union（渠道 discriminant·6.9/6.40）────────────────────────
   it('播报条目: 渠道=系统 含打断级别和最迟期限 parse 通过', () => {
     expect(播报条目Schema.safeParse({
       渠道: '系统', 播报id: 'b001', 内容: '事件爆发', 打断级别: '硬闯', 最迟期限: 1440,
@@ -1331,20 +1338,160 @@ describe('4.8 Memory / Schedule layer', () => {
   it('播报条目: 非法打断级别被拒', () => {
     expect(播报条目Schema.safeParse({ 渠道: '系统', 打断级别: '强制' }).success).toBe(false);
   });
-  it('播报条目: 渠道=对话 with 说话者键/称谓/对白', () => {
+  it('播报条目: 渠道=对话', () => {
     expect(播报条目Schema.safeParse({ 渠道: '对话', 说话者键: 'npc_001', 说话者称谓: '张大人', 对白内容: '且慢！' }).success).toBe(true);
   });
-  it('播报条目: 渠道=旁白 with 内容/叙述视角', () => {
+  it('播报条目: 渠道=旁白', () => {
     expect(播报条目Schema.safeParse({ 渠道: '旁白', 内容: '夜色渐深', 叙述视角: '第三人称' }).success).toBe(true);
   });
-  it('播报条目: 渠道=媒介 with 媒介附件引用键', () => {
+  it('播报条目: 渠道=媒介', () => {
     expect(播报条目Schema.safeParse({ 渠道: '媒介', 媒介附件引用键: 'media_邸报_001', 渲染缓存摘要: '今日要闻…' }).success).toBe(true);
   });
-  it('播报条目: 渠道=思绪 with 内容/可见性', () => {
+  it('播报条目: 渠道=思绪', () => {
     expect(播报条目Schema.safeParse({ 渠道: '思绪', 内容: '此人不可信', 可见性: '私有' }).success).toBe(true);
   });
   it('播报条目: 渠道=未知枚举值 被拒', () => {
     expect(播报条目Schema.safeParse({ 渠道: '广播' }).success).toBe(false);
+  });
+
+  // ── 缺口一·触发扫描器状态（G-4·6.61）──────────────────────────────────────────
+  it('触发扫描器状态: absent (optional)', () => {
+    const res = 仲裁器Schema.parse({});
+    expect(res.触发扫描器状态).toBeUndefined();
+  });
+  it('触发扫描器状态: valid with 上次观测值表 + 挂起命中队列', () => {
+    expect(仲裁器Schema.safeParse({
+      触发扫描器状态: {
+        上次观测值表: { 'npc_001.属性.智慧': 60, 'org_001.属性轴.掌控度': 70 },
+        挂起命中队列: [{ 触发ID: 't001', 优先级: 1 }],
+      },
+    }).success).toBe(true);
+  });
+  it('触发扫描器状态: empty 上次观测值表 + 空队列', () => {
+    expect(仲裁器Schema.safeParse({
+      触发扫描器状态: { 上次观测值表: {}, 挂起命中队列: [] },
+    }).success).toBe(true);
+  });
+  it('触发扫描器状态: 上次观测值表 is 观测史（非当前值），允许任意类型观测值', () => {
+    expect(仲裁器Schema.safeParse({
+      触发扫描器状态: { 上次观测值表: { 'npc_x.状态': '已死亡', 'world.局势': [1, 2, 3] } },
+    }).success).toBe(true);
+  });
+
+  // ── 缺口五·落账记录（6.75/6.76·actor_source 四值枚举）───────────────────────
+  it('落账记录: 默认空数组', () => {
+    expect(仲裁器Schema.parse({}).落账记录).toEqual([]);
+  });
+  it('落账记录: actor_source 全四值通过', () => {
+    const 四值 = ['玩家', '玩家确认', '模型代写', 'NPC自主/系统驱动'] as const;
+    for (const v of 四值) {
+      expect(落账记录条目Schema.safeParse({ actor_source: v }).success).toBe(true);
+    }
+  });
+  it('落账记录: 6.76 第四值「NPC自主/系统驱动」', () => {
+    expect(仲裁器Schema.safeParse({
+      落账记录: [{ actor_source: 'NPC自主/系统驱动', 时间: 1440, 目标路径: 'npc_001.属性.智慧' }],
+    }).success).toBe(true);
+  });
+  it('落账记录: 玩家确认 + 模型代写', () => {
+    expect(仲裁器Schema.safeParse({
+      落账记录: [
+        { actor_source: '玩家确认', 时间: 100, 目标路径: 'npc_a.状态' },
+        { actor_source: '模型代写', 时间: 101, 目标路径: 'npc_b.属性.力量' },
+      ],
+    }).success).toBe(true);
+  });
+  it('落账记录: invalid actor_source 值', () => {
+    expect(落账记录条目Schema.safeParse({ actor_source: '引擎' }).success).toBe(false);
+  });
+  it('防回归: actor_source 无「观战内容入主角认知」字段（🧮派生量·不进schema）', () => {
+    const res = 落账记录条目Schema.parse({ actor_source: '玩家' });
+    expect(res).not.toHaveProperty('观战内容入主角认知');
+  });
+
+  // ── 缺口二·调用类型注册表（6.75/6.69·三具名调用类型 + 渲染模式枚举）─────────────
+  it('调用类型注册表: 三具名调用类型（叙事质量二审/玩家代理回复/小剧场）', () => {
+    expect(() => 调用类型注册表Schema.parse({
+      '叙事质量二审': { 模型档位: '高质量', 温度: 0.3, 上下文组装器: 'assembler_审稿', 输出schema: 'schema_评分', 超时重试策略: '超时60s/重试2次' },
+      '玩家代理回复': { 模型档位: '标准', 温度: 0.7, 上下文组装器: 'assembler_玩家', 输出schema: 'schema_对白', 超时重试策略: '超时30s/重试3次', 渲染模式: '直读流' },
+      '小剧场': { 模型档位: '标准', 温度: 0.9, 上下文组装器: 'assembler_剧场', 输出schema: 'schema_叙事', 超时重试策略: '超时45s/重试2次', 渲染模式: '占位整达' },
+    })).not.toThrow();
+  });
+  it('调用类型注册表: 渲染模式枚举 全三值', () => {
+    for (const 模式 of 渲染模式枚举) {
+      expect(调用类型注册表Schema.safeParse({
+        测试类型: { 渲染模式: 模式 },
+      }).success).toBe(true);
+    }
+  });
+  it('调用类型注册表: 渲染模式 absent (optional)', () => {
+    const res = 调用类型注册表Schema.parse({ '叙事质量二审': {} });
+    expect(res['叙事质量二审']?.渲染模式).toBeUndefined();
+  });
+  it('调用类型注册表: 渲染模式 非法枚举值', () => {
+    expect(调用类型注册表Schema.safeParse({ 类型X: { 渲染模式: '实时流' } }).success).toBe(false);
+  });
+  it('调用类型注册表: 温度超范围拒收', () => {
+    expect(调用类型注册表Schema.safeParse({ 类型X: { 温度: 3 } }).success).toBe(false);
+    expect(调用类型注册表Schema.safeParse({ 类型X: { 温度: -0.1 } }).success).toBe(false);
+  });
+  it('调用类型注册表: 超时重试策略=出厂默认值·玩家覆盖层住$预算控制台（不在此存）', () => {
+    const res = 调用类型注册表Schema.parse({ '叙事质量二审': { 超时重试策略: '超时60s' } });
+    expect(res['叙事质量二审']?.超时重试策略).toBe('超时60s');
+  });
+  it('调用类型注册表: 开放 record，mod 可注入新类型', () => {
+    expect(调用类型注册表Schema.safeParse({
+      'mod_占卜小剧场': { 模型档位: '快速', 温度: 1.0, 渲染模式: '静默' },
+    }).success).toBe(true);
+  });
+
+  // ── 缺口三·Ring2 在途调用信封（AA1·调用世代?）────────────────────────────────
+  it('Ring2在途调用信封: 默认 {} (调用世代 absent)', () => {
+    const res = Ring2在途调用信封Schema.parse({});
+    expect(res.调用世代).toBeUndefined();
+  });
+  it('Ring2在途调用信封: 调用世代 = 回滚计数器读数+拍锚（int）', () => {
+    expect(Ring2在途调用信封Schema.safeParse({ 调用世代: 1234567 }).success).toBe(true);
+  });
+  it('Ring2在途调用信封: 调用世代 非整数拒收', () => {
+    expect(Ring2在途调用信封Schema.safeParse({ 调用世代: 1.5 }).success).toBe(false);
+  });
+  it('Ring2在途调用信封: RootSchema 挂载确认', () => {
+    const res = RootSchema.parse({});
+    expect(res.Ring2在途调用信封).toBeDefined();
+    expect(res.Ring2在途调用信封.调用世代).toBeUndefined();
+  });
+
+  // ── 缺口四·mod注册表签名三字段（6.74）+ 6.62/B1c ──────────────────────────────
+  it('mod条目: 签名三字段 absent (optional)', () => {
+    const res = mod注册表Schema.parse({ 'test_mod': {} });
+    const entry = res['test_mod'];
+    expect(entry?.作者公钥).toBeUndefined();
+    expect(entry?.签名).toBeUndefined();
+    expect(entry?.签名算法).toBeUndefined();
+  });
+  it('mod条目: 签名三字段 present (6.74·键名冻结)', () => {
+    expect(mod注册表Schema.safeParse({
+      my_mod: {
+        pack_id: 'my_mod', 版本: '1.0.0',
+        作者公钥: 'ed25519:abcdef1234...',
+        签名: 'base64:SIGNATURE==',
+        签名算法: 'Ed25519',
+      },
+    }).success).toBe(true);
+  });
+  it('mod条目: 6.62/B1c 字段 (生效锚点/基底契约/内容哈希)', () => {
+    expect(mod注册表Schema.safeParse({
+      my_mod: {
+        生效锚点: 'era_大明',
+        基底契约: '>=1.0.0 <2.0.0',
+        内容哈希: 'sha256:abcdef...',
+      },
+    }).success).toBe(true);
+  });
+  it('mod条目: 三字段不同时全有也通过（各自可空）', () => {
+    expect(mod注册表Schema.safeParse({ m: { 签名: 'sig', 内容哈希: 'hash' } }).success).toBe(true);
+    expect(mod注册表Schema.safeParse({ m: { 生效锚点: 'era_x' } }).success).toBe(true);
   });
 });
 
@@ -1777,7 +1924,7 @@ describe('blueprint ↔ schema consistency', () => {
 
     expect(inSchemaNotBlueprint).toEqual([]);
     expect(inBlueprintNotSchema).toEqual([]);
-    expect(schemaKeys.size).toBe(41); // P0-5 +$存档种子; P0-1 镜头焦点角色→席位表(rename, count unchanged)
+    expect(schemaKeys.size).toBe(43); // P0-5 +$存档种子; P0-1 4.8: +调用类型注册表 +Ring2在途调用信封
   });
 
   it('BLUEPRINT_KEYS has no duplicates', () => {

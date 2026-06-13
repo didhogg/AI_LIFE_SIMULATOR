@@ -136,6 +136,18 @@ export const 播报条目Schema = z.discriminatedUnion('渠道', [
 ]);
 
 // ══════════════════════════════════════════
+// 落账记录条目（6.75/6.76·actor_source 四值枚举）
+// ══════════════════════════════════════════
+
+export const 落账记录条目Schema = z.object({
+  // 6.76 第四值「NPC自主/系统驱动」新增
+  // ⚠️ 观战内容入主角认知?是🧮派生量（靠"是否在场"现算），不进 schema
+  actor_source: z.enum(['玩家', '玩家确认', '模型代写', 'NPC自主/系统驱动']).default('NPC自主/系统驱动'),
+  时间: z.number().int().default(0),    // 绝对纪元分钟；0=哨兵
+  目标路径: z.string().default(''),     // "实体键.字段路径"·落账目标定位
+});
+
+// ══════════════════════════════════════════
 // 仲裁器（附录B′·延后队列已删除）
 // ══════════════════════════════════════════
 
@@ -143,10 +155,54 @@ export const 仲裁器Schema = z.object({
   冷却表: z.record(z.string(), z.number().int()).default({}), // 冷却键→到期纪元分钟
   本轮种子包: z.array(z.string()).default([]),    // 本拍成熟的种子 ID 列表
   播报队列: z.array(播报条目Schema).default([]),  // 待播报条目
+
+  // ── 缺口一·触发扫描器状态（G-4·6.61）────────────────────────────────────────
+  // 随拍前快照回滚、随时间线分叉、只迁形状不重算（J3/J6）
+  触发扫描器状态: z.object({
+    // 观测史（曾看到什么），不是当前值；key = "实体键.字段路径"
+    上次观测值表: z.record(z.string(), z.unknown()).default({}),
+    挂起命中队列: z.array(z.unknown()).default([]),
+  }).optional(),
+
+  // ── 缺口五·落账记录（6.75/6.76）─────────────────────────────────────────────
+  落账记录: z.array(落账记录条目Schema).default([]),
 });
 
 // ══════════════════════════════════════════
-// mod 注册表（6.6·ATTR_WHITELIST 退役）
+// 调用类型注册表（6.75/6.69·三具名类型+开放扩展）
+// ══════════════════════════════════════════
+
+// 渲染模式枚举（6.69）
+export const 渲染模式枚举 = ['直读流', '占位整达', '静默'] as const;
+
+const 调用类型条目Schema = z.object({
+  模型档位: z.string().default(''),           // 开放串：快速/标准/高质量
+  温度: z.number().min(0).max(2).default(0.7),
+  上下文组装器: z.string().default(''),        // 组装器标识（开放串·引擎内部注册键）
+  输出schema: z.string().default(''),          // 输出约束 schema ID（开放串）
+  // 超时重试策略 = 出厂默认值；玩家覆盖层住 $预算控制台（4.9·本轮不做）
+  超时重试策略: z.string().default(''),        // 开放串描述：超时秒/最大重试次/退避策略
+  渲染模式: z.enum(渲染模式枚举).optional(),  // 6.69·可空
+});
+
+// "+3" 具名调用类型键（冻结名称·蓝图 6.75）：
+//   ①叙事质量二审  ②玩家代理回复  ③小剧场
+// 其余键由 mod 扩展注入（开放 record）
+export const 调用类型注册表Schema = z.record(z.string(), 调用类型条目Schema).default({});
+
+// ══════════════════════════════════════════
+// Ring2 在途调用信封（AA1·6.75/6.76）
+// ══════════════════════════════════════════
+
+export const Ring2在途调用信封Schema = z.object({
+  // 调用世代：全局回滚计数器读数 + 拍锚（不是单调递增计数器）
+  // 回滚/fork/关账后过期返回一律丢弃；
+  // 与「演出层草稿计数」（X5）两层正交、互不回填（AA10）
+  调用世代: z.number().int().optional(),
+}).default({});
+
+// ══════════════════════════════════════════
+// mod 注册表（6.6/6.62/6.74/B1c·ATTR_WHITELIST 退役）
 // ══════════════════════════════════════════
 
 const mod条目Schema = z.object({
@@ -158,6 +214,17 @@ const mod条目Schema = z.object({
   冲突: z.array(z.string()).default([]),
   命名空间: z.string().default(''),
   作者: z.string().default(''),
+
+  // ── 缺口四·签名三字段（6.74·键名冻结·入指纹排除名单）──────────────────────
+  // 真实性/血统元数据·不进判定；验签逻辑 P0-6 导入闸实装
+  作者公钥: z.string().optional(),
+  签名: z.string().optional(),
+  签名算法: z.string().optional(), // 缺省 Ed25519
+
+  // ── 6.62/B1c 字段（顺手补·现骨架未有）──────────────────────────────────────
+  生效锚点: z.string().optional(),   // 6.62·mod 激活的 era/tick 锚点
+  基底契约: z.string().optional(),   // 6.62·对官方基底包 semver 依赖描述
+  内容哈希: z.string().optional(),   // B1c·包内容完整性哈希
 });
 
 export const mod注册表Schema = z.record(z.string(), mod条目Schema).default({});
@@ -166,3 +233,4 @@ export type 记忆条目Type = z.infer<typeof 记忆条目Schema>;
 export type 意图条目Type = z.infer<typeof 意图条目Schema>;
 export type 播报条目Type = z.infer<typeof 播报条目Schema>;
 export type 仲裁器Type = z.infer<typeof 仲裁器Schema>;
+export type 落账记录条目Type = z.infer<typeof 落账记录条目Schema>;
