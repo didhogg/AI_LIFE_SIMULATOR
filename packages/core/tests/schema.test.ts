@@ -58,6 +58,7 @@ import {
   叙事模板正文长度上限,
   HISTORY_TEXT_MAX,
   编年史条目Schema,
+  约定子类型Schema,
 } from '../schema/index.js';
 import { 叙事流条目Schema } from '../schema/narrativeStream.js';
 
@@ -738,31 +739,252 @@ describe('4.4 Org layer', () => {
 });
 
 describe('4.5 Global layer', () => {
-  it('valid empty parse', () => {
+  // ── 最小开局状态 ──────────────────────────────────────────────────────────────
+  it('valid empty parse (minimal state)', () => {
     expect(() => 全局Schema.parse({})).not.toThrow();
   });
-  it('valid secret entry', () => {
+  it('minimal-state: RootSchema parse with empty 全局', () => {
+    expect(() => RootSchema.parse({ 全局: {} })).not.toThrow();
+  });
+  it('default: 作弊标记=false, 编年史=[], 覆写日志=[]', () => {
+    const g = 全局Schema.parse({});
+    expect(g.作弊标记).toBe(false);
+    expect(g.编年史).toEqual([]);
+    expect(g.覆写日志).toEqual([]);
+  });
+
+  // ── 秘密库 ────────────────────────────────────────────────────────────────────
+  it('valid 秘密库 full entry', () => {
     expect(() => 全局Schema.parse({
       秘密库: {
         secret_001: {
-          母题: '谋杀',
-          涉事方: [{ 实体键: 'npc_001', 角色: '主谋' }],
-          进展: 20,
-          严重度: 80,
-          暴露度: 5,
+          母题: '身世之谜',
+          涉事方: [
+            { 实体键: 'npc_001', 角色: '主谋' },
+            { 实体键: 'npc_002', 角色: '受害者' },
+            { 实体键: 'npc_003', 角色: '见证' },
+          ],
+          进展: 30, 严重度: 80, 暴露度: 5,
           $谜底: '是继母下的毒',
-          知情名单: [{ 对象: 'npc_002', 知情程度: 30, 立场: '动摇', 掩护基调: '' }],
+          已暴露线索: [{ 线索: '血迹', 暴露程度: 10, 状态: '存在', 关联地点键: 'loc_书房' }],
+          知情名单: [{ 对象: 'npc_002', 来源选择器: 'role:亲历者', 知情程度: 30, 立场: '动摇', 掩护基调: '装不知情' }],
         },
       },
     })).not.toThrow();
   });
-  it('invalid: 进展 out of range', () => {
+  it('valid: 涉事方.角色 全五类', () => {
+    const 角色列表 = ['主谋', '共犯', '受害者', '目标', '见证'] as const;
+    for (const 角色 of 角色列表) {
+      expect(() => 全局Schema.parse({
+        秘密库: { s: { 涉事方: [{ 实体键: 'npc_x', 角色 }] } },
+      })).not.toThrow();
+    }
+  });
+  it('invalid: 涉事方.角色 非枚举值', () => {
     expect(全局Schema.safeParse({
-      秘密库: { s: { 进展: 150 } },
+      秘密库: { s: { 涉事方: [{ 实体键: 'npc_x', 角色: '其他' }] } },
     }).success).toBe(false);
+  });
+  it('valid: 知情名单 来源选择器 absent (可空)', () => {
+    expect(() => 全局Schema.parse({
+      秘密库: { s: { 知情名单: [{ 对象: 'npc_001', 知情程度: 50, 立场: '死守', 掩护基调: '' }] } },
+    })).not.toThrow();
+  });
+  it('invalid: 秘密库 进展 out of range', () => {
+    expect(全局Schema.safeParse({ 秘密库: { s: { 进展: 150 } } }).success).toBe(false);
+  });
+  it('invalid: 秘密库 暴露度 negative', () => {
+    expect(全局Schema.safeParse({ 秘密库: { s: { 暴露度: -1 } } }).success).toBe(false);
+  });
+
+  // ── 约定库（基础字段）────────────────────────────────────────────────────────────
+  it('valid 约定库 full entry (no 子类型)', () => {
+    expect(() => 全局Schema.parse({
+      约定库: {
+        pact_001: {
+          缔约方: [{ 实体键: 'npc_a', 角色: '承诺方' }, { 实体键: 'npc_b', 角色: '受益方' }],
+          形式: '婚约', 条款: [{ 内容: '互不攻伐', 标的: '领土', 履行状态: '待履行' }],
+          约束力: 80, 维系手段: '质子互换', 期限: 12000, 状态: '有效',
+        },
+      },
+    })).not.toThrow();
+  });
+  it('invalid: 约定库 约束力 out of range', () => {
+    expect(全局Schema.safeParse({ 约定库: { p: { 约束力: 110 } } }).success).toBe(false);
+  });
+
+  // ── 约定库·子类型 discriminated union（6.58）──────────────────────────────────
+  it('valid 子类型=一次性缺省', () => {
+    expect(() => 约定子类型Schema.parse({ 类型: '一次性缺省' })).not.toThrow();
+    expect(() => 全局Schema.parse({
+      约定库: { p: { 子类型: { 类型: '一次性缺省' } } },
+    })).not.toThrow();
+  });
+  it('valid 子类型=循环承诺 with 周期+终止条件', () => {
+    expect(() => 约定子类型Schema.parse({
+      类型: '循环承诺', 周期: 720, 终止条件: '主角死亡 OR 纪元>1000',
+    })).not.toThrow();
+  });
+  it('valid 子类型=循环承诺 fields absent (optional)', () => {
+    expect(() => 约定子类型Schema.parse({ 类型: '循环承诺' })).not.toThrow();
+  });
+  it('valid 子类型=条件挂起 with 触发条件+失败策略', () => {
+    expect(() => 约定子类型Schema.parse({
+      类型: '条件挂起', 触发条件: '皇帝驾崩', 失败策略: '欠账',
+    })).not.toThrow();
+  });
+  it('valid 子类型=条件挂起 失败策略 全三值', () => {
+    for (const 策略 of ['跳过', '欠账', '作废'] as const) {
+      expect(() => 约定子类型Schema.parse({ 类型: '条件挂起', 失败策略: 策略 })).not.toThrow();
+    }
+  });
+  it('invalid: 子类型 未知类型值', () => {
+    expect(约定子类型Schema.safeParse({ 类型: '其他类型' }).success).toBe(false);
+  });
+  it('valid: 挂靠时钟域 + 目标失效回退', () => {
+    expect(() => 全局Schema.parse({
+      约定库: {
+        p: {
+          子类型: { 类型: '循环承诺', 周期: 360 },
+          挂靠时钟域: 'clock_朝廷',
+          目标失效回退: '法定序列',
+        },
+      },
+    })).not.toThrow();
+  });
+  it('invalid: 目标失效回退 非枚举值', () => {
+    expect(全局Schema.safeParse({
+      约定库: { p: { 目标失效回退: '随便处理' } },
+    }).success).toBe(false);
+  });
+
+  // ── 继承包（世界遗产白名单·缺口4·6.45）────────────────────────────────────────
+  it('valid 继承包 with 候选 + 抓取载荷', () => {
+    expect(() => 全局Schema.parse({
+      继承包: {
+        候选: [{ NPC键: 'npc_继承人', 权限级别: '全权限', 白名单: ['属性', '人际关系'] }],
+        抓取载荷: { 属性: { 智慧: 70, 武力: 50 } },
+      },
+    })).not.toThrow();
+  });
+  it('valid: 继承包 世界遗产白名单 optional', () => {
+    expect(() => 全局Schema.parse({
+      继承包: { 世界遗产白名单: ['世界.国际形势', 'NPC.主要人物.*'] },
+    })).not.toThrow();
+  });
+  it('valid: 继承包 世界遗产白名单 absent', () => {
+    const g = 全局Schema.parse({ 继承包: {} });
+    expect(g.继承包.世界遗产白名单).toBeUndefined();
+  });
+
+  // ── 家族树（6.27/6.30）────────────────────────────────────────────────────────
+  it('valid 家族树 DAG node', () => {
+    expect(() => 全局Schema.parse({
+      家族树: {
+        边: {
+          role_玄宗: {
+            双亲边: [{ parent_id: 'role_睿宗', 边类型: '血亲' }],
+            生卒: { 出生: -8640, 死亡: 5040 },
+            总评: '开元盛世开创者',
+            关键成就: ['开元盛世', '平定韦后之乱'],
+            传家宝: ['item_传国玉玺'],
+          },
+        },
+        幽灵节点: {
+          ghost_武则天母亲: {
+            称谓: '荣国夫人', 姓氏: '杨',
+            生卒约束: '唐高祖年间在世', 模板引用: 'tpl_贵妇',
+          },
+        },
+      },
+    })).not.toThrow();
+  });
+  it('valid: 家族树 生卒.死亡 absent (健在/未记录)', () => {
+    expect(() => 全局Schema.parse({
+      家族树: { 边: { role_001: { 生卒: { 出生: 1000 } } } },
+    })).not.toThrow();
+  });
+  it('valid: 家族树 双亲边 边类型 开放串', () => {
+    expect(() => 全局Schema.parse({
+      家族树: { 边: { role_x: { 双亲边: [{ parent_id: 'role_y', 边类型: '领养' }] } } },
+    })).not.toThrow();
+  });
+
+  // ── 覆写日志（附录H·提案单引用·Z3·6.68）─────────────────────────────────────
+  it('valid 覆写日志 with 提案单引用', () => {
+    expect(() => 全局Schema.parse({
+      覆写日志: [{
+        时间: 5000, 授权源: '系统管理员', 级别: 'L2',
+        目标: 'NPC.npc_大臣.属性.智慧', 理由: '角色扶正调整',
+        是否作弊: false, 提案单引用: 'proposal_Z3_001',
+      }],
+    })).not.toThrow();
+  });
+  it('valid: 覆写日志 提案单引用 absent (可空)', () => {
+    expect(() => 全局Schema.parse({
+      覆写日志: [{ 时间: 0, 授权源: '', 级别: 'L1', 目标: '', 理由: '', 是否作弊: true }],
+    })).not.toThrow();
   });
   it('invalid: 覆写日志 wrong type', () => {
     expect(全局Schema.safeParse({ 覆写日志: 'not-an-array' }).success).toBe(false);
+  });
+
+  // ── 作弊标记 ─────────────────────────────────────────────────────────────────
+  it('valid: 作弊标记 true', () => {
+    expect(() => 全局Schema.parse({ 作弊标记: true })).not.toThrow();
+  });
+
+  // ── 编年史（6.43·append-only·媒介附件格式）──────────────────────────────────────
+  it('valid 编年史条目 minimal', () => {
+    expect(() => 全局Schema.parse({
+      编年史: [{ 序号: 1, 时间: 0, 标题: '开局', 结果摘要行: '故事开始' }],
+    })).not.toThrow();
+  });
+  it('valid 编年史条目 with 媒介附件', () => {
+    expect(() => 全局Schema.parse({
+      编年史: [{
+        序号: 2, 时间: 500, 标题: '朝廷大变', 地点键: 'loc_皇宫',
+        母题: '权臣篡位', 结果摘要行: '权臣逼宫', 关联实体键: ['npc_权臣', 'npc_皇帝'],
+        事件id: 'evt_001', 重要等级: '核心',
+        媒介附件: { 格式模板键: 'tpl_邸报', 渠道标签: '邸报', 渲染缓存全文: '皇上圣躬有恙…' },
+      }],
+    })).not.toThrow();
+  });
+  it('valid: 编年史 时间负值（史前/古代背景）', () => {
+    expect(() => 全局Schema.parse({
+      编年史: [{ 序号: 0, 时间: -10000, 标题: '远古纪元', 结果摘要行: '混沌初开' }],
+    })).not.toThrow();
+  });
+  it('invalid: 编年史条目 缺 序号（required field）', () => {
+    expect(全局Schema.safeParse({
+      编年史: [{ 时间: 0, 标题: '无序号', 结果摘要行: '' }],
+    }).success).toBe(false);
+  });
+  it('invalid: 编年史 媒介附件 渲染缓存全文超 HISTORY_TEXT_MAX', () => {
+    expect(全局Schema.safeParse({
+      编年史: [{
+        序号: 1, 结果摘要行: '',
+        媒介附件: { 渠道标签: 'x', 渲染缓存全文: 'a'.repeat(HISTORY_TEXT_MAX + 1) },
+      }],
+    }).success).toBe(false);
+  });
+  it('invalid: 编年史 媒介附件 缺 渠道标签（required field）', () => {
+    expect(全局Schema.safeParse({
+      编年史: [{ 序号: 1, 结果摘要行: '', 媒介附件: { 格式模板键: 'tpl_x', 渲染缓存全文: '' } }],
+    }).success).toBe(false);
+  });
+
+  // ── 综合样例：全量 全局 一次 parse ──────────────────────────────────────────
+  it('valid: full 全局 entity (all blocks)', () => {
+    expect(() => 全局Schema.parse({
+      秘密库: { s001: { 母题: '谋反', 涉事方: [{ 实体键: 'npc_x', 角色: '主谋' }], 进展: 10, 严重度: 90, 暴露度: 0, $谜底: '皇子主导', 知情名单: [] } },
+      约定库: { p001: { 形式: '盟约', 约束力: 70, 状态: '有效', 子类型: { 类型: '循环承诺', 周期: 1440 }, 挂靠时钟域: 'clock_主', 目标失效回退: '作废' } },
+      继承包: { 候选: [], 世界遗产白名单: ['世界.格局'] },
+      家族树: { 边: { role_a: { 生卒: {}, 双亲边: [], 总评: '开国之君', 关键成就: [], 传家宝: [] } }, 幽灵节点: {} },
+      覆写日志: [{ 时间: 100, 授权源: 'GM', 级别: 'L1', 目标: 'NPC.x.属性.力量', 理由: '测试', 是否作弊: false, 提案单引用: 'prop_001' }],
+      作弊标记: false,
+      编年史: [{ 序号: 1, 时间: 100, 标题: '创世', 结果摘要行: '故事开始', 关联实体键: ['npc_x'], 重要等级: '核心' }],
+    })).not.toThrow();
   });
 });
 

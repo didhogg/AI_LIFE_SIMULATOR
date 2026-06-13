@@ -154,3 +154,49 @@ P0-5 **不做**：
 ### 9.4 指纹覆盖
 
 `拓扑`、`宿主类型`、`停用`、`中性缺省` 均嵌在 `检定配方表` 内，随 `preset.检定配方表` 整体进指纹（预设整包组）。AA6 gate D property 测试验证三个新字段变化均导致指纹改变。
+
+## 10. 播报条目 → Tagged Union 改造影响面（X1–X5 下一轮预审计）
+
+### 背景
+
+叙事流 X1–X5 字段族需要把 `播报条目Schema`（`packages/core/schema/memory.ts:94`）从单一 flat object 改造为 discriminated union，以支持不同渠道（对话/旁白/系统/媒介）各自的结构约束。本节列出当前所有引用点，供改造前逐一评估影响。
+
+### 当前 `播报条目Schema` 定义
+
+- **定义位置**：`packages/core/schema/memory.ts:94–105`
+- **当前结构**（flat object，非 union）：
+  ```typescript
+  export const 播报条目Schema = z.object({
+    播报id: z.string().default(''),
+    内容: z.string().default(''),
+    重要度: z.string().default('普通'),
+    发生时间: z.number().int().default(0),
+    渠道标签: z.string().optional(),    // 6.9 可空
+    打断级别: z.enum(['挂起', '闪念', '硬闯']).optional(),
+    最迟期限: z.number().int().optional(),
+    已读: z.boolean().default(false),
+  });
+  ```
+
+### 引用点清单
+
+| # | 文件 | 行号 | 角色 | 改造后需同步？ |
+|---|------|------|------|--------------|
+| 1 | `packages/core/schema/memory.ts` | 94–105 | **定义处** | 是：改为 `z.discriminatedUnion('渠道', [...])` |
+| 2 | `packages/core/schema/memory.ts` | 114 | `仲裁器Schema.播报队列` 类型声明 | 类型自动跟随，无需手改 |
+| 3 | `packages/core/tests/schema.test.ts` | 39 | import 语句 | 无需改（导出名不变） |
+| 4 | `packages/core/tests/schema.test.ts` | 936 | 测试构造—含 `打断级别:'强制'` 非法测试 | 是：构造时需提供 `渠道` 判别字段 |
+| 5 | `packages/core/tests/schema.test.ts` | 941 | 合法最简测试（仅 `播报id+内容`） | 是：最简测试需包含 `渠道` 判别字段 |
+| 6 | `packages/core/tests/schema.test.ts` | 944 | 非法测试（缺 `播报id`） | 是：构造时需包含 `渠道` |
+
+### 改造要点（改造时参考）
+
+1. **判别字段**：选用 `渠道` 作为 discriminant（已有 `渠道标签` 但是可空，改为 required discriminant）。
+2. **分支设计**（对应 X1–X5）：
+   - `对话`：`说话者键`, `说话者称谓`, `对白内容`
+   - `旁白`：`内容`, `叙述视角`
+   - `系统`：`系统消息类型`, `内容`
+   - `媒介`：`媒介附件引用键`, `渲染缓存摘要`
+   - `思绪`（主角内心）：`内容`, `可见性`
+3. **迁移兼容**：旧存档中 `播报队列` 条目无 `渠道` 字段 → 迁移映射补 `渠道: '系统'` 作安全默认。
+4. **测试改造量**：6 处引用中 3 处测试需改写，1 处定义需重写，1 处类型自动跟随，1 处 import 无变化。估计改造工作量：~120 行 schema + ~30 行测试。
