@@ -14,7 +14,7 @@ const 币种定义Schema = z.object({
 });
 
 // ── 资产条目（E1：取代持仓七枚举，开放对象） ──
-const 资产条目Schema = z.object({
+export const 资产条目Schema = z.object({
   标的: z.string().default(''),
   类别: z.string().default(''), // 开放串：股票/期货/地契/灵石/版权…
   数量: z.number().default(0),
@@ -22,8 +22,10 @@ const 资产条目Schema = z.object({
   现价: z.number().default(0),
   杠杆: z.number().min(0).optional(),
   保证金: z.number().min(0).optional(),
-  到期日: z.number().int().optional(), // 绝对纪元分钟
+  到期日: z.number().int().optional(), // 绝对纪元分钟；0=哨兵/无到期
   衍生品参数: z.record(z.string(), z.number()).optional(),
+  // D1·6.54·缺省母域·可空："这笔钱在哪只域钟下生息"（跨时间域兜底·P2 实装收益计算）
+  域籍: z.string().optional(),
 });
 
 // ── 账户 ──
