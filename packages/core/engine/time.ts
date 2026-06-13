@@ -2,6 +2,7 @@
 // Epoch anchor: 1970-01-01 00:00:00 Gregorian = epoch minute 0.
 // Pre-1970 dates return negative epoch minutes (full integer axis support).
 // ESLint bans enforced by CI: Date.now(), new Date(), Math.random() absent.
+import { fixedPow, stableProb } from './math/fixed.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -269,7 +270,7 @@ export function decayLinear(value: number, ratePerMonth: number, spanMin: number
  * Returns a multiplier — caller does: newValue = oldValue * compound(rate, span).
  */
 export function compound(annualRate: number, spanMin: number): number {
-  return Math.pow(1 + annualRate, spanMin / MINUTES_PER_YEAR);
+  return fixedPow(1 + annualRate, spanMin / MINUTES_PER_YEAR);
 }
 
 /**
@@ -278,7 +279,7 @@ export function compound(annualRate: number, spanMin: number): number {
  * spanMonths = spanMinutes / MINUTES_PER_MONTH (caller converts via MIGRATION_TICK_MINUTES).
  */
 export function probOverSpan(monthProb: number, spanMonths: number): number {
-  return 1 - Math.pow(1 - monthProb, spanMonths);
+  return stableProb(monthProb, spanMonths);
 }
 
 // ── Expiry check ──────────────────────────────────────────────────────────────

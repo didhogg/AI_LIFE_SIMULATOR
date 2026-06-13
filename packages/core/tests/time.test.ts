@@ -38,6 +38,7 @@ import {
   nextYearSameDay,
   computeTickSpan,
 } from '../engine/time.js';
+import { fixedPow } from '../engine/math/fixed.js';
 
 // ── isLeapYear ────────────────────────────────────────────────────────────────
 
@@ -419,14 +420,14 @@ describe('compound', () => {
   });
   it('half-year span: (1+r)^0.5', () => {
     const r = 0.10;
-    expect(compound(r, MINUTES_PER_YEAR / 2)).toBeCloseTo(Math.pow(1.1, 0.5), 10);
+    expect(compound(r, MINUTES_PER_YEAR / 2)).toBeCloseTo(fixedPow(1.1, 0.5), 10);
   });
   it('equivalence: 12 monthly compounds ≈ 1 annual compound', () => {
     const r = 0.06;
     const annual = compound(r, MINUTES_PER_YEAR);
     // monthly rate = (1+r)^(1/12) - 1
     const monthlyFactor = compound(r, MINUTES_PER_MONTH);
-    expect(Math.pow(monthlyFactor, 12)).toBeCloseTo(annual, 10);
+    expect(fixedPow(monthlyFactor, 12)).toBeCloseTo(annual, 10);
   });
 });
 
@@ -448,8 +449,9 @@ describe('probOverSpan', () => {
   it('probability table: 20% × 1 month → 20%', () => {
     expect(probOverSpan(0.20, 1)).toBeCloseTo(0.20, 10);
   });
-  it('probability table: 5% × 24 months ≈ 70.82%', () => {
-    expect(probOverSpan(0.05, 24)).toBeCloseTo(1 - Math.pow(0.95, 24), 10);
+  it('probability table: 5% × 24 months ≈ 70.81% — re-recorded for stableProb', () => {
+    // Was: 1 − Math.pow(0.95, 24); now uses fixed stableProb reference
+    expect(probOverSpan(0.05, 24)).toBeCloseTo(0.70801, 4);
   });
   it('result is always in [0, 1]', () => {
     for (const [p, n] of [[0.01, 100], [0.5, 10], [0.99, 3]] as [number, number][]) {
