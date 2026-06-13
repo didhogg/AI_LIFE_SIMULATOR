@@ -103,6 +103,8 @@ const 播报基础 = z.object({
   // P0 预埋·行为实现在 P1：绝对纪元分钟；超期由引擎降级系统文本强制出队
   最迟期限: z.number().int().optional(), // 绝对纪元分钟；0=哨兵/永不降级
   已读: z.boolean().default(false),
+  // 缺口6·6.45·暗骰=玩家看不到骰点结果·全暗=玩家看不到任何内容
+  遮蔽样式: z.enum(['明牌', '暗骰', '全暗']).optional(),
 });
 
 export const 播报条目Schema = z.discriminatedUnion('渠道', [

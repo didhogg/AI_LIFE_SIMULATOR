@@ -13,6 +13,7 @@ export * from './economy.js';
 export * from './memory.js';
 export * from './dollar.js';
 export * from './preset.js';
+export * from './proposal.js';
 
 import {
   SystemSchema,

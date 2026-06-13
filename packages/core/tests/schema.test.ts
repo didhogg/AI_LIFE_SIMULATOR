@@ -52,6 +52,7 @@ import {
   $metaSchema,
   $模型画像Schema,
   存档头Schema,
+  死亡事件Schema,
   玩法预设Schema,
   检定档切分表Schema,
   钳制表Schema,
@@ -2179,6 +2180,75 @@ describe('4.10 Preset layer', () => {
       { 键: 'a', 名称: 'b', 风格提示词: '测试', 适用场景: '武侠世界' },
     ]);
     expect(res[0]).not.toHaveProperty('适用场景');
+  });
+});
+
+// ══════════════════════════════════════════
+// P0-1x 层内小缺口字段验证
+// ══════════════════════════════════════════
+
+describe('P0-1x B 缺口字段', () => {
+  // ── 缺口6·死亡事件（6.45·拦截=配方引用）──────────────────────────────────────
+  it('死亡事件: 最小 parse（仅默认值）', () => {
+    const res = 死亡事件Schema.parse({});
+    expect(res.时间).toBe(0);
+    expect(res.死因).toBe('');
+    expect(res.拦截).toBeUndefined();
+  });
+  it('死亡事件: 拦截 = 配方引用键（不直接写概率）', () => {
+    expect(死亡事件Schema.safeParse({ 时间: 525600, 死因: '战死', 拦截: '天命通道.必活·配方引用' }).success).toBe(true);
+  });
+  it('死亡事件: 拦截 absent (optional)', () => {
+    expect(死亡事件Schema.parse({ 死因: '病逝' }).拦截).toBeUndefined();
+  });
+
+  // ── 缺口7·播报条目 遮蔽样式?（6.45·明牌|暗骰|全暗）────────────────────────
+  it('播报条目: 遮蔽样式 absent (optional)', () => {
+    const res = 播报条目Schema.parse({ 渠道: '系统', 内容: '战斗开始' });
+    expect(res).not.toHaveProperty('遮蔽样式');
+  });
+  it('播报条目: 遮蔽样式=明牌', () => {
+    expect(播报条目Schema.safeParse({ 渠道: '系统', 内容: 'x', 遮蔽样式: '明牌' }).success).toBe(true);
+  });
+  it('播报条目: 遮蔽样式=暗骰（玩家看不到骰点）', () => {
+    expect(播报条目Schema.safeParse({ 渠道: '旁白', 内容: 'x', 遮蔽样式: '暗骰' }).success).toBe(true);
+  });
+  it('播报条目: 遮蔽样式=全暗', () => {
+    expect(播报条目Schema.safeParse({ 渠道: '思绪', 内容: 'x', 遮蔽样式: '全暗' }).success).toBe(true);
+  });
+  it('播报条目: 遮蔽样式 非法值拒收', () => {
+    expect(播报条目Schema.safeParse({ 渠道: '系统', 内容: 'x', 遮蔽样式: '半透明' }).success).toBe(false);
+  });
+
+  // ── 缺口8·$meta.周目谱系 节点 父快照拍号?/分支原因?（6.47）─────────────────
+  it('周目谱系: 父快照拍号 absent (optional)', () => {
+    const res = RootSchema.parse({});
+    expect(res.$meta.周目谱系).toEqual({});
+  });
+  it('周目谱系: 节点 父快照拍号 + 分支原因 valid', () => {
+    expect(RootSchema.shape.$meta.safeParse({
+      周目谱系: {
+        'tl_001': { parent: undefined, 快照引用: 'snap_001', 创建时间: 100, 角色键: 'npc_主角', 父快照拍号: 42, 分支原因: 'SL' },
+        'tl_002': { parent: 'tl_001', 快照引用: 'snap_002', 创建时间: 200, 角色键: 'npc_主角' },
+      },
+    }).success).toBe(true);
+  });
+  it('周目谱系: 父快照拍号 非整数拒收', () => {
+    expect(RootSchema.shape.$meta.safeParse({
+      周目谱系: { 'tl_x': { 父快照拍号: 1.5 } },
+    }).success).toBe(false);
+  });
+  it('周目谱系: 分支原因 开放串（SL/穿越/换角/…）', () => {
+    expect(RootSchema.shape.$meta.safeParse({
+      周目谱系: { 'tl_x': { 分支原因: '穿越至明朝' } },
+    }).success).toBe(true);
+  });
+
+  // ── 缺口9·mod注册表 签名三字段 + 6.62/B1c（确认已在 4.8 落地）────────────
+  it('mod注册表: 生效锚点/基底契约/内容哈希 已落地（4.8 确认）', () => {
+    expect(mod注册表Schema.safeParse({
+      test_mod: { 生效锚点: 'era_大明', 基底契约: '>=4.1.0', 内容哈希: 'sha256:abc' },
+    }).success).toBe(true);
   });
 });
 

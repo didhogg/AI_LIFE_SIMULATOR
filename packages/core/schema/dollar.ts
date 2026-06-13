@@ -218,15 +218,18 @@ export const $metaSchema = z.object({
   上帝之手次数: z.number().int().min(0).default(0),
   聆听心声次数: z.number().int().min(0).default(0),
   历代角色数: z.number().int().min(1).default(1),
-  周目谱系: z.record(z.string(), z.object({  // 带 parent 指针的存档树
+  周目谱系: z.record(z.string(), z.object({  // 带 parent 指针的存档树（6.47 单树定稿）
     parent: z.string().optional(),
     快照引用: z.string().default(''),
     创建时间: z.number().int().default(0),
     角色键: z.string().default(''),
+    父快照拍号: z.number().int().optional(), // 6.47·分叉起点的拍号（SL/穿越/换角时写入）
+    分支原因: z.string().optional(),          // 6.47·分支触发原因（SL/穿越/换角/…）
   })).default({}),
   峰值记录: z.record(z.string(), z.number()).default({}), // 各维度峰值
 });
 
+export type $战斗暂存Type = z.infer<typeof $战斗暂存Schema>;
 export type $隐藏记忆库Type = z.infer<typeof $隐藏记忆库Schema>;
 export type $metaType = z.infer<typeof $metaSchema>;
 export type $天命重掷券Type = z.infer<typeof $天命重掷券Schema>;

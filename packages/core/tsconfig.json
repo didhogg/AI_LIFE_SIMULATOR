@@ -5,6 +5,7 @@
     "engine/**/*.ts",
     "prompt/**/*.ts",
     "migration/**/*.ts",
+    "interfaces/**/*.ts",
     "tests/**/*.ts"
   ]
 }

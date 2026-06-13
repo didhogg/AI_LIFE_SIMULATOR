@@ -480,6 +480,13 @@ export const 已故NPC归档Schema = z.record(
   }),
 ).default({});
 
+// ── 死亡事件（6.45·缺口1·拦截=配方引用·⚠概率住检定配方表·不直接写）──────────────
+export const 死亡事件Schema = z.object({
+  时间: z.number().int().default(0),  // 绝对纪元分钟；0=哨兵
+  死因: z.string().default(''),
+  拦截: z.string().optional(),        // 死亡拦截器条目.条件引用·配方键（概率住检定配方表·不直接写）
+}).strip();
+
 // ── 席位表（6.53 C1）──────────────────────────────────────────────────────────
 // 会话本地视角·引擎结算不读·单机=单一席位「本机」退化·多人=表内多席位零迁移
 export const 席位表Schema = z.record(
