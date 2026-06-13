@@ -6,10 +6,12 @@ import {
   // per-layer schemas
   SystemSchema,
   TickSchema,
+  TickLogEntrySchema,
   NarrativeSettingSchema,
   StateMachineSchema,
   世界Schema,
   世界域Schema,
+  活跃区间条目Schema,
   NpcSchema,
   NpcRecordSchema,
   已故NPC归档Schema,
@@ -64,7 +66,7 @@ describe('4.1 System layer', () => {
     expect(() => TickSchema.parse({ id: 'tick-1', 拍计数: 0, 难度系数组指纹: 'abc' })).not.toThrow();
   });
   it('valid NarrativeSettingSchema', () => {
-    expect(() => NarrativeSettingSchema.parse({ 人称: '第三人称', 叙事偏好: '纪实风格，少用修辞' })).not.toThrow();
+    expect(() => NarrativeSettingSchema.parse({ 人称: { 视角宿主: '主角', 人称: '三' }, 叙事偏好: '纪实风格，少用修辞' })).not.toThrow();
   });
   it('valid StateMachineSchema', () => {
     expect(() => StateMachineSchema.parse({
@@ -91,6 +93,55 @@ describe('4.1 System layer', () => {
   it('unknown keys rejected in strict mode', () => {
     expect(SystemSchema.strict().safeParse({ unknownField: 'x' }).success).toBe(false);
   });
+  // 6.75 功能开关表 新增开关
+  it('功能开关表: 默认值正确', () => {
+    const res = SystemSchema.parse({});
+    expect(res.功能开关表.认知迷雾).toBe(true);
+    expect(res.功能开关表.上帝视角).toBe(false);
+    expect(res.功能开关表.观战模式).toBe(false);
+    expect(res.功能开关表.舞台追踪).toBe('自动按场景');
+    expect(res.功能开关表.二审严格度).toBe(50);
+    expect(res.功能开关表.二审维度开关).toEqual({});
+  });
+  it('功能开关表: 舞台追踪 接受合法枚举值', () => {
+    const r1 = SystemSchema.parse({ 功能开关表: { 舞台追踪: '强制开' } });
+    expect(r1.功能开关表.舞台追踪).toBe('强制开');
+    const r2 = SystemSchema.parse({ 功能开关表: { 舞台追踪: '关' } });
+    expect(r2.功能开关表.舞台追踪).toBe('关');
+  });
+  it('功能开关表: 舞台追踪 拒绝非法枚举值', () => {
+    expect(SystemSchema.safeParse({ 功能开关表: { 舞台追踪: '手动' } }).success).toBe(false);
+  });
+  it('功能开关表: 二审严格度 接受 0–100', () => {
+    expect(SystemSchema.safeParse({ 功能开关表: { 二审严格度: 0 } }).success).toBe(true);
+    expect(SystemSchema.safeParse({ 功能开关表: { 二审严格度: 100 } }).success).toBe(true);
+  });
+  it('功能开关表: 二审严格度 拒绝越界值', () => {
+    expect(SystemSchema.safeParse({ 功能开关表: { 二审严格度: -1 } }).success).toBe(false);
+    expect(SystemSchema.safeParse({ 功能开关表: { 二审严格度: 101 } }).success).toBe(false);
+  });
+  it('功能开关表: 二审维度开关 接受任意维度键', () => {
+    const res = SystemSchema.parse({ 功能开关表: { 二审维度开关: { 道德: true, 逻辑: false } } });
+    expect(res.功能开关表.二审维度开关).toEqual({ 道德: true, 逻辑: false });
+  });
+  it('功能开关表: passthrough 允许 mod 注入自定义键', () => {
+    const res = SystemSchema.parse({ 功能开关表: { mod_自定义特性: true } });
+    expect((res.功能开关表 as Record<string, unknown>)['mod_自定义特性']).toBe(true);
+  });
+  // 6.75 tick_log 盐值
+  it('TickLogEntrySchema: 盐值 absent → valid (optional)', () => {
+    expect(TickLogEntrySchema.safeParse({ tick_id: 't1', 拍计数: 0, 结果摘要: '', 系数组指纹: '' }).success).toBe(true);
+  });
+  it('TickLogEntrySchema: 盐值 整数 → valid', () => {
+    const res = TickLogEntrySchema.parse({ 盐值: 7 });
+    expect(res.盐值).toBe(7);
+  });
+  it('TickLogEntrySchema: 盐值 允许负值（回滚计数器不限符号）', () => {
+    expect(TickLogEntrySchema.safeParse({ 盐值: -1 }).success).toBe(true);
+  });
+  it('TickLogEntrySchema: 盐值 拒绝非整数', () => {
+    expect(TickLogEntrySchema.safeParse({ 盐值: 1.5 }).success).toBe(false);
+  });
   // 拍板一：_叙事设置.叙事偏好
   it('valid NarrativeSettingSchema with 叙事偏好', () => {
     const res = NarrativeSettingSchema.safeParse({ 叙事偏好: '偏向宫斗与权谋，少写打斗细节' });
@@ -114,8 +165,37 @@ describe('4.1 System layer', () => {
   it('叙事风格 已从 NarrativeSettingSchema 移除（并入叙事偏好）', () => {
     expect('叙事风格' in NarrativeSettingSchema.shape).toBe(false);
   });
-  it('NarrativeSettingSchema 最终形态仅含 人称 + 叙事偏好 + 启用文风键（6.42）', () => {
-    expect(Object.keys(NarrativeSettingSchema.shape).sort()).toEqual(['人称', '叙事偏好', '启用文风键'].sort());
+  it('NarrativeSettingSchema 含 人称 + 叙事偏好 + 启用文风键 + 叙事权限（6.75）', () => {
+    expect(Object.keys(NarrativeSettingSchema.shape).sort()).toEqual(['人称', '叙事偏好', '启用文风键', '叙事权限'].sort());
+  });
+  // 6.75 人称结构化
+  it('人称: 默认值 视角宿主="" 人称="二"', () => {
+    const res = NarrativeSettingSchema.parse({});
+    expect(res.人称.视角宿主).toBe('');
+    expect(res.人称.人称).toBe('二');
+  });
+  it('人称: 视角宿主接受任意字符串（含特殊值"上帝/全知旁白"）', () => {
+    const res = NarrativeSettingSchema.parse({ 人称: { 视角宿主: '上帝/全知旁白', 人称: '三' } });
+    expect(res.人称.视角宿主).toBe('上帝/全知旁白');
+    expect(res.人称.人称).toBe('三');
+  });
+  it('人称: 枚举拒绝非法值', () => {
+    expect(NarrativeSettingSchema.safeParse({ 人称: { 人称: '四' } }).success).toBe(false);
+  });
+  it('人称: 旧版字符串格式拒绝（无法向前兼容）', () => {
+    expect(NarrativeSettingSchema.safeParse({ 人称: '第三人称' }).success).toBe(false);
+  });
+  // 6.75 叙事权限
+  it('叙事权限: 默认值 玩家角色写权限="玩家独占"', () => {
+    const res = NarrativeSettingSchema.parse({});
+    expect(res.叙事权限.玩家角色写权限).toBe('玩家独占');
+  });
+  it('叙事权限: 可设为"模型可代写"', () => {
+    const res = NarrativeSettingSchema.parse({ 叙事权限: { 玩家角色写权限: '模型可代写' } });
+    expect(res.叙事权限.玩家角色写权限).toBe('模型可代写');
+  });
+  it('叙事权限: 拒绝非法枚举值', () => {
+    expect(NarrativeSettingSchema.safeParse({ 叙事权限: { 玩家角色写权限: '随意' } }).success).toBe(false);
   });
   // 2. _叙事设置.启用文风键 (6.42)
   it('启用文风键: 缺省 parse 得 []', () => {
@@ -158,8 +238,38 @@ describe('4.2 World layer', () => {
   });
   it('valid 世界域 with entries', () => {
     expect(() => 世界域Schema.parse({
-      主世界: { 玩法预设引用: 'preset-01', 域时钟: 0, 封存状态: false },
+      主世界: { 玩法预设引用: 'preset-01', 封存状态: false },
     })).not.toThrow();
+  });
+  it('世界域: 域时钟 已从 世界域 条目移除（派生展示量，不存储）', () => {
+    const res = 世界域Schema.parse({ 主世界: {} });
+    expect('域时钟' in (res['主世界'] ?? {})).toBe(false);
+  });
+  it('世界域: 默认包含空的 累计活跃区间表', () => {
+    const res = 世界域Schema.parse({ 主世界: {} });
+    expect(res['主世界']?.累计活跃区间表).toEqual([]);
+  });
+  it('世界域: 累计活跃区间表 接受合法条目', () => {
+    const res = 世界域Schema.parse({
+      主世界: {
+        累计活跃区间表: [
+          { 起始纪元分钟: 0, 终止纪元分钟: 1440, 版本号: 0 },
+          { 起始纪元分钟: 2880, 终止纪元分钟: null, 版本号: 1 },
+        ],
+      },
+    });
+    expect(res['主世界']?.累计活跃区间表).toHaveLength(2);
+    expect(res['主世界']?.累计活跃区间表[1]?.终止纪元分钟).toBeNull();
+  });
+  it('世界域: 活跃区间 起始纪元分钟 允许负值', () => {
+    expect(世界域Schema.safeParse({
+      主世界: { 累计活跃区间表: [{ 起始纪元分钟: -525600, 终止纪元分钟: 0, 版本号: 0 }] },
+    }).success).toBe(true);
+  });
+  it('世界域: 活跃区间 版本号 拒绝负值', () => {
+    expect(世界域Schema.safeParse({
+      主世界: { 累计活跃区间表: [{ 版本号: -1 }] },
+    }).success).toBe(false);
   });
   it('valid: 纪元分钟 accepts negative (pre-1970 ancient-date absolute timestamp)', () => {
     expect(世界Schema.safeParse({ 纪元分钟: -1 }).success).toBe(true);
@@ -815,10 +925,10 @@ describe('4.10 Preset layer', () => {
   it('$存档种子: 拒绝非整数', () => {
     expect($存档种子Schema.safeParse(1.5).success).toBe(false);
   });
-  // P0-5 $会话状态.本拍重掷序号 防回归断言
-  it('$会话状态: 含 本拍重掷序号 字段，默认=0', () => {
+  // P0-5 $会话状态.演出层草稿计数 防回归断言（发现D: 原「本拍重掷序号」改名）
+  it('$会话状态: 含 演出层草稿计数 字段，默认=0', () => {
     const state = RootSchema.parse({});
-    expect(state.$会话状态.本拍重掷序号).toBe(0);
+    expect(state.$会话状态.演出层草稿计数).toBe(0);
   });
   it('$会话状态: 既有字段未受影响（最后交互时间戳/未读播报数/崩溃恢复指针）', () => {
     const res = RootSchema.parse({});
@@ -826,8 +936,8 @@ describe('4.10 Preset layer', () => {
     expect(res.$会话状态.未读播报数).toBe(0);
     expect(res.$会话状态.崩溃恢复指针).toBe('');
   });
-  it('$会话状态: 本拍重掷序号拒绝负值', () => {
-    expect(RootSchema.shape.$会话状态.safeParse({ 本拍重掷序号: -1 }).success).toBe(false);
+  it('$会话状态: 演出层草稿计数拒绝负值', () => {
+    expect(RootSchema.shape.$会话状态.safeParse({ 演出层草稿计数: -1 }).success).toBe(false);
   });
   // 6.44 防回归断言：旧键名已从 玩法预设 和文风条目中删除
   it('防回归: 玩法预设Schema.shape 不含旧键「叙事格式表」', () => {
@@ -841,6 +951,43 @@ describe('4.10 Preset layer', () => {
       { 键: 'a', 名称: 'b', 风格提示词: '测试', 适用场景: '武侠世界' },
     ]);
     expect(res[0]).not.toHaveProperty('适用场景');
+  });
+});
+
+// ══════════════════════════════════════════
+// P0-1 minimum empty state fixture
+// ══════════════════════════════════════════
+
+describe('P0-1 minimum empty state', () => {
+  it('RootSchema.parse({}) succeeds — all defaults cascade', () => {
+    expect(() => RootSchema.parse({})).not.toThrow();
+  });
+  it('empty state: _叙事设置.人称 is structured object with defaults', () => {
+    const state = RootSchema.parse({});
+    expect(state._叙事设置.人称.人称).toBe('二');
+    expect(state._叙事设置.人称.视角宿主).toBe('');
+  });
+  it('empty state: _叙事设置.叙事权限 has default', () => {
+    const state = RootSchema.parse({});
+    expect(state._叙事设置.叙事权限.玩家角色写权限).toBe('玩家独占');
+  });
+  it('empty state: 系统.功能开关表 has all 6.75 defaults', () => {
+    const state = RootSchema.parse({});
+    expect(state.系统.功能开关表.观战模式).toBe(false);
+    expect(state.系统.功能开关表.舞台追踪).toBe('自动按场景');
+    expect(state.系统.功能开关表.二审严格度).toBe(50);
+    expect(state.系统.功能开关表.二审维度开关).toEqual({});
+  });
+  it('empty state: 世界域 defaults to {}', () => {
+    const state = RootSchema.parse({});
+    expect(state.世界域).toEqual({});
+  });
+  it('活跃区间条目Schema: 终止纪元分钟 默认 null（域仍活跃）', () => {
+    const res = 活跃区间条目Schema.parse({});
+    expect(res.终止纪元分钟).toBeNull();
+  });
+  it('活跃区间条目Schema: 起始纪元分钟 允许负值（无 .min(0)）', () => {
+    expect(活跃区间条目Schema.safeParse({ 起始纪元分钟: -1 }).success).toBe(true);
   });
 });
 

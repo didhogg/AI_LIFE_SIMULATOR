@@ -66,6 +66,130 @@ describe('check.ts — resolveAttribute', () => {
   });
 });
 
+// ─── resolveAttribute: 拓扑 dispatch (6.45) ──────────────────────────────────
+
+describe('check.ts — resolveAttribute 拓扑', () => {
+  it('即掷 (explicit) — normal path proceeds', () => {
+    const res = resolveAttribute(
+      { 主属性: '体质', 拓扑: '即掷' },
+      { 体质: 60 },
+    );
+    expect(res).toBe(30); // (60 + 0) / 2
+  });
+
+  it('即掷 (default, omitted) — normal path proceeds', () => {
+    const res = resolveAttribute({ 主属性: '体质' }, { 体质: 60 });
+    expect(res).toBe(30);
+  });
+
+  it('骰池 → throws 未实装 (P2 placeholder)', () => {
+    expect(() =>
+      resolveAttribute({ 主属性: '体质', 拓扑: '骰池' }, { 体质: 60 }),
+    ).toThrow(/骰池.*未实装|未实装.*骰池/);
+  });
+});
+
+// ─── resolveAttribute: 宿主类型 dispatch (6.45) ───────────────────────────────
+
+describe('check.ts — resolveAttribute 宿主类型', () => {
+  it('角色 (explicit) — normal path proceeds', () => {
+    const res = resolveAttribute(
+      { 主属性: '智慧', 宿主类型: '角色' },
+      { 智慧: 70 },
+    );
+    expect(res).toBe(35); // (70 + 0) / 2
+  });
+
+  it('角色 (default, omitted) — normal path proceeds', () => {
+    const res = resolveAttribute({ 主属性: '智慧' }, { 智慧: 70 });
+    expect(res).toBe(35);
+  });
+
+  it('组织 → throws 未实装 (P0-1 dispatch stub)', () => {
+    expect(() =>
+      resolveAttribute({ 主属性: '影响力', 宿主类型: '组织' }, {}),
+    ).toThrow(/组织.*未实装|未实装.*P0-1/);
+  });
+
+  it('世界域 → throws 未实装 (P0-1 dispatch stub)', () => {
+    expect(() =>
+      resolveAttribute({ 主属性: '世界稳定指数', 宿主类型: '世界域' }, {}),
+    ).toThrow(/世界域.*未实装|未实装.*P0-1/);
+  });
+});
+
+// ─── resolveAttribute: 停用轴中性缺省 (6.48) ─────────────────────────────────
+
+describe('check.ts — resolveAttribute 停用轴中性缺省', () => {
+  it('停用=true → uses 中性缺省, ignores data', () => {
+    // axis data has 智慧=99, but recipe says 停用=true, 中性缺省=50
+    // result = (60 + 50×0.5) / 2 = (60 + 25) / 2 = 42.5
+    const res = resolveAttribute(
+      {
+        主属性: '体质',
+        副属性列: [{ 轴名: '智慧', 权重: 0.5, 停用: true, 中性缺省: 50 }],
+      },
+      { 体质: 60, 智慧: 99 }, // 99 must NOT be used
+    );
+    expect(res).toBe(42.5);
+  });
+
+  it('停用=true, 中性缺省 omitted → defaults to 0', () => {
+    // result = (60 + 0×0.5) / 2 = 30
+    const res = resolveAttribute(
+      {
+        主属性: '体质',
+        副属性列: [{ 轴名: '智慧', 权重: 0.5, 停用: true }],
+      },
+      { 体质: 60, 智慧: 80 },
+    );
+    expect(res).toBe(30);
+  });
+
+  it('停用=false → live data used normally', () => {
+    // result = (60 + 80×0.5) / 2 = (60 + 40) / 2 = 50
+    const res = resolveAttribute(
+      {
+        主属性: '体质',
+        副属性列: [{ 轴名: '智慧', 权重: 0.5, 停用: false, 中性缺省: 0 }],
+      },
+      { 体质: 60, 智慧: 80 },
+    );
+    expect(res).toBe(50);
+  });
+
+  it('停用=true, missing key → uses 中性缺省 (not NaN, not 0/absent)', () => {
+    // Without disabled-axis support, missing key → ?? 0 = NaN risk gone.
+    // With 停用=true, uses declared 中性缺省=25 regardless.
+    const res = resolveAttribute(
+      {
+        主属性: '体质',
+        副属性列: [{ 轴名: '不存在轴', 权重: 1.0, 停用: true, 中性缺省: 25 }],
+      },
+      { 体质: 60 }, // 不存在轴 not in data
+    );
+    expect(res).toBe(42.5); // (60 + 25×1.0) / 2
+  });
+
+  it('mixed: some 停用, some live', () => {
+    // 主属性: 体质=60 (live)
+    // 副①: 智慧=80, 权重=0.5, 停用=false → 40
+    // 副②: 力量=?, 权重=0.25, 停用=true, 中性缺省=20 → 5 (ignores live data)
+    // result = (60 + 40 + 5) / 2 = 52.5
+    const res = resolveAttribute(
+      {
+        主属性: '体质',
+        副属性列: [
+          { 轴名: '智慧', 权重: 0.5, 停用: false },
+          { 轴名: '力量', 权重: 0.25, 停用: true, 中性缺省: 20 },
+        ],
+      },
+      { 体质: 60, 智慧: 80, 力量: 99 }, // 力量=99 must NOT be used
+    );
+    expect(res).toBe(52.5);
+  });
+});
+
 // ─── check() formula ──────────────────────────────────────────────────────────
 
 describe('check.ts — check() formula', () => {

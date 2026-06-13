@@ -53,16 +53,24 @@ export const 难度系数组Schema = z.object({
   经济难度系数: z.number().min(0).max(10).default(1),
 }).passthrough();
 
-// ── 属性轴表 + 检定配方表（6.26） ──
+// ── 属性轴表 + 检定配方表（6.26 / 6.45 / 6.48） ──
 const 检定配方条目Schema = z.object({
   配方名: z.string().default(''),
   主属性: z.string().default(''),
   副属性列: z.array(z.object({
     轴名: z.string().default(''),
     权重: z.number().min(0).max(1).default(0),
+    // 6.48 停用轴中性缺省：停用=true 时引擎读 中性缺省，不读轴数据
+    停用: z.boolean().default(false),
+    中性缺省: z.number().default(0),
   })).default([]),
   难度修正: z.number().default(0),
   母题标签: z.array(z.string()).default([]),
+  // 6.45 拓扑: 即掷（当场掷骰·P0 实装）| 骰池（拍首预掷入池·P2 实装）
+  拓扑: z.enum(['即掷', '骰池']).default('即掷'),
+  // 6.45 宿主类型: 声明属性轴数据来源
+  // 角色→NPC属性轴（P0-5 实装）; 组织/世界域→P0-1 schema 接线后接入
+  宿主类型: z.enum(['角色', '组织', '世界域']).default('角色'),
 });
 
 export const 检定配方表Schema = z.record(z.string(), 检定配方条目Schema).default({});

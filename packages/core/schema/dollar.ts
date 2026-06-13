@@ -80,7 +80,10 @@ export const $会话状态Schema = z.object({
   最后交互时间戳: z.number().int().default(0), // 现实时间·宿主提供·禁止 Ring 0 内生成
   未读播报数: z.number().int().min(0).default(0),
   崩溃恢复指针: z.string().default(''),
-  本拍重掷序号: z.number().int().min(0).default(0), // 不随拍前快照回滚还原（blueprint 4.11③）
+  // 演出层草稿计数（原「本拍重掷序号」·发现D）= 纯叙事血统水印；
+  // 玩家重掷时 +1；绝不传入 rngFor、绝不进判定、与全局回滚计数器正交（AA10）。
+  // TODO(P0-5): 暂无消费点，预留字段。P0-9 回填叙事流血统标记时接线。
+  演出层草稿计数: z.number().int().min(0).default(0), // 不随拍前快照回滚还原（blueprint 4.11③）
 });
 
 // ── $预算控制台（6.7） ──

@@ -877,7 +877,7 @@ export function buildV41Raw(input: unknown): MigrateRawResult {
       功能开关表: {},
       事件来源权重: { 事件包: 50, AI自发: 50 },
     },
-    _叙事设置: { 人称: asStr(流程v31['人称'], '第二人称'), 叙事偏好: asStr(叙v31['叙事风格']) },
+    _叙事设置: { 人称: {}, 叙事偏好: asStr(叙v31['叙事风格']) },
     状态机: { 当前态, 模态栈: [], timeMode: 'PAUSED', 双时钟: { 世界钟: writeEpochMinute(worldEpochMin), 镜头钟: writeEpochMinute(worldEpochMin) } },
     世界: {
       纪元分钟: writeEpochMinute(worldEpochMin),

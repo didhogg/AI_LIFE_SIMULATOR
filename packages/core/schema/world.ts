@@ -25,7 +25,7 @@ const CalendarSchema = z.object({
 
 // ── 世界 ──
 export const 世界Schema = z.object({
-  纪元分钟: z.number().int().default(0), // 唯一整型真相
+  纪元分钟: z.number().int().default(0), // 唯一整型真相；允许负值（0=哨兵，禁 .min(0)）
   历法: CalendarSchema.default({}),
   // 当前日期(显示串) 🧮 派生，不存储
   // 季节 🧮 派生 f(月, 气候带)，不存储
@@ -43,15 +43,25 @@ export const 世界Schema = z.object({
   }).default({}),
 });
 
+// ── G-1 活跃区间条目（域钟唯一派生输入，随线版本化） ──
+export const 活跃区间条目Schema = z.object({
+  起始纪元分钟: z.number().int().default(0), // 绝对时刻，允许负值
+  终止纪元分钟: z.number().int().nullable().default(null), // null = 域仍处于活跃状态
+  版本号: z.number().int().min(0).default(0), // 单调递增，随线版本化
+});
+
 // ── 世界域（多世界穿越·6.36，开局单域） ──
+// 域时钟 🧮 派生展示量（f(累计活跃区间表)），不存储
 export const 世界域Schema = z.record(
   z.string(), // 域 ID（mod 命名空间同机制）
   z.object({
     玩法预设引用: z.string().default(''),
-    域时钟: z.number().int().default(0), // 该域独立纪元分钟
     封存状态: z.boolean().default(false),
+    // G-1: 域钟唯一派生输入，线性追加，随线版本化
+    累计活跃区间表: z.array(活跃区间条目Schema).default([]),
   }),
 ).default({});
 
 export type 世界Type = z.infer<typeof 世界Schema>;
 export type 世界域Type = z.infer<typeof 世界域Schema>;
+export type 活跃区间条目Type = z.infer<typeof 活跃区间条目Schema>;

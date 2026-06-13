@@ -7,6 +7,8 @@ export const TickLogEntrySchema = z.object({
   拍计数: z.number().int().min(0).default(0), // 拍计数≠时间，禁止用拍数折算时长
   结果摘要: z.string().default(''),
   系数组指纹: z.string().default(''),
+  // P0-9 接线：全局回滚计数器快照；可空，历史记录无此字段时为 undefined
+  盐值: z.number().int().optional(),
 });
 
 // ── 系统元数据 ──
@@ -26,6 +28,12 @@ export const SystemSchema = z.object({
   功能开关表: z.object({
     认知迷雾: z.boolean().default(true),
     上帝视角: z.boolean().default(false),
+    // 6.75 新增开关
+    观战模式: z.boolean().default(false),
+    舞台追踪: z.enum(['自动按场景', '强制开', '关']).default('自动按场景'),
+    二审严格度: z.number().int().min(0).max(100).default(50),
+    // open-ended: keys reference library dimension keys; passthrough allows mod injection
+    二审维度开关: z.record(z.string(), z.boolean()).default({}),
   }).passthrough().default({}),
   事件来源权重: z.object({
     事件包: z.number().min(0).max(100).default(50),
@@ -42,13 +50,19 @@ export const TickSchema = z.object({
   判定骰型快照: z.union([z.literal(100), z.literal(20)]).optional(),
 });
 
-// ── 叙事设置（AI 可见；最终形态：{ 人称, 叙事偏好 }）──
+// ── 叙事设置（6.75：人称结构化 + 叙事权限） ──
 // 退役：叙事风格（并入叙事偏好）、写实度（→$玩家偏好.写实程度）、事件倾向（→$玩家偏好.母题权重）
 export const NarrativeSettingSchema = z.object({
-  人称: z.string().default('第二人称'),
+  人称: z.object({
+    视角宿主: z.string().default(''), // 实体引用；'上帝/全知旁白' 为内置特殊值
+    人称: z.enum(['一', '二', '三']).default('二'),
+  }).default({}),
   叙事偏好: z.string().default(''), // 玩家自由文本，进 prompt 组装
   // 6.42/6.44·指向文风库的键集·多选可叠加·玩家手动开关·缺包回退默认·切换落拍边界
   启用文风键: z.array(z.string()).default([]),
+  叙事权限: z.object({
+    玩家角色写权限: z.enum(['玩家独占', '模型可代写']).default('玩家独占'),
+  }).default({}),
 });
 
 // ── 状态机 ──
