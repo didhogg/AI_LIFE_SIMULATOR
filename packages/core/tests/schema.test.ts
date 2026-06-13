@@ -51,6 +51,7 @@ import {
   $天命重掷券Schema,
   $metaSchema,
   $模型画像Schema,
+  存档头Schema,
   玩法预设Schema,
   检定档切分表Schema,
   钳制表Schema,
@@ -1600,6 +1601,125 @@ describe('4.9 $ layer', () => {
       claude: { 禁词表: '八股' },
     }).success).toBe(false);
   });
+
+  // ── 缺口一·舞台状态?（G10·6.75）──────────────────────────────────────────────
+  it('$会话状态: 舞台状态 absent (optional)', () => {
+    const res = RootSchema.shape.$会话状态.parse({});
+    expect(res.舞台状态).toBeUndefined();
+  });
+  it('$会话状态: 舞台状态 valid record(实体键→record(属性键→值))', () => {
+    expect(RootSchema.shape.$会话状态.safeParse({
+      舞台状态: {
+        'npc_001': { 位置: '书房门口', 朝向: '南', 可见性: true },
+        'npc_002': { 位置: '书房内', 朝向: '西' },
+      },
+    }).success).toBe(true);
+  });
+  it('$会话状态: 舞台状态 允许空 record（无实体在舞台）', () => {
+    expect(RootSchema.shape.$会话状态.safeParse({ 舞台状态: {} }).success).toBe(true);
+  });
+  it('$会话状态: 舞台状态 属性值可为任意类型（string/number/boolean）', () => {
+    expect(RootSchema.shape.$会话状态.safeParse({
+      舞台状态: { 'npc_x': { 位置: 42, 朝向: 'N', 在场: false, 坐标: [1, 2] } },
+    }).success).toBe(true);
+  });
+
+  // ── 缺口二·舞台可比较属性?（6.75）────────────────────────────────────────────
+  it('$会话状态: 舞台可比较属性 absent (optional)', () => {
+    expect(RootSchema.shape.$会话状态.parse({}).舞台可比较属性).toBeUndefined();
+  });
+  it('$会话状态: 舞台可比较属性 valid string[]（参与几何判定的属性键声明）', () => {
+    expect(RootSchema.shape.$会话状态.safeParse({
+      舞台可比较属性: ['位置', '朝向'],
+    }).success).toBe(true);
+  });
+  it('$会话状态: 舞台可比较属性 空数组合法', () => {
+    expect(RootSchema.shape.$会话状态.safeParse({ 舞台可比较属性: [] }).success).toBe(true);
+  });
+
+  // ── 缺口三确认·演出层草稿计数（发现D 已对齐）────────────────────────────────
+  it('$会话状态: 演出层草稿计数 字段存在且默认0', () => {
+    const res = RootSchema.shape.$会话状态.parse({});
+    expect(res.演出层草稿计数).toBe(0);
+  });
+
+  // ── 缺口四·存档头（4.9/U3a/N2）─────────────────────────────────────────────
+  it('存档头: 空状态 parse（全局回滚计数器=0·当前时间线id=空）', () => {
+    const res = 存档头Schema.parse({});
+    expect(res.全局回滚计数器).toBe(0);
+    expect(res.当前时间线id).toBe('');
+    expect(res.谱系索引).toEqual({});
+    expect(res.引擎版本谱).toBeUndefined();
+    expect(res.迁移戳).toBeUndefined();
+    expect(res.系统事件镜像).toBeUndefined();
+  });
+  it('存档头: 全局回滚计数器 (int)', () => {
+    expect(存档头Schema.safeParse({ 全局回滚计数器: 42 }).success).toBe(true);
+  });
+  it('存档头: 当前时间线id 指向谱系节点', () => {
+    expect(存档头Schema.safeParse({ 当前时间线id: 'timeline_0001' }).success).toBe(true);
+  });
+  it('存档头: U3a·迁移戳 valid（源版本/目标版本/迁移映射哈希/墙钟时间）', () => {
+    expect(存档头Schema.safeParse({
+      迁移戳: [
+        { 源版本: '4.0', 目标版本: '4.1', 迁移映射哈希: 'sha256:abc...', 墙钟时间: '2026-06-14T06:00:00Z' },
+      ],
+    }).success).toBe(true);
+  });
+  it('存档头: N2·系统事件镜像 valid（只读白名单）', () => {
+    expect(存档头Schema.safeParse({
+      系统事件镜像: { 全局回滚次数: 5, 周目数: 2, 换角数: 1, 裸SL次数: 3 },
+    }).success).toBe(true);
+  });
+  it('存档头: N2·系统事件镜像 absent (optional)', () => {
+    expect(存档头Schema.parse({}).系统事件镜像).toBeUndefined();
+  });
+  it('存档头: 全局回滚计数器 非整数拒收', () => {
+    expect(存档头Schema.safeParse({ 全局回滚计数器: 1.5 }).success).toBe(false);
+  });
+  it('存档头: RootSchema 挂载确认', () => {
+    const res = RootSchema.parse({});
+    expect(res.存档头).toBeDefined();
+    expect(res.存档头.全局回滚计数器).toBe(0);
+  });
+
+  // ── 缺口五·重试策略?（6.67·$预算控制台）────────────────────────────────────
+  it('$预算控制台: 重试策略 absent (optional)', () => {
+    expect(RootSchema.shape.$预算控制台.parse({}).重试策略).toBeUndefined();
+  });
+  it('$预算控制台: 重试策略 valid（覆盖注册表出厂默认值）', () => {
+    expect(RootSchema.shape.$预算控制台.safeParse({
+      重试策略: {
+        '叙事质量二审': { 自动重试上限: 2, 超时秒数: 60, 失败后行为: '降级继续' },
+        '小剧场': { 自动重试上限: 1, 超时秒数: 45, 失败后行为: '自动暂停弹重试面板' },
+      },
+    }).success).toBe(true);
+  });
+  it('$预算控制台: 重试策略 失败后行为 两枚举值均合法', () => {
+    expect(RootSchema.shape.$预算控制台.safeParse({
+      重试策略: { 'x': { 失败后行为: '降级继续' } },
+    }).success).toBe(true);
+    expect(RootSchema.shape.$预算控制台.safeParse({
+      重试策略: { 'x': { 失败后行为: '自动暂停弹重试面板' } },
+    }).success).toBe(true);
+  });
+  it('$预算控制台: 重试策略 失败后行为 非法枚举', () => {
+    expect(RootSchema.shape.$预算控制台.safeParse({
+      重试策略: { 'x': { 失败后行为: '强制终止' } },
+    }).success).toBe(false);
+  });
+  it('$预算控制台: 重试策略 自动重试上限 负数拒收', () => {
+    expect(RootSchema.shape.$预算控制台.safeParse({
+      重试策略: { 'x': { 自动重试上限: -1 } },
+    }).success).toBe(false);
+  });
+
+  // ── 顺手·$流速 自动暂停触发 记账失败自动暂停（6.67）──────────────────────────
+  it('$流速: 自动暂停触发 含「记账失败自动暂停」通过', () => {
+    expect($流速Schema.safeParse({
+      自动暂停触发: ['遭遇战', '叙事生成失败', '记账失败自动暂停'],
+    }).success).toBe(true);
+  });
 });
 
 // ══════════════════════════════════════════
@@ -1924,7 +2044,7 @@ describe('blueprint ↔ schema consistency', () => {
 
     expect(inSchemaNotBlueprint).toEqual([]);
     expect(inBlueprintNotSchema).toEqual([]);
-    expect(schemaKeys.size).toBe(43); // P0-5 +$存档种子; P0-1 4.8: +调用类型注册表 +Ring2在途调用信封
+    expect(schemaKeys.size).toBe(44); // P0-1 4.9: +存档头
   });
 
   it('BLUEPRINT_KEYS has no duplicates', () => {

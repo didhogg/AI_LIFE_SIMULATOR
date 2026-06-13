@@ -41,7 +41,7 @@ export const $RP暂存Schema = z.object({
 export const $流速Schema = z.object({
   模式: z.enum(['自动', '回合制']).default('回合制'),
   速度档: z.number().int().min(1).max(4).default(1), // ×1/×2/×3/×4
-  自动暂停触发: z.array(z.string()).default([]), // 枚举项：遭遇战/HP阈值/秘密暴露/叙事生成失败…
+  自动暂停触发: z.array(z.string()).default([]), // 枚举项：遭遇战/HP阈值/秘密暴露/叙事生成失败/记账失败自动暂停（6.67）…
 });
 
 // ── $战斗暂存（schema版本化，退场即清） ──
@@ -84,6 +84,16 @@ export const $会话状态Schema = z.object({
   // 玩家重掷时 +1；绝不传入 rngFor、绝不进判定、与全局回滚计数器正交（AA10）。
   // TODO(P0-5): 暂无消费点，预留字段。P0-9 回填叙事流血统标记时接线。
   演出层草稿计数: z.number().int().min(0).default(0), // 不随拍前快照回滚还原（blueprint 4.11③）
+
+  // ── 缺口一·舞台状态?（G10 舞台几何校验·6.75）─────────────────────────────────
+  // 实体物理舞台位置/属性：谁在房间、谁站门口、朝向等；供引擎几何校验（非战斗演出几何）
+  // opt-in·单写者=引擎·派生/瞬态·场景重置·入指纹排除名单
+  // 边界：$战斗暂存.单位 管战斗站位；本字段管非战斗演出几何
+  舞台状态: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
+
+  // ── 缺口二·舞台可比较属性?（6.75）──────────────────────────────────────────────
+  // 声明"哪些属性键参与机械几何判定"（如 位置/朝向）；其余属性纯叙事提示、不参与机械判定
+  舞台可比较属性: z.array(z.string()).optional(),
 });
 
 // ── $预算控制台（6.7） ──
@@ -97,6 +107,15 @@ export const $预算控制台Schema = z.object({
   旁观播报模型: z.string().default(''),
   累计token: z.number().int().min(0).default(0),
   本会话token: z.number().int().min(0).default(0),
+
+  // ── 缺口五·重试策略?（6.67）─────────────────────────────────────────────────────
+  // 玩家覆盖层：覆盖调用类型注册表里"超时重试策略"出厂默认值
+  // 键 = 调用类型名（叙事质量二审/玩家代理回复/小剧场/…）
+  重试策略: z.record(z.string(), z.object({
+    自动重试上限: z.number().int().min(0).default(3),
+    超时秒数: z.number().int().min(0).default(30),
+    失败后行为: z.enum(['降级继续', '自动暂停弹重试面板']).default('降级继续'),
+  })).optional(),
 });
 
 // ── $模型画像（6.8·玩家/社区填，引擎只拼接） ──
@@ -166,6 +185,31 @@ const 彩蛋条目Schema = z.object({
 export const $隐藏记忆库Schema = z.object({
   延时种子: z.record(z.string(), 延时种子条目Schema).default({}),
   彩蛋池: z.record(z.string(), 彩蛋条目Schema).default({}),
+});
+
+// ── 存档头（4.9/U3a/N2·独立顶层键·任何快照之外）──
+// 全局回滚计数器 = 全档唯一合法「快照外可变量」，永不随快照还原
+export const 存档头Schema = z.object({
+  全局回滚计数器: z.number().int().default(0),
+  当前时间线id: z.string().default(''),   // 指向 $meta.周目谱系 节点
+  谱系索引: z.record(z.string(), z.unknown()).default({}),
+  引擎版本谱: z.array(z.string()).optional(),
+
+  // U3a·迁移戳：源→目标版本迁移记录；墙钟时间纯展示，不参与判定
+  迁移戳: z.array(z.object({
+    源版本: z.string().default(''),
+    目标版本: z.string().default(''),
+    迁移映射哈希: z.string().default(''),
+    墙钟时间: z.string().default(''), // 纯展示·禁止参与引擎判定
+  })).optional(),
+
+  // N2·系统事件镜像：只读白名单，引擎写，内容侧只读
+  系统事件镜像: z.object({
+    全局回滚次数: z.number().int().min(0).default(0),
+    周目数: z.number().int().min(0).default(0),
+    换角数: z.number().int().min(0).default(0),
+    裸SL次数: z.number().int().min(0).default(0),
+  }).optional(),
 });
 
 // ── $meta（跨周目存档层） ──

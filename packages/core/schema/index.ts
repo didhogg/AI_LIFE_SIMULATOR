@@ -1,4 +1,4 @@
-// V4.1 RootSchema — 43 top-level keys (rev: +$天命重掷券, P0-5: +$存档种子, P0-1: 镜头焦点角色→席位表, P0-1 4.8: +调用类型注册表 +Ring2在途调用信封)
+// V4.1 RootSchema — 44 top-level keys (rev: +$天命重掷券, P0-5: +$存档种子, P0-1: 镜头焦点角色→席位表, P0-1 4.8: +调用类型注册表 +Ring2在途调用信封, P0-1 4.9: +存档头)
 import { z } from 'zod';
 
 // ── Layer exports (re-export all sub-schemas) ──
@@ -58,6 +58,7 @@ import {
   $模型画像Schema,
   $沉浸模式Schema,
   $天命重掷券Schema,
+  存档头Schema,
   $metaSchema,
 } from './dollar.js';
 
@@ -105,6 +106,7 @@ export const BLUEPRINT_KEYS = [
   '$沉浸模式',
   '$天命重掷券',
   '$存档种子',
+  '存档头',
   '$meta',
 ] as const;
 
@@ -170,6 +172,7 @@ export const RootSchema = z.object({
   $沉浸模式: $沉浸模式Schema,
   $天命重掷券: $天命重掷券Schema.default({}),
   $存档种子: $存档种子Schema,
+  存档头: 存档头Schema.default({}),
   $meta: $metaSchema.default({}),
 });
 
