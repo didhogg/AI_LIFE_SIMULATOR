@@ -1019,12 +1019,42 @@ export function applyPrefixRenames(raw: Record<string, unknown>): Record<string,
   return result;
 }
 
+// ── 内容分级 位置迁移（within-v4.1·906e89b → 当前·enum 英文化）─────────────────────────
+// 旧位置：_系统.功能开关表.内容分级（中文值 关/SFW/NSFW/community）
+// 新位置：$玩家偏好.内容分级（英文值 off/light/explicit/community）
+// 幂等保护：$玩家偏好 已含 内容分级 键时跳过（不覆盖用户已迁移的值）
+const 内容分级映射: Record<string, string> = {
+  '关': 'off', 'SFW': 'light', 'NSFW': 'explicit', 'community': 'community',
+};
+
+function migrate内容分级位置(raw: Record<string, unknown>): Record<string, unknown> {
+  const sys = asRec(raw['_系统']);
+  const 功能开关表 = asRec(sys['功能开关表']);
+  const oldVal = 功能开关表['内容分级'];
+  if (oldVal === undefined || oldVal === null) return raw;
+
+  const pref = asRec(raw['$玩家偏好']);
+  if ('内容分级' in pref) return raw;  // 幂等：已迁移则跳过
+
+  const mappedVal = 内容分级映射[asStr(oldVal)] ?? 'off';
+  const newFunctionSwitch: Record<string, unknown> = { ...功能开关表 };
+  delete newFunctionSwitch['内容分级'];
+
+  return {
+    ...raw,
+    $玩家偏好: { ...pref, 内容分级: mappedVal },
+    _系统: { ...sys, 功能开关表: newFunctionSwitch },
+  };
+}
+
 // ── migrate (public entry) ─────────────────────────────────────────────────────
 
 export function migrate(input: unknown): MigrateResult {
   const { raw, log } = buildV41Raw(input);
   // buildV41Raw already emits new key names; applyPrefixRenames is a no-op here
   // but is exported for callers who load existing V4.1 saves with old key names.
-  const state = RootSchema.parse(raw);
+  // Within-v4.1 migrations run here (after buildV41Raw v4.1 early-return path).
+  const rawMigrated = migrate内容分级位置(raw);
+  const state = RootSchema.parse(rawMigrated);
   return { state, log };
 }

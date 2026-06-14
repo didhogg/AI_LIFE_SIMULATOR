@@ -182,7 +182,9 @@ export const 仲裁器Schema = z.object({
 // 渲染模式枚举（6.69）
 export const 渲染模式枚举 = ['直读流', '占位整达', '静默'] as const;
 
-const 调用类型条目Schema = z.object({
+// 核心调用条目（记账/检定/谜底校准/结算·不含叙事专用字段）
+// TS 编译期口径锁：核心调用条目Type 结构上不含允许玩家覆盖/玩家SystemPrompt覆盖/assistant预填
+const 核心调用条目Schema = z.object({
   模型档位: z.string().default(''),           // 开放串：快速/标准/高质量
   温度: z.number().min(0).max(2).default(0.7),
   上下文组装器: z.string().default(''),        // 组装器标识（开放串·引擎内部注册键）
@@ -210,7 +212,12 @@ const 调用类型条目Schema = z.object({
     硬上限tokens: z.number().int().min(0).optional(),
     截断优先级: z.array(z.string()).default([]),
   }).optional(),
-  // ── 🎚️ 玩家主权·叙事专用·作用域硬约束=schema白名单（记账/检定/谜底/结算结构上不含）──
+});
+
+// 叙事调用条目（扩展核心·叙事专用字段仅此分支可用·防泄进结算管线）
+// 运行时注册表以叙事条目 schema 为基准（超集·向下兼容核心条目·不拆运行时 schema 文件）
+const 叙事调用条目Schema = 核心调用条目Schema.extend({
+  // ── 🎚️ 玩家主权·叙事专用（记账/检定/谜底/结算 TS 类型结构上不含·由核心条目类型保证）──
   // P0-6 导入闸校验：携带此字段族的条目须为「叙事」调用类型（防覆盖泄进结算管线）
   允许玩家覆盖SystemPrompt: z.boolean().default(false), // 专家模式门·缺省关·community档驱动
   玩家SystemPrompt覆盖: z.string().optional(),          // 覆盖串·叙事调用时替换引擎内置SystemPrompt
@@ -222,7 +229,12 @@ const 调用类型条目Schema = z.object({
 // "+3" 具名调用类型键（冻结名称·蓝图 6.75）：
 //   ①叙事质量二审  ②玩家代理回复  ③小剧场
 // 其余键由 mod 扩展注入（开放 record）
-export const 调用类型注册表Schema = z.record(z.string(), 调用类型条目Schema).default({});
+// 运行时以叙事条目 schema 为基准（超集·核心条目零迁移向下兼容）
+export const 调用类型注册表Schema = z.record(z.string(), 叙事调用条目Schema).default({});
+
+// ── 类型导出（TS 编译期口径锁·scope 断言用）──────────────────────────────────────────
+export type 核心调用条目Type = z.infer<typeof 核心调用条目Schema>;
+export type 叙事调用条目Type = z.infer<typeof 叙事调用条目Schema>;
 
 // ══════════════════════════════════════════
 // Ring2 在途调用信封（AA1·6.75/6.76）

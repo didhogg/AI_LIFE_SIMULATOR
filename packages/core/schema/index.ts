@@ -192,3 +192,21 @@ export const RootSchema = z.object({
 });
 
 export type RootState = z.infer<typeof RootSchema>;
+
+// Strict root schema — cross-field constraints not expressible within individual sub-schemas.
+// Separate from RootSchema to preserve ZodObject type (RootSchema.shape.xxx access intact).
+// Used by P0-6 import gate and schema tests. Parse with RootSchema first, then validate here.
+export const RootSchemaStrict = RootSchema.superRefine((root, ctx) => {
+  // community gate: 允许玩家覆盖SystemPrompt === true requires 内容分级 === 'community'
+  if (root.$玩家偏好.内容分级 !== 'community') {
+    for (const [key, entry] of Object.entries(root.调用类型注册表)) {
+      if (entry.允许玩家覆盖SystemPrompt === true) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['调用类型注册表', key, '允许玩家覆盖SystemPrompt'],
+          message: `非 community 档不可开启 SystemPrompt 覆盖（当前内容分级: ${root.$玩家偏好.内容分级}）`,
+        });
+      }
+    }
+  }
+});

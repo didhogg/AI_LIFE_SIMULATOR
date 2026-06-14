@@ -676,3 +676,48 @@ describe('播报队列 tagged union 迁移映射', () => {
     expect(队列.length).toBe(0);
   });
 });
+
+// ── P0-1 Fix3 · migrate内容分级位置 (within-v4.1 migration) ─────────────────────────
+describe('migrate内容分级位置 · 内容分级旧中文值映射', () => {
+  function makeV41WithOldRating(旧值: string): Record<string, unknown> {
+    return {
+      _系统版本: '4.1',
+      _系统: { 功能开关表: { 内容分级: 旧值 } },
+    };
+  }
+
+  it('旧值 关 → off，移至 $玩家偏好.内容分级', () => {
+    const result = migrate(makeV41WithOldRating('关'));
+    expect(result.state.$玩家偏好.内容分级).toBe('off');
+    expect((result.state._系统.功能开关表 as Record<string, unknown>)['内容分级']).toBeUndefined();
+  });
+  it('旧值 SFW → light', () => {
+    const result = migrate(makeV41WithOldRating('SFW'));
+    expect(result.state.$玩家偏好.内容分级).toBe('light');
+  });
+  it('旧值 NSFW → explicit', () => {
+    const result = migrate(makeV41WithOldRating('NSFW'));
+    expect(result.state.$玩家偏好.内容分级).toBe('explicit');
+  });
+  it('旧值 community → community', () => {
+    const result = migrate(makeV41WithOldRating('community'));
+    expect(result.state.$玩家偏好.内容分级).toBe('community');
+  });
+  it('旧 功能开关表 中无 内容分级 → $玩家偏好.内容分级 defaults to off', () => {
+    const result = migrate({ _系统版本: '4.1' });
+    expect(result.state.$玩家偏好.内容分级).toBe('off');
+  });
+  it('幂等：$玩家偏好 已有 内容分级 时不覆盖', () => {
+    const input: Record<string, unknown> = {
+      _系统版本: '4.1',
+      _系统: { 功能开关表: { 内容分级: 'SFW' } },
+      $玩家偏好: { 内容分级: 'explicit' },
+    };
+    const result = migrate(input);
+    expect(result.state.$玩家偏好.内容分级).toBe('explicit');
+  });
+  it('未知旧值 fallback → off', () => {
+    const result = migrate(makeV41WithOldRating('some-unknown'));
+    expect(result.state.$玩家偏好.内容分级).toBe('off');
+  });
+});

@@ -1,5 +1,6 @@
 // P0-1x·接口冻结 stub 验收测试
 import { describe, it, expect, expectTypeOf } from 'vitest';
+import type { 核心调用条目Type } from '../schema/memory.js';
 import { CombatResolver } from '../interfaces/combatResolver.js';
 import type { 战局状态, CombatSettleResult } from '../interfaces/combatResolver.js';
 import { 赌局Resolver } from '../interfaces/gamblingResolver.js';
@@ -265,5 +266,30 @@ describe('P0-1x 签名冻结断言 stub（三件套第③件·编译期口径锁
       控制者?: string;
       连接状态?: string;
     }>>();
+  });
+});
+
+// ── Fix 2 · 叙事专用字段 TS 编译期隔离 ───────────────────────────────────────────────
+// 核心调用条目Type（记账/检定/谜底校准/结算）结构上不含允许玩家覆盖/SystemPrompt覆盖/assistant预填
+// 若有人往 核心调用条目Schema 加入这三字段，下方断言编译报错
+type _HasProp<T, K extends string> = K extends keyof T ? true : false;
+type _Expect<T extends true> = T;
+type _Not<T extends boolean> = T extends true ? false : true;
+
+describe('P0-1 scope: 叙事专用字段 TS 编译期隔离（核心调用条目结构上不含）', () => {
+  it('核心调用条目Type 不含 允许玩家覆盖SystemPrompt', () => {
+    type Assert = _Expect<_Not<_HasProp<核心调用条目Type, '允许玩家覆盖SystemPrompt'>>>;
+    const _: Assert = true;
+    expect(_).toBe(true);
+  });
+  it('核心调用条目Type 不含 玩家SystemPrompt覆盖', () => {
+    type Assert = _Expect<_Not<_HasProp<核心调用条目Type, '玩家SystemPrompt覆盖'>>>;
+    const _: Assert = true;
+    expect(_).toBe(true);
+  });
+  it('核心调用条目Type 不含 assistant预填', () => {
+    type Assert = _Expect<_Not<_HasProp<核心调用条目Type, 'assistant预填'>>>;
+    const _: Assert = true;
+    expect(_).toBe(true);
   });
 });

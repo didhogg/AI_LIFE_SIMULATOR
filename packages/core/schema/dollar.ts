@@ -84,6 +84,11 @@ export const $玩家偏好Schema = z.object({
   // 🎚️ 玩家主权·NSFW疲劳系数（0=关闭疲劳·1=默认·2=双倍疲劳；入指纹排除名单=偏好层）
   // 消费点：乘进NPC疲劳累积速率与到期事件硬闯催熟权重（P0-7结算管线接线）
   疲劳系数: z.number().min(0).max(2).default(1),
+  // 🎚️ 内容分级门（B桶状态·叙事面·不影响判定·入排除名单）
+  // enum驱动专家门：community档才解锁允许玩家覆盖SystemPrompt（唯一入口·防双控件）
+  // 强制约束：内容分级 !== 'community' → 调用类型注册表条目 允许玩家覆盖SystemPrompt 须 false
+  //   （RootSchemaStrict superRefine 验证·旧档迁移：关→off/SFW→light/NSFW→explicit）
+  内容分级: z.enum(['off', 'light', 'explicit', 'community']).default('off'),
 });
 
 // ── $会话状态（6.1） ──

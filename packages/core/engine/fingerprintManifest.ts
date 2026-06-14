@@ -101,6 +101,7 @@ export const FINGERPRINT_EXCLUDED_FIELDS = [
   '玩家SystemPrompt覆盖',  // 覆盖串·叙事层·不影响判定
   // 🤖 破限引擎化（叙事层专用·永不进判定盐）
   'assistant预填',         // continue prefill·叙事专用·不影响判定
+  '破限引子',              // per-provider{思维链引子,注入角色,预填串}·$模型画像·叙事层·不影响判定
 ] as const;
 
 export type FingerprintBundleMember = (typeof FINGERPRINT_BUNDLE_MEMBERS)[number];

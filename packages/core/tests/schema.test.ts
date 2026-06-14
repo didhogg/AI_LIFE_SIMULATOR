@@ -70,6 +70,7 @@ import {
   HISTORY_TEXT_MAX,
   编年史条目Schema,
   约定子类型Schema,
+  RootSchemaStrict,
 } from '../schema/index.js';
 import { 叙事流条目Schema } from '../schema/narrativeStream.js';
 import {
@@ -2780,5 +2781,71 @@ describe('B-1 lore 知识库 · BLUEPRINT_KEYS 一致性', () => {
     const r = RootSchema.parse({});
     // optional() means absent on empty parse — acceptable; zero-migration confirmed
     expect('_lore知识库' in r || r['_lore知识库'] === undefined).toBe(true);
+  });
+});
+
+// ── P0-1 Fix3 · $玩家偏好.内容分级 + RootSchemaStrict community gate ─────────────────
+describe('P0-1 Fix3 · $玩家偏好.内容分级 enum 英文化', () => {
+  it('默认值为 off', () => {
+    const r = RootSchema.shape.$玩家偏好.parse({});
+    expect(r.内容分级).toBe('off');
+  });
+  it('接受 off / light / explicit / community', () => {
+    for (const v of ['off', 'light', 'explicit', 'community'] as const) {
+      expect(RootSchema.shape.$玩家偏好.safeParse({ 内容分级: v }).success, `should accept "${v}"`).toBe(true);
+    }
+  });
+  it('拒绝旧中文值 关/SFW/NSFW', () => {
+    for (const v of ['关', 'SFW', 'NSFW']) {
+      expect(RootSchema.shape.$玩家偏好.safeParse({ 内容分级: v }).success, `should reject "${v}"`).toBe(false);
+    }
+  });
+  it('拒绝任意非枚举字符串', () => {
+    expect(RootSchema.shape.$玩家偏好.safeParse({ 内容分级: 'adult' }).success).toBe(false);
+  });
+});
+
+describe('P0-1 Fix3 · RootSchemaStrict community gate', () => {
+  function makeRoot(内容分级: string, 允许覆盖: boolean): Record<string, unknown> {
+    return {
+      $玩家偏好: { 内容分级 },
+      调用类型注册表: {
+        叙事: { 允许玩家覆盖SystemPrompt: 允许覆盖 },
+      },
+    };
+  }
+
+  it('覆盖=true & 内容分级=off → RootSchemaStrict 拒绝', () => {
+    const raw = makeRoot('off', true);
+    const parsed = RootSchema.parse(raw);
+    expect(RootSchemaStrict.safeParse(parsed).success).toBe(false);
+  });
+  it('覆盖=true & 内容分级=light → RootSchemaStrict 拒绝', () => {
+    const raw = makeRoot('light', true);
+    const parsed = RootSchema.parse(raw);
+    expect(RootSchemaStrict.safeParse(parsed).success).toBe(false);
+  });
+  it('覆盖=true & 内容分级=explicit → RootSchemaStrict 拒绝', () => {
+    const raw = makeRoot('explicit', true);
+    const parsed = RootSchema.parse(raw);
+    expect(RootSchemaStrict.safeParse(parsed).success).toBe(false);
+  });
+  it('覆盖=true & 内容分级=community → RootSchemaStrict 通过', () => {
+    const raw = makeRoot('community', true);
+    const parsed = RootSchema.parse(raw);
+    expect(RootSchemaStrict.safeParse(parsed).success).toBe(true);
+  });
+  it('覆盖=false & 内容分级=off → RootSchemaStrict 通过（默认态）', () => {
+    const parsed = RootSchema.parse({});
+    expect(RootSchemaStrict.safeParse(parsed).success).toBe(true);
+  });
+  it('错误路径包含 调用类型注册表/叙事/允许玩家覆盖SystemPrompt', () => {
+    const parsed = RootSchema.parse(makeRoot('off', true));
+    const result = RootSchemaStrict.safeParse(parsed);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map(i => i.path.join('/'));
+      expect(paths.some(p => p.includes('允许玩家覆盖SystemPrompt'))).toBe(true);
+    }
   });
 });
