@@ -1,5 +1,6 @@
 // 4.9 $ 层与 $meta 层（AI 永不可见）
 import { z } from 'zod';
+import { 渲染模式枚举 } from './memory.js';
 
 // ── $运气 / $寿命预期 ──
 export const $运气Schema = z.number().int().min(1).max(100).default(50);
@@ -116,6 +117,19 @@ export const $预算控制台Schema = z.object({
     超时秒数: z.number().int().min(0).default(30),
     失败后行为: z.enum(['降级继续', '自动暂停弹重试面板']).default('降级继续'),
   })).optional(),
+  // ── P0-1 黄金窗口·调批字段（全入指纹排除名单·不影响判定面）─────────────────────
+  采样覆盖层: z.record(z.string(), z.object({  // 键=调用类型名·逐类型覆盖采样参数
+    温度: z.number().min(0).max(2).optional(),
+    top_p: z.number().min(0).max(1).optional(),
+    频率惩罚: z.number().min(-2).max(2).optional(),
+    存在惩罚: z.number().min(-2).max(2).optional(),
+  })).optional(),
+  切片预算覆盖层: z.record(z.string(), z.object({  // 键=调用类型名·逐类型覆盖切片预算
+    软上限tokens: z.number().int().min(0).optional(),
+    硬上限tokens: z.number().int().min(0).optional(),
+    截断优先级: z.array(z.string()).default([]),
+  })).optional(),
+  渲染模式覆盖: z.enum(渲染模式枚举).optional(),  // 全局渲染模式覆盖·叙事面·不影响判定
 });
 
 // ── $模型画像（6.8·玩家/社区填，引擎只拼接） ──
@@ -204,6 +218,9 @@ export const 存档头Schema = z.object({
     迁移映射哈希: z.string().default(''),
     墙钟时间: z.string().default(''), // 纯展示·禁止参与引擎判定
   })).optional(),
+
+  // U3a·时间线分块版本戳：记录当前分块写入时的引擎版本·用于分块完整性校验与跨版本迁移
+  时间线分块版本戳: z.string().optional(),
 
   // N2·系统事件镜像：终身累计·只读 vs G9b 树内换角计数器(每线重计) 两量并存·非双写 (AA11)
   // 引擎写·内容侧只读白名单；随存档整体保存·绝不随快照回滚

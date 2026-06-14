@@ -1491,6 +1491,36 @@ describe('4.8 Memory / Schedule layer', () => {
     }).success).toBe(true);
   });
 
+  // ── P0-1 调批字段（调用类型注册表·全入指纹排除名单）────────────────────────────
+  it('调用类型注册表: 最大回复tokens absent (optional)', () => {
+    expect(调用类型注册表Schema.parse({ 叙事质量二审: {} })['叙事质量二审']?.最大回复tokens).toBeUndefined();
+  });
+  it('调用类型注册表: 最大回复tokens valid (int ≥1)', () => {
+    expect(调用类型注册表Schema.safeParse({ x: { 最大回复tokens: 4096 } }).success).toBe(true);
+  });
+  it('调用类型注册表: 最大回复tokens <1 拒收', () => {
+    expect(调用类型注册表Schema.safeParse({ x: { 最大回复tokens: 0 } }).success).toBe(false);
+  });
+  it('调用类型注册表: 思维链 absent (optional)', () => {
+    expect(调用类型注册表Schema.parse({ x: {} })['x']?.思维链).toBeUndefined();
+  });
+  it('调用类型注册表: 思维链 valid', () => {
+    expect(调用类型注册表Schema.safeParse({
+      x: { 思维链: { 启用: true, 努力档: 'high' } },
+    }).success).toBe(true);
+  });
+  it('调用类型注册表: 切片预算 absent (optional)', () => {
+    expect(调用类型注册表Schema.parse({ x: {} })['x']?.切片预算).toBeUndefined();
+  });
+  it('调用类型注册表: 切片预算 valid (软上限/硬上限/截断优先级)', () => {
+    expect(调用类型注册表Schema.safeParse({
+      x: { 切片预算: { 软上限tokens: 2000, 硬上限tokens: 4000, 截断优先级: ['叙事', '对话'] } },
+    }).success).toBe(true);
+  });
+  it('调用类型注册表: 切片预算 负 tokens 拒收', () => {
+    expect(调用类型注册表Schema.safeParse({ x: { 切片预算: { 软上限tokens: -1 } } }).success).toBe(false);
+  });
+
   // ── 缺口三·Ring2 在途调用信封（AA1·调用世代?）────────────────────────────────
   it('Ring2在途调用信封: 默认 {} (调用世代 absent)', () => {
     const res = Ring2在途调用信封Schema.parse({});
@@ -1722,6 +1752,12 @@ describe('4.9 $ layer', () => {
   it('存档头: 全局回滚计数器 非整数拒收', () => {
     expect(存档头Schema.safeParse({ 全局回滚计数器: 1.5 }).success).toBe(false);
   });
+  it('存档头: U3a·时间线分块版本戳 absent (optional·零迁移)', () => {
+    expect(存档头Schema.parse({}).时间线分块版本戳).toBeUndefined();
+  });
+  it('存档头: U3a·时间线分块版本戳 valid (semver string)', () => {
+    expect(存档头Schema.safeParse({ 时间线分块版本戳: '4.1.0' }).success).toBe(true);
+  });
   it('_存档头: RootSchema 挂载确认', () => {
     const res = RootSchema.parse({});
     expect(res._存档头).toBeDefined();
@@ -1757,6 +1793,40 @@ describe('4.9 $ layer', () => {
     expect(RootSchema.shape.$预算控制台.safeParse({
       重试策略: { 'x': { 自动重试上限: -1 } },
     }).success).toBe(false);
+  });
+
+  // ── P0-1 调批字段（$预算控制台·全入指纹排除名单）──────────────────────────────
+  it('$预算控制台: 采样覆盖层 absent (optional)', () => {
+    expect(RootSchema.shape.$预算控制台.parse({}).采样覆盖层).toBeUndefined();
+  });
+  it('$预算控制台: 采样覆盖层 valid (按调用类型覆盖采样参数)', () => {
+    expect(RootSchema.shape.$预算控制台.safeParse({
+      采样覆盖层: { 叙事质量二审: { 温度: 0.3, top_p: 0.9, 频率惩罚: 0.1, 存在惩罚: 0.2 } },
+    }).success).toBe(true);
+  });
+  it('$预算控制台: 采样覆盖层 温度超界拒收', () => {
+    expect(RootSchema.shape.$预算控制台.safeParse({
+      采样覆盖层: { x: { 温度: 2.5 } },
+    }).success).toBe(false);
+  });
+  it('$预算控制台: 切片预算覆盖层 absent (optional)', () => {
+    expect(RootSchema.shape.$预算控制台.parse({}).切片预算覆盖层).toBeUndefined();
+  });
+  it('$预算控制台: 切片预算覆盖层 valid', () => {
+    expect(RootSchema.shape.$预算控制台.safeParse({
+      切片预算覆盖层: { 叙事质量二审: { 软上限tokens: 3000, 硬上限tokens: 6000, 截断优先级: [] } },
+    }).success).toBe(true);
+  });
+  it('$预算控制台: 渲染模式覆盖 absent (optional)', () => {
+    expect(RootSchema.shape.$预算控制台.parse({}).渲染模式覆盖).toBeUndefined();
+  });
+  it('$预算控制台: 渲染模式覆盖 三枚举值均合法', () => {
+    for (const v of ['直读流', '占位整达', '静默'] as const) {
+      expect(RootSchema.shape.$预算控制台.safeParse({ 渲染模式覆盖: v }).success).toBe(true);
+    }
+  });
+  it('$预算控制台: 渲染模式覆盖 非法枚举拒收', () => {
+    expect(RootSchema.shape.$预算控制台.safeParse({ 渲染模式覆盖: '实时流' }).success).toBe(false);
   });
 
   // ── 顺手·$流速 自动暂停触发 记账失败自动暂停（6.67）──────────────────────────

@@ -72,6 +72,13 @@ type FullCtx = {
   生效锚点: unknown;
   基底契约: unknown;
   内容哈希: unknown;
+  // P0-1 调批字段 exclusions
+  最大回复tokens: unknown;
+  思维链: unknown;
+  切片预算: unknown;
+  采样覆盖层: unknown;
+  切片预算覆盖层: unknown;
+  渲染模式覆盖: unknown;
   // B-1 lore exclusions
   lore能力集: unknown;
   'output_tag命名空间': unknown;
@@ -118,6 +125,13 @@ const BASE_CTX: FullCtx = {
   生效锚点:           0,
   基底契约:           '',
   内容哈希:           '',
+  // P0-1 调批字段 exclusions
+  最大回复tokens:      1024,
+  思维链:              {},
+  切片预算:            {},
+  采样覆盖层:          {},
+  切片预算覆盖层:      {},
+  渲染模式覆盖:        undefined,
   // B-1 lore exclusions
   lore能力集:          [],
   'output_tag命名空间': '',
@@ -217,6 +231,13 @@ const EXCLUDED_MUTATIONS: Record<FingerprintExcludedField, unknown> = {
   生效锚点:           9999,
   基底契约:           'base-contract-v2',
   内容哈希:           'cafebabe0102',
+  // P0-1 调批字段 exclusions
+  最大回复tokens:      4096,
+  思维链:              { 启用: true, 努力档: 'high' },
+  切片预算:            { 软上限tokens: 2000, 硬上限tokens: 4000, 截断优先级: ['叙事', '对话'] },
+  采样覆盖层:          { 叙事质量二审: { 温度: 0.3, top_p: 0.9 } },
+  切片预算覆盖层:      { 叙事质量二审: { 软上限tokens: 3000, 硬上限tokens: 6000, 截断优先级: [] } },
+  渲染模式覆盖:        '占位整达',
   // B-1 lore exclusions
   lore能力集:          [{ 类型: 'output_tag', 输出命名空间: 'cuisine:flavor_tag' }],
   'output_tag命名空间': 'cuisine:flavor_tag',

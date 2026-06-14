@@ -82,7 +82,7 @@ const 行动卡条目Schema = z.object({
   检定模板: z.string().default(''),
   收益标签: z.string().default(''),
   风险标签: z.string().default(''),
-  来源包: z.string().default(''),
+  _来源包: z.string().default(''),   // K2/K3·mod 血统键·只读·AI 不可改 mod 归属
 });
 
 export const 行动卡库Schema = z.record(z.string(), 行动卡条目Schema).default({});
@@ -185,6 +185,23 @@ const 调用类型条目Schema = z.object({
   // 超时重试策略 = 出厂默认值；玩家覆盖层住 $预算控制台（4.9·本轮不做）
   超时重试策略: z.string().default(''),        // 开放串描述：超时秒/最大重试次/退避策略
   渲染模式: z.enum(渲染模式枚举).optional(),  // 6.69·可空
+  // ── P0-1 黄金窗口·调批字段（全入指纹排除名单·不影响判定面）────────────────────────
+  采样参数: z.object({                         // 精细采样覆盖（覆盖优先级高于顶层温度字段）
+    温度: z.number().min(0).max(2).optional(),
+    top_p: z.number().min(0).max(1).optional(),
+    频率惩罚: z.number().min(-2).max(2).optional(),
+    存在惩罚: z.number().min(-2).max(2).optional(),
+  }).optional(),
+  最大回复tokens: z.number().int().min(1).optional(),
+  思维链: z.object({
+    启用: z.boolean().optional(),
+    努力档: z.string().optional(),             // 'low'/'medium'/'high'（提供商相关·开放串）
+  }).optional(),
+  切片预算: z.object({
+    软上限tokens: z.number().int().min(0).optional(),
+    硬上限tokens: z.number().int().min(0).optional(),
+    截断优先级: z.array(z.string()).default([]),
+  }).optional(),
 });
 
 // "+3" 具名调用类型键（冻结名称·蓝图 6.75）：
