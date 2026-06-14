@@ -90,6 +90,11 @@ export const FINGERPRINT_EXCLUDED_FIELDS = [
   '表情键',        // 叙事注解·同上·不影响判定
   '附加采样参数',  // 自由透传采样参数·LLM路由·不影响判定
   '停止序列',      // 停止序列·LLM路由·不影响判定
+  // P3 叙事控制簇（玩家拨动只落偏好/演出层·永不进盐·不影响判定面）
+  '母题词汇表',    // 叙事主题词汇扩充表·叙事面·不影响检定
+  '实体模板库',    // NPC/组织模板库占位·结构待P0-7·不影响判定
+  '二审维度库',    // 叙事质量二审维度注册表·叙事面·不影响判定
+  '小剧场剧本库',  // 玩家触发小剧场剧本·叙事面·不影响判定
 ] as const;
 
 export type FingerprintBundleMember = (typeof FINGERPRINT_BUNDLE_MEMBERS)[number];

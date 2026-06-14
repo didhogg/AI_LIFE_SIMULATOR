@@ -93,6 +93,11 @@ type FullCtx = {
   表情键: unknown;
   附加采样参数: unknown;
   停止序列: unknown;
+  // P3 叙事控制簇 exclusions
+  母题词汇表: unknown;
+  实体模板库: unknown;
+  二审维度库: unknown;
+  小剧场剧本库: unknown;
   [key: string]: unknown; // index sig for dynamic spread in loops
 };
 
@@ -157,6 +162,11 @@ const BASE_CTX: FullCtx = {
   表情键:              undefined,
   附加采样参数:        undefined,
   停止序列:            undefined,
+  // P3 叙事控制簇 exclusions
+  母题词汇表:          {},
+  实体模板库:          {},
+  二审维度库:          [],
+  小剧场剧本库:        [],
 };
 
 /** Extract fingerprint from a FullCtx — excluded fields are invisible to the functions. */
@@ -278,6 +288,11 @@ const EXCLUDED_MUTATIONS: Record<FingerprintExcludedField, unknown> = {
   表情键:              'cry',
   附加采样参数:        { min_p: 0.05, typical_p: 0.9 },
   停止序列:            ['###', '---'],
+  // P3 叙事控制簇 exclusions
+  母题词汇表:          { 战争: { 词条: ['征伐', '血战'], 调味提示词: '刀兵' } },
+  实体模板库:          { NPC模板: [{ 键: 'npc_default' }], 组织模板: [] },
+  二审维度库:          [{ 维度键: '戏剧性', 描述: '情节张力', 权重: 1 }],
+  小剧场剧本库:        [{ 剧本键: 'scene_market', 触发词: ['去集市'] }],
 };
 type _ExcludedMutationsExhaustive = typeof EXCLUDED_MUTATIONS extends Record<FingerprintExcludedField, unknown> ? true : never;
 const _checkExcluded: _ExcludedMutationsExhaustive = true;
