@@ -251,6 +251,47 @@ describe('P0-6 gate① · Check C · 动词目标路径白名单覆盖', () => {
     expect(e!.layer).toBe('writable');
     expect(e!.kind).toBe('array');
   });
+
+  // ── 新增语义×5（⑪~⑮）────────────────────────────────────────────────────────
+  it('⑪印象涟漪: 认知档案.{id}.{id}.了解度 is writable number', () => {
+    const entries = deriveWritableWhitelist();
+    const e = entries.find(p => p.path === '认知档案.{id}.{id}.了解度');
+    expect(e).toBeDefined();
+    expect(e!.layer).toBe('writable');
+    expect(e!.kind).toBe('number');
+  });
+
+  it('⑫归档NPC: 已故NPC归档.{id} is writable object', () => {
+    const entries = deriveWritableWhitelist();
+    const e = entries.find(p => p.path === '已故NPC归档.{id}');
+    expect(e).toBeDefined();
+    expect(e!.layer).toBe('writable');
+    expect(e!.kind).toBe('object');
+  });
+
+  it('⑬宣战/停战: 战争状态.{id} is writable object', () => {
+    const entries = deriveWritableWhitelist();
+    const e = entries.find(p => p.path === '战争状态.{id}');
+    expect(e).toBeDefined();
+    expect(e!.layer).toBe('writable');
+    expect(e!.kind).toBe('object');
+  });
+
+  it('⑭赛事推进: 赛事实例.{id}.当前轮次 is writable number', () => {
+    const entries = deriveWritableWhitelist();
+    const e = entries.find(p => p.path === '赛事实例.{id}.当前轮次');
+    expect(e).toBeDefined();
+    expect(e!.layer).toBe('writable');
+    expect(e!.kind).toBe('number');
+  });
+
+  it('⑮家族谱系: 全局.家族树.边.{id} is writable object', () => {
+    const entries = deriveWritableWhitelist();
+    const e = entries.find(p => p.path === '全局.家族树.边.{id}');
+    expect(e).toBeDefined();
+    expect(e!.layer).toBe('writable');
+    expect(e!.kind).toBe('object');
+  });
 });
 
 // ─── Full dry-run report ──────────────────────────────────────────────────────
@@ -276,6 +317,8 @@ describe('P0-6 gate① · Full dry-run report', () => {
     const report = runDryRun();
     expect(report.checkC.pass).toBe(true);
     expect(report.checkC.missing).toHaveLength(0);
+    // 通用×4 + 语义×15 + 兜底×1 = 20 probes total
+    expect(report.checkC.probeResults).toHaveLength(20);
   });
 
   it('no engine-internal ambiguities — pure prefix derivation resolves all', () => {

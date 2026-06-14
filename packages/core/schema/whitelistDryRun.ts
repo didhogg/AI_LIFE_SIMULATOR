@@ -216,31 +216,34 @@ export interface CheckCResult {
   missing: string[];
 }
 
-// Representative verb target paths used in dry-run check (c).
-// These are examples covering the 4 universal verbs and key semantic verbs.
-// NOTE: These are PREFIX patterns (path starts-with checks), not exact matches,
-// because record entries use {id} placeholders.
+// Verb target paths for dry-run check (c): 通用×4 + 语义×15 + 兜底×1 = 20 total.
+// Each probe must be exact-match reachable in deriveWritableWhitelist() as writable.
+// Probes use {id}/{i} placeholders as emitted by walkSchema for record/array values.
 const VERB_TARGET_PROBES: Array<{ probe: string; description: string }> = [
-  // ── 通用×4 ──
+  // ── 通用×4 ─────────────────────────────────────────────────────────────────
   { probe: 'NPC.{id}',                              description: '创建实体·NPC' },
-  { probe: 'NPC.{id}.属性',                         description: '修改·NPC属性段' },
+  { probe: 'NPC.{id}.属性',                         description: '修改字段·NPC属性段' },
   { probe: '组织实体.{id}',                          description: '创建实体·组织' },
-  { probe: 'NPC.{id}.情绪栈.{i}',                    description: '追加·NPC情绪栈' },
-  { probe: '工作记忆',                               description: '埋种子·工作记忆数组' },
-  // ── 语义动词 (representative) ──
-  { probe: '全局.秘密库.{id}.暴露度',                description: 'declassify·秘密暴露度' },
-  { probe: '全局.秘密库.{id}.已暴露线索',            description: '线索浮现·线索追加' },
-  { probe: '组织关系网.{id}.关系值',                 description: '阵营变更·关系值' },
-  { probe: 'NPC.{id}.当前作息模式',                  description: '切换作息模式' },
-  { probe: '长期归档',                               description: '战果档·长期归档数组' },
-  { probe: '地图.地点.{id}',                         description: '地点创建/修改' },
-  { probe: '货币系统.账户.持有.{id}',                description: '修改·账户持有' },
-  { probe: 'NPC.{id}.状态标签',                      description: '状态变更·状态标签' },
-  { probe: '全局.约定库.{id}',                       description: '约定创建/修改' },
-  // ── 兜底×1 ──
-  // The catch-all verb routes to any writable path — covered if the whitelist
-  // contains at least one writable leaf.
-  { probe: 'NPC.{id}.属性.体质',                    description: '兜底·代表叶节点' },
+  { probe: 'NPC.{id}.情绪栈.{i}',                   description: '追加条目·NPC情绪栈' },
+  // ── 语义×15 ────────────────────────────────────────────────────────────────
+  { probe: '工作记忆',                              description: '①埋种子·工作记忆数组' },
+  { probe: '全局.秘密库.{id}.暴露度',               description: '②揭秘·秘密暴露度' },
+  { probe: '全局.秘密库.{id}.已暴露线索',           description: '③线索浮现·线索追加' },
+  { probe: '组织关系网.{id}.关系值',                description: '④阵营变更·关系值' },
+  { probe: 'NPC.{id}.当前作息模式',                 description: '⑤切换作息模式' },
+  { probe: '长期归档',                              description: '⑥战果档·长期归档数组' },
+  { probe: '地图.地点.{id}',                        description: '⑦地点创建/修改' },
+  { probe: '货币系统.账户.持有.{id}',               description: '⑧转账·账户持有' },
+  { probe: 'NPC.{id}.状态标签',                     description: '⑨状态变更·状态标签' },
+  { probe: '全局.约定库.{id}',                      description: '⑩缔约·约定创建/修改' },
+  { probe: '认知档案.{id}.{id}.了解度',             description: '⑪印象涟漪·认知档案了解度' },
+  { probe: '已故NPC归档.{id}',                      description: '⑫归档NPC·已故NPC归档条目' },
+  { probe: '战争状态.{id}',                         description: '⑬宣战/停战·战争状态条目' },
+  { probe: '赛事实例.{id}.当前轮次',                description: '⑭赛事推进·当前轮次' },
+  { probe: '全局.家族树.边.{id}',                   description: '⑮家族谱系·家族树边节点' },
+  // ── 兜底×1 ─────────────────────────────────────────────────────────────────
+  // 直改兜底：任意可写叶节点均可落账，此处以代表叶节点验证派生器覆盖充分
+  { probe: 'NPC.{id}.属性.体质',                    description: '兜底·代表叶节点（直改）' },
 ];
 
 export function runDryRun(): DryRunResult {
