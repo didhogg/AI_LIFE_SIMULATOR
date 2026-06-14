@@ -7,10 +7,19 @@
 // "同 seed 跑两次逐位恒等" 仅证明机内确定性；
 // golden 常量（G1–G7, 模糊向量）才是真正的跨机闭合证明。
 import { describe, it, expect } from 'vitest';
+import * as prand from 'pure-rand';
 import type { DslExpr } from '../engine/dsl/fuzzer.js';
 import { fuzzExprs, fuzzPreds, FUZZER_PATHS } from '../engine/dsl/fuzzer.js';
 import { evalExpr, evalPred } from '../engine/dsl/eval.js';
 import type { DslContext } from '../engine/dsl/eval.js';
+import { fixedPow, fixedSqrt } from '../engine/math/fixed.js';
+
+// B1: inline FNV-1a 32-bit hash for AST structure pinning (no external dep)
+function fnv1a32Str(s: string): string {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0;
+  return h.toString(16).padStart(8, '0');
+}
 
 // Deterministic context matching FUZZER_PATHS entries
 const CTX: DslContext = {
@@ -165,5 +174,81 @@ describe('闸二第5轮(a) · DSL v1.0 fuzzer 跨机确定性', () => {
       expect(typeof v).toBe('number');
       expect(Number.isFinite(v)).toBe(true);
     }
+  });
+});
+
+// ── B 组 · 闸二 5(a) 收货四项 ─────────────────────────────────────────────────────
+
+describe('B1 · 跨机 golden hex 向量 + xorshift128+ 架构确认', () => {
+  // pure-rand xorshift128+ 内部状态：4 × 有符号 int32（存为 JS number·无 BigInt）
+  // 所有位运算（^, |, >>>, <<）在 JS 中强制 32-bit 截断，不借 Number 53 位尾数。
+  // seed >>> 0 coerces to Uint32; XorShift128Plus(-1, ~seed, seed|0, 0) 初始化。
+  it('xorshift128+ 初始 state：4×int32，无 BigInt，无 53 位尾数（seed=0xDEAD_BEEF）', () => {
+    const rng = prand.xorshift128plus(0xDEAD_BEEF >>> 0);
+    // 0xDEAD_BEEF >>> 0 = 3735928559; as int32 = -559038737; ~int32 = 559038736
+    expect(rng.getState()).toEqual([-1, 559038736, -559038737, 0]);
+  });
+
+  // AST_HASH_50: FNV-1a 32-bit hash of JSON.stringify(fuzzExprs(SEED, 50))
+  // Locks the RNG transition sequence (not just eval values).
+  // If xorshift128+ implementation changes → hash changes → test fails.
+  const AST_HASH_50_DEADBEEF = 'adc29145'; // FNV-1a 32 of JSON.stringify(fuzzExprs(0xDEAD_BEEF, 50))
+
+  it('B1 AST 结构 hash 锁定（50 expr·seed 0xDEAD_BEEF·RNG 序列钉死）', () => {
+    const hash = fnv1a32Str(JSON.stringify(fuzzExprs(0xDEAD_BEEF, 50)));
+    expect(hash).toBe(AST_HASH_50_DEADBEEF);
+  });
+});
+
+describe('B2 · 除法取整方向 golden（IEEE 754·确定性·不因平台漂移）', () => {
+  // JavaScript / → IEEE 754 round-to-nearest-even，所有平台完全一致。
+  // "向不利于发起者"含义：攻防比 a/d 的小数部分走最近偶数舍入，不会向上偏移给攻方。
+  it('B2 div golden: 1/3 = 0.3333333333333333 [round-to-nearest，偏向防守方]', () => {
+    expect(evalExpr(BIN('/', INT(1), INT(3)), CTX)).toBe(0.3333333333333333);
+  });
+  it('B2 div golden: 2/3 = 0.6666666666666666', () => {
+    expect(evalExpr(BIN('/', INT(2), INT(3)), CTX)).toBe(0.6666666666666666);
+  });
+  it('B2 div golden: 10/3 = 3.3333333333333335 [此值向上舍入·IEEE 754 确定]', () => {
+    expect(evalExpr(BIN('/', INT(10), INT(3)), CTX)).toBe(3.3333333333333335);
+  });
+  it('B2 谓词方向: 1/3 < 0.34 为 true（舍入不偏进攻方）', () => {
+    const expr = BIN('/', INT(1), INT(3));
+    expect(evalExpr(expr, CTX)).toBeLessThan(0.34);
+    expect(evalExpr(expr, CTX)).toBeLessThan(1 / 3 + Number.EPSILON);
+  });
+});
+
+describe('B3 · 防双轨：eval.ts pow/sqrt 与 fixed.ts 同源逐位恒等', () => {
+  // eval.ts 唯一合法导入路径：import { v1 } from '../math/fixed.js'
+  // v1.pow = fixedPow, v1.sqrt = fixedSqrt（同一函数引用）
+  // 若 eval.ts 引入第二实现，下列值必然与 fixed.ts 导出值不等，测试立即报红。
+  it('B3 pow 防双轨: evalExpr pow(2,10) ≡ fixedPow(2,10) 逐位恒等', () => {
+    expect(evalExpr(CALL('pow', INT(2), INT(10)), CTX)).toBe(fixedPow(2, 10));
+  });
+  it('B3 pow 防双轨: evalExpr pow(75, 0.5) ≡ fixedPow(75, 0.5) 逐位恒等', () => {
+    expect(evalExpr(CALL('pow', PATH('声望', '值'), PCT(50)), CTX)).toBe(fixedPow(75, 0.5));
+  });
+  it('B3 sqrt 防双轨: evalExpr sqrt(1000) ≡ fixedSqrt(1000) 逐位恒等', () => {
+    expect(evalExpr(CALL('sqrt', PATH('账户', '持有')), CTX)).toBe(fixedSqrt(1000));
+  });
+});
+
+describe('B4 · v1 全集覆盖明证 {min, max, clamp, pow, sqrt}', () => {
+  // min 已在 D1 覆盖（min(300,75)=75）；此处补 max 明证 + 独立 min 明证。
+  it('B4 min 明证: min(声望.值, 资产.价值) = 75 [小值胜出·精确]', () => {
+    expect(evalExpr(CALL('min', PATH('声望', '值'), PATH('资产', '价值')), CTX)).toBe(75);
+  });
+  it('B4 max 明证: max(账户.持有, 声望.值) = 1000 [大值胜出·精确]', () => {
+    expect(evalExpr(CALL('max', PATH('账户', '持有'), PATH('声望', '值')), CTX)).toBe(1000);
+  });
+  it('B4 clamp 明证: clamp(声望.值, 0, 50) = 50 [上界夹断·精确]', () => {
+    expect(evalExpr(CALL('clamp', PATH('声望', '值'), INT(0), INT(50)), CTX)).toBe(50);
+  });
+  it('B4 pow 明证: pow(2, 10) = 1024.0000000000018 [Taylor pin]', () => {
+    expect(evalExpr(CALL('pow', INT(2), INT(10)), CTX)).toBe(G5_POW_2_10);
+  });
+  it('B4 sqrt 明证: sqrt(1000) = 31.622776601683793 [fixedSqrt pin]', () => {
+    expect(evalExpr(CALL('sqrt', PATH('账户', '持有')), CTX)).toBe(G3_SQRT_1000);
   });
 });
