@@ -126,6 +126,8 @@ describe('P0-5 RNG — hashJudgmentBundle + hashPresetFingerprint (B1 extended)'
     检定档切分表: { 大胜下限: 40, 胜下限: 15, 惨胜下限: 1, 败下限: -24 },
     欠债参数: {},
     赛事结构模板: {},
+    派生量配方: {},
+    概率域夹逼: { p_最小: 0.0001, p_最大: 0.9999 },
   };
   const baseSnapshotFields = {
     难度系数组: { 基础DC: 50 },

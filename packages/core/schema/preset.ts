@@ -83,6 +83,22 @@ export const 属性轴表Schema = z.array(z.object({
   允许年龄衰减: z.boolean().default(false),
 })).default([]);
 
+// ── 派生量配方（发现B·M·4·随整包入指纹）──────────────────────────────────────────
+// HP=f(体质)·精力=f(体质×0.7+心理×0.3)·等个人派生量均由此子表声明
+// 改配方即改判定面 → 必须随 hashJudgmentBundle 入指纹
+const 派生量配方条目Schema = z.object({
+  配方名: z.string().default(''),          // 派生量名（HP/精力/专注度/…）
+  主属性: z.string().default(''),          // 主轴（隐含权重=1·未加权时直取值）
+  副属性列: z.array(z.object({
+    轴名: z.string().default(''),
+    权重: z.number().min(0).max(1).default(0), // 副轴权重·sum(副) ≤ 1
+  })).default([]),
+  基础值: z.number().default(0),           // 种族/职业等固定基底
+  比例系数: z.number().min(0).default(1),  // 全属性值×系数后加基础值
+}).strip();
+
+export const 派生量配方Schema = z.record(z.string(), 派生量配方条目Schema).default({});
+
 // ── 母题配额（6.14） ──
 export const 母题配额Schema = z.record(
   z.string(), // 母题键
@@ -189,6 +205,8 @@ export const 穿越契约Schema = z.object({
 // ── 规则补丁（6.28·白名单参数面） ──
 const 规则补丁条目Schema = z.object({
   补丁名: z.string().default(''),
+  // K5: 最终生效源获胜语义——多补丁叠覆时以最终生效那个为准（P0-6 接线引擎应用逻辑）
+  是否作弊: z.boolean().default(false),
   秘密类型黑名单: z.array(z.string()).default([]),
   触发器禁用列表: z.array(z.string()).default([]),
   钳制表覆盖: z.record(z.string(), z.unknown()).default({}),
@@ -198,6 +216,25 @@ const 规则补丁条目Schema = z.object({
 });
 
 export const 规则补丁Schema = z.record(z.string(), 规则补丁条目Schema).default({});
+
+// ── 概率域夹逼（H4·随整包入指纹·数值住预设）──────────────────────────────────────
+// 所有判定概率 clamp 至 [p_最小, p_最大]；小概率稳定式复用 fixed.ts stableProb
+export const 概率域夹逼Schema = z.object({
+  p_最小: z.number().min(0).max(1).default(0.0001),  // 0.01% 下界
+  p_最大: z.number().min(0).max(1).default(0.9999),  // 99.99% 上界
+}).default({});
+
+// ── 账面安全界限（H1·入账前 clamp·数值住预设）──────────────────────────────────────
+// 键=字段路径（"属性.体质" / "货币.金币" 等）；越软顶→ clamp + ⚠播报
+// 空表=仅依赖 kv 层约束；不进 hashJudgmentBundle（属安全执行层·非判定面）
+const 账面安全界限条目Schema = z.object({
+  硬底: z.number().optional(),                       // 低于则 clamp（兜底）
+  软顶: z.number().optional(),                       // 超过则 clamp + 广播 ⚠
+  硬顶: z.number().optional(),                       // 超过则 clamp（更严·无播报）
+  年化增长率警戒线: z.number().min(0).optional(),   // warnAnnualRate 触发阈值（缺省 1.0）
+}).strip();
+
+export const 账面安全界限Schema = z.record(z.string(), 账面安全界限条目Schema).default({});
 
 // ══════════════════════════════════════════
 // 骰面量化层 / 叙事层 / 开局层（4.11 · 6.41 · 6.42）
@@ -384,6 +421,7 @@ export const 玩法预设Schema = z.object({
   行动点上限: z.number().int().min(1).default(4),
   属性轴表: 属性轴表Schema,
   检定配方表: 检定配方表Schema,
+  派生量配方: 派生量配方Schema,           // 发现B·M·4·HP=f(体质)/精力=f(体质×0.7+心理×0.3)·随整包入指纹
   母题配额: 母题配额Schema,
   媒体渠道表: 媒体渠道表Schema,
   战术包: 战术包Schema,
@@ -409,6 +447,8 @@ export const 玩法预设Schema = z.object({
   // ── P0-5 检定判定层 ──
   检定档切分表: 检定档切分表Schema,
   钳制表: 钳制表Schema,
+  概率域夹逼: 概率域夹逼Schema,          // H4·随整包入指纹·判定概率 clamp 至 [p_最小, p_最大]
+  账面安全界限: 账面安全界限Schema,       // H1·入账前 clamp·不进指纹（安全执行层·非判定面）
 
   // ── P0-1 4.10 缺口 ──────────────────────────────────────────────────────────
   // 缺口一·二审维度库（6.75·开放·叙事质量二审维度注册表）

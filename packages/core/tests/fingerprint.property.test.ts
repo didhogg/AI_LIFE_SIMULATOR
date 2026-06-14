@@ -42,6 +42,8 @@ type FullCtx = {
   换角许可?: unknown;
   世界遗产白名单出厂值?: unknown;
   赛事结构模板: unknown;
+  派生量配方: unknown;        // 发现B·M·4
+  概率域夹逼: unknown;        // H4
   // Preset-level members (passed directly to hashPresetFingerprint):
   生效中内容包集哈希: string;
   规则补丁哈希?: string;
@@ -83,12 +85,11 @@ const BASE_CTX: FullCtx = {
   检定配方表:          { 魅力: { 主属性: '魅力', 副属性: [] } },
   检定档切分表:        { 大胜下限: 40, 胜下限: 15, 惨胜下限: 1, 败下限: -24 },
   欠债参数:           {},
-  换角许可:           undefined,
-  世界遗产白名单出厂值: undefined,
   赛事结构模板:        {},
+  派生量配方:          {},
+  概率域夹逼:          { p_最小: 0.0001, p_最大: 0.9999 },
   // Preset-level
   生效中内容包集哈希:   '',
-  规则补丁哈希:        undefined,
   // Snapshot
   难度系数组:          { 基础成功率调整: 0 },
   判定骰型:           100,
@@ -130,6 +131,8 @@ function fingerprintOf(ctx: FullCtx): string {
     换角许可:           ctx['换角许可'],
     世界遗产白名单出厂值: ctx['世界遗产白名单出厂值'],
     赛事结构模板:        ctx['赛事结构模板'],
+    派生量配方:          ctx['派生量配方'],
+    概率域夹逼:          ctx['概率域夹逼'],
   });
   return hashPresetFingerprint({
     判定面整包:        bundleHash,
@@ -160,6 +163,8 @@ const BUNDLE_MUTATIONS: Record<FingerprintBundleMember, unknown> = {
   换角许可:           { 候选选择器: 'NPC.存活', 冷却: 43200, 谢幕卡开关: true },
   世界遗产白名单出厂值: ['古城遗址', '传说宝剑'],
   赛事结构模板:        { 武术大赛: { 参与者选择器: '*.武者', 赛制: '淘汰', 轮次: 8, 检定配方引用: '武力', 排名表: {}, 奖励钩子: '' } },
+  派生量配方:          { HP: { 配方名: 'HP', 主属性: '体质', 副属性列: [], 基础值: 10, 比例系数: 2 } },
+  概率域夹逼:          { p_最小: 0.001, p_最大: 0.999 },
 };
 // Compile-time: ensures exhaustiveness whenever FINGERPRINT_BUNDLE_MEMBERS gains a new entry.
 type _BundleMutationsExhaustive = typeof BUNDLE_MUTATIONS extends Record<FingerprintBundleMember, unknown> ? true : never;
@@ -288,8 +293,8 @@ describe('AA6 gate C: 双跑逐位恒等 + canonicalize 防键序假阳性', () 
   });
 
   it('hashJudgmentBundle 键序无关: 乱序输入 → 相同 bundle hash', () => {
-    const h1 = hashJudgmentBundle({ 历法皮肤: {}, 粒度模板覆盖: {}, 种族模板: {}, 母题配额: {}, 媒体渠道表: {}, 检定配方表: BASE_CTX.检定配方表, 检定档切分表: BASE_CTX.检定档切分表, 欠债参数: {}, 赛事结构模板: {} });
-    const h2 = hashJudgmentBundle({ 检定档切分表: BASE_CTX.检定档切分表, 检定配方表: BASE_CTX.检定配方表, 欠债参数: {}, 赛事结构模板: {}, 历法皮肤: {}, 粒度模板覆盖: {}, 种族模板: {}, 母题配额: {}, 媒体渠道表: {} });
+    const h1 = hashJudgmentBundle({ 历法皮肤: {}, 粒度模板覆盖: {}, 种族模板: {}, 母题配额: {}, 媒体渠道表: {}, 检定配方表: BASE_CTX.检定配方表, 检定档切分表: BASE_CTX.检定档切分表, 欠债参数: {}, 赛事结构模板: {}, 派生量配方: {}, 概率域夹逼: {} });
+    const h2 = hashJudgmentBundle({ 检定档切分表: BASE_CTX.检定档切分表, 检定配方表: BASE_CTX.检定配方表, 欠债参数: {}, 赛事结构模板: {}, 历法皮肤: {}, 粒度模板覆盖: {}, 种族模板: {}, 母题配额: {}, 媒体渠道表: {}, 概率域夹逼: {}, 派生量配方: {} });
     expect(h1).toBe(h2);
   });
 

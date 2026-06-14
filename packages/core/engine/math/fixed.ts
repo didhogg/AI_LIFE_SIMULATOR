@@ -120,4 +120,7 @@ export const v1 = {
   sqrt: fixedSqrt,
   expm1: fixedExpm1,
   log1p: fixedLog1p,
+  // Rounding — IEEE 754 integer ops, exact on all platforms; exposed for H3 unfavorable rounding.
+  ceil: Math.ceil,
+  floor: Math.floor,
 } as const;
