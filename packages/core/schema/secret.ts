@@ -50,7 +50,15 @@ const 秘密库条目Schema = z.object({
 
 const 条款条目Schema = z.object({
   内容: z.string().default(''),
-  标的: z.string().optional(),
+  // P0-1 黄金窗口·DSL v1.0 标的表达式（零迁移：旧字面量串走 string 分支；新 DSL 走对象分支）
+  // 求值时点 = 结算拍首快照；除法取整向不利于发起者；DSL 文法版本已在指纹取材集
+  标的: z.union([
+    z.string(),                                // 旧：字面量值（零迁移兼容）
+    z.object({
+      v: z.literal('1.0'),                    // DSL 文法版本（对应指纹取材集中的版本号）
+      expr: z.string(),                        // DSL v1.0 表达式（M·1 EBNF）
+    }),
+  ]).optional(),
   履行状态: z.string().default('待履行'), // 待履行/已履行/违约
 });
 

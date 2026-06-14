@@ -909,6 +909,32 @@ describe('4.5 Global layer', () => {
     }).success).toBe(false);
   });
 
+  // ── 条款 标的 DSL v1.0（P0-1 Batch B）─────────────────────────────────────────
+  it('条款.标的: absent (optional·零迁移)', () => {
+    const res = 全局Schema.parse({ 约定库: { p: { 条款: [{ 内容: '无标的条款' }] } } });
+    expect(res.约定库['p']?.条款[0]?.标的).toBeUndefined();
+  });
+  it('条款.标的: 旧字面量串（零迁移·string 分支）', () => {
+    expect(() => 全局Schema.parse({
+      约定库: { p: { 条款: [{ 内容: '割让领土', 标的: '燕云十六州' }] } },
+    })).not.toThrow();
+  });
+  it('条款.标的: DSL v1.0 对象分支', () => {
+    expect(() => 全局Schema.parse({
+      约定库: { p: { 条款: [{ 内容: '等价置换', 标的: { v: '1.0', expr: 'NPC["npc_a"].属性.体质 * 10' } }] } },
+    })).not.toThrow();
+  });
+  it('条款.标的: DSL 对象缺 v 字段拒收', () => {
+    expect(全局Schema.safeParse({
+      约定库: { p: { 条款: [{ 标的: { expr: '1+1' } }] } },
+    }).success).toBe(false);
+  });
+  it('条款.标的: DSL 对象 v 非 1.0 拒收', () => {
+    expect(全局Schema.safeParse({
+      约定库: { p: { 条款: [{ 标的: { v: '2.0', expr: '1+1' } }] } },
+    }).success).toBe(false);
+  });
+
   // ── 继承包（世界遗产白名单·缺口4·6.45）────────────────────────────────────────
   it('valid 继承包 with 候选 + 抓取载荷', () => {
     expect(() => 全局Schema.parse({
