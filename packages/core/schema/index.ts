@@ -67,12 +67,12 @@ import {
 export const BLUEPRINT_KEYS = [
   '_系统版本',
   '_tick',
-  '系统',
+  '_系统',
   '_叙事设置',
-  '状态机',
+  '_状态机',
   '世界',
   '世界域',
-  '席位表',
+  '_席位表',
   'NPC',
   '已故NPC归档',
   '认知档案',
@@ -107,7 +107,7 @@ export const BLUEPRINT_KEYS = [
   '$沉浸模式',
   '$天命重掷券',
   '$存档种子',
-  '存档头',
+  '_存档头',
   '$meta',
 ] as const;
 
@@ -116,9 +116,9 @@ export const RootSchema = z.object({
   // 4.1 System
   _系统版本: z.literal('4.1').default('4.1'),
   _tick: TickSchema.default({}),
-  系统: SystemSchema.default({}),
+  _系统: SystemSchema.default({}),
   _叙事设置: NarrativeSettingSchema.default({}),
-  状态机: StateMachineSchema.default({}),
+  _状态机: StateMachineSchema.default({}),
 
   // 4.2 World
   世界: 世界Schema.default({}),
@@ -126,7 +126,7 @@ export const RootSchema = z.object({
 
   // 4.3 Actor
   // 席位表替代旧镜头焦点角色字符串指针（6.53 C1·P0-1·迁移映射见 migrate.ts）
-  席位表: 席位表Schema,
+  _席位表: 席位表Schema,
   NPC: NpcRecordSchema,
   已故NPC归档: 已故NPC归档Schema,
   认知档案: 认知档案Schema,
@@ -173,7 +173,7 @@ export const RootSchema = z.object({
   $沉浸模式: $沉浸模式Schema,
   $天命重掷券: $天命重掷券Schema.default({}),
   $存档种子: $存档种子Schema,
-  存档头: 存档头Schema.default({}),
+  _存档头: 存档头Schema.default({}),
   $meta: $metaSchema.default({}),
 });
 

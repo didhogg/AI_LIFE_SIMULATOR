@@ -194,9 +194,9 @@ export const 全局Schema = z.object({
   约定库: z.record(z.string(), 约定库条目Schema).default({}),
   继承包: 继承包Schema.default({}),
   家族树: 家族树Schema.default({}),
-  覆写日志: z.array(覆写日志条目Schema).default([]),
-  作弊标记: z.boolean().default(false),      // 本周目不可逆
-  编年史: z.array(编年史条目Schema).default([]), // append-only 既成事实记录
+  _覆写日志: z.array(覆写日志条目Schema).default([]),
+  _作弊标记: z.boolean().default(false),      // 本周目不可逆
+  _编年史: z.array(编年史条目Schema).default([]), // append-only 既成事实记录
 });
 
 export type 全局Type = z.infer<typeof 全局Schema>;

@@ -42,7 +42,7 @@ describe('migrate V3.1 → V4.1', () => {
   });
 
   it('rich fixture: 席位表.本机.焦点角色键 = 邓婉清', () => {
-    const seat = asRec(asRec(migrate(richV31).state['席位表'])['本机']);
+    const seat = asRec(asRec(migrate(richV31).state['_席位表'])['本机']);
     expect(seat['焦点角色键']).toBe('邓婉清');
   });
 
@@ -114,7 +114,7 @@ describe('migrate V3.1 → V4.1', () => {
 
   it('断言③: 主角NPC 有 技能/物品/衣物/爱好/信念 (blank)', () => {
     const result = migrate(blankV31);
-    const focusKey = asStr(asRec(asRec(result.state['席位表'])['本机'])['焦点角色键']);
+    const focusKey = asStr(asRec(asRec(result.state['_席位表'])['本机'])['焦点角色键']);
     const protagonist = asRec(asRec(result.state['NPC'])[focusKey]);
     expect(protagonist['技能']).toBeDefined();
     expect(protagonist['物品']).toBeDefined();
@@ -187,7 +187,7 @@ describe('migrate V3.1 → V4.1', () => {
   // ── 映射表验证 ────────────────────────────────────────────────────────────────
   it('GAME_MODE_MAP: CHARACTER_CREATION → CHARACTER_CREATE', () => {
     const result = migrate(richV31); // rich fixture has CHARACTER_CREATION
-    expect(asStr(asRec(result.state['状态机'])['当前态'])).toBe('CHARACTER_CREATE');
+    expect(asStr(asRec(result.state['_状态机'])['当前态'])).toBe('CHARACTER_CREATE');
   });
 
   it('REALISM_MAP: 轻度戏剧化 → 0.5', () => {
@@ -354,7 +354,7 @@ describe('migrate V3.1 → V4.1', () => {
       家庭: { 父亲状态: '健在', 母亲状态: '健在', 婚姻: [{ 配偶: '配偶甲', 状态: '已婚', 缔结: 0, 终止: -1 }], 婚姻状态: '已婚', 配偶姓名: '配偶甲', 子女数量: 1, 子女名单: {} },
     };
     const result = migrate(syntheticV31);
-    const 主角键 = asStr(asRec(asRec(result.state['席位表'])['本机'])['焦点角色键']);
+    const 主角键 = asStr(asRec(asRec(result.state['_席位表'])['本机'])['焦点角色键']);
     const 家族树 = asRec(asRec(result.state['全局'])['家族树']);
     const 边 = asRec(家族树['边']);
 
@@ -380,7 +380,7 @@ describe('migrate V3.1 → V4.1', () => {
       家庭: { 父亲状态: '健在', 母亲状态: '健在', 婚姻: [], 婚姻状态: '未婚', 配偶姓名: '', 子女数量: 0, 子女名单: {} },
     };
     const result = migrate(syntheticV31);
-    const 主角键 = asStr(asRec(asRec(result.state['席位表'])['本机'])['焦点角色键']);
+    const 主角键 = asStr(asRec(asRec(result.state['_席位表'])['本机'])['焦点角色键']);
     const 家族树 = asRec(asRec(result.state['全局'])['家族树']);
     const 边 = asRec(家族树['边']);
     const 幽灵节点 = asRec(家族树['幽灵节点']);
@@ -507,7 +507,7 @@ describe('migrate V3.1 → V4.1', () => {
       },
     };
     const result = migrate(syntheticV31);
-    const 主角键 = asStr(asRec(asRec(result.state['席位表'])['本机'])['焦点角色键']);
+    const 主角键 = asStr(asRec(asRec(result.state['_席位表'])['本机'])['焦点角色键']);
     const 认知档案 = asRec(result.state['认知档案']);
 
     // 档案[主角键] 存在，主角是观察者
@@ -533,8 +533,8 @@ describe('migrate V3.1 → V4.1', () => {
     const state = migrate(richV31).state as Record<string, unknown>;
 
     const TOP18 = [
-      '_系统版本', '_tick', '系统', '_叙事设置', '状态机',
-      '世界', '席位表', 'NPC', '已故NPC归档', '认知档案',
+      '_系统版本', '_tick', '_系统', '_叙事设置', '_状态机',
+      '世界', '_席位表', 'NPC', '已故NPC归档', '认知档案',
       '全局', '地图', '货币系统', '工作记忆', '仲裁器',
       '$运气', '$隐藏记忆库', '$meta',
     ] as const;

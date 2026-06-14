@@ -6,11 +6,10 @@ import { RootSchema } from './index.js';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type AccessLayer =
-  | 'writable'           // AI can propose writes (no prefix, AI-facing entity domain)
-  | 'read-only'          // AI can see, engine writes (_ prefix)
+  | 'writable'           // AI can propose writes (no prefix)
+  | 'read-only'          // AI can see, engine writes (_ prefix, includes engine-internal keys)
   | 'invisible'          // AI cannot see or touch ($ prefix, except $meta)
-  | 'cross-playthrough'  // $meta layer (spans playthroughs)
-  | 'engine-internal';   // No prefix but engine-managed; flagged as layer ambiguity
+  | 'cross-playthrough'; // $meta layer (spans playthroughs)
 
 export type FieldKind =
   | 'open-string'  // z.string() — AI can write arbitrary text
@@ -33,29 +32,24 @@ export interface DerivedEntry {
 
 // ─── Top-level key classification ────────────────────────────────────────────
 
-// Keys with no $ or _ prefix but managed entirely by the engine, not the AI.
-// These are flagged as layering ambiguities — they should arguably carry _ prefix.
-const ENGINE_INTERNAL_KEYS = new Set<string>(['系统', '状态机', '存档头', '席位表']);
-
+// Pure prefix derivation — no manual exemption lists.
+// _ prefix = AI read-only (covers both narrative read-only and engine-internal keys).
 export function classifyTopKey(key: string): AccessLayer {
   if (key === '$meta') return 'cross-playthrough';
   if (key.startsWith('$')) return 'invisible';
   if (key.startsWith('_')) return 'read-only';
-  if (ENGINE_INTERNAL_KEYS.has(key)) return 'engine-internal';
   return 'writable';
 }
 
 // ─── Nested field layer inheritance ──────────────────────────────────────────
 
 export function nestedFieldLayer(fieldName: string, parentLayer: AccessLayer): AccessLayer {
-  // Invisible/cross-playthrough/engine-internal propagate to all children
+  // Invisible/cross-playthrough propagate to all children; read-only also propagates
   if (
     parentLayer === 'invisible' ||
     parentLayer === 'cross-playthrough' ||
-    parentLayer === 'engine-internal'
+    parentLayer === 'read-only'
   ) return parentLayer;
-  // read-only propagates to all children (can't write to a child of a read-only object)
-  if (parentLayer === 'read-only') return 'read-only';
   // Within a writable context, check the sub-field's own prefix
   if (fieldName === '$meta') return 'cross-playthrough';
   if (fieldName.startsWith('$')) return 'invisible';
@@ -202,7 +196,6 @@ export interface CheckAResult {
   crossPlaythroughCount: number;
   readOnlyCount: number;
   writableCount: number;
-  engineInternalCount: number;
   misclassified: string[];
 }
 
@@ -228,7 +221,7 @@ const VERB_TARGET_PROBES: Array<{ probe: string; description: string }> = [
   { probe: 'NPC.{id}',                              description: '创建实体·NPC' },
   { probe: 'NPC.{id}.属性',                         description: '修改·NPC属性段' },
   { probe: '组织实体.{id}',                          description: '创建实体·组织' },
-  { probe: '全局.编年史.{i}',                        description: '追加·编年史' },
+  { probe: 'NPC.{id}.情绪栈.{i}',                    description: '追加·NPC情绪栈' },
   { probe: '工作记忆',                               description: '埋种子·工作记忆数组' },
   // ── 语义动词 (representative) ──
   { probe: '全局.秘密库.{id}.暴露度',                description: 'declassify·秘密暴露度' },
@@ -251,14 +244,14 @@ export function runDryRun(): DryRunResult {
   const pathToEntry = new Map(all.map(e => [e.path, e]));
 
   // ── Check A: prefix layer correctness ─────────────────────────────────────
-  const layerCounts = { invisible: 0, 'cross-playthrough': 0, 'read-only': 0, writable: 0, 'engine-internal': 0 };
+  const layerCounts = { invisible: 0, 'cross-playthrough': 0, 'read-only': 0, writable: 0 };
   const misclassified: string[] = [];
 
   for (const entry of all) {
     const topKey = entry.path.split('.')[0]!;
     const expectedLayer = classifyTopKey(topKey);
 
-    // Children of writable/engine-internal tops can override via nested prefix
+    // Children of writable tops can override via nested prefix
     // so we only check top-level entries for direct key classification.
     if (!entry.path.includes('.')) {
       if (entry.layer !== expectedLayer) {
@@ -276,7 +269,6 @@ export function runDryRun(): DryRunResult {
     crossPlaythroughCount: layerCounts['cross-playthrough'],
     readOnlyCount: layerCounts['read-only'],
     writableCount: layerCounts['writable'],
-    engineInternalCount: layerCounts['engine-internal'],
     misclassified,
   };
 
@@ -312,25 +304,19 @@ export function runDryRun(): DryRunResult {
     missing,
   };
 
-  // ── Layering ambiguities to discuss ──────────────────────────────────────
-  const layerAmbiguities = [
-    ...Array.from(ENGINE_INTERNAL_KEYS).map(
-      k =>
-        `"${k}" has no prefix but is engine-managed — consider adding _ prefix for explicitness`,
-    ),
-  ];
+  // ── Layering notes (informational) ───────────────────────────────────────
+  const layerAmbiguities: string[] = [];
 
-  // Flag nested $ fields found inside writable top-level domains
+  // Confirm nested $ fields inside writable domains are correctly invisible
   const nestedInvisible = all.filter(
     e =>
       e.layer === 'invisible' &&
-      !classifyTopKey(e.path.split('.')[0]!).startsWith('invisible') &&
       classifyTopKey(e.path.split('.')[0]!) === 'writable',
   );
   if (nestedInvisible.length > 0) {
     layerAmbiguities.push(
-      `${nestedInvisible.length} nested $ fields found inside writable domains ` +
-        `(e.g. ${nestedInvisible.slice(0, 3).map(e => e.path).join(', ')}) — ` +
+      `OK: ${nestedInvisible.length} nested $ fields inside writable domains ` +
+        `(e.g. ${nestedInvisible.slice(0, 3).map(e => e.path).join(', ')}) ` +
         'correctly invisible by nested prefix rule',
     );
   }

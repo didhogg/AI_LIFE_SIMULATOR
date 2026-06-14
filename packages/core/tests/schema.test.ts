@@ -791,11 +791,11 @@ describe('4.5 Global layer', () => {
   it('minimal-state: RootSchema parse with empty 全局', () => {
     expect(() => RootSchema.parse({ 全局: {} })).not.toThrow();
   });
-  it('default: 作弊标记=false, 编年史=[], 覆写日志=[]', () => {
+  it('default: _作弊标记=false, _编年史=[], _覆写日志=[]', () => {
     const g = 全局Schema.parse({});
-    expect(g.作弊标记).toBe(false);
-    expect(g.编年史).toEqual([]);
-    expect(g.覆写日志).toEqual([]);
+    expect(g._作弊标记).toBe(false);
+    expect(g._编年史).toEqual([]);
+    expect(g._覆写日志).toEqual([]);
   });
 
   // ── 秘密库 ────────────────────────────────────────────────────────────────────
@@ -956,38 +956,38 @@ describe('4.5 Global layer', () => {
   });
 
   // ── 覆写日志（附录H·提案单引用·Z3·6.68）─────────────────────────────────────
-  it('valid 覆写日志 with 提案单引用', () => {
+  it('valid _覆写日志 with 提案单引用', () => {
     expect(() => 全局Schema.parse({
-      覆写日志: [{
+      _覆写日志: [{
         时间: 5000, 授权源: '系统管理员', 级别: 'L2',
         目标: 'NPC.npc_大臣.属性.智慧', 理由: '角色扶正调整',
         是否作弊: false, 提案单引用: 'proposal_Z3_001',
       }],
     })).not.toThrow();
   });
-  it('valid: 覆写日志 提案单引用 absent (可空)', () => {
+  it('valid: _覆写日志 提案单引用 absent (可空)', () => {
     expect(() => 全局Schema.parse({
-      覆写日志: [{ 时间: 0, 授权源: '', 级别: 'L1', 目标: '', 理由: '', 是否作弊: true }],
+      _覆写日志: [{ 时间: 0, 授权源: '', 级别: 'L1', 目标: '', 理由: '', 是否作弊: true }],
     })).not.toThrow();
   });
-  it('invalid: 覆写日志 wrong type', () => {
-    expect(全局Schema.safeParse({ 覆写日志: 'not-an-array' }).success).toBe(false);
+  it('invalid: _覆写日志 wrong type', () => {
+    expect(全局Schema.safeParse({ _覆写日志: 'not-an-array' }).success).toBe(false);
   });
 
-  // ── 作弊标记 ─────────────────────────────────────────────────────────────────
-  it('valid: 作弊标记 true', () => {
-    expect(() => 全局Schema.parse({ 作弊标记: true })).not.toThrow();
+  // ── _作弊标记 ────────────────────────────────────────────────────────────────
+  it('valid: _作弊标记 true', () => {
+    expect(() => 全局Schema.parse({ _作弊标记: true })).not.toThrow();
   });
 
-  // ── 编年史（6.43·append-only·媒介附件格式）──────────────────────────────────────
-  it('valid 编年史条目 minimal', () => {
+  // ── _编年史（6.43·append-only·媒介附件格式）─────────────────────────────────────
+  it('valid _编年史条目 minimal', () => {
     expect(() => 全局Schema.parse({
-      编年史: [{ 序号: 1, 时间: 0, 标题: '开局', 结果摘要行: '故事开始' }],
+      _编年史: [{ 序号: 1, 时间: 0, 标题: '开局', 结果摘要行: '故事开始' }],
     })).not.toThrow();
   });
-  it('valid 编年史条目 with 媒介附件', () => {
+  it('valid _编年史条目 with 媒介附件', () => {
     expect(() => 全局Schema.parse({
-      编年史: [{
+      _编年史: [{
         序号: 2, 时间: 500, 标题: '朝廷大变', 地点键: 'loc_皇宫',
         母题: '权臣篡位', 结果摘要行: '权臣逼宫', 关联实体键: ['npc_权臣', 'npc_皇帝'],
         事件id: 'evt_001', 重要等级: '核心',
@@ -995,27 +995,27 @@ describe('4.5 Global layer', () => {
       }],
     })).not.toThrow();
   });
-  it('valid: 编年史 时间负值（史前/古代背景）', () => {
+  it('valid: _编年史 时间负值（史前/古代背景）', () => {
     expect(() => 全局Schema.parse({
-      编年史: [{ 序号: 0, 时间: -10000, 标题: '远古纪元', 结果摘要行: '混沌初开' }],
+      _编年史: [{ 序号: 0, 时间: -10000, 标题: '远古纪元', 结果摘要行: '混沌初开' }],
     })).not.toThrow();
   });
-  it('invalid: 编年史条目 缺 序号（required field）', () => {
+  it('invalid: _编年史条目 缺 序号（required field）', () => {
     expect(全局Schema.safeParse({
-      编年史: [{ 时间: 0, 标题: '无序号', 结果摘要行: '' }],
+      _编年史: [{ 时间: 0, 标题: '无序号', 结果摘要行: '' }],
     }).success).toBe(false);
   });
-  it('invalid: 编年史 媒介附件 渲染缓存全文超 HISTORY_TEXT_MAX', () => {
+  it('invalid: _编年史 媒介附件 渲染缓存全文超 HISTORY_TEXT_MAX', () => {
     expect(全局Schema.safeParse({
-      编年史: [{
+      _编年史: [{
         序号: 1, 结果摘要行: '',
         媒介附件: { 渠道标签: 'x', 渲染缓存全文: 'a'.repeat(HISTORY_TEXT_MAX + 1) },
       }],
     }).success).toBe(false);
   });
-  it('invalid: 编年史 媒介附件 缺 渠道标签（required field）', () => {
+  it('invalid: _编年史 媒介附件 缺 渠道标签（required field）', () => {
     expect(全局Schema.safeParse({
-      编年史: [{ 序号: 1, 结果摘要行: '', 媒介附件: { 格式模板键: 'tpl_x', 渲染缓存全文: '' } }],
+      _编年史: [{ 序号: 1, 结果摘要行: '', 媒介附件: { 格式模板键: 'tpl_x', 渲染缓存全文: '' } }],
     }).success).toBe(false);
   });
 
@@ -1026,9 +1026,9 @@ describe('4.5 Global layer', () => {
       约定库: { p001: { 形式: '盟约', 约束力: 70, 状态: '有效', 子类型: { 类型: '循环承诺', 周期: 1440 }, 挂靠时钟域: 'clock_主', 目标失效回退: '作废' } },
       继承包: { 候选: [], 世界遗产白名单: ['世界.格局'] },
       家族树: { 边: { role_a: { 生卒: {}, 双亲边: [], 总评: '开国之君', 关键成就: [], 传家宝: [] } }, 幽灵节点: {} },
-      覆写日志: [{ 时间: 100, 授权源: 'GM', 级别: 'L1', 目标: 'NPC.x.属性.力量', 理由: '测试', 是否作弊: false, 提案单引用: 'prop_001' }],
-      作弊标记: false,
-      编年史: [{ 序号: 1, 时间: 100, 标题: '创世', 结果摘要行: '故事开始', 关联实体键: ['npc_x'], 重要等级: '核心' }],
+      _覆写日志: [{ 时间: 100, 授权源: 'GM', 级别: 'L1', 目标: 'NPC.x.属性.力量', 理由: '测试', 是否作弊: false, 提案单引用: 'prop_001' }],
+      _作弊标记: false,
+      _编年史: [{ 序号: 1, 时间: 100, 标题: '创世', 结果摘要行: '故事开始', 关联实体键: ['npc_x'], 重要等级: '核心' }],
     })).not.toThrow();
   });
 });
@@ -1716,10 +1716,10 @@ describe('4.9 $ layer', () => {
   it('存档头: 全局回滚计数器 非整数拒收', () => {
     expect(存档头Schema.safeParse({ 全局回滚计数器: 1.5 }).success).toBe(false);
   });
-  it('存档头: RootSchema 挂载确认', () => {
+  it('_存档头: RootSchema 挂载确认', () => {
     const res = RootSchema.parse({});
-    expect(res.存档头).toBeDefined();
-    expect(res.存档头.全局回滚计数器).toBe(0);
+    expect(res._存档头).toBeDefined();
+    expect(res._存档头.全局回滚计数器).toBe(0);
   });
 
   // ── 缺口五·重试策略?（6.67·$预算控制台）────────────────────────────────────
@@ -2132,7 +2132,7 @@ describe('4.10 Preset layer', () => {
   });
   it('世界遗产白名单出厂值: valid 路径列表', () => {
     expect(玩法预设Schema.safeParse({
-      世界遗产白名单出厂值: ['$meta.周目谱系', '全局.家族树', '全局.编年史'],
+      世界遗产白名单出厂值: ['$meta.周目谱系', '全局.家族树', '全局._编年史'],
     }).success).toBe(true);
   });
   it('世界遗产白名单出厂值: 空数组合法（mod 可覆盖）', () => {
@@ -2273,13 +2273,13 @@ describe('P0-1 minimum empty state', () => {
     const state = RootSchema.parse({});
     expect(state._叙事设置.人称.视角锁定).toBe('锁定单一宿主');
   });
-  it('empty state: 系统.功能开关表 has all 6.75/6.76 defaults', () => {
+  it('empty state: _系统.功能开关表 has all 6.75/6.76 defaults', () => {
     const state = RootSchema.parse({});
-    expect(state.系统.功能开关表.观战模式).toBe(false);
-    expect(state.系统.功能开关表.舞台追踪).toBe('自动按场景');
-    expect(state.系统.功能开关表.二审严格度).toBe(50);
-    expect(state.系统.功能开关表.二审维度开关).toEqual({});
-    expect(state.系统.功能开关表.观战推进模式).toBe('手动步进');
+    expect(state._系统.功能开关表.观战模式).toBe(false);
+    expect(state._系统.功能开关表.舞台追踪).toBe('自动按场景');
+    expect(state._系统.功能开关表.二审严格度).toBe(50);
+    expect(state._系统.功能开关表.二审维度开关).toEqual({});
+    expect(state._系统.功能开关表.观战推进模式).toBe('手动步进');
   });
   it('empty state: 世界域 defaults to {}', () => {
     const state = RootSchema.parse({});
@@ -2321,9 +2321,9 @@ describe('blueprint ↔ schema consistency', () => {
 // 6.43 编年史 · 叙事流
 // ══════════════════════════════════════════
 
-describe('6.43 编年史（全局.编年史）', () => {
-  it('全局Schema: 编年史默认为空数组', () => {
-    expect(全局Schema.parse({}).编年史).toEqual([]);
+describe('6.43 编年史（全局._编年史）', () => {
+  it('全局Schema: _编年史默认为空数组', () => {
+    expect(全局Schema.parse({})._编年史).toEqual([]);
   });
   it('编年史条目: 时间负值（史前/古代背景）必须通过', () => {
     expect(编年史条目Schema.safeParse({

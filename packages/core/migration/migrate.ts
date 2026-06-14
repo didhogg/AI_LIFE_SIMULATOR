@@ -875,7 +875,7 @@ export function buildV41Raw(input: unknown): MigrateRawResult {
   const raw: Record<string, unknown> = {
     _系统版本: '4.1',
     _tick: { id: asStr(tickV31['id']), 拍计数: tickPeriod <= 0 ? 0 : tickPeriod, 难度系数组指纹: 难度str ? `difficulty:${难度str}` : '' },
-    系统: {
+    _系统: {
       schema_version: asNum(系统v31['schema_version']),
       migration_version: asNum(系统v31['migration_version']),
       last_migration: p2e(asNum(系统v31['last_migration_cycle'])),
@@ -885,7 +885,7 @@ export function buildV41Raw(input: unknown): MigrateRawResult {
       事件来源权重: { 事件包: 50, AI自发: 50 },
     },
     _叙事设置: { 人称: {}, 叙事偏好: asStr(叙v31['叙事风格']) },
-    状态机: { 当前态, 模态栈: [], timeMode: 'PAUSED', 双时钟: { 世界钟: writeEpochMinute(worldEpochMin), 镜头钟: writeEpochMinute(worldEpochMin) } },
+    _状态机: { 当前态, 模态栈: [], timeMode: 'PAUSED', 双时钟: { 世界钟: writeEpochMinute(worldEpochMin), 镜头钟: writeEpochMinute(worldEpochMin) } },
     世界: {
       纪元分钟: writeEpochMinute(worldEpochMin),
       历法: {},
@@ -899,13 +899,13 @@ export function buildV41Raw(input: unknown): MigrateRawResult {
     },
     世界域: {},
     // 6.53 C1: 旧 镜头焦点角色 字符串指针升格为席位表（单机退化为单席位「本机」）
-    席位表: { 本机: { 焦点角色键: 主角键, 控制者: '人类', 连接状态: '本地' } },
+    _席位表: { 本机: { 焦点角色键: 主角键, 控制者: '人类', 连接状态: '本地' } },
     NPC: npcV41,
     已故NPC归档: 已故v41,
     认知档案: build认知档案(主角键, npcV31, worldEpochMin),
     组织实体: asRec(root['组织实体']),
     组织关系网: 组织关系网v41,
-    全局: { 秘密库, 约定库, 继承包: asRec(全局v31['继承包']), 家族树, 覆写日志: [], 作弊标记: false },
+    全局: { 秘密库, 约定库, 继承包: asRec(全局v31['继承包']), 家族树, _覆写日志: [], _作弊标记: false },
     地图: { 地点: asRec(asRec(root['地图'])['地点']), 战役: asRec(asRec(root['地图'])['战役']), 区域物价: asRec(asRec(root['地图'])['区域物价']) },
     战争状态: {},
     赛事实例: {},
@@ -943,10 +943,64 @@ export function buildV41Raw(input: unknown): MigrateRawResult {
   return { raw, log };
 }
 
+// ── applyPrefixRenames (V4.1 in-place key rename migration) ──────────────────
+// Renames the 7 engine-internal keys to carry explicit _ prefix.
+// Idempotent: if _状态机 already exists the migration is skipped.
+// migration_version bumped by 1 on rename.
+
+const TOP_RENAMES: Array<[string, string]> = [
+  ['状态机', '_状态机'],
+  ['系统',   '_系统'],
+  ['存档头', '_存档头'],
+  ['席位表', '_席位表'],
+];
+
+const 全局_RENAMES: Array<[string, string]> = [
+  ['覆写日志', '_覆写日志'],
+  ['编年史',   '_编年史'],
+  ['作弊标记', '_作弊标记'],
+];
+
+export function applyPrefixRenames(raw: Record<string, unknown>): Record<string, unknown> {
+  if ('_状态机' in raw) return raw;  // idempotent guard
+
+  const result: Record<string, unknown> = { ...raw };
+
+  for (const [oldKey, newKey] of TOP_RENAMES) {
+    if (oldKey in result) {
+      result[newKey] = result[oldKey];
+      delete result[oldKey];
+    }
+  }
+
+  const 全局Src = result['全局'];
+  if (typeof 全局Src === 'object' && 全局Src !== null && !Array.isArray(全局Src)) {
+    const g: Record<string, unknown> = { ...(全局Src as Record<string, unknown>) };
+    for (const [oldKey, newKey] of 全局_RENAMES) {
+      if (oldKey in g) {
+        g[newKey] = g[oldKey];
+        delete g[oldKey];
+      }
+    }
+    result['全局'] = g;
+  }
+
+  const 系统Src = result['_系统'];
+  if (typeof 系统Src === 'object' && 系统Src !== null) {
+    const sys: Record<string, unknown> = { ...(系统Src as Record<string, unknown>) };
+    sys['migration_version'] = asNum(sys['migration_version']) + 1;
+    result['_系统'] = sys;
+  }
+
+  return result;
+}
+
 // ── migrate (public entry) ─────────────────────────────────────────────────────
 
 export function migrate(input: unknown): MigrateResult {
   const { raw, log } = buildV41Raw(input);
+  // buildV41Raw already emits new key names; applyPrefixRenames is a no-op here
+  // but is exported for callers who load existing V4.1 saves with old key names.
   const state = RootSchema.parse(raw);
   return { state, log };
 }

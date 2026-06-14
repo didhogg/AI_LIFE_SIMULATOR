@@ -29,11 +29,11 @@ describe('P0-6 gate① · classifyTopKey 前缀分层', () => {
     expect(classifyTopKey('_叙事设置')).toBe('read-only');
   });
 
-  it('engine-internal keys → engine-internal', () => {
-    expect(classifyTopKey('状态机')).toBe('engine-internal');
-    expect(classifyTopKey('存档头')).toBe('engine-internal');
-    expect(classifyTopKey('系统')).toBe('engine-internal');
-    expect(classifyTopKey('席位表')).toBe('engine-internal');
+  it('_ prefixed engine-internal keys → read-only (pure prefix derivation)', () => {
+    expect(classifyTopKey('_状态机')).toBe('read-only');
+    expect(classifyTopKey('_存档头')).toBe('read-only');
+    expect(classifyTopKey('_系统')).toBe('read-only');
+    expect(classifyTopKey('_席位表')).toBe('read-only');
   });
 
   it('AI-facing entity domain keys → writable', () => {
@@ -71,10 +71,6 @@ describe('P0-6 gate① · nestedFieldLayer 嵌套前缀继承', () => {
   it('normal field inside writable parent → writable', () => {
     expect(nestedFieldLayer('属性', 'writable')).toBe('writable');
     expect(nestedFieldLayer('体质', 'writable')).toBe('writable');
-  });
-
-  it('engine-internal parent propagates to children', () => {
-    expect(nestedFieldLayer('当前态', 'engine-internal')).toBe('engine-internal');
   });
 
   it('invisible parent propagates to children', () => {
@@ -224,11 +220,11 @@ describe('P0-6 gate① · Check C · 动词目标路径白名单覆盖', () => {
     expect(e!.layer).toBe('writable');
   });
 
-  it('追加·编年史: 全局.编年史 is writable array', () => {
+  it('全局._编年史 is read-only array (engine-written chronicle)', () => {
     const entries = deriveWritableWhitelist();
-    const e = entries.find(p => p.path === '全局.编年史');
+    const e = entries.find(p => p.path === '全局._编年史');
     expect(e).toBeDefined();
-    expect(e!.layer).toBe('writable');
+    expect(e!.layer).toBe('read-only');
     expect(e!.kind).toBe('array');
   });
 
@@ -266,10 +262,21 @@ describe('P0-6 gate① · Full dry-run report', () => {
     expect(report.checkC.missing).toHaveLength(0);
   });
 
-  it('engine-internal ambiguities are flagged', () => {
+  it('no engine-internal ambiguities — pure prefix derivation resolves all', () => {
     const report = runDryRun();
-    // At minimum 状态机, 存档头, 系统, 席位表 should be flagged
-    expect(report.layerAmbiguities.some(a => a.includes('状态机'))).toBe(true);
-    expect(report.layerAmbiguities.some(a => a.includes('存档头'))).toBe(true);
+    // After adding _ prefix to all engine-internal keys, layerAmbiguities is
+    // purely informational (nested $ fields note). No "missing _ prefix" entries.
+    const hasAmbiguity = report.layerAmbiguities.some(
+      a => a.includes('has no prefix but is engine-managed'),
+    );
+    expect(hasAmbiguity).toBe(false);
+  });
+
+  it('layerAmbiguities may contain informational nested $ note', () => {
+    const report = runDryRun();
+    // The note about nested $ fields correctly handled should mention OK:
+    if (report.layerAmbiguities.length > 0) {
+      expect(report.layerAmbiguities.every(a => a.startsWith('OK:'))).toBe(true);
+    }
   });
 });
