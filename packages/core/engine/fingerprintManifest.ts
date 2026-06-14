@@ -22,6 +22,7 @@ export const FINGERPRINT_BUNDLE_MEMBERS = [
   '约定谓词集',             // Q5·约定库谓词/选择器谓词定义表·判定面·改定义即改判定
   '级联限制',               // J5·级联深度N+轮号上限·判定面·改上限即改判定
   '归并表',                 // S4b·归并规则表·判定面·改归并即改判定
+  '纠缠闭包弱边阈值',       // 6.66·累积强度 < 阈值截断弱边·判定面·默认0.2·改阈值即改判定
   // TODO(P0-7): 方式×速度换算表 — 家在 P0-7 速度模型，届时加入签名 + 补断言
   // TODO(P0-7): H7量纲表全量 — 家在 P0-7 量纲系统，届时加入签名 + 补断言
 ] as const;
@@ -33,6 +34,7 @@ export const FINGERPRINT_PRESET_FIELDS = [
   '生效中内容包集哈希',       // B1c: 全部已启用 mod 内容哈希? 的集合哈希
   '规则补丁哈希',             // K5: canonicalize(规则补丁) 的哈希·preset 已有 规则补丁Schema
   'DSL文法版本',              // DSL v1.0 冻结文法版本·求值器解析口径·改版即改判定
+  '求值器函数库版本',          // §十A·v1={min,max,clamp,pow,sqrt}逐位恒等·增列超越函数时 bump·旧档锁旧版语义重放
   // TODO(P0-6): 6.62 纪元包集版本 — era package version fingerprint placeholder
 ] as const;
 

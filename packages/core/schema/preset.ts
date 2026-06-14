@@ -452,6 +452,9 @@ export const 玩法预设Schema = z.object({
   检定档切分表: 检定档切分表Schema,
   钳制表: 钳制表Schema,
   概率域夹逼: 概率域夹逼Schema,          // H4·随整包入指纹·判定概率 clamp 至 [p_最小, p_最大]
+  // 6.66·纠缠闭包弱边阈值（判定面·随整包入指纹）
+  // 累积强度 < 阈值 即截断弱边、界定闭包半径防扩散全图；口径同涟漪稀疏化阈值
+  纠缠闭包弱边阈值: z.number().min(0).max(1).default(0.2),
   账面安全界限: 账面安全界限Schema,       // H1·入账前 clamp·不进指纹（安全执行层·非判定面）
 
   // ── 指纹族补完（Q5/J5/S4b·入 hashJudgmentBundle·判定面整包·零迁移）──────────────
@@ -462,6 +465,10 @@ export const 玩法预设Schema = z.object({
   }).optional(),
   归并表: z.record(z.string(), z.unknown()).optional(),      // S4b·归并规则表
   DSL文法版本: z.string().default('1.0'),                   // DSL v1.0 frozen
+  // §十A 分层方案·与 DSL 文法版本并列·随 U3 版本分段
+  // v1 = {min,max,clamp,pow,sqrt} 全逐位恒等固定实现；增列超越函数时 bump 版本号
+  // 旧档锁旧版本语义重放，防优化后重放旧档产生假分叉
+  求值器函数库版本: z.number().int().min(1).default(1),
 
   // ── P0-1 4.10 缺口 ──────────────────────────────────────────────────────────
   // 缺口一·二审维度库（6.75·开放·叙事质量二审维度注册表）

@@ -44,6 +44,7 @@ type FullCtx = {
   赛事结构模板: unknown;
   派生量配方: unknown;        // 发现B·M·4
   概率域夹逼: unknown;        // H4
+  纠缠闭包弱边阈值: unknown;  // 6.66
   约定谓词集?: unknown;       // Q5
   级联限制?: unknown;         // J5
   归并表?: unknown;           // S4b
@@ -51,6 +52,7 @@ type FullCtx = {
   生效中内容包集哈希: string;
   规则补丁哈希?: string;
   DSL文法版本?: string;       // DSL v1.0 frozen
+  求值器函数库版本?: number;  // §十A evaluator math lib version
   // Snapshot members (passed to hashPresetFingerprint.snapshot):
   难度系数组: unknown;
   判定骰型: 100 | 20;
@@ -120,12 +122,14 @@ const BASE_CTX: FullCtx = {
   赛事结构模板:        {},
   派生量配方:          {},
   概率域夹逼:          { p_最小: 0.0001, p_最大: 0.9999 },
+  纠缠闭包弱边阈值:    0.2,
   约定谓词集:          undefined,
   级联限制:            undefined,
   归并表:              undefined,
   // Preset-level
   生效中内容包集哈希:   '',
   DSL文法版本:         '1.0',
+  求值器函数库版本:    1,
   // Snapshot
   难度系数组:          { 基础成功率调整: 0 },
   判定骰型:           100,
@@ -197,6 +201,7 @@ function fingerprintOf(ctx: FullCtx): string {
     赛事结构模板:        ctx['赛事结构模板'],
     派生量配方:          ctx['派生量配方'],
     概率域夹逼:          ctx['概率域夹逼'],
+    纠缠闭包弱边阈值:    ctx['纠缠闭包弱边阈值'],
     ...(ctx['约定谓词集'] !== undefined ? { 约定谓词集: ctx['约定谓词集'] } : {}),
     ...(ctx['级联限制'] !== undefined ? { 级联限制: ctx['级联限制'] } : {}),
     ...(ctx['归并表'] !== undefined ? { 归并表: ctx['归并表'] } : {}),
@@ -206,6 +211,7 @@ function fingerprintOf(ctx: FullCtx): string {
     生效中内容包集哈希: ctx['生效中内容包集哈希'] as string,
     ...(ctx['规则补丁哈希'] !== undefined ? { 规则补丁哈希: ctx['规则补丁哈希'] as string } : {}),
     ...(ctx['DSL文法版本'] !== undefined ? { DSL文法版本: ctx['DSL文法版本'] as string } : {}),
+    ...(ctx['求值器函数库版本'] !== undefined ? { 求值器函数库版本: ctx['求值器函数库版本'] as number } : {}),
     snapshot: {
       难度系数组:       ctx['难度系数组'],
       判定骰型:        ctx['判定骰型'] as 100 | 20,
@@ -233,6 +239,7 @@ const BUNDLE_MUTATIONS: Record<FingerprintBundleMember, unknown> = {
   赛事结构模板:        { 武术大赛: { 参与者选择器: '*.武者', 赛制: '淘汰', 轮次: 8, 检定配方引用: '武力', 排名表: {}, 奖励钩子: '' } },
   派生量配方:          { HP: { 配方名: 'HP', 主属性: '体质', 副属性列: [], 基础值: 10, 比例系数: 2 } },
   概率域夹逼:          { p_最小: 0.001, p_最大: 0.999 },
+  纠缠闭包弱边阈值:    0.5,
   约定谓词集:          { 关系谓词_相邻: 'npc.distance(target) < 2' },  // Q5
   级联限制:            { 最大深度: 5, 最大轮数: 16 },                    // J5
   归并表:              { 分组归并: { 策略: '最高优先' } },               // S4b
@@ -259,6 +266,7 @@ const PRESET_MUTATIONS: Record<FingerprintPresetField, unknown> = {
   生效中内容包集哈希: 'a1b2c3d4deadbeef',
   规则补丁哈希:      'patch0042',
   DSL文法版本:       '2.0',
+  求值器函数库版本:  2,
 };
 type _PresetMutationsExhaustive = typeof PRESET_MUTATIONS extends Record<FingerprintPresetField, unknown> ? true : never;
 const _checkPreset: _PresetMutationsExhaustive = true;

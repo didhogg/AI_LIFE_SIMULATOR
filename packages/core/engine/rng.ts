@@ -179,6 +179,7 @@ export function hashJudgmentBundle(fields: {
   赛事结构模板: unknown;
   派生量配方: unknown;              // 发现B·M·4·HP/精力等派生量公式
   概率域夹逼: unknown;              // H4·判定概率 clamp 域 [p_最小, p_最大]
+  纠缠闭包弱边阈值: unknown;        // 6.66·累积强度 < 阈值截断弱边·默认0.2
   约定谓词集?: unknown;             // Q5·约定库谓词/选择器谓词定义表
   级联限制?: unknown;               // J5·级联深度N+轮号上限
   归并表?: unknown;                 // S4b·归并规则表
@@ -208,6 +209,8 @@ export function hashPresetFingerprint(fields: {
   规则补丁哈希?: string;
   /** DSL: DSL v1.0 冻结文法版本 */
   DSL文法版本?: string;
+  /** §十A: 求值器函数库版本·v1={min,max,clamp,pow,sqrt}逐位恒等·增列超越函数时 bump */
+  求值器函数库版本?: number;
   /** 快照锁定组·开局锁定·随档快照；调用方从档内快照传入，绝不读 live 预设 */
   snapshot: {
     /** B1a·明文在册·直接纳入 */
