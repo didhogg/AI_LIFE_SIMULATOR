@@ -139,18 +139,58 @@ export const $模型画像Schema = z.record(
   z.string(), // provider 键（claude/gpt/gemini…）
   z.object({
     风格补正提示词: z.string().default(''),
-    // ── P0-1·provider 级采样参数（五键类型化·非开放透传字典）──
+    // ── P0-1·provider 级采样参数（类型化核心键 + 自由透传字典）──
     // 入指纹排除名单（见 fingerprintManifest.$模型画像采样参数）·不影响判定面
     采样参数: z.object({
       温度: z.number().min(0).max(2).optional(),
       top_p: z.number().min(0).max(1).optional(),
+      top_k: z.number().int().min(1).optional(),
       频率惩罚: z.number().min(-2).max(2).optional(),
       存在惩罚: z.number().min(-2).max(2).optional(),
       最大回复tokens: z.number().int().min(1).optional(),
     }).default({}),
+    附加采样参数: z.record(z.string(), z.unknown()).optional(), // 自由透传: MinP/TypicalP/TFS/DRY/XTC/Mirostat
+    停止序列: z.array(z.string()).optional(),
+    // P0-1 黄金窗口·内容评级（per-provider·叙事面·不影响判定）
+    内容容忍度: z.string().optional(),  // 开放串：SFW/NSFW/...·provider 级配置
+    硬审查标注: z.string().optional(),  // 强制审查规则备注
+    解禁提示词: z.string().optional(),  // 风格补正/解禁用追加提示词
     禁词表: z.array(z.string()).default([]), // 6.41 反八股校验规则（非替换规则）·按 provider 分表
   }),
 ).default({});
+
+// ── $生图配置（P2 字段预埋·实装 P2）──
+export const $生图配置Schema = z.object({
+  启用: z.boolean().optional(),
+  生成模式: z.enum(['肖像', '自拍', '场景', '背景', '最后消息可视化']).optional(),
+  源: z.string().optional(),                // 生图提供者标识（开放串）
+  配图密度: z.string().optional(),           // '低'/'中'/'高'（开放串）
+  节奏参数: z.record(z.string(), z.unknown()).optional(),
+}).default({});
+
+// ── $语音配置（P2 字段预埋·实装 P2）──
+export const $语音配置Schema = z.object({
+  TTS源: z.string().optional(),             // TTS 提供者标识（开放串）
+  STT模式: z.enum(['关', '点击说话', '长按说话', '连续监听']).optional(),
+  触发词: z.array(z.string()).optional(),
+  触发词门控: z.boolean().optional(),
+}).default({});
+
+// ── $RAG配置（P2 字段预埋·实装 P2）──
+export const $RAG配置Schema = z.object({
+  启用: z.boolean().optional(),
+  全局知识库: z.array(z.string()).optional(),                            // 全局作用域知识库 ID 列表
+  角色知识库: z.record(z.string(), z.array(z.string())).optional(),     // NPC键 → 知识库 ID 列表
+  聊天附件: z.boolean().optional(),                                     // 是否纳入聊天上传文件
+  embedding提供者: z.string().optional(),
+  分块参数: z.object({
+    块大小: z.number().int().min(1).optional(),
+    重叠: z.number().int().min(0).optional(),
+    阈值: z.number().min(0).max(1).optional(),
+  }).optional(),
+  注入模板: z.string().optional(),
+  注入位置: z.enum(['系统提示头', '系统提示尾', '对话上下文首条']).optional(),
+}).default({});
 
 // ── $沉浸模式 ──
 export const $沉浸模式Schema = z.boolean().default(false);

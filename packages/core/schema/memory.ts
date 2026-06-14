@@ -105,6 +105,9 @@ const 播报基础 = z.object({
   已读: z.boolean().default(false),
   // 缺口6·6.45·暗骰=玩家看不到骰点结果·全暗=玩家看不到任何内容
   遮蔽样式: z.enum(['明牌', '暗骰', '全暗']).optional(),
+  // P0-1 黄金窗口·情绪/表情键（叙事注解·供立绘/BGM/Live2D统一消费·不影响判定）
+  情绪键: z.string().optional(),
+  表情键: z.string().optional(),
 });
 
 export const 播报条目Schema = z.discriminatedUnion('渠道', [
@@ -189,9 +192,12 @@ const 调用类型条目Schema = z.object({
   采样参数: z.object({                         // 精细采样覆盖（覆盖优先级高于顶层温度字段）
     温度: z.number().min(0).max(2).optional(),
     top_p: z.number().min(0).max(1).optional(),
+    top_k: z.number().int().min(1).optional(),
     频率惩罚: z.number().min(-2).max(2).optional(),
     存在惩罚: z.number().min(-2).max(2).optional(),
   }).optional(),
+  附加采样参数: z.record(z.string(), z.unknown()).optional(), // 自由透传: MinP/TypicalP/TFS/DRY/XTC/Mirostat
+  停止序列: z.array(z.string()).optional(),
   最大回复tokens: z.number().int().min(1).optional(),
   思维链: z.object({
     启用: z.boolean().optional(),

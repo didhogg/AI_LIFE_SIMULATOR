@@ -83,6 +83,12 @@ type FullCtx = {
   // B-1 lore exclusions
   lore能力集: unknown;
   'output_tag命名空间': unknown;
+  // P0-1 酒馆功能字段 exclusions
+  内容分级: unknown;
+  情绪键: unknown;
+  表情键: unknown;
+  附加采样参数: unknown;
+  停止序列: unknown;
   [key: string]: unknown; // index sig for dynamic spread in loops
 };
 
@@ -137,6 +143,12 @@ const BASE_CTX: FullCtx = {
   // B-1 lore exclusions
   lore能力集:          [],
   'output_tag命名空间': '',
+  // P0-1 酒馆功能字段 exclusions
+  内容分级:            undefined,
+  情绪键:              undefined,
+  表情键:              undefined,
+  附加采样参数:        undefined,
+  停止序列:            undefined,
 };
 
 /** Extract fingerprint from a FullCtx — excluded fields are invisible to the functions. */
@@ -244,6 +256,12 @@ const EXCLUDED_MUTATIONS: Record<FingerprintExcludedField, unknown> = {
   // B-1 lore exclusions
   lore能力集:          [{ 类型: 'output_tag', 输出命名空间: 'cuisine:flavor_tag' }],
   'output_tag命名空间': 'cuisine:flavor_tag',
+  // P0-1 酒馆功能字段 exclusions
+  内容分级:            'NSFW',
+  情绪键:              '悲伤',
+  表情键:              'cry',
+  附加采样参数:        { min_p: 0.05, typical_p: 0.9 },
+  停止序列:            ['###', '---'],
 };
 type _ExcludedMutationsExhaustive = typeof EXCLUDED_MUTATIONS extends Record<FingerprintExcludedField, unknown> ? true : never;
 const _checkExcluded: _ExcludedMutationsExhaustive = true;

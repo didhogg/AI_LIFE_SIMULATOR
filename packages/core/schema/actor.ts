@@ -390,6 +390,9 @@ export const NpcSchema = z.object({
   })).default([]),
   虚拟位置: z.string().optional(), // 赛博化身专用
   立绘引用: z.string().optional(), // 生图接口位，P2 前不实现
+  // P0-1 黄金窗口·生图/语音字段预埋（实装 P2）
+  视觉锚定特征: z.record(z.string(), z.string()).optional(), // 生图提示词锚定特征表（开放键值对）
+  声线: z.string().optional(),                              // RVC 声线模型 ID
 
   // ── 数值面 ──
   属性: 属性Schema.default({}),

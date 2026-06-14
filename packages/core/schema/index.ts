@@ -1,4 +1,4 @@
-// V4.1 RootSchema — 45 top-level keys (rev: +$天命重掷券, P0-5: +$存档种子, P0-1: 镜头焦点角色→席位表, P0-1 4.8: +调用类型注册表 +Ring2在途调用信封, P0-1 4.9: +存档头, B-1: +_lore知识库)
+// V4.1 RootSchema — 48 top-level keys (rev: +$天命重掷券, P0-5: +$存档种子, P0-1: 镜头焦点角色→席位表, P0-1 4.8: +调用类型注册表 +Ring2在途调用信封, P0-1 4.9: +存档头, B-1: +_lore知识库, P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置)
 import { z } from 'zod';
 
 // ── Layer exports (re-export all sub-schemas) ──
@@ -61,11 +61,14 @@ import {
   $模型画像Schema,
   $沉浸模式Schema,
   $天命重掷券Schema,
+  $生图配置Schema,
+  $语音配置Schema,
+  $RAG配置Schema,
   存档头Schema,
   $metaSchema,
 } from './dollar.js';
 
-// ── Authoritative 45-key list from blueprint 4.0 (rev: +$天命重掷券, P0-5: +$存档种子, B-1: +_lore知识库) ──
+// ── Authoritative 48-key list from blueprint 4.0 (rev: +$天命重掷券, P0-5: +$存档种子, B-1: +_lore知识库, P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置) ──
 export const BLUEPRINT_KEYS = [
   '_系统版本',
   '_tick',
@@ -109,6 +112,9 @@ export const BLUEPRINT_KEYS = [
   '$沉浸模式',
   '$天命重掷券',
   '$存档种子',
+  '$生图配置',
+  '$语音配置',
+  '$RAG配置',
   '_存档头',
   '$meta',
   '_lore知识库',
@@ -176,6 +182,9 @@ export const RootSchema = z.object({
   $沉浸模式: $沉浸模式Schema,
   $天命重掷券: $天命重掷券Schema.default({}),
   $存档种子: $存档种子Schema,
+  $生图配置: $生图配置Schema,
+  $语音配置: $语音配置Schema,
+  $RAG配置: $RAG配置Schema,
   _存档头: 存档头Schema.default({}),
   $meta: $metaSchema.default({}),
   // 4.X Module 15 — lore 知识库（世界恒真知识层·AI 只读·零迁移可空）

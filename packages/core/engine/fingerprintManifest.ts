@@ -83,6 +83,12 @@ export const FINGERPRINT_EXCLUDED_FIELDS = [
   // TODO(P0-6): lore.触发谓词 → gate判定路径 → 纳 FINGERPRINT_BUNDLE_MEMBERS 或独立签名·届时补断言
   'lore能力集',         // [TOOL] 能力类型白名单·能力路由元数据·叙事调度层·不影响判定面
   'output_tag命名空间', // output_tag 变量命名空间·S/K 批治理元数据·不影响判定
+  // P0-1 黄金窗口·酒馆功能字段（叙事/LLM路由层·不影响判定面）
+  '内容分级',      // B桶状态·内容分级开关·叙事面·不影响判定
+  '情绪键',        // 叙事注解·立绘/BGM/Live2D消费·不影响判定
+  '表情键',        // 叙事注解·同上·不影响判定
+  '附加采样参数',  // 自由透传采样参数·LLM路由·不影响判定
+  '停止序列',      // 停止序列·LLM路由·不影响判定
 ] as const;
 
 export type FingerprintBundleMember = (typeof FINGERPRINT_BUNDLE_MEMBERS)[number];
