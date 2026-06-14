@@ -1,11 +1,23 @@
 // Ring 0 RNG primitives — pure functions, zero side effects.
 // Uses pure-rand xorshift128plus; no Math.random() (banned by ESLint).
 // Seed synthesis uses FNV-1a hash on a structured string to prevent XOR-folding collisions.
-// Channel prefix convention: 检定:xxx / 触发:xxx / 天命:xxx
+//
+// Channel prefix convention:
+//   检定:xxx    — ordinary skill check (rngFor)
+//   触发:xxx    — event/trigger check (rngFor)
+//   天命:xxx    — life-or-death / cycle-level fate check (rngForFate ONLY)
+//
+// 天命通道命名规范（生死/周目级概率判定强制走天命通道）:
+//   天命:生死判定    — NPC 死亡/生存拦截判定
+//   天命:周目开启    — 新周目/穿越触发判定
+//   天命:天命重掷    — 玩家使用天命重掷券重掷
+// 规则：锚定封印时拍号（originating tick，非当前拍号），fateRerollIndex 是
+//        天命重掷券使用计数（≠ 普通 rerollSalt），两盐源严格隔离不混用。
 import * as prand from 'pure-rand';
 import { canonicalize } from './text/canonicalize.js';
 
-const FATE_PREFIX = '天命:';
+/** 天命通道前缀常量（生死/周目级概率判定专用·强制使用 rngForFate） */
+export const FATE_PREFIX = '天命:';
 
 /** FNV-1a 32-bit hash — pure, zero dependencies. */
 function fnv1a32(s: string): number {
@@ -21,49 +33,77 @@ function fnv1a32(s: string): number {
  * Derive a sub-seed from structured inputs.
  * Null-byte delimiters prevent field-boundary collisions.
  * Prevents XOR-folding: (tick=5, salt=1) ≠ (tick=4, salt=0).
+ * roundIndex disambiguates multiple rolls for the same channel in a single tick
+ * (e.g. consecutive combat rounds — R5 determinism).
  */
 function deriveSubSeed(
   seed: number,
   tick: number,
   channel: string,
   salt: number,
+  roundIndex: number,
 ): number {
-  const input = `${seed}\x00${tick}\x00${channel}\x00${salt}`;
+  const input = `${seed}\x00${tick}\x00${channel}\x00${salt}\x00${roundIndex}`;
   return fnv1a32(input);
+}
+
+/**
+ * Extract rerollSalt from _存档头.全局回滚计数器 (盐源规范).
+ *
+ * 盐源规范（R5 确定性）:
+ *   - rngFor() 的 rerollSalt 必须来自 _存档头.全局回滚计数器
+ *   - 计数器每次重掷/存档加载时 +1，且不随快照回滚还原（结构性阻止骰子农场）
+ *   - 禁止将 $会话状态.演出层草稿计数 传入此参数（见 AA10）
+ *
+ * P0-9 接线：runTick 实装后引擎自动传递，调用方届时可移除手动调用。
+ */
+export function saltFromArchiveHeader(
+  header: { 全局回滚计数器: number },
+): number {
+  return header.全局回滚计数器;
 }
 
 /**
  * Generate u ∈ [0, 99] for ordinary (non-fate) checks.
  *
- * rerollSalt = 存档头·全局回滚计数器: increments on every reroll/重掷,
- *   NEVER restored by snapshot rollback — structurally blocks dice-farming.
- *   P0-5: caller passes it in directly.  P0-9 will wire $存档头.全局回滚计数器.
+ * rerollSalt = _存档头.全局回滚计数器 (via saltFromArchiveHeader).
+ *   Increments on every reroll/重掷; NEVER restored by snapshot rollback —
+ *   structurally blocks dice-farming. P0-9 will wire automatically via runTick.
  *
- * ⚠️  演出层草稿计数 ($会话状态.演出层草稿计数, formerly 本拍重掷序号) is a pure
- *   narrative watermark and MUST NOT be passed here as rerollSalt.
- *   The two are orthogonal: salt → RNG; draft count → narrative only, never enters judgment.
+ * roundIndex (R5 确定性): disambiguates multiple rolls for the same channel in
+ *   a single tick (e.g. combat rounds). Defaults to 0; increment for each
+ *   subsequent roll in the same (seed, tick, channel, salt) tuple.
+ *
+ * ⚠️  演出层草稿计数 ($会话状态.演出层草稿计数) is a pure narrative watermark and
+ *   MUST NOT be passed here as rerollSalt. See AA10.
  *
  * Throws if channel starts with '天命:' — use rngForFate instead.
+ * 生死/周目级判定强制走 rngForFate（锚拍号、不混 rerollSalt）。
  */
 export function rngFor(
   seed: number,
   tick: number,
   channel: string,
   rerollSalt: number,
+  roundIndex = 0,
 ): number {
   if (channel.startsWith(FATE_PREFIX)) {
     throw new Error(`rngFor 拒绝天命通道，请使用 rngForFate：${channel}`);
   }
-  const subSeed = deriveSubSeed(seed, tick, channel, rerollSalt);
+  const subSeed = deriveSubSeed(seed, tick, channel, rerollSalt, roundIndex);
   const rng = prand.xorshift128plus(subSeed);
   return prand.unsafeUniformIntDistribution(0, 99, rng);
 }
 
 /**
  * Generate u ∈ [0, 99] for fate checks (天命通道).
- * fateRerollIndex increments only when a 天命重掷券 is used.
+ *
+ * 天命通道规范（生死/周目级判定强制使用此函数）:
+ *   - tick        = 封印时拍号（originating tick，发起命运判定时的拍号，不是当前拍号）
+ *   - fateRerollIndex = $天命重掷券.已用记录.length — 仅天命重掷券使用时递增
+ *   - 不混 rerollSalt（_存档头.全局回滚计数器）：普通重掷不改变天命骰
+ *
  * Throws if channel does not start with '天命:'.
- * Never mixes ordinary rerollSalt — fate rolls don't change with player rerolls.
  */
 export function rngForFate(
   seed: number,
@@ -76,7 +116,7 @@ export function rngForFate(
       `rngForFate 只接受天命通道（前缀 "天命:"），收到：${channel}`,
     );
   }
-  const subSeed = deriveSubSeed(seed, tick, channel, fateRerollIndex);
+  const subSeed = deriveSubSeed(seed, tick, channel, fateRerollIndex, 0);
   const rng = prand.xorshift128plus(subSeed);
   return prand.unsafeUniformIntDistribution(0, 99, rng);
 }

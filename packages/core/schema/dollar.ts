@@ -59,6 +59,13 @@ export const $战斗暂存Schema = z.object({
   terrain: z.string().optional(),  // 预留字段（6.2 schema 版本化）
   cover: z.string().optional(),
   zoc: z.string().optional(),
+  // R5-c 确定性：快照锚 pin 整场（P0-7 runTick 接线）
+  // 战斗开启时 pin 此刻的存档种子和拍号，整场所有骰从此锚派发
+  // TODO(P0-7): CombatResolver.init() 写入快照锚；回放时以锚重播全场骰序保证逐位等幂
+  快照锚: z.object({
+    种子: z.number().int().optional(),    // pin 时的 $存档种子
+    锚拍号: z.number().int().optional(),  // CombatResolver.init() 时的当前拍号
+  }).optional(),
 });
 
 // ── $玩家偏好（引擎幕后加权，AI 不可见；拍板一）──

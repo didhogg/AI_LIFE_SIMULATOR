@@ -26,6 +26,11 @@ export const 叙事流条目Schema = z.object({
   线程键: z.string().optional(),
   // X4·修正目标序号：撤回/更正事件回指原条目序号；absent=非修正行
   修正目标序号: z.number().int().optional(),
+  // R5 确定性·tick内序号：同一拍内的排序序号（意图序/注入序统一字段）
+  // 玩家输入 来源 → 意图序（intent order within tick）
+  // 引擎系统行 来源 → 注入序（injection/trigger order within tick）
+  // 回放/重组装时以此为次排序键（主键=序号），保证拍内确定性顺序
+  tick内序号: z.number().int().optional(),
   正文: z.string().max(HISTORY_TEXT_MAX), // AI行/玩家行冻结原文
   结构化附注: z.record(z.string(), z.unknown()).optional(), // 系统行只存附注，由渲染器确定性重排
 }).strip();
