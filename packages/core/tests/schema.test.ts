@@ -1677,6 +1677,39 @@ describe('4.9 $ layer', () => {
     }).success).toBe(false);
   });
 
+  // ── P0-1·$模型画像.采样参数 五键类型化（非开放透传字典）────────────────────────
+  it('$模型画像: 采样参数 absent → default {}（零迁移）', () => {
+    const res = $模型画像Schema.parse({ claude: {} });
+    expect(res['claude']?.采样参数).toEqual({});
+  });
+  it('$模型画像: 采样参数 五键全填 valid', () => {
+    expect($模型画像Schema.safeParse({
+      claude: { 采样参数: { 温度: 0.7, top_p: 0.9, 频率惩罚: 0.1, 存在惩罚: 0.2, 最大回复tokens: 4096 } },
+    }).success).toBe(true);
+  });
+  it('$模型画像: 采样参数 部分键 valid（各键可空）', () => {
+    expect($模型画像Schema.safeParse({
+      claude: { 采样参数: { 温度: 1.2 } },
+    }).success).toBe(true);
+  });
+  it('$模型画像: 采样参数 温度超界拒收', () => {
+    expect($模型画像Schema.safeParse({
+      claude: { 采样参数: { 温度: 2.5 } },
+    }).success).toBe(false);
+  });
+  it('$模型画像: 采样参数 最大回复tokens 非正整数拒收', () => {
+    expect($模型画像Schema.safeParse({
+      claude: { 采样参数: { 最大回复tokens: 0 } },
+    }).success).toBe(false);
+  });
+  it('$模型画像: 多 provider 各有独立采样参数', () => {
+    expect($模型画像Schema.safeParse({
+      claude:  { 采样参数: { 温度: 0.7, 最大回复tokens: 4096 } },
+      gpt4:    { 采样参数: { 温度: 1.0, top_p: 0.95 } },
+      gemini:  { 采样参数: {} },
+    }).success).toBe(true);
+  });
+
   // ── 缺口一·舞台状态?（G10·6.75）──────────────────────────────────────────────
   it('$会话状态: 舞台状态 absent (optional)', () => {
     const res = RootSchema.shape.$会话状态.parse({});

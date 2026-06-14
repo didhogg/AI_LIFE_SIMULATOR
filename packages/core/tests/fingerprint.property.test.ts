@@ -79,6 +79,7 @@ type FullCtx = {
   采样覆盖层: unknown;
   切片预算覆盖层: unknown;
   渲染模式覆盖: unknown;
+  '$模型画像采样参数': unknown;
   // B-1 lore exclusions
   lore能力集: unknown;
   'output_tag命名空间': unknown;
@@ -132,6 +133,7 @@ const BASE_CTX: FullCtx = {
   采样覆盖层:          {},
   切片预算覆盖层:      {},
   渲染模式覆盖:        undefined,
+  '$模型画像采样参数':  {},
   // B-1 lore exclusions
   lore能力集:          [],
   'output_tag命名空间': '',
@@ -238,6 +240,7 @@ const EXCLUDED_MUTATIONS: Record<FingerprintExcludedField, unknown> = {
   采样覆盖层:          { 叙事质量二审: { 温度: 0.3, top_p: 0.9 } },
   切片预算覆盖层:      { 叙事质量二审: { 软上限tokens: 3000, 硬上限tokens: 6000, 截断优先级: [] } },
   渲染模式覆盖:        '占位整达',
+  '$模型画像采样参数':  { 温度: 0.9, top_p: 0.95, 频率惩罚: 0.1, 存在惩罚: 0.2, 最大回复tokens: 4096 },
   // B-1 lore exclusions
   lore能力集:          [{ 类型: 'output_tag', 输出命名空间: 'cuisine:flavor_tag' }],
   'output_tag命名空间': 'cuisine:flavor_tag',

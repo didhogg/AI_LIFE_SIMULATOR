@@ -133,11 +133,21 @@ export const $预算控制台Schema = z.object({
 });
 
 // ── $模型画像（6.8·玩家/社区填，引擎只拼接） ──
+// 整个 $模型画像 以 $ 前缀 invisible·AI 永不可见·子字段无需单独入指纹排除名单
+// （fingerprintManifest 仍收录 $模型画像禁词表/$模型画像采样参数 作显式文档）
 export const $模型画像Schema = z.record(
   z.string(), // provider 键（claude/gpt/gemini…）
   z.object({
     风格补正提示词: z.string().default(''),
-    采样参数: z.record(z.string(), z.unknown()).default({}),
+    // ── P0-1·provider 级采样参数（五键类型化·非开放透传字典）──
+    // 入指纹排除名单（见 fingerprintManifest.$模型画像采样参数）·不影响判定面
+    采样参数: z.object({
+      温度: z.number().min(0).max(2).optional(),
+      top_p: z.number().min(0).max(1).optional(),
+      频率惩罚: z.number().min(-2).max(2).optional(),
+      存在惩罚: z.number().min(-2).max(2).optional(),
+      最大回复tokens: z.number().int().min(1).optional(),
+    }).default({}),
     禁词表: z.array(z.string()).default([]), // 6.41 反八股校验规则（非替换规则）·按 provider 分表
   }),
 ).default({});
