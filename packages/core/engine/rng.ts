@@ -146,6 +146,9 @@ export function hashJudgmentBundle(fields: {
   赛事结构模板: unknown;
   派生量配方: unknown;              // 发现B·M·4·HP/精力等派生量公式
   概率域夹逼: unknown;              // H4·判定概率 clamp 域 [p_最小, p_最大]
+  约定谓词集?: unknown;             // Q5·约定库谓词/选择器谓词定义表
+  级联限制?: unknown;               // J5·级联深度N+轮号上限
+  归并表?: unknown;                 // S4b·归并规则表
   // TODO(P0-7): 方式×速度换算表 — 家在 P0-7 速度模型，届时加入签名 + 补断言
   // TODO(P0-7): H7量纲表全量 — 家在 P0-7 量纲系统，届时加入签名 + 补断言
 }): string {
@@ -161,11 +164,6 @@ export function hashJudgmentBundle(fields: {
  *   3. Pre-compute 规则补丁哈希 via fnv1a32(canonicalize(规则补丁)) if applicable (K5).
  *   4. Pass snapshot fields from the archive snapshot, NOT from live preset.
  *
- * Pending members (留 TODO·届时补断言):
- *   - TODO(Q5): 约定库谓词/选择器谓词 — 家在 P0-6 受治理键空间
- *   - TODO(J5): 级联深度 N + 轮号 — preset 无此字段时延至 P0-6
- *   - TODO(DSL): DSL 文法版本号 — 求值器归 P0-6/P0-7
- *
  * Used to populate _tick.难度系数组指纹 in P0-7 runTick.
  */
 export function hashPresetFingerprint(fields: {
@@ -175,6 +173,8 @@ export function hashPresetFingerprint(fields: {
   生效中内容包集哈希: string;
   /** K5: canonicalize(规则补丁) 的哈希·preset 已有 规则补丁Schema */
   规则补丁哈希?: string;
+  /** DSL: DSL v1.0 冻结文法版本 */
+  DSL文法版本?: string;
   /** 快照锁定组·开局锁定·随档快照；调用方从档内快照传入，绝不读 live 预设 */
   snapshot: {
     /** B1a·明文在册·直接纳入 */

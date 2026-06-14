@@ -454,6 +454,15 @@ export const 玩法预设Schema = z.object({
   概率域夹逼: 概率域夹逼Schema,          // H4·随整包入指纹·判定概率 clamp 至 [p_最小, p_最大]
   账面安全界限: 账面安全界限Schema,       // H1·入账前 clamp·不进指纹（安全执行层·非判定面）
 
+  // ── 指纹族补完（Q5/J5/S4b·入 hashJudgmentBundle·判定面整包·零迁移）──────────────
+  约定谓词集: z.record(z.string(), z.string()).optional(),  // Q5·约定库谓词/选择器谓词定义表
+  级联限制: z.object({                                       // J5·级联深度N+轮号上限
+    最大深度: z.number().int().min(0).default(8),
+    最大轮数: z.number().int().min(0).default(32),
+  }).optional(),
+  归并表: z.record(z.string(), z.unknown()).optional(),      // S4b·归并规则表
+  DSL文法版本: z.string().default('1.0'),                   // DSL v1.0 frozen
+
   // ── P0-1 4.10 缺口 ──────────────────────────────────────────────────────────
   // 缺口一·二审维度库（6.75·开放·叙事质量二审维度注册表）
   二审维度库: z.array(二审维度条目Schema).optional(),
