@@ -662,6 +662,30 @@ function migrateChild(
   };
 }
 
+// ── 3-8B 信念瘦身迁移: 组织实体.信念.强制度/异端容忍 → 属性轴 ──────────────────────────
+// 幂等保护: 若属性轴已含该键则跳过；若信念里没有旧字段则原样返回。
+function migrate组织信念轴(org: Record<string, unknown>): Record<string, unknown> {
+  const 信念Raw = asRec(org['信念']);
+  if (!('强制度' in 信念Raw) && !('异端容忍' in 信念Raw)) return org;
+
+  const 属性轴: Record<string, unknown> = { ...asRec(org['属性轴']) };
+  const 信念New: Record<string, unknown> = { ...信念Raw };
+
+  if ('强制度' in 信念Raw && !('强制度' in 属性轴)) {
+    属性轴['强制度'] = { 数值: asNum(信念Raw['强制度']), 域: '信念' };
+  }
+  delete 信念New['强制度'];
+
+  if ('异端容忍' in 信念Raw && !('异端容忍' in 属性轴)) {
+    属性轴['异端容忍'] = { 数值: asNum(信念Raw['异端容忍']), 域: '信念' };
+  }
+  delete 信念New['异端容忍'];
+
+  const result: Record<string, unknown> = { ...org, 信念: 信念New };
+  if (Object.keys(属性轴).length > 0) result['属性轴'] = 属性轴;
+  return result;
+}
+
 // ── buildV41Raw ───────────────────────────────────────────────────────────────
 
 export function buildV41Raw(input: unknown): MigrateRawResult {
@@ -903,7 +927,7 @@ export function buildV41Raw(input: unknown): MigrateRawResult {
     NPC: npcV41,
     已故NPC归档: 已故v41,
     认知档案: build认知档案(主角键, npcV31, worldEpochMin),
-    组织实体: asRec(root['组织实体']),
+    组织实体: (() => { const out: Record<string, unknown> = {}; for (const [k, v] of Object.entries(asRec(root['组织实体']))) out[k] = migrate组织信念轴(asRec(v)); return out; })(),
     组织关系网: 组织关系网v41,
     全局: { 秘密库, 约定库, 继承包: asRec(全局v31['继承包']), 家族树, _覆写日志: [], _作弊标记: false },
     地图: { 地点: asRec(asRec(root['地图'])['地点']), 战役: asRec(asRec(root['地图'])['战役']), 区域物价: asRec(asRec(root['地图'])['区域物价']) },

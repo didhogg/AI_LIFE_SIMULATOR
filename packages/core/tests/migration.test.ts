@@ -585,6 +585,66 @@ describe('migrate V3.1 → V4.1', () => {
       expect(state).toHaveProperty(['地图', '区域物价']);
     });
   });
+
+  // ── 3-8B 信念瘦身: 组织实体.信念.强制度/异端容忍 → 属性轴 ─────────────────────────
+  it('3-8B fixture: 大明皇朝.信念.强制度=75 → 属性轴.强制度.数值=75', () => {
+    const result = migrate(richV31);
+    const 属性轴 = asRec(asRec(asRec(result.state['组织实体'])['大明皇朝'])['属性轴']);
+    expect(asNum(asRec(属性轴['强制度'])['数值'])).toBe(75);
+    expect(asStr(asRec(属性轴['强制度'])['域'])).toBe('信念');
+  });
+
+  it('3-8B fixture: 大明皇朝.信念.异端容忍=30 → 属性轴.异端容忍.数值=30', () => {
+    const result = migrate(richV31);
+    expect(asNum(asRec(asRec(asRec(asRec(result.state['组织实体'])['大明皇朝'])['属性轴'])['异端容忍'])['数值'])).toBe(30);
+  });
+
+  it('3-8B fixture: 大明皇朝.信念 迁移后不含 强制度/异端容忍 字段', () => {
+    const result = migrate(richV31);
+    const 信念 = asRec(asRec(asRec(result.state['组织实体'])['大明皇朝'])['信念']);
+    expect(信念).not.toHaveProperty('强制度');
+    expect(信念).not.toHaveProperty('异端容忍');
+    expect(asStr(信念['官方体系'])).toBe('儒家');
+    expect(asStr(信念['思潮派系'])).toBe('程朱理学');
+  });
+
+  it('3-8B 幂等: 已迁移档二次 migrate 不覆盖 属性轴.强制度', () => {
+    const first = migrate(richV31).state;
+    const second = migrate(first).state;
+    const 属性轴 = asRec(asRec(asRec(second['组织实体'])['大明皇朝'])['属性轴']);
+    expect(asNum(asRec(属性轴['强制度'])['数值'])).toBe(75);
+    expect(asNum(asRec(属性轴['异端容忍'])['数值'])).toBe(30);
+  });
+
+  it('3-8B 合并保护: 已有 属性轴.强制度 时，旧 信念.强制度 不覆盖（幂等保护）', () => {
+    const syntheticV31: Record<string, unknown> = {
+      ...richV31,
+      组织实体: {
+        宗门: {
+          类型: '宗教组织',
+          信念: { 官方体系: '道教', 强制度: 60, 异端容忍: 40, 思潮派系: '全真' },
+          属性轴: { 强制度: { 数值: 99, 域: '信念' } }, // 已有高值
+        },
+      },
+    };
+    const result = migrate(syntheticV31);
+    const 属性轴 = asRec(asRec(asRec(result.state['组织实体'])['宗门'])['属性轴']);
+    expect(asNum(asRec(属性轴['强制度'])['数值'])).toBe(99); // 不被覆写
+    expect(asNum(asRec(属性轴['异端容忍'])['数值'])).toBe(40);
+  });
+
+  it('3-8B 无旧字段: 信念无强制度/异端容忍 → 属性轴不变', () => {
+    const syntheticV31: Record<string, unknown> = {
+      ...richV31,
+      组织实体: {
+        新组织: { 类型: '商会', 信念: { 官方体系: '基督教', 思潮派系: '新教' } },
+      },
+    };
+    const result = migrate(syntheticV31);
+    const 属性轴 = asRec(asRec(asRec(result.state['组织实体'])['新组织'])['属性轴']);
+    expect('强制度' in 属性轴).toBe(false);
+    expect('异端容忍' in 属性轴).toBe(false);
+  });
 });
 
 // ── 播报队列迁移：旧条目缺 渠道 字段补默认值 '系统' ─────────────────────────────────
