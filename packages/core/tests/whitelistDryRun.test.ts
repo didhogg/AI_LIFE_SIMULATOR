@@ -108,6 +108,22 @@ describe('P0-6 gate① · deriveWritableWhitelist 全量路径派生', () => {
     }
   });
 
+  it('_lore知识库 top-level key is read-only (AI 不可提案改世界常识库)', () => {
+    const entries = deriveWritableWhitelist();
+    const lore = entries.find(e => e.path === '_lore知识库');
+    expect(lore).toBeDefined();
+    expect(lore!.layer).toBe('read-only');
+  });
+
+  it('_lore知识库.{id} 以下子路径全部继承 read-only（触发谓词/知识载荷均不可写）', () => {
+    const entries = deriveWritableWhitelist();
+    const loreSubPaths = entries.filter(e => e.path.startsWith('_lore知识库.'));
+    // lore is optional so may produce 0 entries; if present, none must be writable
+    for (const e of loreSubPaths) {
+      expect(e.layer, `${e.path} should not be writable`).not.toBe('writable');
+    }
+  });
+
   it('nested $ field inside writable parent (全局.秘密库.{id}.$谜底) is invisible', () => {
     const entries = deriveWritableWhitelist();
     const 谜底 = entries.find(e => e.path === '全局.秘密库.{id}.$谜底');

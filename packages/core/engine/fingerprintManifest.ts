@@ -70,9 +70,11 @@ export const FINGERPRINT_EXCLUDED_FIELDS = [
   '生效锚点',           // mod 签名字段·校验用·不影响判定（B1c 用集合哈希·不枚举单条）
   '基底契约',           // mod 签名字段·校验用·不影响判定
   '内容哈希',           // mod 单条签名字段·不直接进指纹（B1c 用聚合集合哈希）
-  // B-1 lore 知识库 — 叙事注入路径（R7-b·叙事召回不进指纹）
-  'lore能力集',         // lore 条目可用 [TOOL] 能力类型白名单·能力路由层·不影响判定面
-  'output_tag命名空间', // output_tag 自定义变量命名空间·S/K 批治理元数据·不影响判定
+  // B-1 lore 知识库接口元数据（仅排除能力路由/命名空间元数据·并非排除整库）
+  // ⚠️ lore.触发谓词 = gate判定路径·将进指纹；下方排除仅限「叙事/路由层」两字段
+  // TODO(P0-6): lore.触发谓词 → gate判定路径 → 纳 FINGERPRINT_BUNDLE_MEMBERS 或独立签名·届时补断言
+  'lore能力集',         // [TOOL] 能力类型白名单·能力路由元数据·叙事调度层·不影响判定面
+  'output_tag命名空间', // output_tag 变量命名空间·S/K 批治理元数据·不影响判定
 ] as const;
 
 export type FingerprintBundleMember = (typeof FINGERPRINT_BUNDLE_MEMBERS)[number];
