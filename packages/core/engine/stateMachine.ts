@@ -22,6 +22,12 @@ export interface StateMachineState extends StateMachine {
    * 停机类例外：立即发出，不进队列
    */
   元层写队列?: { 操作: string; 幂等键?: string }[];
+  /**
+   * F5·6.56 模态栈满溢出缓冲队列（第二档·可重建）
+   * 栈满（深度4）时 push → 进此队列；出队序 = 重要等级降序 + 事件id字典序
+   * 任何 popModal 后自动出队补栈；flush/主动结束/主角死亡 豁免时清空此队列
+   */
+  待弹队列?: { 模态: string; 重要等级: number; 事件id: string }[];
 }
 
 // ── Events ─────────────────────────────────────────────────────────────────────
@@ -33,14 +39,17 @@ export type SMEvent =
   | { type: '开场白完成' }
   | { type: '降级' }
   | { type: '设置时间模式'; mode: 'PAUSED' | 'TURN' | 'AUTO' }
-  | { type: '广播推送' }
+  /** F5·6.56：栈满时进待弹队列；重要等级降序+事件id字典序出队 */
+  | { type: '广播推送'; 重要等级?: number; 事件id?: string }
   | { type: '广播完成' }
   | { type: '打开日程规划' }
   | { type: '日程提交' }
   | { type: '日程取消' }
-  | { type: '进入RP焦点' }
+  /** F5·6.56：栈满时进待弹队列 */
+  | { type: '进入RP焦点'; 重要等级?: number; 事件id?: string }
   | { type: '退出RP焦点' }
-  | { type: '战斗开始' }
+  /** F5·6.56：栈满时进待弹队列 */
+  | { type: '战斗开始'; 重要等级?: number; 事件id?: string }
   | { type: '战斗结束' }
   | { type: '打开META' }
   | { type: '关闭META' }
@@ -67,7 +76,26 @@ export type SMEvent =
   | { type: '指令组边界' }
   // ── F3·看门狗超时（6.56）────────────────────────────────────────────────────
   /** 强制 pop 任意活跃模态 + 统一清理序；空栈时 → ERR_WRONG_ACTIVE_STATE（进非法迁移表） */
-  | { type: '看门狗超时' };
+  | { type: '看门狗超时' }
+  // ── 缺口1·死亡拦截出口边（6.56·纯确定性·不调 LLM·硬边·不进事件池）────────
+  | { type: '转域续命' }
+  | { type: '谢幕终局' }
+  | { type: '拦截扫描完成_继承' }
+  // ── 缺口7·自愿换角（6.56）────────────────────────────────────────────────────
+  /** PLAYING → INHERIT_DECISION 自愿换角；复用继承管线·落指令组边界·不触拦截扫描 */
+  | { type: '自愿换角' }
+  // ── G5·6.49 读档/立碑 安全接缝门规 ──────────────────────────────────────────
+  /** 门规：栈顶安全模态 + 拍边界 + 指令组已提交；违反 → ERR_UNSAFE_SEAM */
+  | { type: '读档' }
+  | { type: '立碑' }
+  // ── F6·6.56 RP_FOCUS 模态内切换对象 ──────────────────────────────────────────
+  /** 换对话对象 = 模态内切换·不重新 push；回忆/戏中戏 = 纯叙事呈现层·零新模态 */
+  | { type: '切换对话对象'; 对象ID: string }
+  // ── C4·6.53 席位掉线×看门狗 AI 托管降级接口（单机=no-op·多人实装 P2）────────
+  | { type: '席位掉线'; 席位ID: string }
+  | { type: '席位回连'; 席位ID: string }
+  // ── F7·6.56 从档恢复（重扫已结算未呈现·补弹）────────────────────────────────
+  | { type: '从档恢复' };
 
 // ── Effect Instructions ────────────────────────────────────────────────────────
 
@@ -86,7 +114,21 @@ export type EffectInstruction =
   | { type: '执行元层写队列'; 条目: { 操作: string; 幂等键?: string }[] }
   // F3
   | { type: '丢弃在途意图'; 原因: string }
-  | { type: '战斗机械收束' };
+  | { type: '战斗机械收束' }
+  // 缺口1·D2
+  | { type: '发起死亡拦截扫描' }
+  /** D2·6.54 死亡时刻双登记：全局时刻权威 + 域钟读数展示；接口级·多域穿越实装 P2 */
+  | { type: '双登记死亡时刻'; 全局时刻: number; 域钟读数: number }
+  // G5
+  | { type: '执行读档' }
+  | { type: '执行立碑' }
+  // C4·6.53 席位降级接口（单机=no-op·多人实装 P2）
+  | { type: '发起AI托管降级'; 席位ID: string }
+  | { type: '交还席位'; 席位ID: string }
+  // F6
+  | { type: '切换RP焦点对象'; 对象ID: string }
+  // F7
+  | { type: '重扫已结算未呈现队列' };
 
 // ── Error Codes ────────────────────────────────────────────────────────────────
 
@@ -100,6 +142,8 @@ export type SMErrorCode =
   | 'ERR_WRONG_ACTIVE_STATE'
   | 'ERR_TICK_IN_SETUP'
   | 'ERR_TICK_NOT_IDLE'    // F2·拍单飞锁：非空闲态拒绝拍推进
+  | 'ERR_MODAL_REENTRY'   // F6·6.56 同类型模态禁重入（RP→RP / COMBAT→COMBAT）
+  | 'ERR_UNSAFE_SEAM'     // G5·6.49 读档/立碑 不满足安全接缝条件
   | 'ERR_INVALID_TRANSITION';
 
 // 非法迁移 = throw SMTransitionError（带 error code）——正式口径，拍板禁止改 Result 形式
@@ -123,7 +167,7 @@ export interface DispatchResult {
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const KNOWN_BASE_STATES = new Set([
-  'WORLD_SETUP', 'CHARACTER_CREATE', 'PLAYING', 'INHERIT_DECISION', 'LIFE_SUMMARY',
+  'WORLD_SETUP', 'CHARACTER_CREATE', 'PLAYING', 'DEATH_INTERCEPT', 'INHERIT_DECISION', 'LIFE_SUMMARY',
 ]);
 
 const MODAL_STATES = new Set([
@@ -169,6 +213,7 @@ function flush(s: StateMachineState): { state: StateMachineState; effects: Effec
     模态栈: [],
     timeMode: 'PAUSED',
     _meta: false,
+    待弹队列: [], // F5: 清栈转移豁免 = 清空待弹队列
   };
   return {
     state,
@@ -187,7 +232,19 @@ function popModal(s: StateMachineState): StateMachineState {
   if (s.模态栈.length === 0) {
     throw new SMTransitionError('ERR_INVALID_TRANSITION', '模态栈为空，无法 pop');
   }
-  return { ...s, 模态栈: s.模态栈.slice(0, -1) };
+  const newStack = s.模态栈.slice(0, -1);
+  const queue = s.待弹队列 ?? [];
+  if (queue.length > 0) {
+    // F5: 出队序 = 重要等级降序 + 事件id字典序；模态入栈侧效应（冻结世界钟等）P1 补齐
+    const sorted = [...queue].sort((a, b) =>
+      b.重要等级 !== a.重要等级
+        ? b.重要等级 - a.重要等级
+        : a.事件id < b.事件id ? -1 : a.事件id > b.事件id ? 1 : 0,
+    );
+    const [head, ...tail] = sorted;
+    return { ...s, 模态栈: [...newStack, head!.模态], 待弹队列: tail };
+  }
+  return { ...s, 模态栈: newStack };
 }
 
 // ── Dispatch ───────────────────────────────────────────────────────────────────
@@ -309,16 +366,44 @@ export function dispatch(机器状态: StateMachineState, 事件: SMEvent): Disp
     throw new SMTransitionError('ERR_INVALID_TRANSITION', `INHERIT_DECISION 不接受事件: ${事件.type}`);
   }
 
+  // ⑧-b DEATH_INTERCEPT·缺口1（拦截检查 → {转域续命|谢幕终局|无拦截→继承}·纯确定性·零 LLM·硬边）
+  if (s.当前态 === 'DEATH_INTERCEPT') {
+    if (事件.type === '转域续命') {
+      return {
+        新机器状态: { ...s, 当前态: 'PLAYING', 模态栈: [], timeMode: 'PAUSED' },
+        效果指令: [],
+      };
+    }
+    if (事件.type === '谢幕终局') {
+      return {
+        新机器状态: { ...s, 当前态: 'LIFE_SUMMARY', 模态栈: [] },
+        效果指令: [{ type: '发起人生总结调用' }],
+      };
+    }
+    if (事件.type === '拦截扫描完成_继承') {
+      return {
+        新机器状态: { ...s, 当前态: 'INHERIT_DECISION', 模态栈: [] },
+        效果指令: [],
+      };
+    }
+    throw new SMTransitionError('ERR_INVALID_TRANSITION', `DEATH_INTERCEPT 不接受事件: ${事件.type}`);
+  }
+
   // ── 以下均在 当前态=PLAYING 作用域内 ──────────────────────────────────────
 
   // ⑨ 全局事件（任意 PLAYING 阶段）
 
-  // 主角死亡 → flush → INHERIT_DECISION
+  // 缺口1: 主角死亡 → flush → DEATH_INTERCEPT（拦截扫描·纯确定性·不调 LLM·硬边不进事件池）
   if (事件.type === '主角死亡') {
     const { state: flushed, effects } = flush(s);
     return {
-      新机器状态: { ...flushed, 当前态: 'INHERIT_DECISION' },
-      效果指令: effects,
+      新机器状态: { ...flushed, 当前态: 'DEATH_INTERCEPT' },
+      效果指令: [
+        ...effects,
+        { type: '发起死亡拦截扫描' },
+        // D2·6.54: 死亡时刻双登记（全局时刻权威 + 域钟读数展示）——接口级；多域实装 P2
+        { type: '双登记死亡时刻', 全局时刻: s.双时钟.世界钟, 域钟读数: s.双时钟.镜头钟 },
+      ],
     };
   }
 
@@ -329,6 +414,32 @@ export function dispatch(机器状态: StateMachineState, 事件: SMEvent): Disp
       新机器状态: { ...flushed, 当前态: 'LIFE_SUMMARY' },
       效果指令: [...effects, { type: '发起人生总结调用' }],
     };
+  }
+
+  // 缺口7: 自愿换角 → INHERIT_DECISION（复用继承管线·落指令组边界·不触发死亡拦截扫描）
+  if (事件.type === '自愿换角') {
+    const 队列 = s.元层写队列 ?? [];
+    const flushFx: EffectInstruction[] = 队列.length > 0
+      ? [{ type: '执行元层写队列', 条目: 队列 }]
+      : [];
+    return {
+      新机器状态: { ...s, 当前态: 'INHERIT_DECISION', 模态栈: [], timeMode: 'PAUSED', 元层写队列: [] },
+      效果指令: flushFx,
+    };
+  }
+
+  // C4·6.53: 席位掉线×看门狗 → AI 托管降级接口（单机=no-op·多人实装 P2）
+  if (事件.type === '席位掉线') {
+    return { 新机器状态: s, 效果指令: [{ type: '发起AI托管降级', 席位ID: 事件.席位ID }] };
+  }
+  if (事件.type === '席位回连') {
+    return { 新机器状态: s, 效果指令: [{ type: '交还席位', 席位ID: 事件.席位ID }] };
+  }
+
+  // F7·6.56: 从档恢复 → 重扫已结算未呈现·补弹（宿主执行；SM 状态不变）
+  // 三档内存盘点：①可丢弃（UI缓存）②可重建（待弹队列/栈状态）③必须持久化（≡空·非空=本该进档）
+  if (事件.type === '从档恢复') {
+    return { 新机器状态: s, 效果指令: [{ type: '重扫已结算未呈现队列' }] };
   }
 
   // LLM 超时/失败 → 降级出口（pop → 上层模态或 PLAYING）
@@ -407,6 +518,31 @@ export function dispatch(机器状态: StateMachineState, 事件: SMEvent): Disp
       新机器状态: { ...popped, timeMode: restoredTimeMode },
       效果指令: cleanupFx,
     };
+  }
+
+  // G5·6.49: 读档/立碑安全接缝门规（栈顶安全模态 + 拍边界 + 指令组已提交）
+  // 非法迁移表：违反任一条件 → ERR_UNSAFE_SEAM（与 6.40 广播出队门规同款白名单）
+  if (事件.type === '读档' || 事件.type === '立碑') {
+    if (!isSafeSeam(s)) {
+      throw new SMTransitionError(
+        'ERR_UNSAFE_SEAM',
+        `${事件.type} 要求栈顶安全模态，当前: ${stackTop(s)}`,
+      );
+    }
+    if ((s.拍生命周期 ?? '空闲') !== '空闲') {
+      throw new SMTransitionError(
+        'ERR_UNSAFE_SEAM',
+        `${事件.type} 要求拍边界（拍生命周期=空闲），当前: ${s.拍生命周期}`,
+      );
+    }
+    if ((s.元层写队列 ?? []).length > 0) {
+      throw new SMTransitionError(
+        'ERR_UNSAFE_SEAM',
+        `${事件.type} 要求指令组已提交（元层写队列为空），当前队列长度: ${s.元层写队列!.length}`,
+      );
+    }
+    const fx: EffectInstruction = 事件.type === '读档' ? { type: '执行读档' } : { type: '执行立碑' };
+    return { 新机器状态: s, 效果指令: [fx] };
   }
 
   const active = stackTop(s);
@@ -491,6 +627,11 @@ export function dispatch(机器状态: StateMachineState, 事件: SMEvent): Disp
       };
     }
     if (事件.type === '进入RP焦点') {
+      // F5: 栈满→待弹队列
+      if (s.模态栈.length >= 4) {
+        const entry = { 模态: 'RP_FOCUS', 重要等级: 事件.重要等级 ?? 5, 事件id: 事件.事件id ?? '' };
+        return { 新机器状态: { ...s, 待弹队列: [...(s.待弹队列 ?? []), entry] }, 效果指令: [] };
+      }
       const pushed = pushModal(s, 'RP_FOCUS');
       return {
         新机器状态: { ...pushed, 双时钟: { ...pushed.双时钟, 镜头钟: s.双时钟.世界钟 } },
@@ -498,6 +639,11 @@ export function dispatch(机器状态: StateMachineState, 事件: SMEvent): Disp
       };
     }
     if (事件.type === '战斗开始') {
+      // F5: 栈满→待弹队列
+      if (s.模态栈.length >= 4) {
+        const entry = { 模态: 'COMBAT', 重要等级: 事件.重要等级 ?? 10, 事件id: 事件.事件id ?? '' };
+        return { 新机器状态: { ...s, 待弹队列: [...(s.待弹队列 ?? []), entry] }, 效果指令: [] };
+      }
       return { 新机器状态: pushModal(s, 'COMBAT'), 效果指令: [] };
     }
     throw new SMTransitionError('ERR_WRONG_ACTIVE_STATE', `EVENT_BROADCAST 不接受事件: ${事件.type}`);
@@ -512,7 +658,18 @@ export function dispatch(机器状态: StateMachineState, 事件: SMEvent): Disp
   }
 
   // ⑭ RP_FOCUS（LLM 等待态，镜头钟独立推进，有降级出口）
+  // R2·6.63 COMBAT = RP_FOCUS 的离散孪生钟：世界钟冻结·镜头钟离散步进·回合=结算产物·零第三钟
+  // C3 多人注释：世界钟为全局单写者·不为任何单席位冻结（6.53）
   if (active === 'RP_FOCUS') {
+    // F6: 同类型模态禁重入（RP→RP 非法迁移表）
+    if (事件.type === '进入RP焦点') {
+      throw new SMTransitionError('ERR_MODAL_REENTRY', 'RP_FOCUS 禁止同类型重入（RP→RP）');
+    }
+    // F6: 换对话对象 = 模态内切换·不重新 push·不触模态栈
+    // 回忆/戏中戏 = 纯叙事呈现层·零新模态（不经过此分支）
+    if (事件.type === '切换对话对象') {
+      return { 新机器状态: s, 效果指令: [{ type: '切换RP焦点对象', 对象ID: 事件.对象ID }] };
+    }
     if (事件.type === '退出RP焦点') {
       const elapsed = s.双时钟.镜头钟 - s.双时钟.世界钟;
       return {
@@ -521,13 +678,25 @@ export function dispatch(机器状态: StateMachineState, 事件: SMEvent): Disp
       };
     }
     if (事件.type === '战斗开始') {
+      // F5: 栈满→待弹队列；F6: COMBAT 与 RP_FOCUS 不同类·允许
+      if (s.模态栈.length >= 4) {
+        const entry = { 模态: 'COMBAT', 重要等级: 事件.重要等级 ?? 10, 事件id: 事件.事件id ?? '' };
+        return { 新机器状态: { ...s, 待弹队列: [...(s.待弹队列 ?? []), entry] }, 效果指令: [] };
+      }
       return { 新机器状态: pushModal(s, 'COMBAT'), 效果指令: [] };
     }
     throw new SMTransitionError('ERR_WRONG_ACTIVE_STATE', `RP_FOCUS 不接受事件: ${事件.type}`);
   }
 
   // ⑮ COMBAT（LLM 等待态，有降级出口）
+  // R2·6.63 COMBAT 离散孪生钟口径：世界钟冻结沿用 RP 入口·镜头钟每回合离散步进
+  // "回合" = CombatResolver 结算产物·非时间轴单位·零第三钟
+  // 收束路径：战斗结束（正常）/ 看门狗超时（战斗机械收束）/ LLM超时（降级弹栈）
   if (active === 'COMBAT') {
+    // F6: 同类型模态禁重入（COMBAT→COMBAT 非法迁移表）
+    if (事件.type === '战斗开始') {
+      throw new SMTransitionError('ERR_MODAL_REENTRY', 'COMBAT 禁止同类型重入（COMBAT→COMBAT）');
+    }
     if (事件.type === '战斗结束') {
       return { 新机器状态: popModal(s), 效果指令: [] };
     }
@@ -571,6 +740,11 @@ export function assertInvariants(state: StateMachineState): void {
 
   // 6. LLM 非阻塞：读取模块加载时已完成的拓扑结构验证（O(1) 缓存查询）
   assertLlmNonBlockingTopology();
+
+  // 7. F7 三档内存盘点：第三档（必须持久化）= 运行时恒空（非空=本该进档，防数据丢失）
+  // 当前 SM 层无第三档字段（已归档由引擎维护）；此 invariant 为框架占位
+  // 第二档（可重建）= 待弹队列；有界性：pop 后自动出队·flush 清空·长度受限于 push 频率
+  // 接入新第三档字段时在此补断言
 }
 
 // ── LLM 非阻塞拓扑验证 ────────────────────────────────────────────────────────

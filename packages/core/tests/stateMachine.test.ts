@@ -356,46 +356,79 @@ describe('P0-4 META_OVERLAY', () => {
   });
 });
 
-// ── 主角死亡 + INHERIT_DECISION ────────────────────────────────────────────────
+// ── 缺口1·死亡拦截检查 + INHERIT_DECISION ─────────────────────────────────────
 
-describe('P0-4 主角死亡 + INHERIT_DECISION', () => {
-  it('主角死亡 → flush → INHERIT_DECISION', () => {
+describe('P0-4 缺口1·死亡拦截检查 + INHERIT_DECISION', () => {
+  it('主角死亡 → flush → DEATH_INTERCEPT（拦截待判）', () => {
     const s = go(base(), '主角死亡');
-    expect(s.当前态).toBe('INHERIT_DECISION');
+    expect(s.当前态).toBe('DEATH_INTERCEPT');
     expect(s.模态栈).toEqual([]);
   });
 
-  it('主角死亡 → 效果含 清空$战斗暂存 + 粒度栈复位到base', () => {
+  it('主角死亡 → 效果含 清空$战斗暂存 + 粒度栈复位到base + 发起死亡拦截扫描', () => {
     const fx = effects(base(), { type: '主角死亡' });
     expect(fx.some(f => f.type === '清空$战斗暂存')).toBe(true);
     expect(fx.some(f => f.type === '粒度栈复位到base')).toBe(true);
+    expect(fx.some(f => f.type === '发起死亡拦截扫描')).toBe(true);
   });
 
-  it('主角死亡（深栈） → flush 清空模态栈', () => {
+  it('主角死亡（深栈） → flush 清空模态栈 → DEATH_INTERCEPT', () => {
     const deep = go(go(go(base(), '广播推送'), '进入RP焦点'), '战斗开始');
     expect(deep.模态栈.length).toBe(3);
     const s = go(deep, '主角死亡');
     expect(s.模态栈).toEqual([]);
+    expect(s.当前态).toBe('DEATH_INTERCEPT');
+  });
+
+  it('DEATH_INTERCEPT 拦截扫描完成_继承 → INHERIT_DECISION', () => {
+    const death = go(base(), '主角死亡');
+    const s = go(death, '拦截扫描完成_继承');
     expect(s.当前态).toBe('INHERIT_DECISION');
+    expect(s.模态栈).toEqual([]);
+  });
+
+  it('DEATH_INTERCEPT 转域续命 → PLAYING.PAUSED', () => {
+    const death = go(base(), '主角死亡');
+    const s = go(death, '转域续命');
+    expect(s.当前态).toBe('PLAYING');
+    expect(s.timeMode).toBe('PAUSED');
+    expect(s.模态栈).toEqual([]);
+  });
+
+  it('DEATH_INTERCEPT 谢幕终局 → LIFE_SUMMARY + 发起人生总结调用', () => {
+    const death = go(base(), '主角死亡');
+    const s = go(death, '谢幕终局');
+    expect(s.当前态).toBe('LIFE_SUMMARY');
+    const fx = effects(go(base(), '主角死亡'), { type: '谢幕终局' });
+    expect(fx.some(f => f.type === '发起人生总结调用')).toBe(true);
   });
 
   it('INHERIT_DECISION 选定继承人 → PLAYING.PAUSED', () => {
-    const s = go(go(base(), '主角死亡'), '选定继承人');
+    const death = go(base(), '主角死亡');
+    const inherit = go(death, '拦截扫描完成_继承');
+    const s = go(inherit, '选定继承人');
     expect(s.当前态).toBe('PLAYING');
     expect(s.timeMode).toBe('PAUSED');
   });
 
   it('INHERIT_DECISION 无继承人 → LIFE_SUMMARY + effect', () => {
-    const inherit = go(base(), '主角死亡');
+    const death = go(base(), '主角死亡');
+    const inherit = go(death, '拦截扫描完成_继承');
     const fx = effects(inherit, { type: '无继承人' });
     const s = go(inherit, '无继承人');
     expect(s.当前态).toBe('LIFE_SUMMARY');
     expect(fx.some(f => f.type === '发起人生总结调用')).toBe(true);
   });
 
-  it('illegal: INHERIT_DECISION 不接受未知事件', () => {
-    const inherit = go(base(), '主角死亡');
+  it('illegal: INHERIT_DECISION 不接受未知事件 → ERR_INVALID_TRANSITION', () => {
+    const death = go(base(), '主角死亡');
+    const inherit = go(death, '拦截扫描完成_继承');
     expectCode(() => go(inherit, '广播推送'), 'ERR_INVALID_TRANSITION');
+  });
+
+  it('illegal: DEATH_INTERCEPT 不接受未知事件 → ERR_INVALID_TRANSITION', () => {
+    const death = go(base(), '主角死亡');
+    expectCode(() => go(death, '广播推送'), 'ERR_INVALID_TRANSITION');
   });
 });
 
@@ -428,21 +461,48 @@ describe('P0-4 LIFE_SUMMARY 终态', () => {
   });
 });
 
-// ── 栈溢出守卫 ────────────────────────────────────────────────────────────────
+// ── F5·6.56 栈满→待弹队列（不溢出·不报错）──────────────────────────────────
 
-describe('P0-4 栈深超 4 → ERR_STACK_OVERFLOW', () => {
-  it('第 5 次 push → ERR_STACK_OVERFLOW', () => {
-    // PLAYING → EB → RP → COMBAT → ？ (4 深)
-    const s1 = go(base(), '广播推送');           // [EB]
-    const s2 = go(s1, '进入RP焦点');             // [EB, RP]
-    const s3 = go(s2, '战斗开始');               // [EB, RP, COMBAT]
-    // 手动构造深度 3 的状态并再压一个
-    // COMBAT 不支持 广播推送，需直接构造 depth=4 然后再触发
-    const depth4: StateMachineState = {
-      ...s3,
-      模态栈: ['EVENT_BROADCAST', 'RP_FOCUS', 'COMBAT', 'EVENT_BROADCAST'],
-    };
-    expectCode(() => go(depth4, '战斗开始'), 'ERR_STACK_OVERFLOW');
+describe('P0-4 F5·栈满→待弹队列（6.56）', () => {
+  // 构造深度4栈：[EB, RP, COMBAT, EB]（手动，正常事件流最深3）
+  function depth4(): StateMachineState {
+    const s3 = go(go(go(base(), '广播推送'), '进入RP焦点'), '战斗开始');
+    return { ...s3, 模态栈: ['EVENT_BROADCAST', 'RP_FOCUS', 'COMBAT', 'EVENT_BROADCAST'] };
+  }
+
+  it('栈满 + 战斗开始 → 进待弹队列，不抛错，栈不变', () => {
+    const result = dispatch(depth4(), { type: '战斗开始' });
+    expect(result.新机器状态.模态栈).toEqual(['EVENT_BROADCAST', 'RP_FOCUS', 'COMBAT', 'EVENT_BROADCAST']);
+    expect(result.新机器状态.待弹队列?.length).toBe(1);
+    expect(result.新机器状态.待弹队列?.[0]?.模态).toBe('COMBAT');
+  });
+
+  it('栈满 + 进入RP焦点 → 进待弹队列（重要等级=5）', () => {
+    const result = dispatch(depth4(), { type: '进入RP焦点', 重要等级: 5, 事件id: 'rp-001' });
+    const q = result.新机器状态.待弹队列;
+    expect(q?.length).toBe(1);
+    expect(q?.[0]?.模态).toBe('RP_FOCUS');
+    expect(q?.[0]?.事件id).toBe('rp-001');
+  });
+
+  it('待弹队列出队 = 重要等级高者优先', () => {
+    // 先把 RP(5) 和 COMBAT(10) 入队
+    const s1 = dispatch(depth4(), { type: '进入RP焦点', 重要等级: 5, 事件id: 'b' }).新机器状态;
+    const s2 = dispatch(s1, { type: '战斗开始', 重要等级: 10, 事件id: 'a' }).新机器状态;
+    expect(s2.待弹队列?.length).toBe(2);
+    // pop 一个（广播完成 → pop EB）→ auto-dequeue COMBAT(10)
+    const s3 = go(s2, '广播完成');
+    // 出队后 COMBAT 上栈
+    expect(s3.模态栈).toContain('COMBAT');
+    // 剩余队列长度 = 1（RP_FOCUS 仍在等）
+    expect(s3.待弹队列?.length).toBe(1);
+  });
+
+  it('flush（主动结束）豁免 = 清空待弹队列', () => {
+    const s = dispatch(depth4(), { type: '战斗开始' }).新机器状态;
+    expect(s.待弹队列?.length).toBe(1);
+    const after = go(s, '主动结束');
+    expect(after.待弹队列).toEqual([]);
   });
 });
 
@@ -456,7 +516,7 @@ describe('P0-4 LLM 超时/失败 守卫', () => {
 
 // ── 栈通道综合测试 ─────────────────────────────────────────────────────────────
 
-describe('P0-4 栈通道 PLAYING→EVENT→RP→COMBAT→死亡→flush→INHERIT', () => {
+describe('P0-4 栈通道 PLAYING→EVENT→RP→COMBAT→死亡→拦截→INHERIT', () => {
   it('完整通道路径正确', () => {
     const s0 = base();
     const s1 = go(s0, '广播推送');
@@ -469,9 +529,12 @@ describe('P0-4 栈通道 PLAYING→EVENT→RP→COMBAT→死亡→flush→INHERI
     expect(s3.模态栈).toEqual(['EVENT_BROADCAST', 'RP_FOCUS', 'COMBAT']);
 
     const s4 = go(s3, '主角死亡');
-    expect(s4.当前态).toBe('INHERIT_DECISION');
+    expect(s4.当前态).toBe('DEATH_INTERCEPT');
     expect(s4.模态栈).toEqual([]);
     expect(s4.timeMode).toBe('PAUSED');
+
+    const s5 = go(s4, '拦截扫描完成_继承');
+    expect(s5.当前态).toBe('INHERIT_DECISION');
   });
 });
 
@@ -513,6 +576,11 @@ describe('P0-4 assertInvariants', () => {
   it('非法 当前态 → invariant 1 抛错', () => {
     const bad = { ...base(), 当前态: 'UNKNOWN_STATE' };
     expect(() => assertInvariants(bad)).toThrow(/Invariant 1/);
+  });
+
+  it('DEATH_INTERCEPT 是合法基础态（不违反 Invariant 1）', () => {
+    const s: StateMachineState = { ...base(), 当前态: 'DEATH_INTERCEPT' };
+    expect(() => assertInvariants(s)).not.toThrow();
   });
 
   it('模态栈含未知模态 → invariant 2 抛错', () => {
@@ -578,6 +646,16 @@ describe('P0-4 fuzz（pure-rand 随机事件 × 200轮）', () => {
     { type: 'LLM超时' },
     { type: 'LLM失败' },
     { type: 'HOST事件' },
+    // G1/F1/F2/F3 新事件（本轮加入）
+    { type: '候选列表为空' },                         // G1：PLAYING 下抛 ERR_INVALID_TRANSITION，fuzz 跳过
+    { type: '元层写入', 操作: 'fuzz-write' },         // F1
+    { type: '指令组边界' },                            // F1
+    { type: '拍推进' },                               // F2
+    { type: '结算完成' },                             // F2
+    { type: '呈现确认' },                             // F2
+    { type: '选择完成' },                             // F2
+    { type: '关账完成' },                             // F2
+    { type: '看门狗超时' },                           // F3
   ];
 
   it('随机事件序列：每次合法转移后六不变量均成立', () => {
@@ -642,8 +720,9 @@ describe('P0-4b LLM_WAIT_MODALS 失败出口拓扑', () => {
 // ── G1·6.49 INHERIT_DECISION 空候选兜底边 ─────────────────────────────────────
 
 describe('P0-4 G1·INHERIT_DECISION 空候选兜底（6.49）', () => {
+  // 缺口1: 主角死亡 → DEATH_INTERCEPT → 拦截扫描完成_继承 → INHERIT_DECISION
   function inherit(): StateMachineState {
-    return go(base(), '主角死亡');
+    return go(go(base(), '主角死亡'), '拦截扫描完成_继承');
   }
 
   it('候选列表为空（默认路径）→ LIFE_SUMMARY + 发起人生总结调用', () => {
@@ -863,5 +942,179 @@ describe('P0-4 F3·看门狗超时强制 pop（6.56）', () => {
     expect(s.模态栈).toEqual(['EVENT_BROADCAST', 'RP_FOCUS', 'COMBAT']);
     const result = dispatch(s, { type: '看门狗超时' });
     expect(result.新机器状态.模态栈).toEqual(['EVENT_BROADCAST', 'RP_FOCUS']);
+  });
+});
+
+// ── F6·6.56 同类型模态禁重入 ──────────────────────────────────────────────────
+
+describe('P0-4 F6·同类型模态禁重入（6.56）', () => {
+  it('RP_FOCUS 中 进入RP焦点 → ERR_MODAL_REENTRY', () => {
+    const inRP = go(base(), '进入RP焦点');
+    expectCode(() => go(inRP, '进入RP焦点'), 'ERR_MODAL_REENTRY');
+  });
+
+  it('COMBAT 中 战斗开始 → ERR_MODAL_REENTRY', () => {
+    const inCombat = go(base(), '战斗开始');
+    expectCode(() => go(inCombat, '战斗开始'), 'ERR_MODAL_REENTRY');
+  });
+
+  it('切换对话对象 in RP_FOCUS → 不触模态栈（模态内切换）+ 切换RP焦点对象效果', () => {
+    const inRP = go(base(), '进入RP焦点');
+    const result = dispatch(inRP, { type: '切换对话对象', 对象ID: 'npc-42' });
+    expect(result.新机器状态.模态栈).toEqual(['RP_FOCUS']); // 栈不变
+    expect(result.效果指令.some(f => f.type === '切换RP焦点对象')).toBe(true);
+    const fx = result.效果指令.find(f => f.type === '切换RP焦点对象') as
+      { type: string; 对象ID: string } | undefined;
+    expect(fx?.对象ID).toBe('npc-42');
+  });
+});
+
+// ── 缺口7·自愿换角 ────────────────────────────────────────────────────────────
+
+describe('P0-4 缺口7·自愿换角→INHERIT_DECISION（6.56）', () => {
+  it('自愿换角 → INHERIT_DECISION（复用继承管线）', () => {
+    const s = go(base(), '自愿换角');
+    expect(s.当前态).toBe('INHERIT_DECISION');
+    expect(s.模态栈).toEqual([]);
+    expect(s.timeMode).toBe('PAUSED');
+  });
+
+  it('自愿换角 不发起死亡拦截扫描', () => {
+    const fx = effects(base(), { type: '自愿换角' });
+    expect(fx.some(f => f.type === '发起死亡拦截扫描')).toBe(false);
+  });
+
+  it('自愿换角 + 元层写队列非空 → 落指令组边界（执行元层写队列效果）', () => {
+    const s0 = go(base(), '元层写入', { 操作: '换角前操作' });
+    expect(s0.元层写队列?.length).toBe(1);
+    const result = dispatch(s0, { type: '自愿换角' });
+    expect(result.新机器状态.元层写队列).toEqual([]);
+    expect(result.效果指令.some(f => f.type === '执行元层写队列')).toBe(true);
+  });
+
+  it('自愿换角 + 元层写队列为空 → 无 执行元层写队列 效果', () => {
+    const fx = effects(base(), { type: '自愿换角' });
+    expect(fx.some(f => f.type === '执行元层写队列')).toBe(false);
+  });
+
+  it('illegal: 自愿换角 in WORLD_SETUP → ERR_INVALID_TRANSITION', () => {
+    expectCode(() => go(setup(), '自愿换角'), 'ERR_INVALID_TRANSITION');
+  });
+
+  it('INHERIT_DECISION 可继续 选定继承人/无继承人/候选列表为空 路径', () => {
+    const inherit = go(base(), '自愿换角');
+    expect(go(inherit, '选定继承人').当前态).toBe('PLAYING');
+    expect(go(inherit, '无继承人').当前态).toBe('LIFE_SUMMARY');
+    expect(go(inherit, '候选列表为空').当前态).toBe('LIFE_SUMMARY');
+  });
+});
+
+// ── G5·6.49 读档/立碑 安全接缝门规 ──────────────────────────────────────────
+
+describe('P0-4 G5·读档/立碑 安全接缝门规（6.49）', () => {
+  it('读档 in PLAYING.PAUSED（空栈·拍空闲·队列空）→ 执行读档', () => {
+    const fx = effects(base(), { type: '读档' });
+    expect(fx.some(f => f.type === '执行读档')).toBe(true);
+  });
+
+  it('立碑 in PLAYING.PAUSED（空栈·拍空闲·队列空）→ 执行立碑', () => {
+    const fx = effects(base(), { type: '立碑' });
+    expect(fx.some(f => f.type === '执行立碑')).toBe(true);
+  });
+
+  it('读档 in EVENT_BROADCAST（安全模态）→ 执行读档', () => {
+    const withEB = go(base(), '广播推送');
+    expect(isSafeSeam(withEB)).toBe(true);
+    const fx = effects(withEB, { type: '读档' });
+    expect(fx.some(f => f.type === '执行读档')).toBe(true);
+  });
+
+  it('illegal: 读档 in COMBAT（不安全模态）→ ERR_UNSAFE_SEAM', () => {
+    const inCombat = go(base(), '战斗开始');
+    expectCode(() => go(inCombat, '读档'), 'ERR_UNSAFE_SEAM');
+  });
+
+  it('illegal: 立碑 in SCHEDULE_PLAN（不安全模态）→ ERR_UNSAFE_SEAM', () => {
+    const inSP = go(base(), '打开日程规划');
+    expectCode(() => go(inSP, '立碑'), 'ERR_UNSAFE_SEAM');
+  });
+
+  it('illegal: 读档 in 结算中（拍非空闲）→ ERR_UNSAFE_SEAM', () => {
+    const s: StateMachineState = { ...base(), 拍生命周期: '结算中' };
+    expectCode(() => go(s, '读档'), 'ERR_UNSAFE_SEAM');
+  });
+
+  it('illegal: 立碑 in 元层写队列非空（指令组未提交）→ ERR_UNSAFE_SEAM', () => {
+    const s = go(base(), '元层写入', { 操作: '未提交操作' });
+    expectCode(() => go(s, '立碑'), 'ERR_UNSAFE_SEAM');
+  });
+});
+
+// ── C4·6.53 席位掉线×看门狗 AI 托管降级接口（单机=no-op）────────────────────
+
+describe('P0-4 C4·席位掉线 AI 托管降级接口（6.53）', () => {
+  it('席位掉线 → 发起AI托管降级效果（状态机不变·单机路径宿主 no-op）', () => {
+    const result = dispatch(base(), { type: '席位掉线', 席位ID: 'seat-1' });
+    expect(result.新机器状态.当前态).toBe('PLAYING');
+    expect(result.效果指令.some(f => f.type === '发起AI托管降级')).toBe(true);
+    const fx = result.效果指令.find(f => f.type === '发起AI托管降级') as
+      { type: string; 席位ID: string } | undefined;
+    expect(fx?.席位ID).toBe('seat-1');
+  });
+
+  it('席位回连 → 交还席位效果', () => {
+    const result = dispatch(base(), { type: '席位回连', 席位ID: 'seat-2' });
+    expect(result.效果指令.some(f => f.type === '交还席位')).toBe(true);
+    const fx = result.效果指令.find(f => f.type === '交还席位') as
+      { type: string; 席位ID: string } | undefined;
+    expect(fx?.席位ID).toBe('seat-2');
+  });
+});
+
+// ── R2·6.63 COMBAT 离散孪生钟口径（注释验证）────────────────────────────────
+
+describe('P0-4 R2·COMBAT 离散孪生钟口径注释（6.63）', () => {
+  it('COMBAT 不自行推进世界钟（宿主推进·离散步进）', () => {
+    const before = base();
+    const inCombat = go(before, '战斗开始');
+    expect(inCombat.双时钟.世界钟).toBe(before.双时钟.世界钟);
+  });
+
+  it('COMBAT 通过 F3 看门狗超时 → 战斗机械收束（零第三钟·唯一收束路径之一）', () => {
+    const inCombat = go(base(), '战斗开始');
+    const result = dispatch(inCombat, { type: '看门狗超时' });
+    expect(result.效果指令.some(f => f.type === '战斗机械收束')).toBe(true);
+  });
+});
+
+// ── F7·6.56 三档内存盘点（Invariant 7 框架占位）────────────────────────────
+
+describe('P0-4 F7·运行时内存三档盘点（6.56）', () => {
+  it('F7: assertInvariants 对含待弹队列（第二档）的合法状态不抛错', () => {
+    const s: StateMachineState = {
+      ...base(),
+      待弹队列: [{ 模态: 'EVENT_BROADCAST', 重要等级: 5, 事件id: 'e001' }],
+    };
+    expect(() => assertInvariants(s)).not.toThrow();
+  });
+
+  it('F7: 从档恢复 → 状态不变 + 重扫已结算未呈现队列效果', () => {
+    const result = dispatch(base(), { type: '从档恢复' });
+    expect(result.新机器状态.当前态).toBe('PLAYING');
+    expect(result.效果指令.some(f => f.type === '重扫已结算未呈现队列')).toBe(true);
+  });
+});
+
+// ── D2·6.54 死亡时刻双登记接口（注释验证）────────────────────────────────────
+
+describe('P0-4 D2·死亡时刻双登记接口（6.54）', () => {
+  it('主角死亡 → 效果含 双登记死亡时刻（全局时刻=世界钟·域钟读数=镜头钟）', () => {
+    const s = { ...base(), 双时钟: { 世界钟: 1000, 镜头钟: 1200 } };
+    const fx = effects(s, { type: '主角死亡' });
+    const dual = fx.find(f => f.type === '双登记死亡时刻') as
+      { type: string; 全局时刻: number; 域钟读数: number } | undefined;
+    expect(dual).toBeDefined();
+    expect(dual!.全局时刻).toBe(1000);
+    expect(dual!.域钟读数).toBe(1200);
   });
 });
