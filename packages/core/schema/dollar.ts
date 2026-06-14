@@ -89,6 +89,16 @@ export const $玩家偏好Schema = z.object({
   // 强制约束：内容分级 !== 'community' → 调用类型注册表条目 允许玩家覆盖SystemPrompt 须 false
   //   （RootSchemaStrict superRefine 验证·旧档迁移：关→off/SFW→light/NSFW→explicit）
   内容分级: z.enum(['off', 'light', 'explicit', 'community']).default('off'),
+  // 🎚️ NSFW降级模型开关（玩家三态·偏好层·入排除名单·⊥内容分级独立）
+  // 关：恒用默认模型，软拒 → 重roll叙事（同模型·不切模型）
+  // 失败兜底：软拒/拒答命中 → 切 $预算控制台.NSFW降级目标模型键
+  // 场景预判：叙事前跑场景检测器，命中即预路由；仍失败再重roll
+  // 路由决策快照写 tick_log（硬约束③）；切换必明示原因（硬约束①）；
+  // 目标模型无 key 时开关自动降级为不可用（硬约束②）
+  NSFW降级模型: z.object({
+    启用: z.boolean().default(false),
+    触发模式: z.enum(['场景预判', '失败兜底']).default('失败兜底'),
+  }).default({}),
 });
 
 // ── $会话状态（6.1） ──
@@ -132,6 +142,8 @@ export const $预算控制台Schema = z.object({
     超时秒数: z.number().int().min(0).default(30),
     失败后行为: z.enum(['降级继续', '自动暂停弹重试面板']).default('降级继续'),
   })).optional(),
+  // NSFW降级目标模型键（连接$模型画像·指向已配 key 的 provider 键；无 key 时开关不可用·入排除名单）
+  NSFW降级目标模型键: z.string().optional(),
   // ── P0-1 黄金窗口·调批字段（全入指纹排除名单·不影响判定面）─────────────────────
   采样覆盖层: z.record(z.string(), z.object({  // 键=调用类型名·逐类型覆盖采样参数
     温度: z.number().min(0).max(2).optional(),
