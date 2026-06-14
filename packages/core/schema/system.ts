@@ -36,7 +36,9 @@ export const SystemSchema = z.object({
     二审维度开关: z.record(z.string(), z.boolean()).default({}),
     观战推进模式: z.enum(['手动步进', '自动连播', '快播到事件']).default('手动步进'),
     // P0-1 黄金窗口·内容分级（B桶状态·叙事面·不影响判定）
-    内容分级: z.enum(['关', 'SFW', 'NSFW']).optional(),
+    // 🎚️ enum驱动专家门：community档解锁允许玩家覆盖SystemPrompt（唯一入口·防双控件）
+    // 关/SFW/NSFW → 允许玩家覆盖SystemPrompt锁false；community → 专家门可开
+    内容分级: z.enum(['关', 'SFW', 'NSFW', 'community']).optional(),
   }).passthrough().default({}),
   事件来源权重: z.object({
     事件包: z.number().min(0).max(100).default(50),

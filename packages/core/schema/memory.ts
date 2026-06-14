@@ -208,6 +208,13 @@ const 调用类型条目Schema = z.object({
     硬上限tokens: z.number().int().min(0).optional(),
     截断优先级: z.array(z.string()).default([]),
   }).optional(),
+  // ── 🎚️ 玩家主权·叙事专用·作用域硬约束=schema白名单（记账/检定/谜底/结算结构上不含）──
+  // P0-6 导入闸校验：携带此字段族的条目须为「叙事」调用类型（防覆盖泄进结算管线）
+  允许玩家覆盖SystemPrompt: z.boolean().default(false), // 专家模式门·缺省关·community档驱动
+  玩家SystemPrompt覆盖: z.string().optional(),          // 覆盖串·叙事调用时替换引擎内置SystemPrompt
+  // ── 🤖 破限引擎化·assistant预填·叙事专用（伪assistant消息/continue prefill）─────────
+  // 消费点：P0-8组装器仅叙事调用拼接此字段；核心调用永不带预填
+  assistant预填: z.string().optional(),
 });
 
 // "+3" 具名调用类型键（冻结名称·蓝图 6.75）：

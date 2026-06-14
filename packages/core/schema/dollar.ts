@@ -81,6 +81,9 @@ export const $玩家偏好Schema = z.object({
   写实度权重: z.number().min(0).max(100).default(50),
   // 事件偏好标签权重；同为开放串键
   事件偏好权重: z.record(z.string(), z.number().min(0)).default({}),
+  // 🎚️ 玩家主权·NSFW疲劳系数（0=关闭疲劳·1=默认·2=双倍疲劳；入指纹排除名单=偏好层）
+  // 消费点：乘进NPC疲劳累积速率与到期事件硬闯催熟权重（P0-7结算管线接线）
+  疲劳系数: z.number().min(0).max(2).default(1),
 });
 
 // ── $会话状态（6.1） ──
@@ -163,6 +166,13 @@ export const $模型画像Schema = z.record(
     硬审查标注: z.string().optional(),  // 强制审查规则备注
     解禁提示词: z.string().optional(),  // 风格补正/解禁用追加提示词
     禁词表: z.array(z.string()).default([]), // 6.41 反八股校验规则（非替换规则）·按 provider 分表
+    // 🤖 破限引擎化·per-provider 破限引子（入指纹排除名单·AI永不可见·随内容分级强度档启用）
+    // 消费点：P0-8组装器按模型族自动挑引子+注入角色（Claude=system+assistant预填·Gemini/GLM=assistant预填主）
+    破限引子: z.object({
+      思维链引子: z.string().optional(),                         // 推理链解锁提示词前缀
+      注入角色: z.enum(['system', 'assistant']).optional(),     // 注入位置（system块/assistant预填）
+      预填串: z.string().optional(),                            // continue prefill 文本
+    }).optional(),
   }),
 ).default({});
 
@@ -255,6 +265,7 @@ const 彩蛋条目Schema = z.object({
 
 export const $隐藏记忆库Schema = z.object({
   延时种子: z.record(z.string(), 延时种子条目Schema).default({}),
+  // 装配器规格：彩蛋池落层 = 引擎装配器直写（$运气 §三-17 同族特例）；五道闸只管关系/实体/账面部分
   彩蛋池: z.record(z.string(), 彩蛋条目Schema).default({}),
 });
 

@@ -95,6 +95,12 @@ export const FINGERPRINT_EXCLUDED_FIELDS = [
   '实体模板库',    // NPC/组织模板库占位·结构待P0-7·不影响判定
   '二审维度库',    // 叙事质量二审维度注册表·叙事面·不影响判定
   '小剧场剧本库',  // 玩家触发小剧场剧本·叙事面·不影响判定
+  // 🎚️ 玩家主权（叙事层⊥判定层·B1d同族·拨动永不进盐）
+  '疲劳系数',              // NSFW疲劳倍率旋钮·$玩家偏好·叙事/偏好层·不影响判定面
+  '允许玩家覆盖SystemPrompt', // 专家模式门控·叙事专用·不影响判定
+  '玩家SystemPrompt覆盖',  // 覆盖串·叙事层·不影响判定
+  // 🤖 破限引擎化（叙事层专用·永不进判定盐）
+  'assistant预填',         // continue prefill·叙事专用·不影响判定
 ] as const;
 
 export type FingerprintBundleMember = (typeof FINGERPRINT_BUNDLE_MEMBERS)[number];
