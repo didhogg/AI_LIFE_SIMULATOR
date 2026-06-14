@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { rngFor, rngForFate, hashPresetFingerprint } from '../engine/rng.js';
+import { rngFor, rngForFate, hashPresetFingerprint, hashJudgmentBundle } from '../engine/rng.js';
+import type { 暴击映射判定型 } from '../engine/rng.js';
 
 describe('P0-5 RNG — rngFor (ordinary checks)', () => {
   it('determinism: same inputs → same output over 1000 runs', () => {
@@ -113,23 +114,39 @@ describe('P0-5 RNG — XOR folding regression', () => {
   });
 });
 
-describe('P0-5 RNG — hashPresetFingerprint (发现A 两分)', () => {
-  // Two-part base: preset (from-never-snapshot) + snapshot (snapshot-locked)
+describe('P0-5 RNG — hashJudgmentBundle + hashPresetFingerprint (B1 extended)', () => {
+  // Base bundle fields (B1d judgment surface)
+  const baseBundleFields = {
+    历法皮肤: {},
+    粒度模板覆盖: {},
+    种族模板: {},
+    母题配额: {},
+    媒体渠道表: {},
+    检定配方表: { 魅力: { 主属性: '魅力', 副属性: [] } },
+    检定档切分表: { 大胜下限: 40, 胜下限: 15, 惨胜下限: 1, 败下限: -24 },
+    欠债参数: {},
+    赛事结构模板: {},
+  };
+  const baseSnapshotFields = {
+    难度系数组: { 基础DC: 50 },
+    钳制表: {},
+    判定骰型: 100 as 100 | 20,
+    暴击映射: '关' as 暴击映射判定型,
+    预设数值面域上下界: [],
+  };
+  const baseBundle = hashJudgmentBundle(baseBundleFields);
   const base = {
-    preset: {
-      检定配方表: { 魅力: { 主属性: '魅力', 副属性: [] } },
-      检定档切分表: { 大胜下限: 40, 胜下限: 15, 惨胜下限: 1, 败下限: -24 },
-    },
-    snapshot: {
-      难度系数组: { 基础DC: 50 },
-      钳制表: {},
-      判定骰型: 100 as const,
-    },
+    判定面整包: baseBundle,
+    生效中内容包集哈希: '',
+    snapshot: baseSnapshotFields,
   };
 
-  it('returns an 8-char hex string', () => {
-    const h = hashPresetFingerprint(base);
-    expect(h).toMatch(/^[0-9a-f]{8}$/);
+  it('hashJudgmentBundle returns an 8-char hex string', () => {
+    expect(baseBundle).toMatch(/^[0-9a-f]{8}$/);
+  });
+
+  it('hashPresetFingerprint returns an 8-char hex string', () => {
+    expect(hashPresetFingerprint(base)).toMatch(/^[0-9a-f]{8}$/);
   });
 
   it('deterministic: same input → same hash', () => {
@@ -138,7 +155,7 @@ describe('P0-5 RNG — hashPresetFingerprint (发现A 两分)', () => {
 
   it('snapshot: different 判定骰型 → different hash', () => {
     const h100 = hashPresetFingerprint({ ...base, snapshot: { ...base.snapshot, 判定骰型: 100 } });
-    const h20 = hashPresetFingerprint({ ...base, snapshot: { ...base.snapshot, 判定骰型: 20 } });
+    const h20  = hashPresetFingerprint({ ...base, snapshot: { ...base.snapshot, 判定骰型: 20  } });
     expect(h100).not.toBe(h20);
   });
 
@@ -148,36 +165,44 @@ describe('P0-5 RNG — hashPresetFingerprint (发现A 两分)', () => {
     expect(h1).not.toBe(h2);
   });
 
-  it('preset: different 检定档切分表 → different hash', () => {
+  it('bundle: different 检定档切分表 → bundle hash changes → fingerprint changes', () => {
     const h1 = hashPresetFingerprint(base);
-    const h2 = hashPresetFingerprint({
-      ...base,
-      preset: { ...base.preset, 检定档切分表: { ...base.preset.检定档切分表, 大胜下限: 35 } },
-    });
+    const otherBundle = hashJudgmentBundle({ ...baseBundleFields, 检定档切分表: { 大胜下限: 35, 胜下限: 10, 惨胜下限: 1, 败下限: -29 } });
+    const h2 = hashPresetFingerprint({ ...base, 判定面整包: otherBundle });
     expect(h1).not.toBe(h2);
   });
 
-  it('preset: different 检定配方表 → different hash', () => {
+  it('bundle: different 检定配方表 → bundle hash changes → fingerprint changes', () => {
     const h1 = hashPresetFingerprint(base);
-    const h2 = hashPresetFingerprint({
-      ...base,
-      preset: { ...base.preset, 检定配方表: { 力量: { 主属性: '力量', 副属性: [] } } },
-    });
+    const otherBundle = hashJudgmentBundle({ ...baseBundleFields, 检定配方表: { 力量: { 主属性: '力量', 副属性: [] } } });
+    const h2 = hashPresetFingerprint({ ...base, 判定面整包: otherBundle });
     expect(h1).not.toBe(h2);
   });
 
-  it('snapshot: 暴击映射 present → different hash from absent (B1b 进指纹)', () => {
+  it('B1b: snapshot.暴击映射 关→启用 → fingerprint changes', () => {
     const without = hashPresetFingerprint(base);
     const with暴击 = hashPresetFingerprint({
       ...base,
-      snapshot: { ...base.snapshot, 暴击映射: { 胜转大胜阈值: 90 } },
+      snapshot: { ...base.snapshot, 暴击映射: { 顶格升一档: true, 底格降一档: true } },
     });
     expect(with暴击).not.toBe(without);
   });
 
-  it('snapshot: different 暴击映射 → different hash', () => {
-    const h1 = hashPresetFingerprint({ ...base, snapshot: { ...base.snapshot, 暴击映射: { 胜转大胜阈值: 80 } } });
-    const h2 = hashPresetFingerprint({ ...base, snapshot: { ...base.snapshot, 暴击映射: { 胜转大胜阈值: 95 } } });
+  it('B1b: different 暴击映射 objects → different hash', () => {
+    const h1 = hashPresetFingerprint({ ...base, snapshot: { ...base.snapshot, 暴击映射: { 顶格升一档: true,  底格降一档: false } } });
+    const h2 = hashPresetFingerprint({ ...base, snapshot: { ...base.snapshot, 暴击映射: { 顶格升一档: false, 底格降一档: true  } } });
+    expect(h1).not.toBe(h2);
+  });
+
+  it('B1c: different 生效中内容包集哈希 → different hash', () => {
+    const h1 = hashPresetFingerprint({ ...base, 生效中内容包集哈希: '' });
+    const h2 = hashPresetFingerprint({ ...base, 生效中内容包集哈希: 'a1b2c3d4' });
+    expect(h1).not.toBe(h2);
+  });
+
+  it('K5: 规则补丁哈希 present → different hash from absent', () => {
+    const h1 = hashPresetFingerprint(base);
+    const h2 = hashPresetFingerprint({ ...base, 规则补丁哈希: 'patch0001' });
     expect(h1).not.toBe(h2);
   });
 });

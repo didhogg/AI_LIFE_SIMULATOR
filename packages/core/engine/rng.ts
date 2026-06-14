@@ -81,33 +81,70 @@ export function rngForFate(
   return prand.unsafeUniformIntDistribution(0, 99, rng);
 }
 
+// ── B1b: 暴击映射 判定口径类型（镜像 preset.ts:暴击映射Schema·避免跨层依赖）──────
+export type 暴击映射判定型 = '关' | { 顶格升一档: boolean; 底格降一档: boolean };
+
 /**
- * Compute fingerprint hash for preset judgment fields.
- * Structure follows 发现A two-part split — two mutually exclusive buckets:
+ * B1d: Compute canonical hash of all judgment-facing preset fields (判定面整包).
+ * Caller pre-computes this and passes the result to hashPresetFingerprint() as 判定面整包.
  *
- *   preset:   fields that are NEVER snapshotted (pure preset, open-world constants).
- *             Caller reads directly from 玩法预设.
- *   snapshot: fields that ARE snapshot-locked (开局锁定·随档快照).
- *             Caller passes these in from the archive snapshot, NOT from live preset.
+ * Fields pending schema:
+ *   - TODO(P0-6): 概率域夹逼 — add to signature when P0-6 受治理键空间 lands + 补断言
+ *   - TODO(P0-7): 方式×速度换算表 — add when P0-7 speed model lands + 补断言
+ *   - TODO(P0-7): H7量纲表全量 — add when P0-7 dimension system lands + 补断言
+ */
+export function hashJudgmentBundle(fields: {
+  历法皮肤: unknown;
+  粒度模板覆盖: unknown;
+  种族模板: unknown;
+  母题配额: unknown;
+  媒体渠道表: unknown;
+  检定配方表: unknown;         // 含出厂派生配方
+  检定档切分表: unknown;
+  欠债参数: unknown;           // 欠债阈值·利息周期
+  换角许可?: unknown;
+  世界遗产白名单出厂值?: unknown;
+  赛事结构模板: unknown;
+}): string {
+  return fnv1a32(canonicalize(fields)).toString(16).padStart(8, '0');
+}
+
+/**
+ * Compute fingerprint hash for all judgment-relevant fields (发现A 两分 · B1 extended).
  *
- * Final fingerprint = FNV-1a hash over { preset, snapshot } via canonicalize().
+ * Caller responsibilities:
+ *   1. Pre-compute 判定面整包 via hashJudgmentBundle() from live 玩法预设.
+ *   2. Pre-compute 生效中内容包集哈希 by sorting + canonicalizing all active mod 内容哈希? values (B1c).
+ *   3. Pre-compute 规则补丁哈希 via fnv1a32(canonicalize(规则补丁)) if applicable (K5).
+ *   4. Pass snapshot fields from the archive snapshot, NOT from live preset.
+ *
+ * Pending members (留 TODO·届时补断言):
+ *   - TODO(Q5): 约定库谓词/选择器谓词 — 家在 P0-6 受治理键空间
+ *   - TODO(J5): 级联深度 N + 轮号 — preset 无此字段时延至 P0-6
+ *   - TODO(DSL): DSL 文法版本号 — 求值器归 P0-6/P0-7
+ *
  * Used to populate _tick.难度系数组指纹 in P0-7 runTick.
  */
 export function hashPresetFingerprint(fields: {
-  /** 预设整包: 从不快照的预设字段 */
-  preset: {
-    检定配方表: unknown;
-    检定档切分表: unknown;
-  };
-  /** 快照锁定: 开局锁定·随档快照；P0-5 由调用方从档内快照传入 */
+  /** B1d: 判定面整包哈希·调用方通过 hashJudgmentBundle() 预计算后传入 */
+  判定面整包: string;
+  /** B1c: 全部已启用 mod 的 内容哈希? 的集合哈希·调用方聚合后传入 */
+  生效中内容包集哈希: string;
+  /** K5: canonicalize(规则补丁) 的哈希·preset 已有 规则补丁Schema */
+  规则补丁哈希?: string;
+  /** 快照锁定组·开局锁定·随档快照；调用方从档内快照传入，绝不读 live 预设 */
   snapshot: {
+    /** B1a·明文在册·直接纳入 */
     难度系数组: unknown;
+    /** B1a·补三员之一 */
     判定骰型: 100 | 20;
-    /** 暴击映射: 进指纹 (B1b); reserved — type definition deferred to P1 */
-    暴击映射?: unknown;
+    /** B1b·SNAPSHOT 组·判定口径·本轮类型收紧（关=无暴击·对象=启用参数） */
+    暴击映射: 暴击映射判定型;
+    /** B1a·补三员之二 */
     钳制表: unknown;
+    /** B1a·补三员之三·属性轴表.最大值/自然上限·判定域上下界 */
+    预设数值面域上下界: unknown;
   };
 }): string {
-  const h = fnv1a32(canonicalize(fields));
-  return h.toString(16).padStart(8, '0');
+  return fnv1a32(canonicalize(fields)).toString(16).padStart(8, '0');
 }
