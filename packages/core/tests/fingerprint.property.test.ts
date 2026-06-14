@@ -72,6 +72,9 @@ type FullCtx = {
   生效锚点: unknown;
   基底契约: unknown;
   内容哈希: unknown;
+  // B-1 lore exclusions
+  lore能力集: unknown;
+  'output_tag命名空间': unknown;
   [key: string]: unknown; // index sig for dynamic spread in loops
 };
 
@@ -115,6 +118,9 @@ const BASE_CTX: FullCtx = {
   生效锚点:           0,
   基底契约:           '',
   内容哈希:           '',
+  // B-1 lore exclusions
+  lore能力集:          [],
+  'output_tag命名空间': '',
 };
 
 /** Extract fingerprint from a FullCtx — excluded fields are invisible to the functions. */
@@ -211,6 +217,9 @@ const EXCLUDED_MUTATIONS: Record<FingerprintExcludedField, unknown> = {
   生效锚点:           9999,
   基底契约:           'base-contract-v2',
   内容哈希:           'cafebabe0102',
+  // B-1 lore exclusions
+  lore能力集:          [{ 类型: 'output_tag', 输出命名空间: 'cuisine:flavor_tag' }],
+  'output_tag命名空间': 'cuisine:flavor_tag',
 };
 type _ExcludedMutationsExhaustive = typeof EXCLUDED_MUTATIONS extends Record<FingerprintExcludedField, unknown> ? true : never;
 const _checkExcluded: _ExcludedMutationsExhaustive = true;

@@ -1,4 +1,4 @@
-// V4.1 RootSchema — 44 top-level keys (rev: +$天命重掷券, P0-5: +$存档种子, P0-1: 镜头焦点角色→席位表, P0-1 4.8: +调用类型注册表 +Ring2在途调用信封, P0-1 4.9: +存档头)
+// V4.1 RootSchema — 45 top-level keys (rev: +$天命重掷券, P0-5: +$存档种子, P0-1: 镜头焦点角色→席位表, P0-1 4.8: +调用类型注册表 +Ring2在途调用信封, P0-1 4.9: +存档头, B-1: +_lore知识库)
 import { z } from 'zod';
 
 // ── Layer exports (re-export all sub-schemas) ──
@@ -14,6 +14,7 @@ export * from './memory.js';
 export * from './dollar.js';
 export * from './preset.js';
 export * from './proposal.js';
+export * from './lore.js';
 
 import {
   SystemSchema,
@@ -42,6 +43,7 @@ import {
   调用类型注册表Schema,
   Ring2在途调用信封Schema,
 } from './memory.js';
+import { lore知识库Schema } from './lore.js';
 import {
   $运气Schema,
   $寿命预期Schema,
@@ -63,7 +65,7 @@ import {
   $metaSchema,
 } from './dollar.js';
 
-// ── Authoritative 41-key list from blueprint 4.0 (rev: +$天命重掷券, P0-5: +$存档种子) ──
+// ── Authoritative 45-key list from blueprint 4.0 (rev: +$天命重掷券, P0-5: +$存档种子, B-1: +_lore知识库) ──
 export const BLUEPRINT_KEYS = [
   '_系统版本',
   '_tick',
@@ -109,6 +111,7 @@ export const BLUEPRINT_KEYS = [
   '$存档种子',
   '_存档头',
   '$meta',
+  '_lore知识库',
 ] as const;
 
 // ── RootSchema ──
@@ -175,6 +178,8 @@ export const RootSchema = z.object({
   $存档种子: $存档种子Schema,
   _存档头: 存档头Schema.default({}),
   $meta: $metaSchema.default({}),
+  // 4.X Module 15 — lore 知识库（世界恒真知识层·AI 只读·零迁移可空）
+  _lore知识库: lore知识库Schema.optional(),
 });
 
 export type RootState = z.infer<typeof RootSchema>;

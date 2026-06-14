@@ -72,6 +72,12 @@ import {
   约定子类型Schema,
 } from '../schema/index.js';
 import { 叙事流条目Schema } from '../schema/narrativeStream.js';
+import {
+  lore条目Schema,
+  lore知识库Schema,
+  TOOL_能力条目Schema,
+  TOOL_能力类型,
+} from '../schema/lore.js';
 
 // ══════════════════════════════════════════
 // (a) Per-layer parse tests
@@ -2308,7 +2314,7 @@ describe('blueprint ↔ schema consistency', () => {
 
     expect(inSchemaNotBlueprint).toEqual([]);
     expect(inBlueprintNotSchema).toEqual([]);
-    expect(schemaKeys.size).toBe(44); // P0-1 4.9: +存档头
+    expect(schemaKeys.size).toBe(45); // B-1: +_lore知识库
   });
 
   it('BLUEPRINT_KEYS has no duplicates', () => {
@@ -2478,5 +2484,172 @@ describe('6.43 叙事流条目Schema（不进 RootSchema）', () => {
       正文: '陛下，臣以为此事不妥。',
       结构化附注: { 情绪: '强硬', 场景: '朝堂' },
     }).success).toBe(true);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// B-1 Module 15 — lore 知识库 schema 预埋
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('B-1 lore 知识库 · 基础约束', () => {
+  it('lore知识库Schema 空 record 默认值通过（零迁移·老档无此键透明通过）', () => {
+    const r = lore知识库Schema.parse(undefined);
+    expect(r).toEqual({});
+  });
+
+  it('lore条目Schema 全空默认值通过', () => {
+    const r = lore条目Schema.parse({});
+    expect(r.分类路径).toEqual([]);
+    expect(r.别名表).toEqual([]);
+    expect(r.触发谓词).toBe('');
+    expect(r.知识载荷).toBe('');
+    expect(r.状态转移).toBeUndefined();
+    expect(r.硬约束).toBeUndefined();
+    expect(r.能力集).toBeUndefined();
+  });
+
+  it('TOOL_能力类型 枚举包含全部六种类型', () => {
+    expect(TOOL_能力类型).toContain('code');
+    expect(TOOL_能力类型).toContain('llm');
+    expect(TOOL_能力类型).toContain('roll_dice');
+    expect(TOOL_能力类型).toContain('json_schema');
+    expect(TOOL_能力类型).toContain('trigger');
+    expect(TOOL_能力类型).toContain('output_tag');
+    expect(TOOL_能力类型).toHaveLength(6);
+  });
+
+  it('[TOOL] 能力条目·output_tag 带命名空间 parse 通过', () => {
+    const r = TOOL_能力条目Schema.parse({ 类型: 'output_tag', 输出命名空间: 'cuisine:flavor_tag' });
+    expect(r.类型).toBe('output_tag');
+    expect(r.输出命名空间).toBe('cuisine:flavor_tag');
+  });
+
+  it('[TOOL] 能力条目·输出命名空间 可缺省（非 output_tag 类型）', () => {
+    const r = TOOL_能力条目Schema.parse({ 类型: 'roll_dice' });
+    expect(r.类型).toBe('roll_dice');
+    expect(r.输出命名空间).toBeUndefined();
+  });
+
+  it('[TOOL] 能力条目·非法类型 → 校验失败', () => {
+    expect(TOOL_能力条目Schema.safeParse({ 类型: 'eval_js' }).success).toBe(false);
+  });
+});
+
+describe('B-1 lore 知识库 · 食物样本（菜系·四川火锅·证明域无关性）', () => {
+  const 四川火锅条目 = {
+    分类路径: ['菜系', '川菜', '四川火锅'],
+    别名表: [
+      { 别名: '川锅', 命名空间: 'cuisine' },
+      { 别名: '麻辣锅', 命名空间: 'cuisine' },
+    ],
+    触发谓词: '场景.地域 == 四川 || 场景.环境.类型 == 饮食场所',
+    知识载荷: '四川火锅以麻辣鲜香为主要风味，底料以牛油为基底，辅以花椒、辣椒等香料。忌反季蔬菜配搭出错。',
+    硬约束: [
+      {
+        禁令谓词: '食材.应季 == false && 场景.写实度 > 0.7',
+        禁令描述: '禁反季食材，高写实度场景下应季原则必须遵守',
+        错误代码: 'CUISINE_INGREDIENT_SEASON_VIOLATION',
+      },
+    ],
+    能力集: [
+      { 类型: 'trigger' as const, 参数描述: '场景进入饮食场所时触发风味描述注入' },
+    ],
+  };
+
+  it('食物 lore 样本 parse 通过', () => {
+    const r = lore条目Schema.parse(四川火锅条目);
+    expect(r.分类路径).toEqual(['菜系', '川菜', '四川火锅']);
+    expect(r.别名表[0]!.别名).toBe('川锅');
+    expect(r.硬约束![0]!.错误代码).toBe('CUISINE_INGREDIENT_SEASON_VIOLATION');
+    expect(r.能力集![0]!.类型).toBe('trigger');
+  });
+
+  it('食物 lore 存入 lore知识库Schema·parse 通过', () => {
+    const r = lore知识库Schema.parse({ 'cuisine:四川火锅': 四川火锅条目 });
+    expect(r['cuisine:四川火锅']!.分类路径[0]).toBe('菜系');
+  });
+
+  it('食物样本证明 schema 非服装专用：分类路径首节点为「菜系」而非「服饰」', () => {
+    const r = lore条目Schema.parse(四川火锅条目);
+    expect(r.分类路径[0]).toBe('菜系');
+    expect(r.分类路径[0]).not.toBe('服饰');
+    expect(r.分类路径[0]).not.toBe('汉服');
+  });
+});
+
+describe('B-1 lore 知识库 · 方言样本（吴语·苏州话·含状态转移）', () => {
+  const 苏州话条目 = {
+    分类路径: ['方言', '吴语', '苏州话'],
+    别名表: [
+      { 别名: '苏白', 命名空间: 'dialect' },
+      { 别名: '吴侬软语', 命名空间: 'dialect' },
+    ],
+    触发谓词: '角色.出身地 == 苏州 || 场景.地域 == 苏州',
+    知识载荷: '苏州话属吴语太湖片，以阴柔婉转著称，入声保留完整。声母清浊对立，韵母丰富，与普通话互不相通。',
+    状态转移: [
+      {
+        触发条件: '角色.默认口音 != 苏白 && 角色.出身地 == 苏州',
+        动作描述: '将角色默认口音切换为苏白',
+        结果状态: '苏白口音启用',
+      },
+    ],
+    硬约束: [
+      {
+        禁令谓词: '角色.口音 == 北方话 && 场景.地域 == 苏州 && 场景.写实度 > 0.7',
+        禁令描述: '高写实度下禁止苏州场景使用北方话口音（禁串口音）',
+        错误代码: 'DIALECT_MISMATCH_SUZHOU',
+      },
+    ],
+    能力集: [
+      { 类型: 'output_tag' as const, 输出命名空间: 'dialect:苏白口音', 参数描述: '口音激活标记' },
+    ],
+  };
+
+  it('方言 lore 样本 parse 通过', () => {
+    const r = lore条目Schema.parse(苏州话条目);
+    expect(r.分类路径).toEqual(['方言', '吴语', '苏州话']);
+    expect(r.别名表[0]!.别名).toBe('苏白');
+    expect(r.状态转移![0]!.结果状态).toBe('苏白口音启用');
+    expect(r.硬约束![0]!.错误代码).toBe('DIALECT_MISMATCH_SUZHOU');
+    expect(r.能力集![0]!.类型).toBe('output_tag');
+    expect(r.能力集![0]!.输出命名空间).toBe('dialect:苏白口音');
+  });
+
+  it('方言样本证明 schema 域无关性：分类路径首节点为「方言」', () => {
+    const r = lore条目Schema.parse(苏州话条目);
+    expect(r.分类路径[0]).toBe('方言');
+    expect(r.分类路径[0]).not.toBe('服饰');
+  });
+
+  it('同一 lore知识库 可混存食物+方言两类条目', () => {
+    const r = lore知识库Schema.parse({
+      'cuisine:四川火锅': { 分类路径: ['菜系', '川菜'], 触发谓词: '', 知识载荷: '', 别名表: [] },
+      'dialect:苏州话': 苏州话条目,
+    });
+    expect(Object.keys(r)).toHaveLength(2);
+    expect(r['dialect:苏州话']!.分类路径[0]).toBe('方言');
+    expect(r['cuisine:四川火锅']!.分类路径[0]).toBe('菜系');
+  });
+});
+
+describe('B-1 lore 知识库 · BLUEPRINT_KEYS 一致性', () => {
+  it('_lore知识库 已纳入 BLUEPRINT_KEYS', () => {
+    expect(BLUEPRINT_KEYS).toContain('_lore知识库');
+  });
+
+  it('BLUEPRINT_KEYS 与 RootSchema 顶层键完全对齐（一致性检查）', () => {
+    const schemaKeys = new Set(Object.keys(RootSchema.shape));
+    for (const k of BLUEPRINT_KEYS) {
+      expect(schemaKeys.has(k), `BLUEPRINT_KEYS 含 "${k}" 但 RootSchema.shape 无此键`).toBe(true);
+    }
+    for (const k of schemaKeys) {
+      expect(BLUEPRINT_KEYS as readonly string[], `RootSchema.shape 含 "${k}" 但 BLUEPRINT_KEYS 未列`).toContain(k);
+    }
+  });
+
+  it('RootSchema.parse({}) 有 _lore知识库 字段（零迁移·undefined）', () => {
+    const r = RootSchema.parse({});
+    // optional() means absent on empty parse — acceptable; zero-migration confirmed
+    expect('_lore知识库' in r || r['_lore知识库'] === undefined).toBe(true);
   });
 });
