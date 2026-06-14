@@ -1,5 +1,9 @@
 // P0-6 Gate① — whitelist derivation prototype (dry-run only, not P0-6 gate impl)
 // Verifies that "verb-writable path whitelist" can be mechanically derived from RootSchema.
+//
+// P0-6 TODO: 五道闸正式实装后，需补端到端反向断言：
+//   AI 动词提案写 _状态机/_席位表 等 read-only 键 → 被②前缀闸或③白名单闸拒收，
+//   且不污染存档。当前仅有派生器层面的 read-only 分类断言，端到端验证留 P0-6 补。
 import { z } from 'zod';
 import { RootSchema } from './index.js';
 

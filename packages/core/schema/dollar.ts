@@ -189,6 +189,8 @@ export const $隐藏记忆库Schema = z.object({
 
 // ── 存档头（4.9/U3a/N2·独立顶层键·任何快照之外）──
 // 全局回滚计数器 = 全档唯一合法「快照外可变量」，永不随快照还原
+// P0-9 TODO: 存档层实装时，_存档头 必须走存档外序列化通道，与快照树完全隔离；
+//            不得进入快照 diff / 回滚 / 重放管线，否则防白掷机制失效。
 export const 存档头Schema = z.object({
   全局回滚计数器: z.number().int().default(0),
   当前时间线id: z.string().default(''),   // 指向 $meta.周目谱系 节点
