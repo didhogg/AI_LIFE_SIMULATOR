@@ -21,5 +21,13 @@ export const 提案单条目Schema = z.object({
 
 export const 提案单Schema = z.array(提案单条目Schema).default([]);
 
+// ── P0-1·指令信封（txn_id：组级原子事务 ID·可空零迁移）─────────────────────────
+// txn_id: 同一信封内的多条提案单条目视为原子组；缺省=非组级事务（单条提案）
+export const 指令信封Schema = z.object({
+  txn_id: z.string().optional(), // 组级原子事务 ID·缺省=非组级
+  提案: 提案单条目Schema,
+}).strip();
+
 export type 提案单条目Type = z.infer<typeof 提案单条目Schema>;
 export type 提案单Type = z.infer<typeof 提案单Schema>;
+export type 指令信封Type = z.infer<typeof 指令信封Schema>;

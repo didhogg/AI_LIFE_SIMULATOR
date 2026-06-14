@@ -294,8 +294,8 @@ const NPC占位形态Schema = z.object({
   实体类型: z.string().default('NPC'),   // 开放串
   硬约束: z.array(z.string()).default([]),
   来源拍号: z.number().int().default(0),
-  模板引用: z.string().optional(),
-  模板快照: z.unknown().optional(),       // 包卸载后脱包兜底
+  _模板引用: z.string().optional(),        // K2/K3·血统只读·AI 不可改模板来源
+  _模板快照: z.unknown().optional(),       // K4·包卸载后脱包兜底·只读
 });
 
 // ── 6.72 酒馆角色卡迁移可空段 ───────────────────────────────────────────────

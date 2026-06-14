@@ -135,7 +135,7 @@ const 幽灵节点Schema = z.object({
   称谓: z.string().default(''),
   姓氏: z.string().default(''),
   生卒约束: z.string().default(''),          // 约束描述串（开放谓词）
-  模板引用: z.string().optional(),
+  _模板引用: z.string().optional(),        // K2/K3·血统只读·AI 不可改模板来源
 });
 
 const 家族树Schema = z.object({
