@@ -147,6 +147,8 @@ export const 播报条目Schema = z.discriminatedUnion('渠道', [
 export const 落账记录条目Schema = z.object({
   // 6.76 第四值「NPC自主/系统驱动」新增
   // ⚠️ 观战内容入主角认知?是🧮派生量（靠"是否在场"现算），不进 schema
+  // P5 二审规则（6.76续）: 叙事质量二审重写内容时·不得改写 actor_source（保持原写入方）
+  //   且不单独新增落账记录条目（直接覆写原条目内容·⊄单写者链·不参与 AA1 落账事件流）
   actor_source: z.enum(['玩家', '玩家确认', '模型代写', 'NPC自主/系统驱动']).default('NPC自主/系统驱动'),
   时间: z.number().int().default(0),    // 绝对纪元分钟；0=哨兵
   目标路径: z.string().default(''),     // "实体键.字段路径"·落账目标定位
@@ -231,6 +233,9 @@ export const Ring2在途调用信封Schema = z.object({
   // 调用世代 = 全局回滚计数器读数 + 拍锚（不是单调递增计数器）
   // 回滚/fork/关账后过期返回一律丢弃；绝不用演出层草稿计数回填
   调用世代: z.number().int().optional(),
+  // P6 重试预算绑世代（6.76续）: swipe=新世代→重置计数=0·同世代自动退回 ≤1 次重试
+  // 消费点：P0-8 叙事质量二审 retry 判断：同世代重试计数 ≥1 时不再重试·直接降级
+  重试计数: z.number().int().min(0).default(0),
 }).default({});
 
 // ══════════════════════════════════════════

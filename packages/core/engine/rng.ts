@@ -121,6 +121,39 @@ export function rngForFate(
   return prand.unsafeUniformIntDistribution(0, 99, rng);
 }
 
+/** 触发通道前缀常量（世界信息概率触发专用·强制使用 rngForTrigger） */
+export const TRIGGER_PREFIX = '触发:';
+
+/**
+ * 世界信息概率触发检定（触发通道·锚拍号混盐·P0-5 概率原语）。
+ *
+ * 三项使用规范（WI·R8·6.76）:
+ *   1. anchorTick = 事件种子播种时刻（严禁传入当前拍号；用播种时的 tick 锁定骰序）
+ *   2. pSpan      = 折算后累积概率 [0,1]；快进 N 期时先 `probOverSpan(p_period, N)` 再传入
+ *                   （直接裸判每拍 = 用 p_period 代替 pSpan，快进失真·违禁 R8）
+ *   3. rerollSalt = _存档头.全局回滚计数器（via saltFromArchiveHeader·同 rngFor 盐源）
+ *
+ * 精度约束：rngFor 返回 [0,99]；精度 = 1/100 = 1%。
+ *   pSpan < 0.01 时 `(roll/100) < pSpan` 恒假 → 事件不触发（最小精度兜底·已知限制）。
+ *   次级精度场景请传入 probOverSpan 折算后的多期累积概率（通常 ≥ 1%）。
+ *
+ * Throws if channel does not start with '触发:'.
+ */
+export function rngForTrigger(
+  seed: number,
+  anchorTick: number,   // 事件种子播种时刻·非当前拍号
+  channel: string,      // 必须 '触发:xxx' 前缀（4类触发契约通道）
+  pSpan: number,        // 累积概率 [0,1]；已过 probOverSpan 折算
+  rerollSalt: number,   // _存档头.全局回滚计数器
+  roundIndex = 0,
+): boolean {
+  if (!channel.startsWith(TRIGGER_PREFIX)) {
+    throw new Error(`rngForTrigger 只接受触发通道（前缀 "触发:"），收到：${channel}`);
+  }
+  const roll = rngFor(seed, anchorTick, channel, rerollSalt, roundIndex);
+  return (roll / 100) < pSpan;
+}
+
 // ── B1b: 暴击映射 判定口径类型（镜像 preset.ts:暴击映射Schema·避免跨层依赖）──────
 export type 暴击映射判定型 = '关' | { 顶格升一档: boolean; 底格降一档: boolean };
 

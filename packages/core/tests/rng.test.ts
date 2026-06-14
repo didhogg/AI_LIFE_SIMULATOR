@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rngFor, rngForFate, hashPresetFingerprint, hashJudgmentBundle } from '../engine/rng.js';
+import { rngFor, rngForFate, rngForTrigger, hashPresetFingerprint, hashJudgmentBundle } from '../engine/rng.js';
 import type { 暴击映射判定型 } from '../engine/rng.js';
 
 describe('P0-5 RNG — rngFor (ordinary checks)', () => {
@@ -111,6 +111,63 @@ describe('P0-5 RNG — XOR folding regression', () => {
     const u_0_5 = rngForFate(7, 0, '天命:命运', 5);
     const u_5_0 = rngForFate(7, 5, '天命:命运', 0);
     expect(u_0_5).not.toBe(u_5_0);
+  });
+});
+
+describe('P0-5 RNG — rngForTrigger（世界信息概率原语·锚拍号混盐）', () => {
+  it('determinism: 同 anchorTick/seed/channel/pSpan → 同结果（1000次）', () => {
+    const first = rngForTrigger(42, 7, '触发:上古神觉醒', 0.10, 0);
+    for (let i = 0; i < 999; i++) {
+      expect(rngForTrigger(42, 7, '触发:上古神觉醒', 0.10, 0)).toBe(first);
+    }
+  });
+
+  it('返回 boolean', () => {
+    const r = rngForTrigger(1, 1, '触发:贸易事件', 0.5, 0);
+    expect(typeof r).toBe('boolean');
+  });
+
+  it('pSpan=1.0 → 必触发（roll/100 < 1.0 恒真）', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      expect(rngForTrigger(seed, 3, '触发:必然事件', 1.0, 0)).toBe(true);
+    }
+  });
+
+  it('pSpan=0.0 → 必不触发', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      expect(rngForTrigger(seed, 3, '触发:不可能事件', 0.0, 0)).toBe(false);
+    }
+  });
+
+  it('anchorTick 不同 → 触发结果可能不同（骰序与锚点绑定）', () => {
+    const results = new Set<boolean>();
+    for (let tick = 0; tick < 50; tick++) {
+      results.add(rngForTrigger(1, tick, '触发:事件A', 0.5, 0));
+    }
+    // 50次不同锚拍号·p=0.5·至少一次true一次false
+    expect(results.size).toBe(2);
+  });
+
+  it('rerollSalt 变化 → 触发结果可能变化（与 rngFor 同盐源规范）', () => {
+    const results = new Set<boolean>();
+    for (let salt = 0; salt < 50; salt++) {
+      results.add(rngForTrigger(1, 3, '触发:事件B', 0.5, salt));
+    }
+    expect(results.size).toBe(2);
+  });
+
+  it('channel guard: 拒绝非触发:前缀', () => {
+    expect(() => rngForTrigger(1, 1, '检定:魅力', 0.5, 0)).toThrow(/rngForTrigger 只接受触发通道/);
+    expect(() => rngForTrigger(1, 1, '天命:死亡', 0.5, 0)).toThrow(/rngForTrigger 只接受触发通道/);
+  });
+
+  it('概率分布粗合理: p=0.5 下 100次触发约50次（±20允许）', () => {
+    let hits = 0;
+    for (let seed = 0; seed < 100; seed++) {
+      if (rngForTrigger(seed, 5, '触发:随机事件', 0.5, 0)) hits++;
+    }
+    expect(hits).toBeGreaterThan(30);
+    expect(hits).toBeLessThan(70);
   });
 });
 
