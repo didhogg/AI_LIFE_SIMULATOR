@@ -1,7 +1,7 @@
 // Pure V3.1 → V4.1 save migration.
 // No IO, no Date.now, no Math.random (ESLint bans in packages/core/).
 
-import { RootSchema, type RootState } from '../schema/index.js';
+import { RootSchema, RootSchemaStrict, type RootState } from '../schema/index.js';
 import {
   parseChineseDateToEpochMin,
   getTickMinutes,
@@ -1056,5 +1056,20 @@ export function migrate(input: unknown): MigrateResult {
   // Within-v4.1 migrations run here (after buildV41Raw v4.1 early-return path).
   const rawMigrated = migrate内容分级位置(raw);
   const state = RootSchema.parse(rawMigrated);
+
+  // Community-gate self-heal: 内容分级 !== 'community' 时强制 允许玩家覆盖=false，不 throw
+  const strict = RootSchemaStrict.safeParse(state);
+  if (!strict.success) {
+    const healedRegistry = { ...state.调用类型注册表 };
+    for (const issue of strict.error.issues) {
+      log.push({ level: 'warn', path: issue.path.join('/'), msg: issue.message });
+      const key = issue.path[1];
+      if (typeof key === 'string' && key in healedRegistry) {
+        healedRegistry[key] = { ...healedRegistry[key]!, 允许玩家覆盖SystemPrompt: false };
+      }
+    }
+    return { state: { ...state, 调用类型注册表: healedRegistry }, log };
+  }
+
   return { state, log };
 }
