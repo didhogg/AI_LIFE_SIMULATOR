@@ -1,8 +1,10 @@
 // P0-1x·接口冻结 stub 验收测试
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, expectTypeOf } from 'vitest';
 import { CombatResolver } from '../interfaces/combatResolver.js';
+import type { 战局状态, CombatSettleResult } from '../interfaces/combatResolver.js';
 import { 赌局Resolver } from '../interfaces/gamblingResolver.js';
 import { 离场补结 } from '../interfaces/offstageSettler.js';
+import type { 演化状态 } from '../interfaces/offstageSettler.js';
 import { findRoute } from '../interfaces/findRoute.js';
 import {
   提案单Schema,
@@ -10,7 +12,9 @@ import {
   方向槽枚举,
   指令信封Schema,
 } from '../schema/proposal.js';
+import type { 提案单条目Type, 提案单Type } from '../schema/proposal.js';
 import { 席位表Schema } from '../schema/actor.js';
+import type { 席位表Type } from '../schema/actor.js';
 
 describe('P0-1x Stub: CombatResolver（6.63·三段·未实装）', () => {
   it('init 签名抛出「未实装」', () => {
@@ -200,5 +204,66 @@ describe('P0-1 Batch 5 Schema: 席位表退化结构（6.53 C1）', () => {
   it('空表 = 无焦点（零席位）parse 通过', () => {
     expect(席位表Schema.safeParse({}).success).toBe(true);
     expect(席位表Schema.parse({})).toEqual({});
+  });
+});
+
+// ── P0-1x 签名冻结断言 stub（三件套第③件）────────────────────────────────────────
+// 前两件: 签名(interface文件) + 未实装抛错(throw stub) ← 已在 457aab2/77cb28c
+// 第三件: expectTypeOf 编译期断言——签名变动则此块报错，防接线期悄悄改口径
+describe('P0-1x 签名冻结断言 stub（三件套第③件·编译期口径锁）', () => {
+  // ── findRoute ───────────────────────────────────────────────────────────────
+  it('findRoute 返回类型冻结: string[] | null', () => {
+    expectTypeOf(findRoute).returns.toEqualTypeOf<string[] | null>();
+  });
+  it('findRoute 参数口径冻结: (unknown, string, string, string)', () => {
+    expectTypeOf(findRoute).parameters.toEqualTypeOf<[unknown, string, string, string]>();
+  });
+
+  // ── CombatResolver ──────────────────────────────────────────────────────────
+  it('CombatResolver.init 返回类型冻结: 战局状态', () => {
+    expectTypeOf(CombatResolver.init).returns.toEqualTypeOf<战局状态>();
+  });
+  it('CombatResolver.step 返回类型冻结: { 战局状态; 回合事件: string[] }', () => {
+    expectTypeOf(CombatResolver.step).returns.toEqualTypeOf<{ 战局状态: 战局状态; 回合事件: string[] }>();
+  });
+  it('CombatResolver.settle 返回类型冻结: CombatSettleResult', () => {
+    expectTypeOf(CombatResolver.settle).returns.toEqualTypeOf<CombatSettleResult>();
+  });
+
+  // ── 赌局Resolver ────────────────────────────────────────────────────────────
+  it('赌局Resolver.resolve 返回类型冻结: CombatSettleResult（同构）', () => {
+    expectTypeOf(赌局Resolver.resolve).returns.toEqualTypeOf<CombatSettleResult>();
+  });
+
+  // ── 离场补结 ────────────────────────────────────────────────────────────────
+  it('离场补结.初始化 返回类型冻结: 演化状态', () => {
+    expectTypeOf(离场补结.初始化).returns.toEqualTypeOf<演化状态>();
+  });
+  it('离场补结.推进 返回类型冻结: { 演化状态; 区间事实: unknown[] }', () => {
+    expectTypeOf(离场补结.推进).returns.toEqualTypeOf<{ 演化状态: 演化状态; 区间事实: unknown[] }>();
+  });
+  it('离场补结.收束 返回类型冻结: { 事实包: unknown; 各组织升格快照: unknown }', () => {
+    expectTypeOf(离场补结.收束).returns.toEqualTypeOf<{ 事实包: unknown; 各组织升格快照: unknown }>();
+  });
+
+  // ── 提案单 Schema ───────────────────────────────────────────────────────────
+  it('提案单条目Type 含必要字段口径冻结', () => {
+    expectTypeOf<提案单条目Type>().toMatchTypeOf<{
+      动作类别: string;
+      目标引用: string;
+      关联实体: string[];
+    }>();
+  });
+  it('提案单Type 为 提案单条目Type[] 口径冻结', () => {
+    expectTypeOf<提案单Type>().toEqualTypeOf<提案单条目Type[]>();
+  });
+
+  // ── 席位表 Schema ───────────────────────────────────────────────────────────
+  it('席位表Type 为 record 含焦点角色键/控制者/连接状态 口径冻结', () => {
+    expectTypeOf<席位表Type>().toMatchTypeOf<Record<string, {
+      焦点角色键?: string;
+      控制者?: string;
+      连接状态?: string;
+    }>>();
   });
 });
