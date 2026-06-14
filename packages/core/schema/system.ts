@@ -46,7 +46,8 @@ export const SystemSchema = z.object({
 export const TickSchema = z.object({
   id: z.string().default(''),
   拍计数: z.number().int().min(0).default(0), // 拍计数≠时间，禁止用拍数折算时长
-  难度系数组指纹: z.string().default(''), // 系数组快照的哈希；P0-5 把哈希取材扩到影响判定的预设数值面（检定配方表/难度系数组/钳制表/判定骰型）
+  // M6·AA8：难度分段点 = 组锚点；切换在组边界生效·每段段头写入新指纹·分段机器 = U3（P0-9/P0-10）
+  难度系数组指纹: z.string().default(''), // 系数组快照的哈希；P0-5 取材扩展：检定配方表/难度系数组/钳制表/判定骰型/派生量配方/概率域夹逼
   // 骰面量化层①·开局锁定随档快照·与难度系数组指纹同机制·P1 实装时启用
   判定骰型快照: z.union([z.literal(100), z.literal(20)]).optional(),
 });
