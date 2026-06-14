@@ -638,3 +638,230 @@ describe('P0-4b LLM_WAIT_MODALS 失败出口拓扑', () => {
     expect(() => assertLlmNonBlockingTopology()).not.toThrow();
   });
 });
+
+// ── G1·6.49 INHERIT_DECISION 空候选兜底边 ─────────────────────────────────────
+
+describe('P0-4 G1·INHERIT_DECISION 空候选兜底（6.49）', () => {
+  function inherit(): StateMachineState {
+    return go(base(), '主角死亡');
+  }
+
+  it('候选列表为空（默认路径）→ LIFE_SUMMARY + 发起人生总结调用', () => {
+    const s = go(inherit(), '候选列表为空');
+    expect(s.当前态).toBe('LIFE_SUMMARY');
+    expect(s.模态栈).toEqual([]);
+    const fx = effects(inherit(), { type: '候选列表为空' });
+    expect(fx.some(f => f.type === '发起人生总结调用')).toBe(true);
+  });
+
+  it('候选列表为空 路径=人生总结 → LIFE_SUMMARY', () => {
+    const s = go(inherit(), '候选列表为空', { 路径: '人生总结' });
+    expect(s.当前态).toBe('LIFE_SUMMARY');
+  });
+
+  it('候选列表为空 路径=回溯里程碑 → PLAYING.PAUSED + 触发回溯里程碑fork', () => {
+    const s = go(inherit(), '候选列表为空', { 路径: '回溯里程碑' });
+    expect(s.当前态).toBe('PLAYING');
+    expect(s.timeMode).toBe('PAUSED');
+    expect(s.模态栈).toEqual([]);
+    const fx = effects(inherit(), { type: '候选列表为空', 路径: '回溯里程碑' });
+    expect(fx.some(f => f.type === '触发回溯里程碑fork')).toBe(true);
+  });
+
+  it('全覆盖：INHERIT_DECISION 四条出口边均有合法迁移', () => {
+    // 选定继承人
+    expect(go(inherit(), '选定继承人').当前态).toBe('PLAYING');
+    // 无继承人
+    expect(go(inherit(), '无继承人').当前态).toBe('LIFE_SUMMARY');
+    // 候选列表为空→人生总结
+    expect(go(inherit(), '候选列表为空').当前态).toBe('LIFE_SUMMARY');
+    // 候选列表为空→回溯
+    expect(go(inherit(), '候选列表为空', { 路径: '回溯里程碑' }).当前态).toBe('PLAYING');
+  });
+
+  it('illegal: 候选列表为空 in PLAYING → ERR_INVALID_TRANSITION（只在 INHERIT_DECISION 有效）', () => {
+    expectCode(() => go(base(), '候选列表为空'), 'ERR_INVALID_TRANSITION');
+  });
+
+  it('illegal: 候选列表为空 in LIFE_SUMMARY → ERR_TERMINAL_NON_HOST', () => {
+    const terminal: StateMachineState = { ...base(), 当前态: 'LIFE_SUMMARY' };
+    expectCode(() => go(terminal, '候选列表为空'), 'ERR_TERMINAL_NON_HOST');
+  });
+});
+
+// ── F2·6.56 拍生命周期单飞锁 ──────────────────────────────────────────────────
+
+describe('P0-4 F2·拍生命周期单飞锁（6.56）', () => {
+  it('拍推进 空闲→结算中', () => {
+    const s = go(base(), '拍推进');
+    expect(s.拍生命周期).toBe('结算中');
+  });
+
+  it('结算完成 结算中→等待呈现', () => {
+    const s = go(go(base(), '拍推进'), '结算完成');
+    expect(s.拍生命周期).toBe('等待呈现');
+  });
+
+  it('呈现确认 等待呈现→等待选择', () => {
+    const s = go(go(go(base(), '拍推进'), '结算完成'), '呈现确认');
+    expect(s.拍生命周期).toBe('等待选择');
+  });
+
+  it('选择完成 等待选择→关账中', () => {
+    const s = go(go(go(go(base(), '拍推进'), '结算完成'), '呈现确认'), '选择完成');
+    expect(s.拍生命周期).toBe('关账中');
+  });
+
+  it('关账完成 关账中→空闲（生命周期复位）', () => {
+    const terminal = go(go(go(go(go(base(), '拍推进'), '结算完成'), '呈现确认'), '选择完成'), '关账完成');
+    expect(terminal.拍生命周期).toBe('空闲');
+  });
+
+  it('CI 连点轰炸：第二次 拍推进 → ERR_TICK_NOT_IDLE', () => {
+    const s1 = go(base(), '拍推进'); // 空闲→结算中
+    expectCode(() => go(s1, '拍推进'), 'ERR_TICK_NOT_IDLE');
+  });
+
+  it('结算中再拍推进 → ERR_TICK_NOT_IDLE', () => {
+    const inSettling: StateMachineState = { ...base(), 拍生命周期: '结算中' };
+    expectCode(() => go(inSettling, '拍推进'), 'ERR_TICK_NOT_IDLE');
+  });
+
+  it('等待呈现再拍推进 → ERR_TICK_NOT_IDLE', () => {
+    const s: StateMachineState = { ...base(), 拍生命周期: '等待呈现' };
+    expectCode(() => go(s, '拍推进'), 'ERR_TICK_NOT_IDLE');
+  });
+
+  it('非 PLAYING 基础层（RP_FOCUS 模态）拍推进 → ERR_WRONG_ACTIVE_STATE', () => {
+    const inRP = go(base(), '进入RP焦点');
+    expectCode(() => go(inRP, '拍推进'), 'ERR_WRONG_ACTIVE_STATE');
+  });
+
+  it('完整生命周期 + assertInvariants 每步均通过', () => {
+    let s = base();
+    for (const ev of ['拍推进', '结算完成', '呈现确认', '选择完成', '关账完成'] as const) {
+      s = go(s, ev);
+      expect(() => assertInvariants(s)).not.toThrow();
+    }
+  });
+});
+
+// ── F1·6.56 元层写 FIFO 排队（M5 收紧版）─────────────────────────────────────
+
+describe('P0-4 F1·元层写排队（6.56·M5 收紧版）', () => {
+  it('元层写入 → 推入队列 + UI 回执效果', () => {
+    const result = dispatch(base(), { type: '元层写入', 操作: '设置属性', 幂等键: 'attr-001' });
+    expect(result.新机器状态.元层写队列).toEqual([{ 操作: '设置属性', 幂等键: 'attr-001' }]);
+    expect(result.效果指令.some(f => f.type === '元层写UI回执')).toBe(true);
+  });
+
+  it('多条元层写入 → FIFO 顺序保留', () => {
+    const s1 = go(base(), '元层写入', { 操作: '操作A', 幂等键: 'k1' });
+    const s2 = go(s1, '元层写入', { 操作: '操作B', 幂等键: 'k2' });
+    const s3 = go(s2, '元层写入', { 操作: '操作C' });
+    expect(s3.元层写队列).toEqual([
+      { 操作: '操作A', 幂等键: 'k1' },
+      { 操作: '操作B', 幂等键: 'k2' },
+      { 操作: '操作C' },
+    ]);
+  });
+
+  it('指令组边界 → 队列整批交宿主 + 清空队列', () => {
+    const s1 = go(base(), '元层写入', { 操作: '操作A' });
+    const s2 = go(s1, '元层写入', { 操作: '操作B' });
+    const result = dispatch(s2, { type: '指令组边界' });
+    expect(result.新机器状态.元层写队列).toEqual([]);
+    const batchFx = result.效果指令.find(f => f.type === '执行元层写队列') as
+      { type: string; 条目: { 操作: string }[] } | undefined;
+    expect(batchFx).toBeDefined();
+    expect(batchFx!.条目).toEqual([{ 操作: '操作A' }, { 操作: '操作B' }]);
+  });
+
+  it('指令组边界（空队列）→ 无 执行元层写队列 效果', () => {
+    const result = dispatch(base(), { type: '指令组边界' });
+    expect(result.效果指令.some(f => f.type === '执行元层写队列')).toBe(false);
+  });
+
+  it('停机类元层写入 → 立即执行·不进队列', () => {
+    const result = dispatch(base(), { type: '元层写入', 操作: '停机操作', 停机类: true });
+    expect(result.新机器状态.元层写队列 ?? []).toEqual([]); // 不入队
+    expect(result.效果指令.some(f => f.type === '执行元层写队列')).toBe(true);
+    expect(result.效果指令.some(f => f.type === '元层写UI回执')).toBe(true);
+  });
+
+  it('UI 回执效果含操作名称与幂等键', () => {
+    const result = dispatch(base(), { type: '元层写入', 操作: '改名', 幂等键: 'rename-007' });
+    const ui = result.效果指令.find(f => f.type === '元层写UI回执') as
+      { type: string; 操作: string; 幂等键?: string } | undefined;
+    expect(ui?.操作).toBe('改名');
+    expect(ui?.幂等键).toBe('rename-007');
+  });
+
+  it('元层写入在 EVENT_BROADCAST 模态下也进队列（F1 全局）', () => {
+    const withEB = go(base(), '广播推送');
+    const result = dispatch(withEB, { type: '元层写入', 操作: '模态中写入' });
+    expect(result.新机器状态.元层写队列).toEqual([{ 操作: '模态中写入' }]);
+  });
+});
+
+// ── F3·6.56 看门狗超时强制 pop ───────────────────────────────────────────────
+
+describe('P0-4 F3·看门狗超时强制 pop（6.56）', () => {
+  it('看门狗超时 in EVENT_BROADCAST → pop + 丢弃在途意图效果', () => {
+    const withEB = go(base(), '广播推送');
+    const result = dispatch(withEB, { type: '看门狗超时' });
+    expect(result.新机器状态.模态栈).toEqual([]);
+    expect(result.效果指令.some(f => f.type === '丢弃在途意图')).toBe(true);
+    expect(result.效果指令.some(f => f.type === '战斗机械收束')).toBe(false);
+  });
+
+  it('看门狗超时 in COMBAT → pop + 丢弃在途意图 + 战斗机械收束 + 粒度栈复位', () => {
+    const inCombat = go(base(), '战斗开始');
+    const result = dispatch(inCombat, { type: '看门狗超时' });
+    expect(result.新机器状态.模态栈).toEqual([]);
+    expect(result.效果指令.some(f => f.type === '丢弃在途意图')).toBe(true);
+    expect(result.效果指令.some(f => f.type === '战斗机械收束')).toBe(true);
+    expect(result.效果指令.some(f => f.type === '粒度栈复位到base')).toBe(true);
+  });
+
+  it('看门狗超时 in RP_FOCUS → pop + 丢弃在途意图（无战斗机械收束）', () => {
+    const inRP = go(base(), '进入RP焦点');
+    const result = dispatch(inRP, { type: '看门狗超时' });
+    expect(result.新机器状态.模态栈).toEqual([]);
+    expect(result.效果指令.some(f => f.type === '丢弃在途意图')).toBe(true);
+    expect(result.效果指令.some(f => f.type === '战斗机械收束')).toBe(false);
+  });
+
+  it('看门狗超时 in SCHEDULE_PLAN → pop（非 LLM 模态也能强制 pop）', () => {
+    const s = go(base(), '打开日程规划');
+    const result = dispatch(s, { type: '看门狗超时' });
+    expect(result.新机器状态.模态栈).toEqual([]);
+  });
+
+  it('看门狗超时 in OPENING → pop + 丢弃在途意图', () => {
+    const cc = go(setup(), '装配完成');
+    const withOpening = go(cc, '人物创建提交'); // PLAYING + [OPENING]
+    const result = dispatch(withOpening, { type: '看门狗超时' });
+    expect(result.新机器状态.模态栈).toEqual([]);
+    expect(result.效果指令.some(f => f.type === '丢弃在途意图')).toBe(true);
+  });
+
+  it('看门狗超时 还原 _savedTimeMode（EVENT_BROADCAST 保存的 timeMode）', () => {
+    const s0 = { ...base(), timeMode: 'TURN' as const };
+    const withEB = go(s0, '广播推送'); // _savedTimeMode = TURN
+    const result = dispatch(withEB, { type: '看门狗超时' });
+    expect(result.新机器状态.timeMode).toBe('TURN');
+    expect(result.新机器状态._savedTimeMode).toBeUndefined();
+  });
+
+  it('illegal: 看门狗超时 in PLAYING（空栈）→ ERR_WRONG_ACTIVE_STATE（进非法迁移表）', () => {
+    expectCode(() => go(base(), '看门狗超时'), 'ERR_WRONG_ACTIVE_STATE');
+  });
+
+  it('深栈（EB→RP→COMBAT）看门狗超时 只 pop 栈顶 COMBAT', () => {
+    const s = go(go(go(base(), '广播推送'), '进入RP焦点'), '战斗开始');
+    expect(s.模态栈).toEqual(['EVENT_BROADCAST', 'RP_FOCUS', 'COMBAT']);
+    const result = dispatch(s, { type: '看门狗超时' });
+    expect(result.新机器状态.模态栈).toEqual(['EVENT_BROADCAST', 'RP_FOCUS']);
+  });
+});

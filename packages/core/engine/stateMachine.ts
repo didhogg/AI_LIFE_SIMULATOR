@@ -10,6 +10,18 @@ export interface StateMachineState extends StateMachine {
   _savedTimeMode?: 'PAUSED' | 'TURN' | 'AUTO';
   /** META_OVERLAY 不入栈 = 布尔旁路——正式口径，禁止改状态枚举（当前态永不为 'META_OVERLAY'） */
   _meta?: boolean;
+  /**
+   * F2·拍生命周期单飞锁（R5·断言②前置）
+   * 空闲 → 结算中 → 等待呈现 → 等待选择 → 关账中 → 空闲
+   * 非「空闲」时拒绝 拍推进（ERR_TICK_NOT_IDLE）
+   */
+  拍生命周期?: '空闲' | '结算中' | '等待呈现' | '等待选择' | '关账中';
+  /**
+   * F1·元层写 FIFO 队列（M5 收紧版）
+   * 元层写入 → 推队尾；指令组边界 → 整批交宿主执行并清空
+   * 停机类例外：立即发出，不进队列
+   */
+  元层写队列?: { 操作: string; 幂等键?: string }[];
 }
 
 // ── Events ─────────────────────────────────────────────────────────────────────
@@ -35,10 +47,27 @@ export type SMEvent =
   | { type: '主角死亡' }
   | { type: '选定继承人' }
   | { type: '无继承人' }
+  /** G1·6.49：INHERIT_DECISION 空候选兜底边；路径缺省=人生总结终局 */
+  | { type: '候选列表为空'; 路径?: '人生总结' | '回溯里程碑' }
   | { type: '主动结束' }
   | { type: 'LLM超时' }
   | { type: 'LLM失败' }
-  | { type: 'HOST事件' };
+  | { type: 'HOST事件' }
+  // ── F2·拍生命周期（6.56·R5/断言②前置）──────────────────────────────────────
+  /** 空闲→结算中；非空闲态 → ERR_TICK_NOT_IDLE（单飞锁） */
+  | { type: '拍推进'; 请求ID?: string }
+  | { type: '结算完成' }   // 结算中→等待呈现
+  | { type: '呈现确认' }   // 等待呈现→等待选择
+  | { type: '选择完成' }   // 等待选择→关账中
+  | { type: '关账完成' }   // 关账中→空闲
+  // ── F1·元层写排队（6.56·M5 收紧版）──────────────────────────────────────────
+  /** 非停机类 → 推入 FIFO 队列；停机类 → 立即执行 */
+  | { type: '元层写入'; 操作: string; 幂等键?: string; 停机类?: boolean }
+  /** 刷新 FIFO 队列 → 整批交宿主执行 */
+  | { type: '指令组边界' }
+  // ── F3·看门狗超时（6.56）────────────────────────────────────────────────────
+  /** 强制 pop 任意活跃模态 + 统一清理序；空栈时 → ERR_WRONG_ACTIVE_STATE（进非法迁移表） */
+  | { type: '看门狗超时' };
 
 // ── Effect Instructions ────────────────────────────────────────────────────────
 
@@ -49,7 +78,15 @@ export type EffectInstruction =
   | { type: '世界钟对齐镜头钟'; elapsed分钟: number }
   | { type: '发起人生总结调用' }
   | { type: '清空$战斗暂存' }
-  | { type: '粒度栈复位到base' };
+  | { type: '粒度栈复位到base' }
+  // G1
+  | { type: '触发回溯里程碑fork' }
+  // F1
+  | { type: '元层写UI回执'; 操作: string; 幂等键?: string }
+  | { type: '执行元层写队列'; 条目: { 操作: string; 幂等键?: string }[] }
+  // F3
+  | { type: '丢弃在途意图'; 原因: string }
+  | { type: '战斗机械收束' };
 
 // ── Error Codes ────────────────────────────────────────────────────────────────
 
@@ -62,6 +99,7 @@ export type SMErrorCode =
   | 'ERR_TERMINAL_NON_HOST'
   | 'ERR_WRONG_ACTIVE_STATE'
   | 'ERR_TICK_IN_SETUP'
+  | 'ERR_TICK_NOT_IDLE'    // F2·拍单飞锁：非空闲态拒绝拍推进
   | 'ERR_INVALID_TRANSITION';
 
 // 非法迁移 = throw SMTransitionError（带 error code）——正式口径，拍板禁止改 Result 形式
@@ -254,6 +292,20 @@ export function dispatch(机器状态: StateMachineState, 事件: SMEvent): Disp
         效果指令: [{ type: '发起人生总结调用' }],
       };
     }
+    // G1·6.49：空候选兜底边——禁止无出边滞留 INHERIT_DECISION
+    if (事件.type === '候选列表为空') {
+      if (事件.路径 === '回溯里程碑') {
+        return {
+          新机器状态: { ...s, 当前态: 'PLAYING', 模态栈: [], timeMode: 'PAUSED' },
+          效果指令: [{ type: '触发回溯里程碑fork' }],
+        };
+      }
+      // 缺省路径：人生总结终局
+      return {
+        新机器状态: { ...s, 当前态: 'LIFE_SUMMARY', 模态栈: [] },
+        效果指令: [{ type: '发起人生总结调用' }],
+      };
+    }
     throw new SMTransitionError('ERR_INVALID_TRANSITION', `INHERIT_DECISION 不接受事件: ${事件.type}`);
   }
 
@@ -301,6 +353,62 @@ export function dispatch(机器状态: StateMachineState, 事件: SMEvent): Disp
     throw new SMTransitionError('ERR_COMMIT_AFTER_SETUP', '已过创建段，禁止回退到 WORLD_SETUP/CHARACTER_CREATE');
   }
 
+  // F1·元层写入：非停机类推队列；停机类立即发出；均返回 UI 回执效果
+  if (事件.type === '元层写入') {
+    const item: { 操作: string; 幂等键?: string } = { 操作: 事件.操作 };
+    if (事件.幂等键 !== undefined) item.幂等键 = 事件.幂等键;
+    const ui回执: EffectInstruction = 事件.幂等键 !== undefined
+      ? { type: '元层写UI回执', 操作: 事件.操作, 幂等键: 事件.幂等键 }
+      : { type: '元层写UI回执', 操作: 事件.操作 };
+    if (事件.停机类) {
+      // 停机类：最近内部拍边界生效·不进队列·立即发出执行指令
+      return {
+        新机器状态: s,
+        效果指令: [{ type: '执行元层写队列', 条目: [item] }, ui回执],
+      };
+    }
+    const 队列 = [...(s.元层写队列 ?? []), item];
+    return {
+      新机器状态: { ...s, 元层写队列: 队列 },
+      效果指令: [ui回执],
+    };
+  }
+
+  // F1·指令组边界：刷新整批队列·整体交宿主执行
+  if (事件.type === '指令组边界') {
+    const 队列 = s.元层写队列 ?? [];
+    const next: StateMachineState = { ...s, 元层写队列: [] };
+    const fx: EffectInstruction[] = 队列.length > 0
+      ? [{ type: '执行元层写队列', 条目: 队列 }]
+      : [];
+    return { 新机器状态: next, 效果指令: fx };
+  }
+
+  // F3·看门狗超时：强制 pop 任意活跃模态 + 统一清理序
+  // 非法迁移表：空栈时（active=PLAYING）→ ERR_WRONG_ACTIVE_STATE
+  if (事件.type === '看门狗超时') {
+    const top = stackTop(s);
+    if (top === 'PLAYING') {
+      throw new SMTransitionError(
+        'ERR_WRONG_ACTIVE_STATE',
+        '看门狗超时：当前无活跃模态（空栈），无法强制 pop（进非法迁移表）',
+      );
+    }
+    const isCombat = top === 'COMBAT';
+    const popped = dropSavedTimeMode(popModal(s));
+    const restoredTimeMode = s._savedTimeMode ?? s.timeMode;
+    const cleanupFx: EffectInstruction[] = [{ type: '丢弃在途意图', 原因: '看门狗超时' }];
+    if (isCombat) {
+      // 战斗走 CombatResolver 机械收束
+      cleanupFx.push({ type: '战斗机械收束' });
+      cleanupFx.push({ type: '粒度栈复位到base' });
+    }
+    return {
+      新机器状态: { ...popped, timeMode: restoredTimeMode },
+      效果指令: cleanupFx,
+    };
+  }
+
   const active = stackTop(s);
 
   // ⑩ PLAYING 基础层（模态栈为空）
@@ -333,6 +441,30 @@ export function dispatch(机器状态: StateMachineState, 事件: SMEvent): Disp
     }
     if (事件.type === '战斗开始') {
       return { 新机器状态: pushModal(s, 'COMBAT'), 效果指令: [] };
+    }
+    // F2·拍生命周期（单飞锁·R5/断言②前置）
+    if (事件.type === '拍推进') {
+      const 生命周期 = s.拍生命周期 ?? '空闲';
+      if (生命周期 !== '空闲') {
+        throw new SMTransitionError(
+          'ERR_TICK_NOT_IDLE',
+          `拍单飞锁：当前 拍生命周期=${生命周期}，拒绝二次推进`,
+        );
+      }
+      const next: StateMachineState = { ...s, 拍生命周期: '结算中' };
+      return { 新机器状态: next, 效果指令: [] };
+    }
+    if (事件.type === '结算完成') {
+      return { 新机器状态: { ...s, 拍生命周期: '等待呈现' }, 效果指令: [] };
+    }
+    if (事件.type === '呈现确认') {
+      return { 新机器状态: { ...s, 拍生命周期: '等待选择' }, 效果指令: [] };
+    }
+    if (事件.type === '选择完成') {
+      return { 新机器状态: { ...s, 拍生命周期: '关账中' }, 效果指令: [] };
+    }
+    if (事件.type === '关账完成') {
+      return { 新机器状态: { ...s, 拍生命周期: '空闲' }, 效果指令: [] };
     }
     throw new SMTransitionError('ERR_INVALID_TRANSITION', `PLAYING 不接受事件: ${事件.type}`);
   }
