@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { migrate, buildV41Raw, parseChineseDateToEpochMin, getTickMinutes } from '../migration/migrate.js';
+import { migrate, buildV41Raw, applyPrefixRenames, parseChineseDateToEpochMin, getTickMinutes } from '../migration/migrate.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 function loadFixture(name: string): Record<string, unknown> {
@@ -166,6 +166,41 @@ describe('migrate V3.1 → V4.1', () => {
     const first = migrate(blankV31).state;
     const second = migrate(first).state;
     expect(second).toEqual(first);
+  });
+
+  // ── applyPrefixRenames 幂等性 ──────────────────────────────────────────────
+  it('applyPrefixRenames: 二次迁移幂等（same input → byte-identical output）', () => {
+    // Simulate an old V4.1 save with pre-rename key names
+    const oldV41Raw: Record<string, unknown> = {
+      状态机: { 当前态: 'PLAYING', 模态栈: [], timeMode: 'PAUSED', 双时钟: { 世界钟: 0, 镜头钟: 0 } },
+      系统: { schema_version: 0, migration_version: 3, last_migration: 0, tick_log: [], 已结算标记: {}, 功能开关表: {}, 事件来源权重: { 事件包: 50, AI自发: 50 } },
+      存档头: { 全局回滚计数器: 0 },
+      席位表: { 本机: { 焦点角色键: 'hero', 控制者: '人类', 连接状态: '本地' } },
+      全局: { 覆写日志: [], 作弊标记: false, 编年史: [] },
+    };
+
+    const once = applyPrefixRenames(oldV41Raw);
+    const twice = applyPrefixRenames(once);
+
+    // Result is identical on second application (idempotent)
+    expect(twice).toEqual(once);
+
+    // Confirm rename actually happened
+    expect('_状态机' in once).toBe(true);
+    expect('状态机' in once).toBe(false);
+    expect('_系统' in once).toBe(true);
+    expect('_存档头' in once).toBe(true);
+    expect('_席位表' in once).toBe(true);
+    const 全局 = once['全局'] as Record<string, unknown>;
+    expect('_覆写日志' in 全局).toBe(true);
+    expect('_编年史' in 全局).toBe(true);
+    expect('_作弊标记' in 全局).toBe(true);
+
+    // migration_version bumped exactly once (not twice)
+    const sys = once['_系统'] as Record<string, unknown>;
+    expect(sys['migration_version']).toBe(4); // 3 + 1
+    const sys2 = twice['_系统'] as Record<string, unknown>;
+    expect(sys2['migration_version']).toBe(4); // unchanged on second pass
   });
 
   // ── 故障注入: 极端 / 空输入 ────────────────────────────────────────────────────
