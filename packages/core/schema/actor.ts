@@ -258,6 +258,7 @@ const 婚姻条目Schema = z.object({
   状态: z.string().default(''),
   缔结: z.number().int().default(0),   // 绝对纪元分钟；0 = 未记录
   终止: z.number().int().default(0),   // 绝对纪元分钟；0 = 未终止
+  主权降级: z.enum(['需确认', '凌驾抢话档']).optional(), // 主权地板占位·P0-7 fire（强制确认/凌驾抢话档·复用 N-8）·语义/层级 fire 时终定·全 .optional 无 default＝零迁移
 });
 
 const 关系条目Schema = z.object({

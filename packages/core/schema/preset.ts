@@ -411,6 +411,7 @@ export const 死亡拦截器条目Schema = z.object({
   优先级: z.number().int().min(0).default(0),
   条件引用: z.string().default(''),  // 触发契约四类·概率条件强制天命通道（配方引用键）
   目标动词: z.string().default(''),  // 穿越契约引用键
+  主权降级: z.enum(['需确认', '凌驾抢话档']).optional(), // 主权地板占位·P0-7 fire（强制确认/凌驾抢话档·复用 N-8）·语义/层级 fire 时终定·全 .optional 无 default＝零迁移
 }).strip();
 
 // 缺口四·换角许可（6.45·缺省=单人单角）

@@ -101,5 +101,6 @@ export const 重掷策略枚举Schema = z.enum(['禁用', '警示']);
 export const 不可逆Schema = z.object({
   解除通道: z.string().optional(),
   重掷策略: 重掷策略枚举Schema.default('禁用'),
+  主权降级: z.enum(['需确认', '凌驾抢话档']).optional(), // 主权地板占位·P0-7 fire（强制确认/凌驾抢话档·复用 N-8）·语义/层级 fire 时终定·全 .optional 无 default＝零迁移
 }).strict();
 export type 不可逆Type = z.infer<typeof 不可逆Schema>;
