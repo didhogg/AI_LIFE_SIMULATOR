@@ -79,6 +79,20 @@ import {
   动词OptionSchema表,
   重掷策略枚举Schema,
   不可逆Schema,
+  命名空间枚举,
+  键条目Schema,
+  受治理键空间注册表Schema,
+  归并条目Schema,
+  归并表Schema,
+  仲裁策略枚举,
+  仲裁策略Schema,
+  母题注册条目Schema,
+  母题注册表Schema,
+  地点类别登记条目Schema,
+  地点类别注册表Schema,
+  规范化键码位,
+  JS保留键黑名单,
+  是JS保留键,
 } from '../schema/index.js';
 import { 叙事流条目Schema } from '../schema/narrativeStream.js';
 import {
@@ -2984,5 +2998,212 @@ describe('P0-1 Fix3 · RootSchemaStrict community gate', () => {
       const paths = result.error.issues.map(i => i.path.join('/'));
       expect(paths.some(p => p.includes('允许玩家覆盖SystemPrompt'))).toBe(true);
     }
+  });
+});
+
+// ── 6.59 受治理键空间注册表 S1（不进 RootSchema·本步未挂载·零迁移）────────────────
+describe('6.59 受治理键空间注册表 S1（不进 RootSchema）', () => {
+  it('空表 {} parse 通过（键条目 absent）', () => {
+    const res = 受治理键空间注册表Schema.safeParse({});
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data.键条目).toBeUndefined();
+  });
+  it('单条目: 最小合法条目 parse 通过', () => {
+    expect(受治理键空间注册表Schema.safeParse({
+      键条目: [{ 规范键: 'CNY', 命名空间: '币种' }],
+    }).success).toBe(true);
+  });
+  it('单条目: 带别名数组 parse 通过', () => {
+    expect(受治理键空间注册表Schema.safeParse({
+      键条目: [{ 规范键: '文', 命名空间: '单位', 别名: ['文钱', '钱'] }],
+    }).success).toBe(true);
+  });
+  it('单条目: 全字段（显示名/来源包/停用/不可变）parse 通过', () => {
+    expect(键条目Schema.safeParse({
+      规范键: 'npc_death', 显示名: '死亡', 别名: ['身故'],
+      命名空间: '状态子类', 来源包: 'core_base', 停用: false, 不可变: true,
+    }).success).toBe(true);
+  });
+  it('.strict(): 键条目 塞未知字段 safeParse().success===false', () => {
+    expect(键条目Schema.safeParse({
+      规范键: 'x', 命名空间: '币种', 未知字段: 1,
+    }).success).toBe(false);
+  });
+  it('.strict(): 注册表顶层 塞未知字段 safeParse().success===false', () => {
+    expect(受治理键空间注册表Schema.safeParse({ 未知字段: 1 }).success).toBe(false);
+  });
+  it('命名空间枚举: 11 项全部合法值逐一 parse 通过', () => {
+    expect(命名空间枚举.length).toBe(11);
+    for (const ns of 命名空间枚举) {
+      expect(键条目Schema.safeParse({ 规范键: 'k', 命名空间: ns }).success).toBe(true);
+    }
+  });
+  it('命名空间枚举: 越界值报错', () => {
+    expect(键条目Schema.safeParse({ 规范键: 'k', 命名空间: '不存在的命名空间' }).success).toBe(false);
+  });
+  it('规范键: 缺失时拒收（必填）', () => {
+    expect(键条目Schema.safeParse({ 命名空间: '币种' }).success).toBe(false);
+  });
+  it('命名空间: 缺失时拒收（必填）', () => {
+    expect(键条目Schema.safeParse({ 规范键: 'k' }).success).toBe(false);
+  });
+});
+
+// ── 6.59 归并表 S1b（别名→规范键独立声明·不进 RootSchema）────────────────────────
+describe('6.59 归并表 S1b（不进 RootSchema）', () => {
+  it('空表 {} parse 通过（归并条目 absent）', () => {
+    const res = 归并表Schema.safeParse({});
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data.归并条目).toBeUndefined();
+  });
+  it('单条目: 最小合法条目 parse 通过', () => {
+    expect(归并表Schema.safeParse({
+      归并条目: [{ 别名: '文钱', 规范键: '文', 命名空间: '单位' }],
+    }).success).toBe(true);
+  });
+  it('单条目: 全字段（含来源包）parse 通过', () => {
+    expect(归并条目Schema.safeParse({
+      别名: '身故', 规范键: 'npc_death', 命名空间: '状态子类', 来源包: 'core_base',
+    }).success).toBe(true);
+  });
+  it('.strict(): 归并条目 塞未知字段 safeParse().success===false', () => {
+    expect(归并条目Schema.safeParse({
+      别名: 'a', 规范键: 'b', 命名空间: '币种', 未知字段: 1,
+    }).success).toBe(false);
+  });
+  it('.strict(): 归并表顶层 塞未知字段 safeParse().success===false', () => {
+    expect(归并表Schema.safeParse({ 未知字段: 1 }).success).toBe(false);
+  });
+  it('命名空间枚举越界拒收', () => {
+    expect(归并条目Schema.safeParse({
+      别名: 'a', 规范键: 'b', 命名空间: '不存在的命名空间',
+    }).success).toBe(false);
+  });
+  it('别名 缺失时拒收（必填）', () => {
+    expect(归并条目Schema.safeParse({ 规范键: 'b', 命名空间: '币种' }).success).toBe(false);
+  });
+  it('规范键 缺失时拒收（必填）', () => {
+    expect(归并条目Schema.safeParse({ 别名: 'a', 命名空间: '币种' }).success).toBe(false);
+  });
+});
+
+// ── 6.59 跨包仲裁占位 S2（schema-only·不 fire·不接线）───────────────────────────
+describe('6.59 跨包仲裁占位 S2（schema-only）', () => {
+  it('仲裁策略枚举: 4 项全部合法值逐一 parse 通过', () => {
+    expect(仲裁策略枚举.length).toBe(4);
+    for (const v of 仲裁策略枚举) {
+      expect(仲裁策略Schema.safeParse(v).success).toBe(true);
+    }
+  });
+  it('仲裁策略: 省略(undefined) parse 通过（整体 optional）', () => {
+    expect(仲裁策略Schema.safeParse(undefined).success).toBe(true);
+  });
+  it('仲裁策略: 越界值拒收', () => {
+    expect(仲裁策略Schema.safeParse('随机挑一个').success).toBe(false);
+  });
+});
+
+// ── 6.59 母题写入口注册闸 schema 位（S2·schema-only·不 fire·不收紧 secret.ts 母题字段）──
+describe('6.59 母题注册表（schema-only·不进 RootSchema）', () => {
+  it('空表 {} parse 通过（母题条目 absent）', () => {
+    const res = 母题注册表Schema.safeParse({});
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data.母题条目).toBeUndefined();
+  });
+  it('单条目: 最小合法条目 parse 通过', () => {
+    expect(母题注册表Schema.safeParse({
+      母题条目: [{ 规范键: '窝藏通缉旧友' }],
+    }).success).toBe(true);
+  });
+  it('单条目: 全字段（含经注册写入口）parse 通过', () => {
+    expect(母题注册条目Schema.safeParse({
+      规范键: '骨肉离散', 显示名: '骨肉离散', 别名: ['失散'],
+      来源包: 'core_base', 经注册写入口: true,
+    }).success).toBe(true);
+  });
+  it('.strict(): 母题条目 塞未知字段 safeParse().success===false', () => {
+    expect(母题注册条目Schema.safeParse({ 规范键: 'a', 未知字段: 1 }).success).toBe(false);
+  });
+  it('.strict(): 母题注册表顶层 塞未知字段 safeParse().success===false', () => {
+    expect(母题注册表Schema.safeParse({ 未知字段: 1 }).success).toBe(false);
+  });
+  it('规范键 缺失时拒收（必填）', () => {
+    expect(母题注册条目Schema.safeParse({ 显示名: 'x' }).success).toBe(false);
+  });
+});
+
+// ── 6.59 地点类别登记（审计#13·命名空间='地点类别'·复用 S1 11 项枚举·map.ts 不动）──
+describe('6.59 地点类别注册表（schema-only·不进 RootSchema·map.ts 零迁移）', () => {
+  it('空表 {} parse 通过（地点类别条目 absent）', () => {
+    const res = 地点类别注册表Schema.safeParse({});
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data.地点类别条目).toBeUndefined();
+  });
+  it('单条目: 最小合法条目 parse 通过', () => {
+    expect(地点类别注册表Schema.safeParse({
+      地点类别条目: [{ 规范键: '区域级' }],
+    }).success).toBe(true);
+  });
+  it('单条目: 全字段（含区域级标记）parse 通过', () => {
+    expect(地点类别登记条目Schema.safeParse({
+      规范键: '区域级', 显示名: '区域', 别名: ['大区'],
+      来源包: 'core_base', 区域级: true,
+    }).success).toBe(true);
+  });
+  it('.strict(): 地点类别条目 塞未知字段 safeParse().success===false', () => {
+    expect(地点类别登记条目Schema.safeParse({ 规范键: 'a', 未知字段: 1 }).success).toBe(false);
+  });
+  it('.strict(): 地点类别注册表顶层 塞未知字段 safeParse().success===false', () => {
+    expect(地点类别注册表Schema.safeParse({ 未知字段: 1 }).success).toBe(false);
+  });
+  it('规范键 缺失时拒收（必填）', () => {
+    expect(地点类别登记条目Schema.safeParse({ 显示名: 'x' }).success).toBe(false);
+  });
+});
+
+// ── 6.59 码位规范化纯函数(S3) + AA4 JS保留键黑名单（schema-only·零接线·双闸留 P0-6）──
+describe('6.59 规范化键码位（纯函数·复用 NFKC（全半角折叠+组合归一） + 去零宽·零接线）', () => {
+  it('NFC 组合归一：组合字符 ↔ 预组合字符归一为同一结果（NFKC ⊋ NFC，仍保留）', () => {
+    const 分解形 = 'e\u0301'; // e + U+0301 COMBINING ACUTE ACCENT
+    const 预组合形 = '\u00e9'; // é (NFC 单码位)
+    expect(规范化键码位(分解形)).toBe(规范化键码位(预组合形));
+    expect(规范化键码位(分解形)).toBe('\u00e9');
+  });
+  it('Step 5b·全角字母折叠：\uFF21(Ａ) → A', () => {
+    expect(规范化键码位('\uFF21')).toBe('A');
+  });
+  it('Step 5b·全角数字折叠：\uFF11(１) → 1', () => {
+    expect(规范化键码位('\uFF11')).toBe('1');
+  });
+  it('去零宽：插入 U+200B/U+FEFF 等零宽码位被清除', () => {
+    expect(规范化键码位('文\u200B钱\uFEFF')).toBe('文钱');
+  });
+  it('trim：首尾空白被清除', () => {
+    expect(规范化键码位('  规范键  ')).toBe('规范键');
+  });
+  it('同输入恒等：多次调用结果逐位相同（确定性）', () => {
+    const input = '  \u00e9\u200B文\uFEFF  ';
+    const r1 = 规范化键码位(input);
+    const r2 = 规范化键码位(input);
+    expect(r1).toBe(r2);
+    expect(r1).toBe('\u00e9文');
+  });
+});
+
+describe('6.59 AA4 JS保留键黑名单（常量+helper·零接线·fire 留 P0-6）', () => {
+  it('黑名单恰好 3 项：__proto__/constructor/prototype', () => {
+    expect(JS保留键黑名单).toEqual(['__proto__', 'constructor', 'prototype']);
+  });
+  it('黑名单冻结：尝试修改不生效（Object.freeze）', () => {
+    expect(Object.isFrozen(JS保留键黑名单)).toBe(true);
+  });
+  it('是JS保留键: __proto__/constructor/prototype → true', () => {
+    expect(是JS保留键('__proto__')).toBe(true);
+    expect(是JS保留键('constructor')).toBe(true);
+    expect(是JS保留键('prototype')).toBe(true);
+  });
+  it('是JS保留键: 普通键 → false', () => {
+    expect(是JS保留键('规范键')).toBe(false);
+    expect(是JS保留键('toString')).toBe(false);
   });
 });

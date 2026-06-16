@@ -54,8 +54,9 @@ export const CHINESE_NUMBER_RULE_VERSION = 3 as const;
 // ── 版本 3：入口归一 ──────────────────────────────────────────────────────────
 
 // 去零宽：U+200B ZWSP / U+200C ZWNJ / U+200D ZWJ / U+2060 WJ / U+FEFF BOM
+// 6.59·仅为复用导出（governedKeySpace.ts 规范化键码位 调用）·零行为/零值变更
 // eslint-disable-next-line no-misleading-character-class
-const RE_ZERO_WIDTH = /[\u200B\u200C\u200D\u2060\uFEFF]/g;
+export const RE_ZERO_WIDTH = /[\u200B\u200C\u200D\u2060\uFEFF]/g;
 // 折叠 ASCII 数字之间的空白（处理 NFKC 后的"5 0 文"→"50 文"）
 const RE_DIGIT_SPACE = /(\d)[ \t]+(\d)/g;
 
