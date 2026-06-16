@@ -7,7 +7,8 @@ import type { IrreversiblePayload } from '../interfaces/irreversibleGuard.js';
 import { executeToolCapability } from '../interfaces/toolCapability.js';
 import type { ToolCapabilityDescriptor, ToolCapabilityType } from '../interfaces/toolCapability.js';
 import { pickMutuallyExclusive, rollProbability } from '../engine/deterministicGuard.js';
-import type { 核心调用条目Type } from '../schema/memory.js';
+import type { 核心调用条目Type, intervention_pack_v1Schema } from '../schema/memory.js';
+import type { 聚合生效中内容包集哈希 } from '../interfaces/contentPackHash.js';
 import { CombatResolver } from '../interfaces/combatResolver.js';
 import type { 战局状态, CombatSettleResult } from '../interfaces/combatResolver.js';
 import { 赌局Resolver } from '../interfaces/gamblingResolver.js';
@@ -563,6 +564,40 @@ describe('6.59 registry 键空间够不到核心调用（编译期断言·钉死
   it('受治理句柄Schema.infer === string（Step7 零迁移类型证）', () => {
     type H = z.infer<typeof 受治理句柄Schema>;
     type Assert = _Expect<H extends string ? (string extends H ? true : false) : false>;
+    const _: Assert = true;
+    expect(_).toBe(true);
+  });
+});
+
+// ── 批③ Step2 · content_hash 编译期断言 ─────────────────────────────────────────────
+type ContentHashForbiddenKey = 'content_hash';
+
+describe('批③ content_hash 编译期断言（零源改动·test-only）', () => {
+  // ① 聚合函数输出 === string（import type + ReturnType·不触发 throw body）
+  it('聚合生效中内容包集哈希 返回类型 === string', () => {
+    type R = ReturnType<typeof 聚合生效中内容包集哈希>;
+    type Assert = _Expect<R extends string ? (string extends R ? true : false) : false>;
+    const _: Assert = true;
+    expect(_).toBe(true);
+  });
+
+  // ② content_hash z.infer === string（.optional() 故剥 undefined·NonNullable）
+  it('intervention_pack_v1Schema.content_hash infer === string（.optional() 故剥 undefined）', () => {
+    type Raw = z.infer<typeof intervention_pack_v1Schema>['content_hash']; // string | undefined
+    type Stripped = NonNullable<Raw>;
+    type Assert = _Expect<Stripped extends string ? (string extends Stripped ? true : false) : false>;
+    const _: Assert = true;
+    expect(_).toBe(true);
+  });
+
+  // ③ content_hash ⊥ 核心调用类型（core 侧·防泄进核心调用）
+  it('核心调用条目Type 不含 content_hash 键', () => {
+    type Assert = _Expect<_NoForbiddenKeys<核心调用条目Type, ContentHashForbiddenKey>>;
+    const _: Assert = true;
+    expect(_).toBe(true);
+  });
+  it('CheckInput 不含 content_hash 键', () => {
+    type Assert = _Expect<_NoForbiddenKeys<CheckInput, ContentHashForbiddenKey>>;
     const _: Assert = true;
     expect(_).toBe(true);
   });

@@ -194,7 +194,7 @@ export function hashJudgmentBundle(fields: {
  *
  * Caller responsibilities:
  *   1. Pre-compute 判定面整包 via hashJudgmentBundle() from live 玩法预设.
- *   2. Pre-compute 生效中内容包集哈希 by sorting + canonicalizing all active mod 内容哈希? values (B1c).
+ *   2. Pre-compute 生效中内容包集哈希 by sorting + canonicalizing all active pack（mod／事件包／战术包／补丁集／纪元包／effect包）内容哈希? values (B1c).
  *   3. Pre-compute 规则补丁哈希 via fnv1a32(canonicalize(规则补丁)) if applicable (K5).
  *   4. Pass snapshot fields from the archive snapshot, NOT from live preset.
  *
@@ -212,7 +212,7 @@ export function hashCanonical(value: unknown): string {
 export function hashPresetFingerprint(fields: {
   /** B1d: 判定面整包哈希·调用方通过 hashJudgmentBundle() 预计算后传入 */
   判定面整包: string;
-  /** B1c: 全部已启用 mod 的 内容哈希? 的集合哈希·调用方聚合后传入 */
+  /** B1c: 全部已启用包（mod／事件包／战术包／补丁集／纪元包／effect包）的 内容哈希? 的集合哈希·调用方聚合后传入 */
   生效中内容包集哈希: string;
   /** K5: canonicalize(规则补丁) 的哈希·preset 已有 规则补丁Schema */
   规则补丁哈希?: string;

@@ -31,7 +31,7 @@ export const FINGERPRINT_BUNDLE_MEMBERS = [
 /** 预设整包组 — 传入 hashPresetFingerprint() 的预设侧字段（均为调用方预计算后传入）。 */
 export const FINGERPRINT_PRESET_FIELDS = [
   '判定面整包',              // B1d: hashJudgmentBundle() 输出·调用方预计算后传入
-  '生效中内容包集哈希',       // B1c: 全部已启用 mod 内容哈希? 的集合哈希
+  '生效中内容包集哈希',       // B1c: 全部已启用包（mod／事件包／战术包／补丁集／纪元包／effect包）内容哈希? 的集合哈希
   '规则补丁哈希',             // K5: canonicalize(规则补丁) 的哈希·preset 已有 规则补丁Schema
   'DSL文法版本',              // DSL v1.0 冻结文法版本·求值器解析口径·改版即改判定
   '求值器函数库版本',          // §十A·v1={min,max,clamp,pow,sqrt}逐位恒等·增列超越函数时 bump·旧档锁旧版语义重放
