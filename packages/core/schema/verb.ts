@@ -21,6 +21,7 @@
 // 通道 B（签名代码插件）：接口占位见 interfaces/verbSignedCodePlugin.ts，默认关、未实装、
 // 本批不接任何真实执行逻辑。
 import { z } from 'zod';
+import { 受治理句柄Schema } from './governedKeySpace.js';
 
 // ══════════════════════════════════════════
 // verbId 枚举（10 标识·冻结集合·不开放扩展）
@@ -49,12 +50,12 @@ export const 动词目标槽Schema = z.string().default('');
 //   防止悄悄塞进未经治理的参数。
 //
 // side_effects（B 轴·动作耦合）：由动作语义本身触发的级联 handler 键列表。
-// 元素(handlerRef)本批一律 z.string()，本批不建注册表、不做校验。
-// TODO 序②(6.59) 收紧为受治理级联注册表键。
+// 元素(handlerRef) Step 7(6.59)：形态 refine 已收紧（归一非空∧非JS保留键∧扁平命名正则）·
+//   成员校验 against registry 留 P0-6（命名空间='sideEffect句柄'）。
 // ══════════════════════════════════════════
 
 const 动词Option基础Schema = z.object({
-  side_effects: z.array(z.string()).optional(), // TODO 序②(6.59) 收紧为受治理级联注册表键
+  side_effects: z.array(受治理句柄Schema).optional(), // Step 7：形态 refine 已收紧·成员校验留 P0-6（sideEffect句柄）
   // 通道 A·标的类型（单态串·不分叉·沿用既有选择器惯例，不新造文法）
   // TODO 序②(6.59) 收紧为受治理键空间注册表键
   标的类型: z.string().optional(),

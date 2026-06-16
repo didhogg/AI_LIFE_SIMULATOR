@@ -75,6 +75,33 @@ export const 受治理路径Schema = z.string().superRefine((raw, ctx) => {
 });
 
 // ══════════════════════════════════════════
+// 受治理句柄 Schema（Step 7·handlerRef add-constraint·零迁移·fail-open）
+// 拍板：① 解除通道 不碰（无命名空间槽·已记 P0-6）；② 扁平单 token（禁内部点号）；
+//   ③ 单一共享 schema（side_effects 的 sideEffect句柄 / cascade_on_change 的 cascade句柄 共用）。
+// 与 受治理路径Schema 同构，但整串当单段校验（不 .split('.')）——handler 键必须恰好一个合法段。
+// 同样不查 registry 成员，天然 fail-open；存储形状不变：z.string() + .superRefine，z.infer 仍 string。
+// TODO(P0-6)：against 受治理键空间注册表Schema 实际成员（命名空间='sideEffect句柄'/'cascade句柄'）
+//   的导入闸 fire 留 P0-6·registry 未 populate 前 fail-open。
+// ══════════════════════════════════════════
+
+export const 受治理句柄Schema = z.string().superRefine((raw, ctx) => {
+  const normalized = 规范化键码位(raw);
+  if (normalized === '') {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: '受治理句柄: 归一后为空（纯空白/纯零宽不可作句柄）' });
+    return;
+  }
+  if (是JS保留键(normalized)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: `受治理句柄: 命中 JS 保留键黑名单「${normalized}」` });
+    return;
+  }
+  if (!路径段命名正则.test(normalized)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: `受治理句柄: 「${normalized}」不符合扁平命名正则（禁内部点号等符号·扁平单 token 纪律）` });
+    return;
+  }
+  // registry 成员级校验：本步不查（fail-open，留 P0-6 导入闸 fire）
+});
+
+// ══════════════════════════════════════════
 // 命名空间枚举（封闭·11 项·到此锁定）
 // ══════════════════════════════════════════
 

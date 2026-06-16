@@ -1,5 +1,6 @@
 // 4.4 组织与约定层
 import { z } from 'zod';
+import { 受治理句柄Schema } from './governedKeySpace.js';
 
 // ══════════════════════════════════════════
 // 公共子 schema
@@ -16,8 +17,9 @@ export const 组织属性轴条目Schema = z.object({
   衰减速率: z.number().min(0).optional(), // 每纪元分钟自然衰减量
   // Step 3-A·黄金窗口预埋·schema-only（实例级可选覆盖·轴级声明见 preset.ts 属性轴表Schema）：
   // 缺省即 undefined（绝不给默认值），既有存档 canonicalize 不取材此字段，指纹零变。
-  // TODO 序②(6.59) 收紧为受治理级联注册表键。
-  cascade_on_change: z.array(z.string()).optional(),
+  // Step 7(6.59)：形态 refine 已收紧（归一非空∧非JS保留键∧扁平命名正则）·
+  //   成员校验 against registry 留 P0-6（命名空间='cascade句柄'）。
+  cascade_on_change: z.array(受治理句柄Schema).optional(),
 });
 
 // ── 进展树节点 ──────────────────────────────────────────────────────────────────

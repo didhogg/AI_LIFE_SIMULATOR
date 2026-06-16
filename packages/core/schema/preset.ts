@@ -1,6 +1,7 @@
 // 4.10 玩法预设 / 引擎配置层（不进存档）
 // 校验用 schema；实际运行时由世界装配 WORLD_SETUP 注入引擎，不序列化进存档。
 import { z } from 'zod';
+import { 受治理句柄Schema } from './governedKeySpace.js';
 
 // ── 历法皮肤（附录 C） ──
 export const 历法皮肤Schema = z.object({
@@ -94,8 +95,9 @@ export const 属性轴表Schema = z.array(z.object({
   允许年龄衰减: z.boolean().default(false),
   // Step 3-A·黄金窗口预埋·schema-only：缺省即 undefined（绝不给默认值），
   // 既有存档 canonicalize 不取材此字段，指纹零变。
-  // TODO 序②(6.59) 收紧为受治理级联注册表键。
-  cascade_on_change: z.array(z.string()).optional(),
+  // Step 7(6.59)：形态 refine 已收紧（归一非空∧非JS保留键∧扁平命名正则）·
+  //   成员校验 against registry 留 P0-6（命名空间='cascade句柄'）。
+  cascade_on_change: z.array(受治理句柄Schema).optional(),
 })).default([]);
 
 // ── 派生量配方（发现B·M·4·随整包入指纹）──────────────────────────────────────────
