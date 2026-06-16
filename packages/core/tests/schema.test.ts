@@ -93,6 +93,7 @@ import {
   规范化键码位,
   JS保留键黑名单,
   是JS保留键,
+  受治理路径Schema,
 } from '../schema/index.js';
 import { 叙事流条目Schema } from '../schema/narrativeStream.js';
 import {
@@ -3205,5 +3206,57 @@ describe('6.59 AA4 JS保留键黑名单（常量+helper·零接线·fire 留 P0-
   it('是JS保留键: 普通键 → false', () => {
     expect(是JS保留键('规范键')).toBe(false);
     expect(是JS保留键('toString')).toBe(false);
+  });
+});
+
+// ── 6.59 deltas.path add-constraint（Step 6·受治理路径Schema·形态 refine·fail-open）──
+describe('6.59 deltas.path（受治理路径Schema·存储仍 string·零迁移）', () => {
+  it('合法 path 通过', () => {
+    expect(受治理路径Schema.safeParse('货币系统.王掌柜.余额').success).toBe(true);
+    expect(受治理路径Schema.safeParse('a.b').success).toBe(true);
+    expect(受治理路径Schema.safeParse('单段键').success).toBe(true);
+  });
+  it('fail-open: registry 为空（无成员表）时，合法 path 仍放行', () => {
+    const emptyRegistry = 受治理键空间注册表Schema.parse({}); // 空 registry，无任何已注册成员
+    expect(emptyRegistry.键条目).toBeUndefined();
+    // 形态 refine 不查 registry 成员，空 registry 不影响合法 path 通过
+    expect(受治理路径Schema.safeParse('货币系统.王掌柜.余额').success).toBe(true);
+  });
+  it('非法形态拒收: 空串/纯零宽归一后为空', () => {
+    expect(受治理路径Schema.safeParse('').success).toBe(false);
+    expect(受治理路径Schema.safeParse('​﻿').success).toBe(false);
+  });
+  it('非法形态拒收: 含空段（连续点号/首尾点号）', () => {
+    expect(受治理路径Schema.safeParse('a..b').success).toBe(false);
+    expect(受治理路径Schema.safeParse('.a.b').success).toBe(false);
+    expect(受治理路径Schema.safeParse('a.b.').success).toBe(false);
+  });
+  it('非法形态拒收: 路径段命中 JS 保留键黑名单（复用 AA4）', () => {
+    expect(受治理路径Schema.safeParse('__proto__').success).toBe(false);
+    expect(受治理路径Schema.safeParse('a.constructor.b').success).toBe(false);
+    expect(受治理路径Schema.safeParse('prototype').success).toBe(false);
+  });
+  it('非法形态拒收: 路径段不符合命名正则（含非法符号）', () => {
+    expect(受治理路径Schema.safeParse('a.b$c').success).toBe(false);
+    expect(受治理路径Schema.safeParse('a.b c').success).toBe(false);
+  });
+
+  // ── 接线点：intervention_pack_v1Schema.deltas[].path 实际消费 受治理路径Schema ──
+  it('intervention_pack_v1: deltas[].path 合法时通过', () => {
+    expect(intervention_pack_v1Schema.safeParse({
+      deltas: [{ path: '货币系统.王掌柜.余额', op: 'add', value: 1 }],
+    }).success).toBe(true);
+  });
+  it('intervention_pack_v1: deltas[].path 命中 JS 保留键时拒收', () => {
+    expect(intervention_pack_v1Schema.safeParse({
+      deltas: [{ path: '__proto__', op: 'add', value: 1 }],
+    }).success).toBe(false);
+  });
+  it('intervention_pack_v1: 旧三字段(agent_delta/money_delta/flags_add)零迁移不受影响', () => {
+    expect(intervention_pack_v1Schema.safeParse({
+      agent_delta: { npc1: { hp: 10 } },
+      money_delta: { wang: -5 },
+      flags_add: ['flag_x'],
+    }).success).toBe(true);
   });
 });

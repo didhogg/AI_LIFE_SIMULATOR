@@ -1,5 +1,6 @@
 // 4.8 记忆·事件·调度层
 import { z } from 'zod';
+import { 受治理路径Schema } from './governedKeySpace.js';
 
 // ══════════════════════════════════════════
 // 工作记忆 / 长期归档通用条目（计时重标定为绝对时间）
@@ -293,7 +294,9 @@ export const mod注册表Schema = z.record(z.string(), mod条目Schema).default(
 // 黄金窗口预埋（P0-6 焊死前·schema-only）：以下新字段全可空，老档零迁移；
 // 本批不接线 — agent_delta/money_delta/flags_add 与 deltas[] 的取代/共存关系留给 P0-6 接线时裁定。
 const intervention_pack_delta条目Schema = z.object({
-  path: z.string(), // 目标路径·待 6.59 受治理键空间注册表落地后收紧为校验
+  // 目标路径·Step 6(6.59) add-constraint：形态 refine（归一非空∧非JS保留键∧符合命名正则）
+  // ·存储仍 string·零迁移·fail-open（registry 成员级校验留 P0-6 导入闸）
+  path: 受治理路径Schema,
   op: z.enum(['set', 'add', 'sub', 'clamp', 'lock']),
   value: z.union([z.number(), z.string()]), // 标量 | DSL v1 表达式串（复用 engine/dsl/eval.ts 同一套文法，禁第二实现）
   max_delta: z.number().optional(), // 单次Δ上限·P0-6 过五道闸钳制时消费，本批不接线
