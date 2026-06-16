@@ -14,6 +14,10 @@ export const 组织属性轴条目Schema = z.object({
   停用: z.boolean().optional(),       // 休眠出厂轴（出厂轴不可删，但可暂停）
   域: z.string().optional(),          // 治理/军事/信念·纯展示分栏
   衰减速率: z.number().min(0).optional(), // 每纪元分钟自然衰减量
+  // Step 3-A·黄金窗口预埋·schema-only（实例级可选覆盖·轴级声明见 preset.ts 属性轴表Schema）：
+  // 缺省即 undefined（绝不给默认值），既有存档 canonicalize 不取材此字段，指纹零变。
+  // TODO 序②(6.59) 收紧为受治理级联注册表键。
+  cascade_on_change: z.array(z.string()).optional(),
 });
 
 // ── 进展树节点 ──────────────────────────────────────────────────────────────────

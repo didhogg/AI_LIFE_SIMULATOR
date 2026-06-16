@@ -92,6 +92,10 @@ export const 属性轴表Schema = z.array(z.object({
   最大值: z.number().int().min(1).default(100),
   自然上限: z.number().int().min(1).default(20),
   允许年龄衰减: z.boolean().default(false),
+  // Step 3-A·黄金窗口预埋·schema-only：缺省即 undefined（绝不给默认值），
+  // 既有存档 canonicalize 不取材此字段，指纹零变。
+  // TODO 序②(6.59) 收紧为受治理级联注册表键。
+  cascade_on_change: z.array(z.string()).optional(),
 })).default([]);
 
 // ── 派生量配方（发现B·M·4·随整包入指纹）──────────────────────────────────────────

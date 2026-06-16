@@ -15,6 +15,7 @@ export * from './dollar.js';
 export * from './preset.js';
 export * from './proposal.js';
 export * from './lore.js';
+export * from './verb.js';
 
 import {
   SystemSchema,

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
 import {
   // index / root
   RootSchema,
@@ -37,6 +38,8 @@ import {
   行动卡库Schema,
   仲裁器Schema,
   mod注册表Schema,
+  intervention_pack_v1Schema,
+  副作用级别枚举Schema,
   调用类型注册表Schema,
   Ring2在途调用信封Schema,
   落账记录条目Schema,
@@ -71,6 +74,11 @@ import {
   编年史条目Schema,
   约定子类型Schema,
   RootSchemaStrict,
+  动词Id枚举,
+  动词目标槽Schema,
+  动词OptionSchema表,
+  重掷策略枚举Schema,
+  不可逆Schema,
 } from '../schema/index.js';
 import { 叙事流条目Schema } from '../schema/narrativeStream.js';
 import {
@@ -1595,6 +1603,135 @@ describe('4.8 Memory / Schedule layer', () => {
   it('mod条目: 三字段不同时全有也通过（各自可空）', () => {
     expect(mod注册表Schema.safeParse({ m: { 签名: 'sig', 内容哈希: 'hash' } }).success).toBe(true);
     expect(mod注册表Schema.safeParse({ m: { 生效锚点: 'era_x' } }).success).toBe(true);
+  });
+
+  // ── effect 包格式黄金窗口预埋（P0-6 焊死前·intervention_pack.v1 扩字段·schema-only）──
+  it('intervention_pack_v1: 老档零迁移 — 仅三个旧字段时 no-op 通过', () => {
+    const res = intervention_pack_v1Schema.safeParse({
+      agent_delta: { npc1: { hp: 10 } },
+      money_delta: { wang: -5 },
+      flags_add: ['flag_x'],
+    });
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data.pack_id).toBe('');
+      expect(res.data.deltas).toBeUndefined();
+      expect(res.data.trigger).toBeUndefined();
+      expect(res.data.side_effect_level).toBeUndefined();
+      expect(res.data.content_hash).toBeUndefined();
+    }
+  });
+  it('intervention_pack_v1: 空对象 {} 通过（全字段可空/有默认值）', () => {
+    expect(intervention_pack_v1Schema.safeParse({}).success).toBe(true);
+  });
+  it('intervention_pack_v1: pack_id 缺省为空串', () => {
+    expect(intervention_pack_v1Schema.parse({}).pack_id).toBe('');
+  });
+  it('intervention_pack_v1: deltas[] 合法条目（op=set/add/sub/clamp/lock 均通过）', () => {
+    for (const op of ['set', 'add', 'sub', 'clamp', 'lock'] as const) {
+      expect(intervention_pack_v1Schema.safeParse({
+        deltas: [{ path: '货币系统.王掌柜.余额', op, value: 10 }],
+      }).success).toBe(true);
+    }
+  });
+  it('intervention_pack_v1: deltas[] value 可为标量或 DSL v1 表达式串', () => {
+    expect(intervention_pack_v1Schema.safeParse({
+      deltas: [{ path: 'a.b', op: 'add', value: 'min(10, a.b + 1)' }],
+    }).success).toBe(true);
+  });
+  it('intervention_pack_v1: deltas[] max_delta 可空，存在时为 number', () => {
+    expect(intervention_pack_v1Schema.safeParse({
+      deltas: [{ path: 'a.b', op: 'add', value: 1, max_delta: 50 }],
+    }).success).toBe(true);
+    expect(intervention_pack_v1Schema.safeParse({
+      deltas: [{ path: 'a.b', op: 'add', value: 1, max_delta: 'x' }],
+    }).success).toBe(false);
+  });
+  it('intervention_pack_v1: deltas[] op 非法枚举值拒收', () => {
+    expect(intervention_pack_v1Schema.safeParse({
+      deltas: [{ path: 'a.b', op: 'multiply', value: 1 }],
+    }).success).toBe(false);
+  });
+  it('intervention_pack_v1: trigger 为 DSL v1 谓词串（与 lore 触发条件同一套文法·占位不解析）', () => {
+    expect(intervention_pack_v1Schema.safeParse({ trigger: 'a.b >= 10' }).success).toBe(true);
+  });
+  it('intervention_pack_v1: side_effect_level 复用副作用级别枚举Schema（禁第二份内联）', () => {
+    expect(intervention_pack_v1Schema.safeParse({ side_effect_level: 'sandbox' }).success).toBe(true);
+    expect(intervention_pack_v1Schema.safeParse({ side_effect_level: '不存在的级别' }).success).toBe(false);
+    expect(副作用级别枚举Schema.options).toEqual(['none', 'sandbox', 'irreversible']);
+  });
+  it('intervention_pack_v1: content_hash 占位字段·本批不接线·仅类型校验', () => {
+    expect(intervention_pack_v1Schema.safeParse({ content_hash: 'sha256:abc' }).success).toBe(true);
+  });
+  it('intervention_pack_v1: 未知顶层字段仍拒收（.strict() 未被破坏）', () => {
+    expect(intervention_pack_v1Schema.safeParse({ unknown_field: 1 }).success).toBe(false);
+  });
+  it('核心调用条目: 副作用级别字段行为不变（改引用共享枚举后零回归）', () => {
+    expect(调用类型注册表Schema.safeParse({ x: { 副作用级别: 'irreversible' } }).success).toBe(true);
+    expect(调用类型注册表Schema.safeParse({ x: { 副作用级别: 'bogus' } }).success).toBe(false);
+  });
+
+  // ── 动词表 verb.ts 运行时解析（Step 7·与 Step 6/6.5 编译期断言互补·不替代）────────
+  describe('4.8.x 动词表 verb.ts 运行时解析', () => {
+    it('动词Id枚举: 10 个合法值逐一 parse 通过', () => {
+      for (const id of 动词Id枚举) {
+        expect(z.enum(动词Id枚举).safeParse(id).success).toBe(true);
+      }
+      expect(动词Id枚举.length).toBe(10);
+    });
+    it('动词Id枚举: 非法字符串 safeParse 失败', () => {
+      expect(z.enum(动词Id枚举).safeParse('未知动词').success).toBe(false);
+    });
+
+    it('动词目标槽Schema: 省略时 default 落 \'\'', () => {
+      expect(动词目标槽Schema.parse(undefined)).toBe('');
+    });
+    it('动词目标槽Schema: 任意字符串（字面键或选择器串）parse 通过', () => {
+      expect(动词目标槽Schema.safeParse('npc_王掌柜').success).toBe(true);
+      expect(动词目标槽Schema.safeParse('选择器:全部在场NPC').success).toBe(true);
+    });
+
+    // 表驱动：10 个 option schema 一次跑全，不抽样
+    for (const [动词名, optionSchema] of Object.entries(动词OptionSchema表)) {
+      describe(`动词OptionSchema表.${动词名}`, () => {
+        it('最小合法对象 {} parse 通过', () => {
+          expect(optionSchema.safeParse({}).success).toBe(true);
+        });
+        it('.strict(): 未知键 safeParse().success===false', () => {
+          expect(optionSchema.safeParse({ 未知字段: 1 }).success).toBe(false);
+        });
+        it('side_effects?: 省略 ok / 传 string[] ok', () => {
+          expect(optionSchema.safeParse({}).success).toBe(true);
+          expect(optionSchema.safeParse({ side_effects: ['handler_a', 'handler_b'] }).success).toBe(true);
+        });
+        it('标的类型?: 省略 ok / 传 string ok', () => {
+          expect(optionSchema.safeParse({}).success).toBe(true);
+          expect(optionSchema.safeParse({ 标的类型: 'NPC' }).success).toBe(true);
+        });
+      });
+    }
+    it('动词OptionSchema表: 恰好覆盖 10 个动词键，与 动词Id枚举 一一对应', () => {
+      expect(Object.keys(动词OptionSchema表).sort()).toEqual([...动词Id枚举].sort());
+    });
+
+    it('重掷策略枚举Schema: \'禁用\'/\'警示\' 通过；其它值失败', () => {
+      expect(重掷策略枚举Schema.safeParse('禁用').success).toBe(true);
+      expect(重掷策略枚举Schema.safeParse('警示').success).toBe(true);
+      expect(重掷策略枚举Schema.safeParse('放任').success).toBe(false);
+    });
+
+    describe('不可逆Schema', () => {
+      it('重掷策略 省略时 default 落 \'禁用\'', () => {
+        expect(不可逆Schema.parse({}).重掷策略).toBe('禁用');
+      });
+      it('解除通道?: 省略 ok / 传 string ok', () => {
+        expect(不可逆Schema.safeParse({}).success).toBe(true);
+        expect(不可逆Schema.safeParse({ 解除通道: '断肢重生术' }).success).toBe(true);
+      });
+      it('.strict(): 未知键 safeParse().success===false', () => {
+        expect(不可逆Schema.safeParse({ 未知字段: 1 }).success).toBe(false);
+      });
+    });
   });
 });
 

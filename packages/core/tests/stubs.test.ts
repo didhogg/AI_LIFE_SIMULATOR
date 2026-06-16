@@ -23,6 +23,15 @@ import {
 import type { 提案单条目Type, 提案单Type } from '../schema/proposal.js';
 import { 席位表Schema } from '../schema/actor.js';
 import type { 席位表Type } from '../schema/actor.js';
+import type { CheckInput } from '../engine/check.js';
+import type { z } from 'zod';
+import type {
+  转移OptionSchema, 缔结OptionSchema, 解除OptionSchema, 赋予OptionSchema, 剥夺OptionSchema,
+  调整OptionSchema, 披露OptionSchema, 移动OptionSchema, 施加OptionSchema, 植入OptionSchema,
+  不可逆Schema,
+} from '../schema/verb.js';
+import type { 组织属性轴条目Schema } from '../schema/org.js';
+import type { 属性轴表Schema } from '../schema/preset.js';
 
 describe('P0-1x Stub: CombatResolver（6.63·三段·未实装）', () => {
   it('init 签名抛出「未实装」', () => {
@@ -424,5 +433,103 @@ describe('Task 4D: 互斥组/probability 确定性总纲（禁 Math.random·seed
     const dodgeChance  = rollProbability(0.5, 'tick-7', 7, '越界:dodge_chance',  202);
     expect(typeof noticeChance).toBe('boolean');
     expect(typeof dodgeChance).toBe('boolean');
+  });
+});
+
+// ── Task 4E: 动词表/植入字段「够不到账本」编译期断言（schema-only·零运行时） ──────────
+// 目标：证明记账/检定/结算的核心调用类型结构上不含动词表字段，AI 调动词/植入也写不进真相层。
+// 复用 Fix2 同款 _HasProp/_Not/_Expect 三件套，新增按 keyof 排除的批量版本 _NoForbiddenKeys：
+// 对某 Target 类型，若「动词表禁用字段集」与 keyof Target 有交集，类型不通过、编译报错。
+type _NoForbiddenKeys<Target, Forbidden extends string> =
+  Extract<Forbidden, keyof Target> extends never ? true : false;
+
+// Step 6.5 任务 B（优选·自动派生·防"焊死后假安全"）：
+// 禁字段集不再手列字符串字面量，改从 verb.ts 实际导出的 schema 联合 keyof 推导——
+// 任何人往任一动词 option / 不可逆Schema 加新字段，下方联合自动变长，断言自动跟着覆盖新字段，
+// 不必有人记得同步改字符串清单。
+// 注意 keyof(A|B) ≠ keyof A | keyof B（前者是交集），所以逐个 keyof 再用 | 取并集。
+type 动词Option自动Key =
+  | keyof NonNullable<z.infer<typeof 转移OptionSchema>>
+  | keyof NonNullable<z.infer<typeof 缔结OptionSchema>>
+  | keyof NonNullable<z.infer<typeof 解除OptionSchema>>
+  | keyof NonNullable<z.infer<typeof 赋予OptionSchema>>
+  | keyof NonNullable<z.infer<typeof 剥夺OptionSchema>>
+  | keyof NonNullable<z.infer<typeof 调整OptionSchema>>
+  | keyof NonNullable<z.infer<typeof 披露OptionSchema>>
+  | keyof NonNullable<z.infer<typeof 移动OptionSchema>>
+  | keyof NonNullable<z.infer<typeof 施加OptionSchema>>
+  | keyof NonNullable<z.infer<typeof 植入OptionSchema>>;
+
+// 不可逆Schema 自身内部字段（解除通道/重掷策略）——同样自动派生，将来加字段自动跟上。
+type 不可逆内部自动Key = keyof z.infer<typeof 不可逆Schema>;
+
+// cascade_on_change 的两个宿主（org.ts 实例级 / preset.ts 轴级声明）均已导出，可自动派生。
+type 属性轴Cascade自动Key =
+  | keyof z.infer<typeof 组织属性轴条目Schema>
+  | keyof z.infer<typeof 属性轴表Schema>[number];
+
+// 残留两项无法从 verb.ts/org.ts/preset.ts 的导出联合自动推出，仍手列，理由各自不同：
+//   '不可逆' —— 这是「外部把 不可逆Schema 挂载在某宿主上时用的键名」，不是 不可逆Schema 自身
+//               的 key，语义上不可能 keyof 自推导（self-reference 无意义）。
+//   '子类键' —— 宿主是 actor.ts 的 特质条目Schema/状态标签条目Schema，目前未 export（私有
+//               const），无法跨文件 keyof 联合；若未来需要也自动化，得先在 actor.ts 加一行
+//               export（本批"不改 actor.ts 任何 schema"红线内不做，留 6.59/下一批顺手补）。
+type 手列残留Key = '不可逆' | '子类键';
+
+type VerbTableForbiddenKey = 动词Option自动Key | 不可逆内部自动Key | 属性轴Cascade自动Key | 手列残留Key;
+
+// 退一步 guard（任务 B 兜底）：旧版手列五字段必须仍是新派生集合的子集——
+// 防止"自动派生"重构本身悄悄丢字段，造成真正的假安全。
+type _IsSubsetOf<A extends string, B extends string> = Exclude<A, B> extends never ? true : false;
+type 旧版手列五字段 = '标的类型' | '子类键' | 'side_effects' | 'cascade_on_change' | '不可逆';
+
+describe('Task 4E guard: 禁字段集自动派生未丢字段（任务 B 兜底）', () => {
+  it('旧版手列五字段 ⊆ 新派生 VerbTableForbiddenKey', () => {
+    type Assert = _Expect<_IsSubsetOf<旧版手列五字段, VerbTableForbiddenKey>>;
+    const _: Assert = true;
+    expect(_).toBe(true);
+  });
+});
+
+describe('Task 4E: 动词表/植入字段 TS 编译期隔离（核心调用条目 结构上不含）', () => {
+  // ── ① 记账（核心调用条目Type 本身·本批 verb.ts 字段从未写入此类型）────────────────
+  it('核心调用条目Type 不含任一动词表字段', () => {
+    type Assert = _Expect<_NoForbiddenKeys<核心调用条目Type, VerbTableForbiddenKey>>;
+    const _: Assert = true;
+    expect(_).toBe(true);
+  });
+
+  // ── ② 检定（CheckInput·Ring 0 纯函数判定输入·engine/check.ts）────────────────────
+  it('CheckInput 不含任一动词表字段', () => {
+    type Assert = _Expect<_NoForbiddenKeys<CheckInput, VerbTableForbiddenKey>>;
+    const _: Assert = true;
+    expect(_).toBe(true);
+  });
+
+  // ── ④ 植入专项（§六 DoD）：植入OptionSchema 的可达字段够不到 ①/② 两类核心调用入参 ──
+  // 植入 option 本批继承 动词Option基础Schema（side_effects?/标的类型?·Step 1/3-A/3-B/5），
+  // 尚未接线，唯一合法落点留给未来「派生认知层」（认知档案条目Schema.误差表 /
+  // 信念条目Schema.动摇度 / $涟漪候选Schema 条目），不是账本/判定输入——
+  // 下方断言证明：植入 option 自身字段名，与 核心调用条目Type / CheckInput 的字段名零交集。
+  it('植入OptionSchema 字段 与 核心调用条目Type 字段名零交集', () => {
+    type 植入OptionKey = keyof NonNullable<z.infer<typeof 植入OptionSchema>>;
+    type Assert = _Expect<_NoForbiddenKeys<核心调用条目Type, 植入OptionKey>>;
+    const _: Assert = true;
+    expect(_).toBe(true);
+  });
+  it('植入OptionSchema 字段 与 CheckInput 字段名零交集', () => {
+    type 植入OptionKey = keyof NonNullable<z.infer<typeof 植入OptionSchema>>;
+    type Assert = _Expect<_NoForbiddenKeys<CheckInput, 植入OptionKey>>;
+    const _: Assert = true;
+    expect(_).toBe(true);
+  });
+  it('不可逆Schema 字段（解除通道/重掷策略） 与 核心调用条目Type/CheckInput 字段名零交集', () => {
+    type 不可逆Key = keyof z.infer<typeof 不可逆Schema>;
+    type Assert1 = _Expect<_NoForbiddenKeys<核心调用条目Type, 不可逆Key>>;
+    type Assert2 = _Expect<_NoForbiddenKeys<CheckInput, 不可逆Key>>;
+    const a: Assert1 = true;
+    const b: Assert2 = true;
+    expect(a).toBe(true);
+    expect(b).toBe(true);
   });
 });

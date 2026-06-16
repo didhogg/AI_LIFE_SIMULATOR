@@ -185,6 +185,10 @@ export const 仲裁器Schema = z.object({
 // 渲染模式枚举（6.69）
 export const 渲染模式枚举 = ['直读流', '占位整达', '静默'] as const;
 
+// 副作用级别枚举（单一权威·核心调用条目/effect 包共用·禁第二份内联）
+// none=纯只读; sandbox=引擎可回滚; irreversible=外部不可逆（产出进冻结载荷·禁重掏）
+export const 副作用级别枚举Schema = z.enum(['none', 'sandbox', 'irreversible']);
+
 // 核心调用条目（记账/检定/谜底校准/结算·不含叙事专用字段）
 // TS 编译期口径锁：核心调用条目Type 结构上不含允许玩家覆盖/玩家SystemPrompt覆盖/assistant预填
 const 核心调用条目Schema = z.object({
@@ -217,7 +221,7 @@ const 核心调用条目Schema = z.object({
   }).optional(),
   // ── 副作用级别元数据（受控接口注册表·对撞·stub 接缝）──────────────────────────────────
   // none=纯只读; sandbox=引擎可回滚; irreversible=外部不可逆（产出进冻结载荷·禁重掏）
-  副作用级别: z.enum(['none', 'sandbox', 'irreversible']).optional(),
+  副作用级别: 副作用级别枚举Schema.optional(),
 });
 
 // 叙事调用条目（扩展核心·叙事专用字段仅此分支可用·防泄进结算管线）
@@ -286,10 +290,25 @@ export const mod注册表Schema = z.record(z.string(), mod条目Schema).default(
 
 // ── effect 包格式（对撞④·intervention_pack.v1·落地过 clamp·过闸逻辑 P0-6）──────────
 // 对撞纪律：clamp/错误收集复用 P0-5 fixed.ts 同一份实现，禁第二实现
+// 黄金窗口预埋（P0-6 焊死前·schema-only）：以下新字段全可空，老档零迁移；
+// 本批不接线 — agent_delta/money_delta/flags_add 与 deltas[] 的取代/共存关系留给 P0-6 接线时裁定。
+const intervention_pack_delta条目Schema = z.object({
+  path: z.string(), // 目标路径·待 6.59 受治理键空间注册表落地后收紧为校验
+  op: z.enum(['set', 'add', 'sub', 'clamp', 'lock']),
+  value: z.union([z.number(), z.string()]), // 标量 | DSL v1 表达式串（复用 engine/dsl/eval.ts 同一套文法，禁第二实现）
+  max_delta: z.number().optional(), // 单次Δ上限·P0-6 过五道闸钳制时消费，本批不接线
+});
+
 export const intervention_pack_v1Schema = z.object({
   agent_delta: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
   money_delta: z.record(z.string(), z.number()).optional(),
   flags_add:   z.array(z.string()).optional(),
+
+  pack_id: z.string().default(''), // 同 mod 注册表口径·K6 单一权威约束留待 P0-6 一并收紧
+  deltas: z.array(intervention_pack_delta条目Schema).optional(),
+  trigger: z.string().optional(), // DSL v1 谓词串·与 lore.ts 触发条件/触发谓词同一套文法，P0-6 实装求值器前仅占位
+  side_effect_level: 副作用级别枚举Schema.optional(),
+  content_hash: z.string().optional(), // 占位·本批不接线，留给 P0-6 进 B1c 生效中包集哈希
 }).strict();
 export type intervention_pack_v1Type = z.infer<typeof intervention_pack_v1Schema>;
 

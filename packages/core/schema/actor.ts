@@ -1,5 +1,6 @@
 // 4.3 角色层（主角 = 组件齐全的 NPC 特例）
 import { z } from 'zod';
+import { 不可逆Schema } from './verb.js';
 
 // ══════════════════════════════════════════
 // 公共子 schema（被其他文件引用）
@@ -69,6 +70,12 @@ const 特质条目Schema = z.object({
   稀有度: z.string().default(''),
   已觉醒: z.boolean().default(true),
   效果: 特质效果Schema.default({}),
+  // Step 4·黄金窗口预埋·schema-only：本体不可逆子类实例（灵根/血脉等）携带此 flag，
+  // 轻伤等可治愈项不带（§十一 防过度标记）。缺省即 undefined，既有存档零迁移。
+  不可逆: 不可逆Schema.optional(),
+  // Step 5·通道 A 第②类「特质/状态子类」占位键，复用本 schema 作子类宿主，不新建表。
+  // TODO 序②(6.59) 收紧为受治理键空间注册表键。
+  子类键: z.string().optional(),
 });
 
 const 情绪条目Schema = z.object({
@@ -85,6 +92,12 @@ const 状态标签条目Schema = z.object({
   效果: z.array(修饰通道引用Schema).default([]),
   到期: z.number().int().default(0), // 绝对纪元分钟；0 = 永久
   来源: z.string().default(''),
+  // Step 4·黄金窗口预埋·schema-only：本体不可逆子类实例（死亡/断肢/致残等）携带此 flag，
+  // 轻伤等可治愈项不带（§十一 防过度标记）。缺省即 undefined，既有存档零迁移。
+  不可逆: 不可逆Schema.optional(),
+  // Step 5·通道 A 第②类「特质/状态子类」占位键，复用本 schema 作子类宿主，不新建表。
+  // TODO 序②(6.59) 收紧为受治理键空间注册表键。
+  子类键: z.string().optional(),
 });
 
 const 技能施放Schema = z.object({
