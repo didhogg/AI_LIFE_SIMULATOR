@@ -158,3 +158,29 @@ describe('Task 4E (slice 活路径): hosts/slice/engine/check.ts 检定类型 TS
     expectTypeOf(runD20Check).returns.toEqualTypeOf<D20CheckResult>();
   });
 });
+
+// 6.59 受治理键空间 registry 键空间字段 forbidden 集（distinctive·registry-only）
+// 与 packages/core/tests/stubs.test.ts 逐字一致；本文件自包含，不跨文件 import 工具/常量。
+type KeySpaceForbiddenKey =
+  | '规范键' | '命名空间' | '来源包'
+  | '键条目' | '归并条目' | '母题条目' | '仲裁策略';
+
+describe('6.59 registry 键空间够不到 slice 实战记账/检定/结算（编译期断言）', () => {
+  it('slice 记账 Transfer 不含 registry 键空间字段', () => {
+    type Assert = _Expect<_NoForbiddenKeys<Transfer, KeySpaceForbiddenKey>>;
+    const _: Assert = true; expect(_).toBe(true);
+  });
+  it('slice 记账 FlowRecord 不含 registry 键空间字段', () => {
+    type Assert = _Expect<_NoForbiddenKeys<FlowRecord, KeySpaceForbiddenKey>>;
+    const _: Assert = true; expect(_).toBe(true);
+  });
+  it('slice 检定 CheckIntent 不含 registry 键空间字段', () => {
+    type Assert = _Expect<_NoForbiddenKeys<CheckIntent, KeySpaceForbiddenKey>>;
+    const _: Assert = true; expect(_).toBe(true);
+  });
+  it('结算 assertConservation 入参元素 不含 registry 键空间字段', () => {
+    type 结算入参元素 = Parameters<typeof assertConservation>[0][number];
+    type Assert = _Expect<_NoForbiddenKeys<结算入参元素, KeySpaceForbiddenKey>>;
+    const _: Assert = true; expect(_).toBe(true);
+  });
+});
