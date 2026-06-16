@@ -458,6 +458,21 @@ export const NpcSchema = z.object({
   记忆: z.array(NPC记忆条目Schema).default([]),
   上次互动: z.number().int().default(0), // 绝对纪元分钟；0 = 从未互动
 
+  // ── 对撞③ 姓名披露策略 ──────────────────────────────────────────────────────────
+  // open=主动自我介绍; selective=仅特定条件下报名; secretive=永不主动报名
+  介绍策略: z.enum(['open', 'selective', 'secretive']).optional(),
+
+  // ── 越界动词族·案底状态（对撞·越界行为历史记录·演出层·入指纹排除名单）──────────────
+  案底: z.object({
+    状态: z.enum(['清白', '过期', '案底']).default('清白'),
+    过期时间: z.number().int().default(0), // 绝对纪元分钟；0=永不过期
+    记录: z.array(z.object({
+      类型: z.string().default(''),         // 罪名开放串
+      时间: z.number().int().default(0),
+      严重度: z.number().min(0).max(100).default(50),
+    })).default([]),
+  }).optional(),
+
   // ── 6.72 卡格式可空段 ──────────────────────────────────────────────────────
   // 禁与旧"固定开场白?{}"双轨；来源枚举须含'导入预设'
   关系声明: z.array(关系声明条目Schema).optional(),       // Z2 五类方向槽
@@ -522,6 +537,14 @@ const 认知档案条目Schema = z.object({
   误差表: z.record(z.string(), z.number()).default({}), // 字段→认知值偏差
   印象: z.array(印象条目Schema).default([]),            // 6.37 条目制式
   时效: z.number().int().default(0),             // 绝对时刻·0=永不过期哨兵
+  // ── 对撞③ 姓名知识机制（P0 schema 接缝·渲染期投影·不 baked 进冻结叙事串）─────────────
+  // 视觉指代 = 认识前·叙事用「那人」「黑衣男子」等
+  // 已知姓名 = 自报家门后·叙事可用真名+称呼建议
+  // 铁律: 姓名知识是渲染期投影 over 实体键，永不写进冻结播报串
+  姓名知识: z.enum(['视觉指代', '已知姓名']).default('已知姓名'),
+  // 日记/记忆区分 mentioned_known_names ⊥ mentioned_visual_refs
+  mentioned_known_names: z.array(z.string()).optional(), // 本条目提及已知姓名的实体键列表
+  mentioned_visual_refs: z.array(z.string()).optional(), // 本条目提及视觉指代的实体键列表
 });
 
 export const 认知档案Schema = z.record(

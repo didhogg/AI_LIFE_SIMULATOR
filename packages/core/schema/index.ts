@@ -21,6 +21,7 @@ import {
   TickSchema,
   NarrativeSettingSchema,
   StateMachineSchema,
+  临时会话Schema,
 } from './system.js';
 import { 世界Schema, 世界域Schema } from './world.js';
 import {
@@ -118,6 +119,7 @@ export const BLUEPRINT_KEYS = [
   '_存档头',
   '$meta',
   '_lore知识库',
+  '$临时会话',
 ] as const;
 
 // ── RootSchema ──
@@ -189,6 +191,8 @@ export const RootSchema = z.object({
   $meta: $metaSchema.default({}),
   // 4.X Module 15 — lore 知识库（世界恒真知识层·AI 只读·零迁移可空）
   _lore知识库: lore知识库Schema.optional(),
+  // 对撞⑥ 易失态（快照外·崩溃即弃·不进重放·不进 U1 迁移面）
+  $临时会话: 临时会话Schema,
 });
 
 export type RootState = z.infer<typeof RootSchema>;

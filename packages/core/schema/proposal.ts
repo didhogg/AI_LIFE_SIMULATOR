@@ -31,3 +31,21 @@ export const 指令信封Schema = z.object({
 export type 提案单条目Type = z.infer<typeof 提案单条目Schema>;
 export type 提案单Type = z.infer<typeof 提案单Schema>;
 export type 指令信封Type = z.infer<typeof 指令信封Schema>;
+
+// ── AOHP ActionOption schema（对撞①·option_id 稳定键约束）──────────────────────────
+// option_id 必须是稳定结构键（动词键+目标键+参数组合）·禁位置序号（重渲漂移来源）
+// 菜单生成需子集走 seeded rngFor·禁 LLM 自由决定选项集
+export const ActionOptionSchema = z.object({
+  option_id:      z.string(),               // 稳定键: 动词键+目标键+参数哈希（非位置序号）
+  tool_name:      z.string().default(''),   // 调用工具名（open string）
+  params:         z.record(z.string(), z.unknown()).default({}),
+  value_slot:     z.string().optional(),    // 绑定的数值槽键（提案单条目.数值槽映射）
+  target_choices: z.array(z.string()).default([]), // 目标实体键候选
+  min:            z.number().optional(),    // 数值槽最小值
+  max:            z.number().optional(),    // 数值槽最大值
+}).strip();
+
+export const ActionOptionListSchema = z.array(ActionOptionSchema).default([]);
+
+export type ActionOptionType = z.infer<typeof ActionOptionSchema>;
+export type ActionOptionListType = z.infer<typeof ActionOptionListSchema>;

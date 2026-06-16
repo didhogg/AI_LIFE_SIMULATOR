@@ -6,6 +6,7 @@
     "prompt/**/*.ts",
     "migration/**/*.ts",
     "interfaces/**/*.ts",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "chaos/**/*.ts"
   ]
 }

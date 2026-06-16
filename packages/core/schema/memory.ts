@@ -27,6 +27,9 @@ export const 记忆条目Schema = z.object({
     关联种子id: z.string().default(''),
     导致后果: z.string().default(''),
   }).default({}),
+  // ── 对撞③ 姓名知识分轨（⊥ 认知档案，记忆条目粒度）──────────────────────────────────
+  mentioned_known_names: z.array(z.string()).optional(),
+  mentioned_visual_refs: z.array(z.string()).optional(),
 });
 
 // 长期归档扩展字段
@@ -212,6 +215,9 @@ const 核心调用条目Schema = z.object({
     硬上限tokens: z.number().int().min(0).optional(),
     截断优先级: z.array(z.string()).default([]),
   }).optional(),
+  // ── 副作用级别元数据（受控接口注册表·对撞·stub 接缝）──────────────────────────────────
+  // none=纯只读; sandbox=引擎可回滚; irreversible=外部不可逆（产出进冻结载荷·禁重掏）
+  副作用级别: z.enum(['none', 'sandbox', 'irreversible']).optional(),
 });
 
 // 叙事调用条目（扩展核心·叙事专用字段仅此分支可用·防泄进结算管线）
@@ -277,6 +283,15 @@ const mod条目Schema = z.object({
 });
 
 export const mod注册表Schema = z.record(z.string(), mod条目Schema).default({});
+
+// ── effect 包格式（对撞④·intervention_pack.v1·落地过 clamp·过闸逻辑 P0-6）──────────
+// 对撞纪律：clamp/错误收集复用 P0-5 fixed.ts 同一份实现，禁第二实现
+export const intervention_pack_v1Schema = z.object({
+  agent_delta: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
+  money_delta: z.record(z.string(), z.number()).optional(),
+  flags_add:   z.array(z.string()).optional(),
+}).strict();
+export type intervention_pack_v1Type = z.infer<typeof intervention_pack_v1Schema>;
 
 export type 记忆条目Type = z.infer<typeof 记忆条目Schema>;
 export type 意图条目Type = z.infer<typeof 意图条目Schema>;

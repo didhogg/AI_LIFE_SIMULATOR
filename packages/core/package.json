@@ -4,7 +4,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./schema/index.ts"
+    ".": "./schema/index.ts",
+    "./engine/rng": "./engine/rng.ts",
+    "./engine/math/ledger": "./engine/math/ledger.ts",
+    "./engine/text/chineseNumber": "./engine/text/chineseNumber.ts",
+    "./engine/text/canonicalize": "./engine/text/canonicalize.ts",
+    "./engine/knowledgeFilter": "./engine/knowledgeFilter.ts",
+    "./replay": "./replay/index.ts"
   },
   "dependencies": {
     "pure-rand": "^6.1.0",

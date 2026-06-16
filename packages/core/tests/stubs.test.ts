@@ -1,5 +1,12 @@
 // P0-1x·接口冻结 stub 验收测试
 import { describe, it, expect, expectTypeOf } from 'vitest';
+import { ActionOptionSchema, ActionOptionListSchema } from '../schema/proposal.js';
+import type { ActionOptionType } from '../schema/proposal.js';
+import { replayIrreversible, assertNoRerollOnIrreversible } from '../interfaces/irreversibleGuard.js';
+import type { IrreversiblePayload } from '../interfaces/irreversibleGuard.js';
+import { executeToolCapability } from '../interfaces/toolCapability.js';
+import type { ToolCapabilityDescriptor, ToolCapabilityType } from '../interfaces/toolCapability.js';
+import { pickMutuallyExclusive, rollProbability } from '../engine/deterministicGuard.js';
 import type { 核心调用条目Type } from '../schema/memory.js';
 import { CombatResolver } from '../interfaces/combatResolver.js';
 import type { 战局状态, CombatSettleResult } from '../interfaces/combatResolver.js';
@@ -291,5 +298,131 @@ describe('P0-1 scope: 叙事专用字段 TS 编译期隔离（核心调用条目
     type Assert = _Expect<_Not<_HasProp<核心调用条目Type, 'assistant预填'>>>;
     const _: Assert = true;
     expect(_).toBe(true);
+  });
+});
+
+// ── Task 4A: AOHP option_id 稳定键 ───────────────────────────────────────────
+
+describe('Task 4A stub: AOHP option_id 稳定键（编译期锁·重渲逐字节恒等）', () => {
+  it('ActionOptionSchema parse 通过', () => {
+    expect(ActionOptionSchema.safeParse({ option_id: 'attack::npc_guard::damage_5' }).success).toBe(true);
+  });
+
+  it('option_id 必填（禁 undefined）', () => {
+    expect(ActionOptionSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('ActionOptionListSchema 默认空数组', () => {
+    expect(ActionOptionListSchema.parse(undefined)).toEqual([]);
+  });
+
+  it('ActionOptionType 口径冻结: 含 option_id/tool_name/params/target_choices', () => {
+    expectTypeOf<ActionOptionType>().toMatchTypeOf<{
+      option_id: string;
+      tool_name: string;
+      params: Record<string, unknown>;
+      target_choices: string[];
+    }>();
+  });
+
+  it('重渲不变量: 相同 ActionOption → option_id 逐字节恒等', () => {
+    const opt1: ActionOptionType = ActionOptionSchema.parse({ option_id: 'attack::npc_guard::melee', tool_name: 'attack', params: { type: 'melee' }, target_choices: ['npc_guard'] });
+    const opt2: ActionOptionType = ActionOptionSchema.parse({ option_id: 'attack::npc_guard::melee', tool_name: 'attack', params: { type: 'melee' }, target_choices: ['npc_guard'] });
+    expect(opt1.option_id).toBe(opt2.option_id);
+  });
+});
+
+// ── Task 4B: irreversible 重放守卫 ───────────────────────────────────────────
+
+describe('Task 4B stub: irreversible 重放守卫（对撞⑤·未实装）', () => {
+  it('replayIrreversible 抛出「未实装」', () => {
+    const p: IrreversiblePayload = { tick_id: 'tick-1', call_type: 'web_search', frozen_at: 0, output: null };
+    expect(() => replayIrreversible(p)).toThrow('未实装');
+  });
+
+  it('assertNoRerollOnIrreversible 抛出「未实装」', () => {
+    expect(() => assertNoRerollOnIrreversible('tick-1', true)).toThrow('未实装');
+  });
+
+  it('IrreversiblePayload 类型口径冻结', () => {
+    expectTypeOf<IrreversiblePayload>().toMatchTypeOf<{
+      tick_id: string;
+      call_type: string;
+      frozen_at: number;
+      output: unknown;
+    }>();
+  });
+
+  it('replayIrreversible 返回类型冻结: never', () => {
+    expectTypeOf(replayIrreversible).returns.toBeNever();
+  });
+});
+
+// ── Task 4C: 受控接口能力集 [TOOL] ───────────────────────────────────────────
+
+describe('Task 4C stub: 受控接口能力集 [TOOL]（对撞·未实装）', () => {
+  const VALID_TYPES: ToolCapabilityType[] = ['code', 'llm', 'roll_dice', 'trigger', 'output_tag'];
+
+  it('executeToolCapability 抛出「未实装」', () => {
+    const d: ToolCapabilityDescriptor = { type: 'roll_dice' };
+    expect(() => executeToolCapability(d, {})).toThrow('未实装');
+  });
+
+  it('ToolCapabilityType 包含全部五类', () => {
+    for (const t of VALID_TYPES) {
+      const d: ToolCapabilityDescriptor = { type: t };
+      expect(() => executeToolCapability(d, {})).toThrow('未实装');
+    }
+  });
+
+  it('ToolCapabilityDescriptor 口径冻结', () => {
+    expectTypeOf<ToolCapabilityDescriptor>().toMatchTypeOf<{ type: ToolCapabilityType }>();
+  });
+});
+
+// ── Task 4D: 互斥组/probability 确定性总纲 ───────────────────────────────────
+
+describe('Task 4D: 互斥组/probability 确定性总纲（禁 Math.random·seeded RNG）', () => {
+  it('pickMutuallyExclusive: 空候选抛错', () => {
+    expect(() => pickMutuallyExclusive([], 'tick-1', 1, '互斥组:A', 42)).toThrow();
+  });
+
+  it('pickMutuallyExclusive: 单候选直接返回', () => {
+    expect(pickMutuallyExclusive(['only'], 'tick-1', 1, '互斥组:A', 42)).toBe('only');
+  });
+
+  it('pickMutuallyExclusive: 双跑逐位恒等（纯函数·seeded）', () => {
+    const c = ['事件A', '事件B', '事件C'];
+    const r1 = pickMutuallyExclusive(c, 'tick-5', 5, '互斥组:母题', 99);
+    const r2 = pickMutuallyExclusive(c, 'tick-5', 5, '互斥组:母题', 99);
+    expect(r1).toBe(r2);
+  });
+
+  it('pickMutuallyExclusive: 不同 salt → 可能不同（非退化）', () => {
+    const c = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    const results = new Set<string>();
+    for (let s = 0; s < 20; s++) results.add(pickMutuallyExclusive(c, 'tick-x', 1, 'ch', s));
+    expect(results.size).toBeGreaterThan(1);
+  });
+
+  it('rollProbability: p≤0 → false', () => {
+    expect(rollProbability(0, 'tick-1', 1, 'ch', 1)).toBe(false);
+  });
+
+  it('rollProbability: p≥1 → true', () => {
+    expect(rollProbability(1, 'tick-1', 1, 'ch', 1)).toBe(true);
+  });
+
+  it('rollProbability: 双跑逐位恒等', () => {
+    const r1 = rollProbability(0.7, 'tick-3', 3, '概率:攻击', 55);
+    const r2 = rollProbability(0.7, 'tick-3', 3, '概率:攻击', 55);
+    expect(r1).toBe(r2);
+  });
+
+  it('rollProbability: _notice_chance/_dodge_chance 走 rngFor·禁 Math.random（lint 保证）', () => {
+    const noticeChance = rollProbability(0.3, 'tick-7', 7, '越界:notice_chance', 101);
+    const dodgeChance  = rollProbability(0.5, 'tick-7', 7, '越界:dodge_chance',  202);
+    expect(typeof noticeChance).toBe('boolean');
+    expect(typeof dodgeChance).toBe('boolean');
   });
 });

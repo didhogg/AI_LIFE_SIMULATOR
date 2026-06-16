@@ -8,7 +8,9 @@
     "test:tz-utc": "TZ=UTC vitest run",
     "test:tz-tokyo": "TZ=Asia/Tokyo vitest run",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:slice": "pnpm --filter @ai-life-sim/slice dev",
+    "dev": "pnpm --filter @ai-life-sim/slice dev:web"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",

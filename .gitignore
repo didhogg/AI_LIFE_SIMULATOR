@@ -4,3 +4,6 @@ dist/
 *.tsbuildinfo
 .turbo/
 docs/spec/
+.env
+.env.local
+.claude/

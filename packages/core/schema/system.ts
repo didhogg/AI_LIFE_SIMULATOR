@@ -1,6 +1,17 @@
 // 4.1 系统与元数据层
 import { z } from 'zod';
 
+// ── $临时会话草稿态（对撞⑥·快照外易失态）─────────────────────────────────────────────
+// 纪律·同 sessionStorage：
+//   ❌ 不进拍前快照 ring buffer；❌ 不进 U1 迁移面；❌ 不进重放输入十类；崩溃即弃。
+//   ✅ 进指纹排除名单（B1e·易失态不影响判定）；✅ 零迁移可空字段。
+export const 临时会话Schema = z.object({
+  草稿文本:       z.string().optional(),   // 玩家未提交的输入草稿
+  临时意图标签:   z.array(z.string()).optional(), // 场景预判临时打标
+  会话元数据:     z.record(z.string(), z.unknown()).optional(),
+}).optional();
+export type 临时会话Type = z.infer<typeof 临时会话Schema>;
+
 // ── tick 日志条目 ──
 export const TickLogEntrySchema = z.object({
   tick_id: z.string().default(''),
@@ -9,7 +20,15 @@ export const TickLogEntrySchema = z.object({
   系数组指纹: z.string().default(''),
   // P0-9 接线：全局回滚计数器快照；可空，历史记录无此字段时为 undefined
   盐值: z.number().int().optional(),
+  // N-1/N-2: 路由快照——首次组装时写入，同拍所有 swipe/重roll 复用，重放读此字段不读 live 偏好
+  路由快照: z.object({
+    routedVia: z.string(),           // NsfwRouteVia — string to avoid circular dep with prompt layer
+    modelKey: z.string().nullable(),
+    explicitReason: z.string(),
+  }).optional(),
 });
+
+export type TickLogEntry = z.infer<typeof TickLogEntrySchema>;
 
 // ── 系统元数据 ──
 export const SystemSchema = z.object({

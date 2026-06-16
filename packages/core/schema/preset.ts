@@ -57,6 +57,13 @@ export const 难度系数组Schema = z.object({
   经济难度系数: z.number().min(0).max(10).default(1),
 }).passthrough();
 
+// ── 导入保真度三档（对撞·mod/卡导入检验口径）─────────────────────────────────────────
+// compat_strict = 旧版严格兼容（禁任何新字段）
+// compat_plus   = 兼容+扩展（允许已知扩展字段·禁未知字段）
+// native        = 原生 V4.1（完整 schema·最严格验证）
+export const 导入保真度枚举 = ['compat_strict', 'compat_plus', 'native'] as const;
+export type 导入保真度 = (typeof 导入保真度枚举)[number];
+
 // ── 属性轴表 + 检定配方表（6.26 / 6.45 / 6.48） ──
 const 检定配方条目Schema = z.object({
   配方名: z.string().default(''),

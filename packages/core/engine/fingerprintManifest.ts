@@ -35,6 +35,8 @@ export const FINGERPRINT_PRESET_FIELDS = [
   '规则补丁哈希',             // K5: canonicalize(规则补丁) 的哈希·preset 已有 规则补丁Schema
   'DSL文法版本',              // DSL v1.0 冻结文法版本·求值器解析口径·改版即改判定
   '求值器函数库版本',          // §十A·v1={min,max,clamp,pow,sqrt}逐位恒等·增列超越函数时 bump·旧档锁旧版语义重放
+  '软拒检测规则版本',          // N-4·确定性软拒/拒答检测器规则版本·版本变则判定口径变·随 U3 版本分段
+  '中文数字解析规则版',        // 对撞⑦·三百/叁佰/3百→300 归一·不确定=假分叉·改版即改判定口径
   // TODO(P0-6): 6.62 纪元包集版本 — era package version fingerprint placeholder
 ] as const;
 
@@ -106,6 +108,15 @@ export const FINGERPRINT_EXCLUDED_FIELDS = [
   // 🤖 破限引擎化（叙事层专用·永不进判定盐）
   'assistant预填',         // continue prefill·叙事专用·不影响判定
   '破限引子',              // per-provider{思维链引子,注入角色,预填串}·$模型画像·叙事层·不影响判定
+  // ── 对撞② 反代端点字段族（路由配置·不影响判定）──────────────────────────────────────
+  'baseURL',      // 反代/自托管地址·LLM路由配置·不影响判定面
+  'apiKeyRef',    // 机密区引用键·存档外存储·不影响判定面
+  'modelId',      // 实际模型ID·LLM路由配置·不影响判定面
+  'protocol',     // 接入协议·LLM路由配置·不影响判定面
+  // ── 对撞⑥ 临时容器（易失态·不进盐）────────────────────────────────────────────────
+  '$临时会话',    // sessionStorage同类·易失态·崩溃即弃·不影响判定
+  // ── 越界动词族·案底状态（演出层·不影响判定面）──────────────────────────────────────
+  '案底',         // 演出层犯罪记录·不影响判定（判定走检定配方表）
 ] as const;
 
 export type FingerprintBundleMember = (typeof FINGERPRINT_BUNDLE_MEMBERS)[number];

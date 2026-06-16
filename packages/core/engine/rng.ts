@@ -200,6 +200,15 @@ export function hashJudgmentBundle(fields: {
  *
  * Used to populate _tick.难度系数组指纹 in P0-7 runTick.
  */
+/**
+ * General-purpose canonical hash for any serializable value.
+ * Uses the same FNV-1a + canonicalize pipeline as hashJudgmentBundle / hashPresetFingerprint.
+ * Intended for archive checksums and non-judgment hashing needs.
+ */
+export function hashCanonical(value: unknown): string {
+  return fnv1a32(canonicalize(value)).toString(16).padStart(8, '0');
+}
+
 export function hashPresetFingerprint(fields: {
   /** B1d: 判定面整包哈希·调用方通过 hashJudgmentBundle() 预计算后传入 */
   判定面整包: string;
@@ -211,6 +220,10 @@ export function hashPresetFingerprint(fields: {
   DSL文法版本?: string;
   /** §十A: 求值器函数库版本·v1={min,max,clamp,pow,sqrt}逐位恒等·增列超越函数时 bump */
   求值器函数库版本?: number;
+  /** N-4: 软拒/拒答检测器规则版本·确定性规则·版本变则判定口径变·随 U3 版本分段 */
+  软拒检测规则版本?: number;
+  /** 对撞⑦: 中文数字解析规则版·三百/叁佰/3百→300 归一·改版即改判定口径 */
+  中文数字解析规则版?: number;
   /** 快照锁定组·开局锁定·随档快照；调用方从档内快照传入，绝不读 live 预设 */
   snapshot: {
     /** B1a·明文在册·直接纳入 */

@@ -142,6 +142,13 @@ export const $预算控制台Schema = z.object({
     超时秒数: z.number().int().min(0).default(30),
     失败后行为: z.enum(['降级继续', '自动暂停弹重试面板']).default('降级继续'),
   })).optional(),
+  // ── N-8: 连续失败暂停计数器归属（P1 接线·P0 仅注释锁定语义）──────────────────
+  // 「连续叙事调用失败 N 次自动暂停」的计数器 = 演出层状态（Ring 1），
+  // ⚠️ 永不进盐、永不随拍前快照存取、不写 _tick_log.路由快照。
+  // 与盐源（_存档头.全局回滚计数器）和路由快照（_tick_log.路由快照）严格两分：
+  //   计数器跨拍累积但随 UI 重置，不影响确定性重放。
+  // N 由本字段（失败后行为='自动暂停弹重试面板' + 自动重试上限组合）驱动。
+  // 「连续失败 N 次自动暂停」弹面板行为实装见 P1 · 接 6.67 枚举 + 双按钮时再落地。
   // NSFW降级目标模型键（连接$模型画像·指向已配 key 的 provider 键；无 key 时开关不可用·入排除名单）
   NSFW降级目标模型键: z.string().optional(),
   // ── P0-1 黄金窗口·调批字段（全入指纹排除名单·不影响判定面）─────────────────────
@@ -190,6 +197,11 @@ export const $模型画像Schema = z.record(
       注入角色: z.enum(['system', 'assistant']).optional(),     // 注入位置（system块/assistant预填）
       预填串: z.string().optional(),                            // continue prefill 文本
     }).optional(),
+    // ── 反代端点档（对撞②·apiKeyRef 走 R5-a 机密区存档外·全四字段进指纹排除名单 B1e）──────
+    protocol: z.enum(['openai-compatible', 'anthropic', 'gemini']).optional(),
+    baseURL:   z.string().optional(),  // 反代/自托管地址·指纹排除（同预设走不同反代须重放判等）
+    apiKeyRef: z.string().optional(),  // 机密区引用键（R5-a·存档外存储·永不序列化进存档）
+    modelId:   z.string().optional(),  // 实际模型 ID·指纹排除（同预设走不同反代须重放判等）
   }),
 ).default({});
 

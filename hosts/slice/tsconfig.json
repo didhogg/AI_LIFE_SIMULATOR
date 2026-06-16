@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "moduleResolution": "bundler"
+  },
+  "include": ["*.ts", "fixture/**/*.ts", "adapter/**/*.ts", "ledger/**/*.ts", "engine/**/*.ts", "tests/**/*.ts"]
+}

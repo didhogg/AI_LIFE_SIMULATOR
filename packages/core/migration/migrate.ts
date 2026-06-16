@@ -358,7 +358,8 @@ function build认知档案(
     const 背景 = asStr(npc['背景']);
     if (背景) 印象.push({ 标签: 背景, 极性: '中', 强度: 30, 来源: '迁移推定', 获知时间: writeEpochMinute(worldEpochMin), 衰减速率: 0 });
 
-    protagonistView[npcKey] = { 了解度: Math.min(100, asNum(npc['关系深度'])), 误差表: {}, 印象, 时效: 0 };
+    // 旧世界无姓名雾·默认已知姓名（视觉指代会让所有人变成「那个人」）
+    protagonistView[npcKey] = { 了解度: Math.min(100, asNum(npc['关系深度'])), 误差表: {}, 印象, 时效: 0, 姓名知识: '已知姓名' };
   }
 
   if (Object.keys(protagonistView).length > 0) 档案[主角键] = protagonistView;

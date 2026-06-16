@@ -1,0 +1,19 @@
+{
+  "name": "@ai-life-sim/slice",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx index.ts",
+    "dev:web": "tsx server.ts",
+    "soak": "tsx scripts/soak.ts"
+  },
+  "dependencies": {
+    "@ai-life-sim/core": "workspace:*",
+    "openai": "^4.98.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0"
+  }
+}
