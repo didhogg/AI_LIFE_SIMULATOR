@@ -2,6 +2,7 @@
 // No IO, no Date.now, no Math.random (ESLint bans in packages/core/).
 
 import { RootSchema, RootSchemaStrict, type RootState, type _mod墓碑库Type, type mod墓碑条目Type } from '../schema/index.js';
+import { normalizeRegistryKeyNames } from '../interfaces/keyNormalize.js'; // B5·S3 读卡口
 import { computeLoadOrder } from '../loader/modGraph.js';
 import { coerceSemver, satisfies as semverSatisfies } from '../loader/semver.js';
 import {
@@ -1107,7 +1108,7 @@ export function migrate(input: unknown): MigrateResult {
   // but is exported for callers who load existing V4.1 saves with old key names.
   // Within-v4.1 migrations run here (after buildV41Raw v4.1 early-return path).
   const rawMigrated = backfillPackId(migrateS1S1b(migrate内容分级位置(raw)));
-  let state: RootState = RootSchema.parse(rawMigrated);
+  let state: RootState = RootSchema.parse(normalizeRegistryKeyNames(rawMigrated)); // S3 读卡口
 
   // Community-gate self-heal: 内容分级 !== 'community' 时强制 允许玩家覆盖=false，不 throw
   const strict = RootSchemaStrict.safeParse(state);
