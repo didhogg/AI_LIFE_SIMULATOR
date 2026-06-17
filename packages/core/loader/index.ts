@@ -5,3 +5,4 @@ export * from './modWhitelist.js';
 export * from './resolvePackId.js';
 export * from './semver.js';
 export * from '../interfaces/contentPackHash.js'; // B4: 内容包集聚合哈希层
+export * from '../interfaces/interventionMerge.js'; // B5·K5: 约束取严 merge
