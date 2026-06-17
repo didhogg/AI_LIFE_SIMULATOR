@@ -59,6 +59,8 @@ export const SystemSchema = z.object({
   事件来源权重: z.object({
     事件包: z.number().min(0).max(100).default(50),
     AI自发: z.number().min(0).max(100).default(50),
+    // 事件密度调制钩子（GW·schema-only·机制实装 P0-7·此处仅字段占位）
+    外部密度系数: z.number().min(0).max(10).optional(),
   }).default({}),
 });
 

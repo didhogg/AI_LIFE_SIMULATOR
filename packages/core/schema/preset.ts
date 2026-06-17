@@ -230,6 +230,12 @@ const 规则补丁条目Schema = z.object({
   母题配额置零: z.array(z.string()).default([]),
   种族模板覆盖: z.record(z.string(), z.unknown()).default({}),
   其他参数覆盖: z.record(z.string(), z.unknown()).default({}),
+  // K5 per-key 合并策略声明（GW·schema-only·fire defer B6-Step5）
+  // 玩家优先级最高；canonicalize 取材→规则补丁哈希（FINGERPRINT_PRESET_FIELDS）·设值即改指纹·正确行为
+  per_key_策略: z.record(z.string(), z.object({
+    策略: z.enum(['覆盖', '钳制', '加权', '叠加', '锁', '后载']).optional(),
+    优先级来源: z.enum(['官方', '作者', '玩家']).optional(),
+  })).optional(),
 });
 
 export const 规则补丁Schema = z.record(z.string(), 规则补丁条目Schema).default({});

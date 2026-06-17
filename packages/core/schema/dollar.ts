@@ -99,6 +99,16 @@ export const $玩家偏好Schema = z.object({
     启用: z.boolean().default(false),
     触发模式: z.enum(['场景预判', '失败兜底']).default('失败兜底'),
   }).default({}),
+  // DP 动态提示词（GW·schema-only·偏好层·fire defer B6 DP拉取管线）
+  // $玩家偏好 不在 BUNDLE/PRESET/SNAPSHOT 任一取材组 = 隐性排除·指纹不变；
+  // EXCLUDED 文档条目 defer B6-Step7（effect包活线合法开 fingerprintManifest.ts 时顺手补）。
+  动态提示词: z.object({
+    启用: z.boolean().optional(),
+    云端源: z.string().optional(),
+    刷新频率: z.number().int().min(0).optional(),
+    已缓存版本: z.string().optional(),
+    已缓存内容哈希: z.string().optional(),
+  }).optional(),
 });
 
 // ── $会话状态（6.1） ──
@@ -196,6 +206,12 @@ export const $模型画像Schema = z.record(
       思维链引子: z.string().optional(),                         // 推理链解锁提示词前缀
       注入角色: z.enum(['system', 'assistant']).optional(),     // 注入位置（system块/assistant预填）
       预填串: z.string().optional(),                            // continue prefill 文本
+      // DP 引子来源（GW·schema-only·$ 前缀 invisible·整体已入 EXCLUDED line110·无需再单独记录）
+      来源: z.string().optional(),                              // 'built-in' | 'cloud' | 云端策略包 ID
+      云端策略包: z.object({
+        版本: z.string().optional(),
+        内容哈希: z.string().optional(),
+      }).optional(),
     }).optional(),
     // ── 反代端点档（对撞②·apiKeyRef 走 R5-a 机密区存档外·全四字段进指纹排除名单 B1e）──────
     protocol: z.enum(['openai-compatible', 'anthropic', 'gemini']).optional(),
