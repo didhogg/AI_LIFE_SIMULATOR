@@ -18,6 +18,7 @@ export interface ModEntry {
   启用?: boolean;     // default true; false = absent from load order (no cascade)
   优先级?: number;    // default 0; higher = loads later = overrides earlier (后载覆盖先载)
   冲突?: string[];    // pack_ids of mutually exclusive mods
+  可写键?: string[];  // B2·S5: writable-key contribution paths (受治理路径Schema strings)
 }
 
 /** Record-keyed mod registry.  Key = mod注册表 record key (not necessarily == pack_id). */

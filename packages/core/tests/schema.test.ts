@@ -1633,6 +1633,53 @@ describe('4.8 Memory / Schedule layer', () => {
     expect(mod注册表Schema.safeParse({ key_a: { pack_id: 'key_a' } }).success).toBe(true);
   });
 
+  // ── B2·S5 可写键 + 轨道（蓝图 6.78）────────────────────────────────────────
+  it('mod条目: 可写键 absent 通过（optional）', () => {
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm' } }).success).toBe(true);
+  });
+  it('mod条目: 可写键 合法受治理路径通过', () => {
+    expect(mod注册表Schema.safeParse({
+      m: { pack_id: 'm', 可写键: ['货币系统.账户.持有.my_coin'] },
+    }).success).toBe(true);
+  });
+  it('mod条目: 轨道 默认 gameplay', () => {
+    const res = mod注册表Schema.parse({ m: { pack_id: 'm' } });
+    expect(res['m']?.['轨道']).toBe('gameplay');
+  });
+  it('mod条目: 轨道 四种合法值均通过', () => {
+    for (const t of ['gameplay', 'cosmetic', 'view', 'macro'] as const) {
+      expect(mod注册表Schema.safeParse({ m: { pack_id: 'm', 轨道: t } }).success).toBe(true);
+    }
+  });
+  it('mod条目: 轨道 非法值拒收', () => {
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm', 轨道: 'audio' } }).success).toBe(false);
+  });
+  it('mod条目: gameplay + 可写键 → 通过（重轨允许可写键）', () => {
+    expect(mod注册表Schema.safeParse({
+      m: { pack_id: 'm', 轨道: 'gameplay', 可写键: ['货币系统.my_field'] },
+    }).success).toBe(true);
+  });
+  it('mod条目: cosmetic + 可写键 → 拒收（轨道一致性·轻轨禁可写键）', () => {
+    expect(mod注册表Schema.safeParse({
+      m: { pack_id: 'm', 轨道: 'cosmetic', 可写键: ['货币系统.my_field'] },
+    }).success).toBe(false);
+  });
+  it('mod条目: view + 可写键 → 拒收', () => {
+    expect(mod注册表Schema.safeParse({
+      m: { pack_id: 'm', 轨道: 'view', 可写键: ['货币系统.my_field'] },
+    }).success).toBe(false);
+  });
+  it('mod条目: macro + 可写键 → 拒收', () => {
+    expect(mod注册表Schema.safeParse({
+      m: { pack_id: 'm', 轨道: 'macro', 可写键: ['货币系统.my_field'] },
+    }).success).toBe(false);
+  });
+  it('mod条目: cosmetic + 零可写键 → 通过（轻轨无可写键是合法的）', () => {
+    expect(mod注册表Schema.safeParse({
+      m: { pack_id: 'm', 轨道: 'cosmetic' },
+    }).success).toBe(true);
+  });
+
   // ── effect 包格式黄金窗口预埋（P0-6 焊死前·intervention_pack.v1 扩字段·schema-only）──
   // K6③·S2 后 pack_id 必填（去空串豁免·去 default）；旧三字段需补 pack_id 才能通过。
   it('intervention_pack_v1: 旧三字段有 pack_id 时通过（K6③ 后旧格式需补 pack_id）', () => {
@@ -3156,14 +3203,22 @@ describe('6.59 受治理键空间注册表 S1（不进 RootSchema）', () => {
   it('.strict(): 注册表顶层 塞未知字段 safeParse().success===false', () => {
     expect(受治理键空间注册表Schema.safeParse({ 未知字段: 1 }).success).toBe(false);
   });
-  it('命名空间枚举: 11 项全部合法值逐一 parse 通过', () => {
-    expect(命名空间枚举.length).toBe(11);
+  it('命名空间枚举: 12 项全部合法值逐一 parse 通过', () => {
+    expect(命名空间枚举.length).toBe(12);
     for (const ns of 命名空间枚举) {
       expect(键条目Schema.safeParse({ 规范键: 'k', 命名空间: ns }).success).toBe(true);
     }
   });
   it('命名空间枚举: 越界值报错', () => {
     expect(键条目Schema.safeParse({ 规范键: 'k', 命名空间: '不存在的命名空间' }).success).toBe(false);
+  });
+  it("命名空间枚举 B2·S4: 'mod包' 新项可用于键条目Schema", () => {
+    expect(键条目Schema.safeParse({ 规范键: 'my_mod', 命名空间: 'mod包' }).success).toBe(true);
+  });
+  it("命名空间枚举 B2·S4: 'mod包' 新项可用于归并条目Schema", () => {
+    expect(归并条目Schema.safeParse({
+      别名: 'hero_pack', 规范键: 'hero_pack_v1', 命名空间: 'mod包',
+    }).success).toBe(true);
   });
   it('规范键: 缺失时拒收（必填）', () => {
     expect(键条目Schema.safeParse({ 命名空间: '币种' }).success).toBe(false);

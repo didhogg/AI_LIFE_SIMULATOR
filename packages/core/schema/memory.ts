@@ -292,6 +292,21 @@ const mod条目Schema = z.object({
   生效锚点: z.string().optional(),   // 6.62·mod 激活的 era/tick 锚点
   基底契约: z.string().optional(),   // 6.62·对官方基底包 semver 依赖描述
   内容哈希: z.string().optional(),   // B1c·包内容完整性哈希
+
+  // ── B2·S5 字段 ───────────────────────────────────────────────────────────
+  可写键: z.array(受治理路径Schema).optional(), // 可写键贡献字段·B6 导入闸消费·运行时 defer
+  轨道: z.enum(['gameplay', 'cosmetic', 'view', 'macro']).default('gameplay'), // 蓝图 6.78·静态判轨
+}).superRefine((data, ctx) => {
+  // 轨道一致性（静态形状校验·闸分流 defer B6）：
+  //   轻轨（cosmetic/view/macro）禁带可写键；零可写键的轻轨允许。
+  //   TODO(B3/B6): 零 effect + 零判定输入引用 的轻轨检查在 B3/B6 补。
+  if (data.轨道 !== 'gameplay' && (data.可写键?.length ?? 0) > 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['可写键'],
+      message: `轨道「${data.轨道}」为轻轨，禁带可写键（请改用 gameplay 重轨）`,
+    });
+  }
 });
 
 export const mod注册表Schema = z.record(z.string(), mod条目Schema)

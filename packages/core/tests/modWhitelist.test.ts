@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { computeLoadOrder, type ModRegistry } from '../loader/modGraph.js';
 import { deriveModAwareWhitelist, type DerivedEntry } from '../loader/modWhitelist.js';
+import { resolvePackId } from '../loader/resolvePackId.js';
 import { deriveWritableWhitelist, runDryRun } from '../schema/whitelistDryRun.js';
 
 // ─── Type-level helpers ───────────────────────────────────────────────────────
@@ -239,5 +240,72 @@ describe('Step 3b · determinism: runDryRun(modAware) double-run', () => {
     const lor = computeLoadOrder({ a: mod(['b']), b: mod([]) });
     const entries = deriveModAwareWhitelist(lor, { a: mod(['b']), b: mod([]) });
     expect(JSON.stringify(runDryRun(entries))).toBe(JSON.stringify(runDryRun(entries)));
+  });
+});
+
+// ─── B2·S5 resolvePackId — K6④ pure lookup ───────────────────────────────────
+
+describe('resolvePackId — B2·K6④ effectiveId lookup', () => {
+  it('返回 pack_id（存在时）', () => {
+    const reg: ModRegistry = { my_mod: { 依赖: [], pack_id: 'my_mod' } };
+    expect(resolvePackId(reg, 'my_mod')).toBe('my_mod');
+  });
+
+  it('返回 recordKey（pack_id 缺失时·effectiveId = pack_id ?? recordKey）', () => {
+    const reg: ModRegistry = { legacy: { 依赖: [] } };
+    expect(resolvePackId(reg, 'legacy')).toBe('legacy');
+  });
+
+  it('未知 key → undefined', () => {
+    const reg: ModRegistry = { a: { 依赖: [] } };
+    expect(resolvePackId(reg, 'not_exist')).toBeUndefined();
+  });
+
+  it('空注册表 → undefined', () => {
+    expect(resolvePackId({}, 'any')).toBeUndefined();
+  });
+});
+
+// ─── B2·S5 可写键 contribution — 白名单扩展 ──────────────────────────────────
+
+describe('可写键 contribution — whitelist extension', () => {
+  it('mod 携带 可写键 → 路径被纳入白名单', () => {
+    const reg: ModRegistry = {
+      hero: { 依赖: [], pack_id: 'hero', 可写键: ['货币系统.hero_wallet.余额'] },
+    };
+    const lor = computeLoadOrder(reg);
+    const wl = deriveModAwareWhitelist(lor, reg);
+    const paths = wl.map(e => e.path);
+    expect(paths).toContain('货币系统.hero_wallet.余额');
+  });
+
+  it('无 可写键 的 mod → 白名单长度等于静态派生', () => {
+    const reg: ModRegistry = { m: { 依赖: [], pack_id: 'm' } };
+    const lor = computeLoadOrder(reg);
+    const result = deriveModAwareWhitelist(lor, reg);
+    expect(result.length).toBe(deriveWritableWhitelist().length);
+  });
+
+  it('被拒 mod（自环）携带 可写键 → 路径不进入白名单', () => {
+    const reg: ModRegistry = {
+      bad: { 依赖: ['bad'], pack_id: 'bad', 可写键: ['危险路径.not_allowed'] },
+    };
+    const lor = computeLoadOrder(reg);
+    expect(lor.rejected).toContain('bad');
+    const wl = deriveModAwareWhitelist(lor, reg);
+    const paths = wl.map(e => e.path);
+    expect(paths).not.toContain('危险路径.not_allowed');
+  });
+
+  it('多 mod 可写键合并去重 → 重复路径只出现一次', () => {
+    const sharedPath = '共享字段.some_key';
+    const reg: ModRegistry = {
+      alpha: { 依赖: [], pack_id: 'alpha', 可写键: [sharedPath] },
+      beta:  { 依赖: [], pack_id: 'beta',  可写键: [sharedPath] },
+    };
+    const lor = computeLoadOrder(reg);
+    const wl = deriveModAwareWhitelist(lor, reg);
+    const count = wl.filter(e => e.path === sharedPath).length;
+    expect(count).toBe(1);
   });
 });
