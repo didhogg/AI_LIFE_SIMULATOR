@@ -101,6 +101,7 @@ import {
   受治理句柄Schema,
 } from '../schema/index.js';
 import { classifyTopKey, deriveWritableWhitelist } from '../schema/whitelistDryRun.js';
+import { backfill货币账户PerEntity } from '../migration/migrate.js';
 import { FINGERPRINT_BUNDLE_MEMBERS, FINGERPRINT_EXCLUDED_FIELDS } from '../engine/fingerprintManifest.js';
 import { 叙事流条目Schema } from '../schema/narrativeStream.js';
 import {
@@ -1314,6 +1315,30 @@ describe('4.7 Economy layer', () => {
     expect(() => 货币系统Schema.parse({ 账户: { '某实体键': { 负债: {} } } })).not.toThrow();
   });
 
+  // ── 账户.应收（约定库引用·选 i·与负债对称） ───────────────────────────────────
+  it('valid 应收{应收ID:约定库键}（引用式·金额真值单源在约定库）', () => {
+    expect(() => 货币系统Schema.parse({
+      账户: {
+        '某实体键': {
+          应收: {
+            recv_001: 'pact_赊账_王掌柜',
+            recv_002: 'pact_货款_商行乙',
+          },
+        },
+      },
+    })).not.toThrow();
+  });
+  it('valid: 应收 empty record（default {}）', () => {
+    expect(() => 货币系统Schema.parse({ 账户: { '某实体键': { 应收: {} } } })).not.toThrow();
+  });
+  it('应收 默认值 = {}', () => {
+    const parsed = 货币系统Schema.parse({ 账户: { '某实体键': {} } });
+    expect(parsed.账户['某实体键']?.应收).toEqual({});
+  });
+  it('invalid: 应收 value 非 string（选 i·引用串·非数值腿）', () => {
+    expect(货币系统Schema.safeParse({ 账户: { '某实体键': { 应收: { recv_001: 123 } } } }).success).toBe(false);
+  });
+
   // ── 账户.资产（E1·开放串类别取代持仓七枚举） ────────────────────────────────
   it('valid 资产 各类别开放串（E1）', () => {
     expect(() => 货币系统Schema.parse({
@@ -1397,6 +1422,62 @@ describe('4.7 Economy layer', () => {
       },
       市场状态: { 激活: true, 大盘景气: 60, 通胀率: 0.02, 基准利率: 0.04, 行业景气: { 商贸: 70 }, 时代风波: '' },
     })).not.toThrow();
+  });
+});
+
+// ── 批 B · 账户.应收 backfill 迁移测试 ──────────────────────────────────────────
+describe('批 B · backfill货币账户PerEntity — 应收 幂等 + 双机恒等', () => {
+  function makePerEntityRaw(hasReceivable: boolean): Record<string, unknown> {
+    const entity = (cash: number) => hasReceivable
+      ? { 持有: { 文: cash }, 储蓄: {}, 应收: {} }
+      : { 持有: { 文: cash }, 储蓄: {} };
+    return {
+      _系统: { migration_version: 5 },
+      货币系统: { 账户: { 'pc_linjiu': entity(30), 'npc_wang': entity(200) } },
+    };
+  }
+
+  it('一次迁移：缺 应收 → 逐实体补填 {} + migration_version +1', () => {
+    const raw = makePerEntityRaw(false);
+    const result = backfill货币账户PerEntity(raw) as Record<string, unknown>;
+    const 货币 = result['货币系统'] as Record<string, unknown>;
+    const 账户 = 货币['账户'] as Record<string, Record<string, unknown>>;
+    expect(账户['pc_linjiu']?.['应收']).toEqual({});
+    expect(账户['npc_wang']?.['应收']).toEqual({});
+    const sys = result['_系统'] as Record<string, unknown>;
+    expect(sys['migration_version']).toBe(6);
+  });
+
+  it('二次迁移幂等：含 应收 时 no-op（migration_version 不再 +1·输出完全相同）', () => {
+    const raw = makePerEntityRaw(false);
+    const once = backfill货币账户PerEntity(raw) as Record<string, unknown>;
+    const twice = backfill货币账户PerEntity(once) as Record<string, unknown>;
+    const sysOnce = (once['_系统'] as Record<string, unknown>)['migration_version'];
+    const sysTwice = (twice['_系统'] as Record<string, unknown>)['migration_version'];
+    expect(sysTwice).toBe(sysOnce);
+    expect(twice).toStrictEqual(once);
+  });
+
+  it('双机恒等：同输入两次调用输出 JSON 逐字节一致', () => {
+    const raw = makePerEntityRaw(false);
+    const r1 = backfill货币账户PerEntity(raw);
+    const r2 = backfill货币账户PerEntity(raw);
+    expect(JSON.stringify(r1)).toBe(JSON.stringify(r2));
+  });
+
+  it('空账户 no-op：返回原始引用·migration_version 不变', () => {
+    const raw: Record<string, unknown> = {
+      _系统: { migration_version: 5 },
+      货币系统: { 账户: {} },
+    };
+    const result = backfill货币账户PerEntity(raw);
+    expect(result).toBe(raw);
+  });
+
+  it('已含 应收 的 per-entity 账户 no-op：返回原始引用·migration_version 不变', () => {
+    const raw = makePerEntityRaw(true);
+    const result = backfill货币账户PerEntity(raw);
+    expect(result).toBe(raw);
   });
 });
 

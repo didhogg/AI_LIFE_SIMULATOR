@@ -44,6 +44,7 @@ export const 账户Schema = z.object({
     明细: z.record(z.string(), z.number()).default({}),
   }).default({}),
   负债: z.record(z.string(), z.string()).default({}),  // 债务ID→约定库键
+  应收: z.record(z.string(), z.string()).default({}),  // 应收ID→约定库键（金额真值单源在约定库·与负债对称）
   被动收入来源: z.record(z.string(), z.number()).default({}),
   资产: z.array(资产条目Schema).default([]),
 });

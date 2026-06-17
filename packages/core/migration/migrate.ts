@@ -1101,7 +1101,9 @@ export function migrateS1S1b(raw: Record<string, unknown>): Record<string, unkno
 }
 
 // ── backfill 货币账户 per-entity（B6·账本迁移批） ──────────────────────────────
-// Shape嗅探幂等门：账户首值含 持有/储蓄 key → 已是 per-entity → no-op。
+// Shape嗅探幂等门：账户首值含 持有/储蓄 key → 已是 per-entity。
+//   已含 应收 → 完全对齐 → no-op。
+//   缺 应收 → 批 B 补填 应收:{} 到每个实体（bump version）。
 // 旧单例形态：账户顶层含 持有/储蓄 → 清空为 {}（Option B·零假设·余额存 slice Map）。
 // 空 map → no-op（已是 per-entity 初始态）。
 
@@ -1113,11 +1115,25 @@ export function backfill货币账户PerEntity(raw: Record<string, unknown>): Rec
   const vals = Object.values(账户);
   if (vals.length === 0) return raw;
 
-  // Shape嗅探：首值含 持有/储蓄 → 已 per-entity，no-op
   const firstRec = typeof vals[0] === 'object' && vals[0] !== null
     ? vals[0] as Record<string, unknown>
     : {};
-  if ('持有' in firstRec || '储蓄' in firstRec) return raw;
+
+  if ('持有' in firstRec || '储蓄' in firstRec) {
+    // 已 per-entity：检查 应收 是否已补填
+    if ('应收' in firstRec) return raw; // 完全对齐 → no-op
+
+    // 应收 缺失 → 逐实体补填 {}
+    const new账户: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(账户)) {
+      const entity = typeof v === 'object' && v !== null ? v as Record<string, unknown> : {};
+      new账户[k] = { ...entity, 应收: {} };
+    }
+    const new货币 = { ...货币, 账户: new账户 };
+    const sys = asRec(raw['_系统']);
+    const newSys = { ...sys, migration_version: asNum(sys['migration_version']) + 1 };
+    return { ...raw, 货币系统: new货币, _系统: newSys };
+  }
 
   // 旧单例形态：账户本层含 持有/储蓄 → 清空（Option B）
   if ('持有' in 账户 || '储蓄' in 账户) {
