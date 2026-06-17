@@ -32,7 +32,7 @@ export const 资产条目Schema = z.object({
 // 账本语义钉死（P0-6 黄金窗口）：账本键约定 = 实体键（主角/NPC/组织均可持账）。
 // 当前单例形态为主角中心退化态；per-entity 化（账户 → z.record(实体键, 账户Schema)）
 // 为破坏性迁移，排 B6-Step6 白名单派生 fire 前独立批，另行 ALERT。
-const 账户Schema = z.object({
+export const 账户Schema = z.object({
   持有: z.record(z.string(), z.number()).default({}), // 币种→金额（允许为负=透支档）
   储蓄: z.record(z.string(), z.number()).default({}),
   本期收入: z.object({
@@ -87,3 +87,4 @@ export const 货币系统Schema = z.object({
 
 export type 货币系统Type = z.infer<typeof 货币系统Schema>;
 export type 资产条目Type = z.infer<typeof 资产条目Schema>;
+export type 账户Type = z.infer<typeof 账户Schema>;
