@@ -296,6 +296,35 @@ const mod条目Schema = z.object({
 
 export const mod注册表Schema = z.record(z.string(), mod条目Schema).default({});
 
+// ── K4 mod 墓碑 schema（B2·S1·schema-only·零接线·零写入·写入点留 B2·S3）──────────────
+// 落墓碑语义（S3 钉死·本步只建结构，不写入）：
+//   · 写 _mod墓碑库 = 落审计记录，不删/不改 mod注册表本身；
+//   · _mod墓碑库 可从 (mod注册表 + computeLoadOrder) 确定性重建（律庚：迁移不改真相层）；
+//   · 运行时不加载被拒 mod 仍由 computeLoadOrder().rejected[] 负责；
+//     墓碑库只做可审计持久化（AA3·禁静默丢弃）。
+// TODO(B2·S3)：写入点 — migrate() 管线 + mod注册表 superRefine 触发落墓碑。
+
+export const mod墓碑原因枚举 = [
+  '自环',           // K6①：依赖[] 含自身
+  '依赖被拒',       // K6①·级联：某依赖项被拒，依赖它的 mod 也被拒
+  '冲突',           // 与另一 mod 声明互斥关系
+  'key不等pack_id', // K6⑤：record key !== pack_id（强制收紧后不一致拒收）
+  'semver不兼容',   // B3 预留：基底契约 semver 不满足
+  '其他',           // 兜底·确定性描述须在 诊断 字段说明
+] as const;
+export type mod墓碑原因Type = (typeof mod墓碑原因枚举)[number];
+
+export const mod墓碑条目Schema = z.object({
+  记录键: z.string(),              // mod注册表 record key（必填·身份主键）
+  pack_id: z.string().optional(),  // 落墓碑时已知则记，否则不填
+  原因: z.enum(mod墓碑原因枚举),   // 确定性枚举·必填
+  诊断: z.string().optional(),     // 可选确定性文本（禁 wall-clock·禁随机·禁顺序敏感内容）
+}).strict();
+export type mod墓碑条目Type = z.infer<typeof mod墓碑条目Schema>;
+
+export const _mod墓碑库Schema = z.record(z.string(), mod墓碑条目Schema);
+export type _mod墓碑库Type = z.infer<typeof _mod墓碑库Schema>;
+
 // ── effect 包格式（对撞④·intervention_pack.v1·落地过 clamp·过闸逻辑 P0-6）──────────
 // 对撞纪律：clamp/错误收集复用 P0-5 fixed.ts 同一份实现，禁第二实现
 // 黄金窗口预埋（P0-6 焊死前·schema-only）：以下新字段全可空，老档零迁移；

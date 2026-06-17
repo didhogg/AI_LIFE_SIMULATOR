@@ -1,4 +1,4 @@
-// V4.1 RootSchema — 48 top-level keys (rev: +$天命重掷券, P0-5: +$存档种子, P0-1: 镜头焦点角色→席位表, P0-1 4.8: +调用类型注册表 +Ring2在途调用信封, P0-1 4.9: +存档头, B-1: +_lore知识库, P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置)
+// V4.1 RootSchema — 50 top-level keys (rev: +$天命重掷券, P0-5: +$存档种子, P0-1: 镜头焦点角色→席位表, P0-1 4.8: +调用类型注册表 +Ring2在途调用信封, P0-1 4.9: +存档头, B-1: +_lore知识库, P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置, B2·S1: +_mod墓碑库)
 import { z } from 'zod';
 
 // ── Layer exports (re-export all sub-schemas) ──
@@ -43,6 +43,7 @@ import {
   行动卡库Schema,
   仲裁器Schema,
   mod注册表Schema,
+  _mod墓碑库Schema,
   调用类型注册表Schema,
   Ring2在途调用信封Schema,
 } from './memory.js';
@@ -97,6 +98,7 @@ export const BLUEPRINT_KEYS = [
   '行动卡库',
   '仲裁器',
   'mod注册表',
+  '_mod墓碑库',
   '调用类型注册表',
   'Ring2在途调用信封',
   '$运气',
@@ -166,6 +168,7 @@ export const RootSchema = z.object({
   行动卡库: 行动卡库Schema,
   仲裁器: 仲裁器Schema.default({}),
   mod注册表: mod注册表Schema,
+  _mod墓碑库: _mod墓碑库Schema.optional(), // K4·B2·S1·只读审计层·可空·S3 写入
   调用类型注册表: 调用类型注册表Schema,
   Ring2在途调用信封: Ring2在途调用信封Schema,
 
