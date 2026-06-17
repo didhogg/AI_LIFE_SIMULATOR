@@ -1,4 +1,4 @@
-// V4.1 RootSchema — 50 top-level keys (rev: +$天命重掷券, P0-5: +$存档种子, P0-1: 镜头焦点角色→席位表, P0-1 4.8: +调用类型注册表 +Ring2在途调用信封, P0-1 4.9: +存档头, B-1: +_lore知识库, P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置, B2·S1: +_mod墓碑库)
+// V4.1 RootSchema — 52 top-level keys (rev: +$天命重掷券, P0-5: +$存档种子, P0-1: 镜头焦点角色→席位表, P0-1 4.8: +调用类型注册表 +Ring2在途调用信封, P0-1 4.9: +存档头, B-1: +_lore知识库, P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置, B2·S1: +_mod墓碑库, B5·S1+S1b: +受治理键空间注册表 +键空间归并表)
 import { z } from 'zod';
 
 // ── Layer exports (re-export all sub-schemas) ──
@@ -48,6 +48,7 @@ import {
   Ring2在途调用信封Schema,
 } from './memory.js';
 import { lore知识库Schema } from './lore.js';
+import { 受治理键空间注册表Schema, 归并表Schema } from './governedKeySpace.js';
 import {
   $运气Schema,
   $寿命预期Schema,
@@ -72,7 +73,7 @@ import {
   $metaSchema,
 } from './dollar.js';
 
-// ── Authoritative 48-key list from blueprint 4.0 (rev: +$天命重掷券, P0-5: +$存档种子, B-1: +_lore知识库, P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置) ──
+// ── Authoritative 52-key list from blueprint 4.0 (rev: +$天命重掷券, P0-5: +$存档种子, B-1: +_lore知识库, P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置, B5·S1+S1b: +受治理键空间注册表 +键空间归并表) ──
 export const BLUEPRINT_KEYS = [
   '_系统版本',
   '_tick',
@@ -99,6 +100,8 @@ export const BLUEPRINT_KEYS = [
   '仲裁器',
   'mod注册表',
   '_mod墓碑库',
+  '受治理键空间注册表',  // S1·B5·键空间注册表·整体可空·不进指纹（隐性排除）
+  '键空间归并表',         // S1b·B5·别名归并表·整体可空·不进指纹（区别于 preset.归并表 S4b·判定面）
   '调用类型注册表',
   'Ring2在途调用信封',
   '$运气',
@@ -169,6 +172,9 @@ export const RootSchema = z.object({
   仲裁器: 仲裁器Schema.default({}),
   mod注册表: mod注册表Schema,
   _mod墓碑库: _mod墓碑库Schema.optional(), // K4·B2·S1·只读审计层·可空·S3 写入
+  // B5·S1/S1b: 新顶层 key·整体可空·不进任何 fingerprint 数组（隐性排除）·registry 成员级 fire defer B6
+  受治理键空间注册表: 受治理键空间注册表Schema.default({}),
+  键空间归并表: 归并表Schema.default({}), // S1b·别名→规范键·区别于 preset.归并表(S4b·判定面·进指纹)
   调用类型注册表: 调用类型注册表Schema,
   Ring2在途调用信封: Ring2在途调用信封Schema,
 

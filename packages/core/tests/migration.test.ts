@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { migrate, buildV41Raw, applyPrefixRenames, backfillPackId, parseChineseDateToEpochMin, getTickMinutes } from '../migration/migrate.js';
+import { migrate, buildV41Raw, applyPrefixRenames, backfillPackId, migrateS1S1b, parseChineseDateToEpochMin, getTickMinutes } from '../migration/migrate.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 function loadFixture(name: string): Record<string, unknown> {
@@ -973,5 +973,69 @@ describe('B3·K2 semver 基底契约 tombstone — migrate pipeline', () => {
     expect(asRec(asRec(r2.state['_mod墓碑库'])['a_mod'])['原因']).toBe('semver不兼容');
     expect(asRec(asRec(r1.state['_mod墓碑库'])['z_mod'])['原因']).toBe('semver不兼容');
     expect(asRec(asRec(r2.state['_mod墓碑库'])['z_mod'])['原因']).toBe('semver不兼容');
+  });
+});
+
+// ── B5·S1+S1b · migrateS1S1b 幂等验收（四条护栏③④）──────────────────────────────────
+describe('B5·S1+S1b · migrateS1S1b 迁移函数', () => {
+  const baseRaw: Record<string, unknown> = {
+    _系统: { migration_version: 10 },
+    _系统版本: '4.1',
+  };
+
+  it('老档（无 S1/S1b 键）→ 迁移后两键均存在', () => {
+    const result = migrateS1S1b(baseRaw);
+    expect('受治理键空间注册表' in result).toBe(true);
+    expect('键空间归并表' in result).toBe(true);
+  });
+
+  it('老档→新档：migration_version +1', () => {
+    const result = migrateS1S1b(baseRaw);
+    expect(asNum(asRec(result['_系统'])['migration_version'])).toBe(11);
+  });
+
+  it('幂等：二次迁移 no-op（migration_version 不再 +1）', () => {
+    const once  = migrateS1S1b(baseRaw);
+    const twice = migrateS1S1b(once);
+    expect(asNum(asRec(twice['_系统'])['migration_version']))
+      .toBe(asNum(asRec(once['_系统'])['migration_version']));
+  });
+
+  it('幂等：二次迁移结果与一次相同（deepEqual）', () => {
+    const once  = migrateS1S1b(baseRaw);
+    const twice = migrateS1S1b(once);
+    expect(twice).toEqual(once);
+  });
+
+  it('已含两键的存档：no-op，migration_version 不变', () => {
+    const alreadyMigrated = {
+      ...baseRaw,
+      受治理键空间注册表: {},
+      键空间归并表: {},
+    };
+    const result = migrateS1S1b(alreadyMigrated);
+    expect(result).toBe(alreadyMigrated); // strict reference equality (no-op)
+    expect(asNum(asRec(result['_系统'])['migration_version'])).toBe(10);
+  });
+
+  it('只缺 S1：单键迁移 migration_version +1，S1b 不覆盖', () => {
+    const rawWithS1bOnly = { ...baseRaw, 键空间归并表: { 归并条目: [] } };
+    const result = migrateS1S1b(rawWithS1bOnly);
+    expect('受治理键空间注册表' in result).toBe(true);
+    expect(asNum(asRec(result['_系统'])['migration_version'])).toBe(11);
+    // 既存 S1b 内容保持不变
+    expect(asRec(result['键空间归并表'])['归并条目']).toEqual([]);
+  });
+
+  it('🛡️ migrate() 输出包含 S1/S1b 键（全量迁移链覆盖）', () => {
+    const { state } = migrate(richV31);
+    expect('受治理键空间注册表' in state).toBe(true);
+    expect('键空间归并表' in state).toBe(true);
+  });
+
+  it('🛡️ 迁移幂等：migrate(migrate(rich)).state deepEqual migrate(rich).state', () => {
+    const r1 = migrate(richV31).state;
+    const r2 = migrate(migrate(richV31).state).state;
+    expect(r2).toEqual(r1);
   });
 });

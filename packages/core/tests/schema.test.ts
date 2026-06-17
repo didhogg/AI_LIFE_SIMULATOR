@@ -101,6 +101,7 @@ import {
   受治理句柄Schema,
 } from '../schema/index.js';
 import { classifyTopKey, deriveWritableWhitelist } from '../schema/whitelistDryRun.js';
+import { FINGERPRINT_BUNDLE_MEMBERS, FINGERPRINT_EXCLUDED_FIELDS } from '../engine/fingerprintManifest.js';
 import { 叙事流条目Schema } from '../schema/narrativeStream.js';
 import {
   lore条目Schema,
@@ -2704,7 +2705,7 @@ describe('blueprint ↔ schema consistency', () => {
 
     expect(inSchemaNotBlueprint).toEqual([]);
     expect(inBlueprintNotSchema).toEqual([]);
-    expect(schemaKeys.size).toBe(50); // P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置; 对撞⑥: +$临时会话; B2·S1: +_mod墓碑库
+    expect(schemaKeys.size).toBe(52); // P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置; 对撞⑥: +$临时会话; B2·S1: +_mod墓碑库; B5·S1+S1b: +受治理键空间注册表 +键空间归并表
   });
 
   it('BLUEPRINT_KEYS has no duplicates', () => {
@@ -3207,8 +3208,8 @@ describe('P0-1 Fix3 · RootSchemaStrict community gate', () => {
   });
 });
 
-// ── 6.59 受治理键空间注册表 S1（不进 RootSchema·本步未挂载·零迁移）────────────────
-describe('6.59 受治理键空间注册表 S1（不进 RootSchema）', () => {
+// ── 6.59 受治理键空间注册表 S1（B5·Step2 已挂载 RootSchema·整体可空·不进指纹）────────
+describe('6.59 受治理键空间注册表 S1', () => {
   it('空表 {} parse 通过（键条目 absent）', () => {
     const res = 受治理键空间注册表Schema.safeParse({});
     expect(res.success).toBe(true);
@@ -3263,8 +3264,8 @@ describe('6.59 受治理键空间注册表 S1（不进 RootSchema）', () => {
   });
 });
 
-// ── 6.59 归并表 S1b（别名→规范键独立声明·不进 RootSchema）────────────────────────
-describe('6.59 归并表 S1b（不进 RootSchema）', () => {
+// ── 6.59 归并表 S1b（B5·Step2 已挂载 RootSchema·键空间归并表·整体可空·不进指纹）──────
+describe('6.59 归并表 S1b（键空间归并表）', () => {
   it('空表 {} parse 通过（归并条目 absent）', () => {
     const res = 归并表Schema.safeParse({});
     expect(res.success).toBe(true);
@@ -3533,5 +3534,50 @@ describe('6.59 受治理句柄Schema（handlerRef·扁平单 token·与受治理
   it('属性轴表Schema 元素.cascade_on_change: 合法 handlerRef 通过·含点号拒收', () => {
     expect(属性轴表Schema.safeParse([{ 轴名: '好感', cascade_on_change: ['handler_a'] }]).success).toBe(true);
     expect(属性轴表Schema.safeParse([{ 轴名: '好感', cascade_on_change: ['cascade.好感.涟漪'] }]).success).toBe(false);
+  });
+});
+
+// ── B5·S1+S1b RootSchema 挂载验收（四条护栏）──────────────────────────────────────────
+describe('B5·S1+S1b · RootSchema 挂载 · 整体可空·零迁移', () => {
+  it('受治理键空间注册表 已纳入 BLUEPRINT_KEYS', () => {
+    expect(BLUEPRINT_KEYS).toContain('受治理键空间注册表');
+  });
+  it('键空间归并表 已纳入 BLUEPRINT_KEYS', () => {
+    expect(BLUEPRINT_KEYS).toContain('键空间归并表');
+  });
+  it('受治理键空间注册表 存在于 RootSchema.shape', () => {
+    expect('受治理键空间注册表' in RootSchema.shape).toBe(true);
+  });
+  it('键空间归并表 存在于 RootSchema.shape', () => {
+    expect('键空间归并表' in RootSchema.shape).toBe(true);
+  });
+  it('整体可空：RootSchema.parse({}) 后两键均存在且为空表', () => {
+    const state = RootSchema.parse({});
+    expect(state.受治理键空间注册表).toEqual({});
+    expect(state.键空间归并表).toEqual({});
+  });
+  it('整体可空：带合法 S1 数据 parse 通过', () => {
+    const state = RootSchema.parse({
+      受治理键空间注册表: { 键条目: [{ 规范键: 'CNY', 命名空间: '币种' }] },
+    });
+    expect(state.受治理键空间注册表.键条目).toHaveLength(1);
+  });
+  it('整体可空：带合法 S1b 数据 parse 通过', () => {
+    const state = RootSchema.parse({
+      键空间归并表: { 归并条目: [{ 别名: '文钱', 规范键: '文', 命名空间: '单位' }] },
+    });
+    expect(state.键空间归并表.归并条目).toHaveLength(1);
+  });
+  it('🛡️ 隐性排除：受治理键空间注册表 不在 FINGERPRINT_BUNDLE_MEMBERS', () => {
+    expect(FINGERPRINT_BUNDLE_MEMBERS as readonly string[]).not.toContain('受治理键空间注册表');
+  });
+  it('🛡️ 隐性排除：键空间归并表 不在 FINGERPRINT_BUNDLE_MEMBERS', () => {
+    expect(FINGERPRINT_BUNDLE_MEMBERS as readonly string[]).not.toContain('键空间归并表');
+  });
+  it('🛡️ 隐性排除：受治理键空间注册表 不在 FINGERPRINT_EXCLUDED_FIELDS', () => {
+    expect(FINGERPRINT_EXCLUDED_FIELDS as readonly string[]).not.toContain('受治理键空间注册表');
+  });
+  it('🛡️ 隐性排除：键空间归并表 不在 FINGERPRINT_EXCLUDED_FIELDS', () => {
+    expect(FINGERPRINT_EXCLUDED_FIELDS as readonly string[]).not.toContain('键空间归并表');
   });
 });

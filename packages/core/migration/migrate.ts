@@ -1078,6 +1078,27 @@ export function backfillPackId(raw: Record<string, unknown>): Record<string, unk
   return { ...raw, mod注册表: newReg, _系统: newSys };
 }
 
+// ── S1/S1b 键空间注册初挂（B5·Step2·within-v4.1·幂等）─────────────────────────────────
+// 新顶层 key 两枚（受治理键空间注册表 · 键空间归并表）首次出现于 B5·Step2。
+// 幂等：两键均已存在则 no-op（migration_version 不 bump）。
+// 零数据迁移：新 key 填 {}；RootSchema.parse 的 .default({}) 与此口径相同。
+// migration_version bump 仅在至少一个新 key 缺失时触发（确定性·字段级检测）。
+
+export function migrateS1S1b(raw: Record<string, unknown>): Record<string, unknown> {
+  const hasS1  = '受治理键空间注册表' in raw;
+  const hasS1b = '键空间归并表' in raw;
+  if (hasS1 && hasS1b) return raw;  // 幂等：两键均存在 → no-op
+
+  const sys    = asRec(raw['_系统']);
+  const newSys = { ...sys, migration_version: asNum(sys['migration_version']) + 1 };
+  return {
+    ...raw,
+    ...(hasS1  ? {} : { 受治理键空间注册表: {} }),
+    ...(hasS1b ? {} : { 键空间归并表: {} }),
+    _系统: newSys,
+  };
+}
+
 // ── migrate (public entry) ─────────────────────────────────────────────────────
 
 export function migrate(input: unknown): MigrateResult {
@@ -1085,7 +1106,7 @@ export function migrate(input: unknown): MigrateResult {
   // buildV41Raw already emits new key names; applyPrefixRenames is a no-op here
   // but is exported for callers who load existing V4.1 saves with old key names.
   // Within-v4.1 migrations run here (after buildV41Raw v4.1 early-return path).
-  const rawMigrated = backfillPackId(migrate内容分级位置(raw));
+  const rawMigrated = backfillPackId(migrateS1S1b(migrate内容分级位置(raw)));
   let state: RootState = RootSchema.parse(rawMigrated);
 
   // Community-gate self-heal: 内容分级 !== 'community' 时强制 允许玩家覆盖=false，不 throw
