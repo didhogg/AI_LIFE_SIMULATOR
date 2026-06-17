@@ -294,7 +294,21 @@ const mod条目Schema = z.object({
   内容哈希: z.string().optional(),   // B1c·包内容完整性哈希
 });
 
-export const mod注册表Schema = z.record(z.string(), mod条目Schema).default({});
+export const mod注册表Schema = z.record(z.string(), mod条目Schema)
+  .superRefine((val, ctx) => {
+    // K6⑤: record key must equal pack_id; backfillPackId aligns migration-time entries.
+    // Non-migration paths (B6 import gate) are caught here before parse succeeds.
+    for (const [key, entry] of Object.entries(val)) {
+      if (entry.pack_id !== key) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key, 'pack_id'],
+          message: `K6⑤: mod record key "${key}" !== pack_id "${entry.pack_id}"`,
+        });
+      }
+    }
+  })
+  .default({});
 
 // ── K4 mod 墓碑 schema（B2·S1·schema-only·零接线·零写入·写入点留 B2·S3）──────────────
 // 落墓碑语义（S3 钉死·本步只建结构，不写入）：
@@ -302,7 +316,7 @@ export const mod注册表Schema = z.record(z.string(), mod条目Schema).default(
 //   · _mod墓碑库 可从 (mod注册表 + computeLoadOrder) 确定性重建（律庚：迁移不改真相层）；
 //   · 运行时不加载被拒 mod 仍由 computeLoadOrder().rejected[] 负责；
 //     墓碑库只做可审计持久化（AA3·禁静默丢弃）。
-// TODO(B2·S3)：写入点 — migrate() 管线 + mod注册表 superRefine 触发落墓碑。
+// B2·S3 实装：migrate() 管线写入自环/依赖被拒墓碑；mod注册表 superRefine 收紧 key===pack_id。
 
 export const mod墓碑原因枚举 = [
   '自环',           // K6①：依赖[] 含自身
@@ -343,7 +357,7 @@ export const intervention_pack_v1Schema = z.object({
   money_delta: z.record(z.string(), z.number()).optional(),
   flags_add:   z.array(z.string()).optional(),
 
-  pack_id: z.string().refine((v) => v === '' || pack_id正则.test(v), { message: 'pack_id 须为蛇形 /^[a-z][a-z0-9_]*$/' }).default(''), // K6 Step1·非空校验·Step2 与迁移同落补 mod条目
+  pack_id: z.string().regex(pack_id正则, { message: 'pack_id 须为蛇形 /^[a-z][a-z0-9_]*$/' }), // K6③·S2·必填·去空串豁免·去 default·对齐 mod条目单一权威口径
   deltas: z.array(intervention_pack_delta条目Schema).optional(),
   trigger: z.string().optional(), // DSL v1 谓词串·与 lore.ts 触发条件/触发谓词同一套文法，P0-6 实装求值器前仅占位
   side_effect_level: 副作用级别枚举Schema.optional(),

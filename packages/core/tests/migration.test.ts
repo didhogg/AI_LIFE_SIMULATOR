@@ -236,15 +236,27 @@ describe('migrate V3.1 → V4.1', () => {
     expect((twice['_系统'] as Record<string, unknown>)['migration_version']).toBe(3);
   });
 
-  it('backfillPackId: 已有 pack_id 的条目不被覆盖', () => {
+  it('backfillPackId: pack_id === key 时幂等不覆盖', () => {
+    const raw = {
+      mod注册表: { key_a: { pack_id: 'key_a' } },
+      _系统: { migration_version: 0 },
+    };
+    const result = backfillPackId(raw);
+    expect(result).toBe(raw);  // 同一引用 = 完全 no-op
+    const reg = result['mod注册表'] as Record<string, Record<string, unknown>>;
+    expect(reg['key_a']?.['pack_id']).toBe('key_a');
+  });
+
+  it('backfillPackId: pack_id ≠ key 时强制覆盖为 key（K6⑤·温和对齐）', () => {
     const raw = {
       mod注册表: { key_a: { pack_id: 'existing_id' } },
       _系统: { migration_version: 0 },
     };
     const result = backfillPackId(raw);
-    expect(result).toBe(raw);  // no-op：所有条目已有 pack_id
+    expect(result).not.toBe(raw);  // 产生新对象
     const reg = result['mod注册表'] as Record<string, Record<string, unknown>>;
-    expect(reg['key_a']?.['pack_id']).toBe('existing_id');
+    expect(reg['key_a']?.['pack_id']).toBe('key_a');  // 覆盖为 key，不保留 existing_id
+    expect((result['_系统'] as Record<string, unknown>)['migration_version']).toBe(1);
   });
 
   // ── 故障注入: 极端 / 空输入 ────────────────────────────────────────────────────
@@ -795,5 +807,61 @@ describe('K6 pack_id backfill — fixture pipeline + 双机恒等', () => {
     const reg = asRec(second.state['mod注册表']);
     expect(asRec(reg['my_mod'])['pack_id']).toBe('my_mod');
     expect(asRec(reg['legacy_pack'])['pack_id']).toBe('legacy_pack');
+  });
+});
+
+// ══════════════════════════════════════════
+// K4/K6① 墓碑写入（B2·S3）— migrate() 管线 + 双机恒等
+// ══════════════════════════════════════════
+describe('K4/K6① 墓碑写入 — migrate pipeline', () => {
+  it('自环 mod → _mod墓碑库落墓碑（K6①·原因=自环）', () => {
+    const result = migrate({
+      _系统版本: '4.1',
+      mod注册表: { cyclic: { 依赖: ['cyclic'] } },  // no pack_id → backfill sets 'cyclic'
+    });
+    const tombs = asRec(result.state['_mod墓碑库']);
+    const t = asRec(tombs['cyclic']);
+    expect(t['记录键']).toBe('cyclic');
+    expect(t['pack_id']).toBe('cyclic');
+    expect(t['原因']).toBe('自环');
+  });
+
+  it('级联依赖被拒 → 落墓碑（K6①·cascade·原因=依赖被拒）', () => {
+    const result = migrate({
+      _系统版本: '4.1',
+      mod注册表: {
+        cyclic: { 依赖: ['cyclic'] },
+        dependent: { 依赖: ['cyclic'] },
+      },
+    });
+    const tombs = asRec(result.state['_mod墓碑库']);
+    const tc = asRec(tombs['cyclic']);
+    const td = asRec(tombs['dependent']);
+    expect(tc['原因']).toBe('自环');
+    expect(td['原因']).toBe('依赖被拒');
+    expect(typeof td['诊断']).toBe('string');
+    expect((td['诊断'] as string).includes('cyclic')).toBe(true);
+  });
+
+  it('无自环 → _mod墓碑库 为空/不存在', () => {
+    const result = migrate({
+      _系统版本: '4.1',
+      mod注册表: { safe_mod: { pack_id: 'safe_mod' } },
+    });
+    const tombs = result.state['_mod墓碑库'];
+    expect(tombs === undefined || Object.keys(tombs as object).length === 0).toBe(true);
+  });
+
+  it('双机恒等: 两次 migrate 产出相同墓碑（确定性·禁 wall-clock）', () => {
+    const input = {
+      _系统版本: '4.1',
+      mod注册表: {
+        loop_a: { 依赖: ['loop_a'] },
+        dep_b: { 依赖: ['loop_a'] },
+      },
+    };
+    const r1 = migrate(input);
+    const r2 = migrate(input);
+    expect(JSON.stringify(r1.state['_mod墓碑库'])).toBe(JSON.stringify(r2.state['_mod墓碑库']));
   });
 });

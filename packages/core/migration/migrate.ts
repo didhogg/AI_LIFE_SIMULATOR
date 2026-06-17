@@ -1,7 +1,8 @@
 // Pure V3.1 → V4.1 save migration.
 // No IO, no Date.now, no Math.random (ESLint bans in packages/core/).
 
-import { RootSchema, RootSchemaStrict, type RootState } from '../schema/index.js';
+import { RootSchema, RootSchemaStrict, type RootState, type _mod墓碑库Type, type mod墓碑条目Type } from '../schema/index.js';
+import { computeLoadOrder } from '../loader/modGraph.js';
 import {
   parseChineseDateToEpochMin,
   getTickMinutes,
@@ -1050,8 +1051,8 @@ function migrate内容分级位置(raw: Record<string, unknown>): Record<string,
 
 // ── K6 pack_id 回填（批⑤·within-v4.1·幂等·只补 mod注册表）─────────────────────────────
 // 迁移纪律：只处理 mod注册表；effect包/事件包/战术包/补丁集/纪元包一律不迁移。
-// 幂等：pack_id 已非空则跳过不覆盖；migration_version 仅在有实际回填时 +1。
-// verbatim 回填：record key 原样写入 pack_id，不归一化、不加工。
+// 幂等：pack_id === key 时跳过；pack_id ≠ key（含空串）时强制覆盖为 key（K6⑤·温和对齐）。
+// migration_version 仅在有实际写入时 +1；verbatim 回填不归一化、不加工。
 
 export function backfillPackId(raw: Record<string, unknown>): Record<string, unknown> {
   const modReg = asRec(raw['mod注册表']);
@@ -1061,7 +1062,7 @@ export function backfillPackId(raw: Record<string, unknown>): Record<string, unk
   const newReg: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(modReg)) {
     const entry = asRec(val);
-    if (asStr(entry['pack_id']) === '') {
+    if (asStr(entry['pack_id']) !== key) {  // covers '' and any mismatched pack_id (K6⑤)
       newReg[key] = { ...entry, pack_id: key };
       anyChanged = true;
     } else {
@@ -1069,7 +1070,7 @@ export function backfillPackId(raw: Record<string, unknown>): Record<string, unk
     }
   }
 
-  if (!anyChanged) return raw;  // 全已非空 → 幂等 no-op，不 bump migration_version
+  if (!anyChanged) return raw;  // 全已对齐 → 幂等 no-op，不 bump migration_version
 
   const sys = asRec(raw['_系统']);
   const newSys = { ...sys, migration_version: asNum(sys['migration_version']) + 1 };
@@ -1084,7 +1085,7 @@ export function migrate(input: unknown): MigrateResult {
   // but is exported for callers who load existing V4.1 saves with old key names.
   // Within-v4.1 migrations run here (after buildV41Raw v4.1 early-return path).
   const rawMigrated = backfillPackId(migrate内容分级位置(raw));
-  const state = RootSchema.parse(rawMigrated);
+  let state: RootState = RootSchema.parse(rawMigrated);
 
   // Community-gate self-heal: 内容分级 !== 'community' 时强制 允许玩家覆盖=false，不 throw
   const strict = RootSchemaStrict.safeParse(state);
@@ -1097,7 +1098,32 @@ export function migrate(input: unknown): MigrateResult {
         healedRegistry[key] = { ...healedRegistry[key]!, 允许玩家覆盖SystemPrompt: false };
       }
     }
-    return { state: { ...state, 调用类型注册表: healedRegistry }, log };
+    state = { ...state, 调用类型注册表: healedRegistry };
+  }
+
+  // K6①: derive load order; write tombstones for self-loop and cascade-rejected mods.
+  // Determinism: tombstone map is keyed by record key; diagnostic dep lists are codepoint-sorted.
+  const lor = computeLoadOrder(state.mod注册表);
+  if (lor.rejected.length > 0) {
+    const selfLoopSet = new Set(lor.graph.selfLoops);
+    const rejectedSet = new Set(lor.rejected);
+    const tombstones = { ...(state._mod墓碑库 ?? {}) } as _mod墓碑库Type;
+    for (const key of lor.rejected) {
+      const entry = state.mod注册表[key];
+      const isSelfLoop = selfLoopSet.has(key);
+      const packId = entry?.pack_id;
+      const causal: string[] = (!isSelfLoop && entry)
+        ? entry.依赖.filter(d => rejectedSet.has(d)).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+        : [];
+      const tomb: mod墓碑条目Type = {
+        记录键: key,
+        原因: isSelfLoop ? '自环' : '依赖被拒',
+        ...(packId ? { pack_id: packId } : {}),
+        ...(causal.length > 0 ? { 诊断: `依赖 [${causal.join(', ')}] 被拒` } : {}),
+      };
+      tombstones[key] = tomb;
+    }
+    state = { ...state, _mod墓碑库: tombstones };
   }
 
   return { state, log };
