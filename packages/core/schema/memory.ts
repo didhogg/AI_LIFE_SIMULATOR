@@ -274,7 +274,10 @@ const pack_id正则 = /^[a-z][a-z0-9_]*$/;
 
 const mod条目Schema = z.object({
   pack_id: z.string().regex(pack_id正则, { message: 'pack_id 须为蛇形 /^[a-z][a-z0-9_]*$/' }), // K6 Step2·必填·去 default·backfillPackId 迁移前置保证合规
-  版本: z.string().default(''),
+  版本: z.string().default('').refine(v => {
+    if (v === '') return true;
+    return /^\d+\.\d+\.\d+$/.test(v);
+  }, { message: '版本须为 X.Y.Z semver 格式（或空串）' }),
   启用: z.boolean().default(true),
   优先级: z.number().int().min(0).default(0),
   依赖: z.array(z.string()).default([]),
@@ -290,7 +293,12 @@ const mod条目Schema = z.object({
 
   // ── 6.62/B1c 字段（顺手补·现骨架未有）──────────────────────────────────────
   生效锚点: z.string().optional(),   // 6.62·mod 激活的 era/tick 锚点
-  基底契约: z.string().optional(),   // 6.62·对官方基底包 semver 依赖描述
+  基底契约: z.string().optional().refine(v => {
+    if (v === undefined || v === '') return true;
+    // Validate: space-AND of comparators (>=, >, <=, <, =) + X.Y.Z; reject ^/~/||/prerelease
+    if (/[\^~]/.test(v) || v.includes('||') || v.includes('-')) return false;
+    return v.trim().split(/\s+/).every(part => /^(>=|<=|>|<|=)?\d+\.\d+\.\d+$/.test(part));
+  }, { message: '基底契约须为 semver range 表达式（如 >=1.0.0 <2.0.0），不支持 ^/~/||/prerelease' }),   // 6.62·对官方基底包 semver 依赖描述
   内容哈希: z.string().optional(),   // B1c·包内容完整性哈希
 
   // ── B2·S5 字段 ───────────────────────────────────────────────────────────
@@ -377,6 +385,7 @@ export const intervention_pack_v1Schema = z.object({
   trigger: z.string().optional(), // DSL v1 谓词串·与 lore.ts 触发条件/触发谓词同一套文法，P0-6 实装求值器前仅占位
   side_effect_level: 副作用级别枚举Schema.optional(),
   content_hash: z.string().optional(), // 占位·本批不接线，留给 P0-6 进 B1c 生效中包集哈希
+  // TODO(B5): 约束类 op 取严 merge / 内容后载覆盖（K5·6.52·defer B5）
 }).strict();
 export type intervention_pack_v1Type = z.infer<typeof intervention_pack_v1Schema>;
 

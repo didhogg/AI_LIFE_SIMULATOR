@@ -3,6 +3,7 @@
 
 import { RootSchema, RootSchemaStrict, type RootState, type _mod墓碑库Type, type mod墓碑条目Type } from '../schema/index.js';
 import { computeLoadOrder } from '../loader/modGraph.js';
+import { coerceSemver, satisfies as semverSatisfies } from '../loader/semver.js';
 import {
   parseChineseDateToEpochMin,
   getTickMinutes,
@@ -1124,6 +1125,44 @@ export function migrate(input: unknown): MigrateResult {
       tombstones[key] = tomb;
     }
     state = { ...state, _mod墓碑库: tombstones };
+  }
+
+  // B3·K2: 基底契约 semver hard-reject.
+  // For each enabled mod with a non-empty 基底契约, check against the current engine version.
+  // Determinism: iterate registry keys in codepoint order; inputs are 基底契约 + _系统版本 only.
+  // Mods already tombstoned (self-loop/cascade) are still checked — idempotent merge.
+  {
+    const engineVersion = typeof state._系统版本 === 'string' ? state._系统版本 : '';
+    if (engineVersion !== '') {
+      const coercedEngine = coerceSemver(engineVersion);
+      const regKeys = Object.keys(state.mod注册表).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+      const semverTombs = { ...(state._mod墓碑库 ?? {}) } as _mod墓碑库Type;
+      let changed = false;
+      for (const key of regKeys) {
+        const entry = state.mod注册表[key];
+        const contract = entry?.基底契约;
+        if (!contract || contract.trim() === '') continue;
+        let compatible: boolean;
+        try {
+          compatible = semverSatisfies(coercedEngine, contract);
+        } catch {
+          // Malformed range in 基底契约 — treat as incompatible; schema refine catches at parse time.
+          compatible = false;
+        }
+        if (!compatible) {
+          const packId = entry?.pack_id;
+          const tomb: mod墓碑条目Type = {
+            记录键: key,
+            原因: 'semver不兼容',
+            ...(packId ? { pack_id: packId } : {}),
+            诊断: `基底契约 "${contract}" 不满足引擎版本 ${coercedEngine}`,
+          };
+          semverTombs[key] = tomb;
+          changed = true;
+        }
+      }
+      if (changed) state = { ...state, _mod墓碑库: semverTombs };
+    }
   }
 
   return { state, log };

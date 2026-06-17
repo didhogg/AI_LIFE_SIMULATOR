@@ -1680,6 +1680,41 @@ describe('4.8 Memory / Schedule layer', () => {
     }).success).toBe(true);
   });
 
+  // ── B3·K2 semver schema refine ──────────────────────────────────────────────
+  it('mod条目: 版本 空串 → 通过（default）', () => {
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm', 版本: '' } }).success).toBe(true);
+  });
+  it('mod条目: 版本 X.Y.Z → 通过', () => {
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm', 版本: '1.2.3' } }).success).toBe(true);
+  });
+  it('mod条目: 版本 非 X.Y.Z → 拒收', () => {
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm', 版本: '1.2' } }).success).toBe(false);
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm', 版本: 'alpha' } }).success).toBe(false);
+  });
+  it('mod条目: 基底契约 absent → 通过（optional）', () => {
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm' } }).success).toBe(true);
+  });
+  it('mod条目: 基底契约 合法 range → 通过', () => {
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm', 基底契约: '>=4.1.0' } }).success).toBe(true);
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm', 基底契约: '>=1.0.0 <2.0.0' } }).success).toBe(true);
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm', 基底契约: '=4.1.0' } }).success).toBe(true);
+  });
+  it('mod条目: 基底契约 ^ 语法 → 拒收', () => {
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm', 基底契约: '^4.1.0' } }).success).toBe(false);
+  });
+  it('mod条目: 基底契约 ~ 语法 → 拒收', () => {
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm', 基底契约: '~4.1.0' } }).success).toBe(false);
+  });
+  it('mod条目: 基底契约 || 语法 → 拒收', () => {
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm', 基底契约: '>=1.0.0 || >=2.0.0' } }).success).toBe(false);
+  });
+  it('mod条目: 基底契约 prerelease → 拒收', () => {
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm', 基底契约: '>=4.1.0-alpha' } }).success).toBe(false);
+  });
+  it('mod条目: 基底契约 非完整 X.Y.Z → 拒收', () => {
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm', 基底契约: '>=4.1' } }).success).toBe(false);
+  });
+
   // ── effect 包格式黄金窗口预埋（P0-6 焊死前·intervention_pack.v1 扩字段·schema-only）──
   // K6③·S2 后 pack_id 必填（去空串豁免·去 default）；旧三字段需补 pack_id 才能通过。
   it('intervention_pack_v1: 旧三字段有 pack_id 时通过（K6③ 后旧格式需补 pack_id）', () => {

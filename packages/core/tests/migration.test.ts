@@ -865,3 +865,113 @@ describe('K4/K6① 墓碑写入 — migrate pipeline', () => {
     expect(JSON.stringify(r1.state['_mod墓碑库'])).toBe(JSON.stringify(r2.state['_mod墓碑库']));
   });
 });
+
+describe('B3·K2 semver 基底契约 tombstone — migrate pipeline', () => {
+  it('兼容基底契约 → 无 semver 墓碑', () => {
+    const result = migrate({
+      _系统版本: '4.1',
+      mod注册表: { my_mod: { pack_id: 'my_mod', 基底契约: '>=4.0.0' } },
+    });
+    const tombs = result.state['_mod墓碑库'] as Record<string, unknown> | undefined;
+    expect(tombs === undefined || !('my_mod' in (tombs ?? {}))).toBe(true);
+  });
+
+  it('不兼容基底契约 → 落 semver不兼容 墓碑', () => {
+    const result = migrate({
+      _系统版本: '4.1',
+      mod注册表: { old_mod: { pack_id: 'old_mod', 基底契约: '>=5.0.0' } },
+    });
+    const tombs = asRec(result.state['_mod墓碑库']);
+    const t = asRec(tombs['old_mod']);
+    expect(t['记录键']).toBe('old_mod');
+    expect(t['pack_id']).toBe('old_mod');
+    expect(t['原因']).toBe('semver不兼容');
+    expect(typeof t['诊断']).toBe('string');
+    expect((t['诊断'] as string).includes('5.0.0')).toBe(true);
+  });
+
+  it('精确下界：引擎版本 = 基底契约下界 → 兼容', () => {
+    const result = migrate({
+      _系统版本: '4.1',
+      mod注册表: { exact_mod: { pack_id: 'exact_mod', 基底契约: '>=4.1.0' } },
+    });
+    const tombs = result.state['_mod墓碑库'] as Record<string, unknown> | undefined;
+    expect(tombs === undefined || !('exact_mod' in (tombs ?? {}))).toBe(true);
+  });
+
+  it('两段区间：4.1 满足 >=4.0.0 <5.0.0', () => {
+    const result = migrate({
+      _系统版本: '4.1',
+      mod注册表: { range_mod: { pack_id: 'range_mod', 基底契约: '>=4.0.0 <5.0.0' } },
+    });
+    const tombs = result.state['_mod墓碑库'] as Record<string, unknown> | undefined;
+    expect(tombs === undefined || !('range_mod' in (tombs ?? {}))).toBe(true);
+  });
+
+  it('两段区间：4.1 不满足 >=4.2.0 <5.0.0', () => {
+    const result = migrate({
+      _系统版本: '4.1',
+      mod注册表: { strict_mod: { pack_id: 'strict_mod', 基底契约: '>=4.2.0 <5.0.0' } },
+    });
+    const tombs = asRec(result.state['_mod墓碑库']);
+    expect(asRec(tombs['strict_mod'])['原因']).toBe('semver不兼容');
+  });
+
+  it('空基底契约 → 跳过（不落墓碑）', () => {
+    const result = migrate({
+      _系统版本: '4.1',
+      mod注册表: { no_contract: { pack_id: 'no_contract' } },
+    });
+    const tombs = result.state['_mod墓碑库'] as Record<string, unknown> | undefined;
+    expect(tombs === undefined || !('no_contract' in (tombs ?? {}))).toBe(true);
+  });
+
+  it('幂等：两次 migrate 产出相同 semver 墓碑', () => {
+    const input = {
+      _系统版本: '4.1',
+      mod注册表: { old_mod: { 基底契约: '>=5.0.0' } },
+    };
+    const r1 = migrate(input);
+    const r2 = migrate(r1.state);
+    expect(JSON.stringify(r2.state['_mod墓碑库'])).toBe(JSON.stringify(r1.state['_mod墓碑库']));
+  });
+
+  it('多 mod 混合：兼容+不兼容各自正确', () => {
+    const result = migrate({
+      _系统版本: '4.1',
+      mod注册表: {
+        compat_mod:   { pack_id: 'compat_mod',   基底契约: '>=4.0.0' },
+        incompat_mod: { pack_id: 'incompat_mod', 基底契约: '>=5.0.0' },
+        no_contract:  { pack_id: 'no_contract' },
+      },
+    });
+    const tombs = asRec(result.state['_mod墓碑库']);
+    expect('compat_mod' in tombs).toBe(false);
+    expect('no_contract' in tombs).toBe(false);
+    expect(asRec(tombs['incompat_mod'])['原因']).toBe('semver不兼容');
+  });
+
+  it('确定性：遍历码点序与 mod 声明顺序无关', () => {
+    const input1 = {
+      _系统版本: '4.1',
+      mod注册表: {
+        z_mod: { pack_id: 'z_mod', 基底契约: '>=5.0.0' },
+        a_mod: { pack_id: 'a_mod', 基底契约: '>=5.0.0' },
+      },
+    };
+    const input2 = {
+      _系统版本: '4.1',
+      mod注册表: {
+        a_mod: { pack_id: 'a_mod', 基底契约: '>=5.0.0' },
+        z_mod: { pack_id: 'z_mod', 基底契约: '>=5.0.0' },
+      },
+    };
+    const r1 = migrate(input1);
+    const r2 = migrate(input2);
+    // Both mods rejected regardless of insertion order
+    expect(asRec(asRec(r1.state['_mod墓碑库'])['a_mod'])['原因']).toBe('semver不兼容');
+    expect(asRec(asRec(r2.state['_mod墓碑库'])['a_mod'])['原因']).toBe('semver不兼容');
+    expect(asRec(asRec(r1.state['_mod墓碑库'])['z_mod'])['原因']).toBe('semver不兼容');
+    expect(asRec(asRec(r2.state['_mod墓碑库'])['z_mod'])['原因']).toBe('semver不兼容');
+  });
+});
