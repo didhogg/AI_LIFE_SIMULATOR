@@ -347,6 +347,7 @@ export const mod墓碑原因枚举 = [
   '冲突',           // 与另一 mod 声明互斥关系
   'key不等pack_id', // K6⑤：record key !== pack_id（强制收紧后不一致拒收）
   'semver不兼容',   // B3 预留：基底契约 semver 不满足
+  '覆写授权越权',   // B5·M2：mod 经普通通道宣称覆写/天命授权但授权源无效
   '其他',           // 兜底·确定性描述须在 诊断 字段说明
 ] as const;
 export type mod墓碑原因Type = (typeof mod墓碑原因枚举)[number];
@@ -385,8 +386,28 @@ export const intervention_pack_v1Schema = z.object({
   trigger: z.string().optional(), // DSL v1 谓词串·与 lore.ts 触发条件/触发谓词同一套文法，P0-6 实装求值器前仅占位
   side_effect_level: 副作用级别枚举Schema.optional(),
   content_hash: z.string().optional(), // 占位·本批不接线，留给 P0-6 进 B1c 生效中包集哈希
-  // TODO(B5): 约束类 op 取严 merge / 内容后载覆盖（K5·6.52·defer B5）
-}).strict();
+}).strict().superRefine((data, ctx) => {
+  // M3 结构不变量校验（纯结构违例·语义越权写墓碑归 M2·活线 fire defer B6）
+  // 规范同 interfaces/patchInvariant.ts（公开 API）。
+  const M3_FORWARD_ONLY = ['编年史.序号', '落账记录.序号'] as const;
+  for (const [i, delta] of (data.deltas ?? []).entries()) {
+    const firstSeg = delta.path.split('.')[0] ?? '';
+    if (firstSeg.startsWith('_') || firstSeg.startsWith('$')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['deltas', i, 'path'],
+        message: `M3: 路径「${delta.path}」首段以「_」或「$」开头，为结构不变量硬排除字段，禁止写入`,
+      });
+    }
+    if ((M3_FORWARD_ONLY as readonly string[]).includes(delta.path) && delta.op === 'sub') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['deltas', i, 'op'],
+        message: `M3: 路径「${delta.path}」为 forward-only 键，禁止 sub 操作`,
+      });
+    }
+  }
+});
 export type intervention_pack_v1Type = z.infer<typeof intervention_pack_v1Schema>;
 
 export type 记忆条目Type = z.infer<typeof 记忆条目Schema>;
