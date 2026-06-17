@@ -43,8 +43,14 @@ export const 账户Schema = z.object({
     总额: z.number().default(0),
     明细: z.record(z.string(), z.number()).default({}),
   }).default({}),
-  负债: z.record(z.string(), z.string()).default({}),  // 债务ID→约定库键
-  应收: z.record(z.string(), z.string()).default({}),  // 应收ID→约定库键（金额真值单源在约定库·与负债对称）
+  _负债: z.record(z.string(), z.string()).default({}),  // 债务ID→约定库键
+  _应收: z.record(z.string(), z.string()).default({}),  // 应收ID→约定库键（金额真值单源在约定库·与_负债对称）
+  // accrual 消费报表流·不进 getNetAsset·与 本期支出(现金流) 非双写——
+  // _费用=赊账消费时点记，本期支出=现金流出时点记
+  _费用: z.object({
+    总额: z.number().default(0),
+    明细: z.record(z.string(), z.number()).default({}),
+  }).default({}),
   被动收入来源: z.record(z.string(), z.number()).default({}),
   资产: z.array(资产条目Schema).default([]),
 });
@@ -89,3 +95,7 @@ export const 货币系统Schema = z.object({
 export type 货币系统Type = z.infer<typeof 货币系统Schema>;
 export type 资产条目Type = z.infer<typeof 资产条目Schema>;
 export type 账户Type = z.infer<typeof 账户Schema>;
+
+// 沉没账户保留实体键常量——守恒承重（Σ全实体净值不变·消耗现金流入 sink 账户）。
+// 只进不出 invariant 留 P0-7 动词层；键保留禁 mod 占用留 B6/AA4。
+export const SINK_ENTITY_KEY = '__sink__';

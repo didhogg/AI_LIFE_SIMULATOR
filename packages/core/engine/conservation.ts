@@ -1,5 +1,5 @@
 // 金融守恒断言 — core 权威实现（纯函数·零副作用·与债务模型解耦）
-// 净值口径由注入的 getNetAsset 全权决定；core 不解析 负债/应收 等任何字段语义。
+// 净值口径由注入的 getNetAsset 全权决定；core 不解析 _负债/_应收 等任何字段语义。
 // 风格对齐 engine/assertFinite.ts（自定义 Error + throw）。
 // slice 侧 assertTrialBalance / soak assertConservation 是 demo 适配层，本函数是 core 权威；
 // slice rewire 到本函数属临界步（触 hosts/**），留独立 ALERT 批（P0-7）。

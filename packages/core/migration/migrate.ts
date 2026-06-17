@@ -406,7 +406,7 @@ function migrate货币(v31: Record<string, unknown>, worldEpochMin: number, log:
       储蓄: asRec(账户v31['储蓄']),
       本期收入: { 总额: asNum(收入v31['总额本位币'] ?? 收入v31['总额']), 明细: asRec(收入v31['明细']) },
       本期支出: { 总额: asNum(支出v31['总额本位币'] ?? 支出v31['总额']), 明细: asRec(支出v31['明细']) },
-      负债: asRec(账户v31['负债']),
+      _负债: asRec(账户v31['负债']),
       被动收入来源: asRec(账户v31['被动收入来源']),
       资产: asArr(账户v31['资产']).map(a => { const ae = asRec(a); return { 标的: asStr(ae['标的']), 类别: asStr(ae['类别']), 数量: asNum(ae['数量']), 成本价: asNum(ae['成本价']), 现价: asNum(ae['现价']) }; }),
     },
@@ -1100,10 +1100,10 @@ export function migrateS1S1b(raw: Record<string, unknown>): Record<string, unkno
   };
 }
 
-// ── backfill 货币账户 per-entity（B6·账本迁移批） ──────────────────────────────
+// ── backfill 货币账户 per-entity（B5.6·账本迁移批） ─────────────────────────────
 // Shape嗅探幂等门：账户首值含 持有/储蓄 key → 已是 per-entity。
-//   已含 应收 → 完全对齐 → no-op。
-//   缺 应收 → 批 B 补填 应收:{} 到每个实体（bump version）。
+//   已含 _应收 → 完全对齐（_应收+_费用 同批写入·只查前者） → no-op。
+//   缺 _应收 → B5.6 补填 _应收:{}/_费用:{总额,明细} 到每个实体（bump version）。
 // 旧单例形态：账户顶层含 持有/储蓄 → 清空为 {}（Option B·零假设·余额存 slice Map）。
 // 空 map → no-op（已是 per-entity 初始态）。
 
@@ -1120,14 +1120,14 @@ export function backfill货币账户PerEntity(raw: Record<string, unknown>): Rec
     : {};
 
   if ('持有' in firstRec || '储蓄' in firstRec) {
-    // 已 per-entity：检查 应收 是否已补填
-    if ('应收' in firstRec) return raw; // 完全对齐 → no-op
+    // 已 per-entity：检查 _应收 是否已补填（_应收+_费用 同批写入·只查前者）
+    if ('_应收' in firstRec) return raw; // 完全对齐 → no-op
 
-    // 应收 缺失 → 逐实体补填 {}
+    // _应收/_费用 缺失 → 逐实体补填（旧 应收/负债 key 由 RootSchema.parse 完成 strip+default）
     const new账户: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(账户)) {
       const entity = typeof v === 'object' && v !== null ? v as Record<string, unknown> : {};
-      new账户[k] = { ...entity, 应收: {} };
+      new账户[k] = { ...entity, _应收: {}, _费用: { 总额: 0, 明细: {} } };
     }
     const new货币 = { ...货币, 账户: new账户 };
     const sys = asRec(raw['_系统']);
