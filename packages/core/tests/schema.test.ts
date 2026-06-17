@@ -1592,7 +1592,7 @@ describe('4.8 Memory / Schedule layer', () => {
 
   // ── 缺口四·mod注册表签名三字段（6.74）+ 6.62/B1c ──────────────────────────────
   it('mod条目: 签名三字段 absent (optional)', () => {
-    const res = mod注册表Schema.parse({ 'test_mod': {} });
+    const res = mod注册表Schema.parse({ 'test_mod': { pack_id: 'test_mod' } });
     const entry = res['test_mod'];
     expect(entry?.作者公钥).toBeUndefined();
     expect(entry?.签名).toBeUndefined();
@@ -1611,6 +1611,7 @@ describe('4.8 Memory / Schedule layer', () => {
   it('mod条目: 6.62/B1c 字段 (生效锚点/基底契约/内容哈希)', () => {
     expect(mod注册表Schema.safeParse({
       my_mod: {
+        pack_id: 'my_mod',
         生效锚点: 'era_大明',
         基底契约: '>=1.0.0 <2.0.0',
         内容哈希: 'sha256:abcdef...',
@@ -1618,8 +1619,8 @@ describe('4.8 Memory / Schedule layer', () => {
     }).success).toBe(true);
   });
   it('mod条目: 三字段不同时全有也通过（各自可空）', () => {
-    expect(mod注册表Schema.safeParse({ m: { 签名: 'sig', 内容哈希: 'hash' } }).success).toBe(true);
-    expect(mod注册表Schema.safeParse({ m: { 生效锚点: 'era_x' } }).success).toBe(true);
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm', 签名: 'sig', 内容哈希: 'hash' } }).success).toBe(true);
+    expect(mod注册表Schema.safeParse({ m: { pack_id: 'm', 生效锚点: 'era_x' } }).success).toBe(true);
   });
 
   // ── effect 包格式黄金窗口预埋（P0-6 焊死前·intervention_pack.v1 扩字段·schema-only）──
@@ -2537,7 +2538,7 @@ describe('P0-1x B 缺口字段', () => {
   // ── 缺口9·mod注册表 签名三字段 + 6.62/B1c（确认已在 4.8 落地）────────────
   it('mod注册表: 生效锚点/基底契约/内容哈希 已落地（4.8 确认）', () => {
     expect(mod注册表Schema.safeParse({
-      test_mod: { 生效锚点: 'era_大明', 基底契约: '>=4.1.0', 内容哈希: 'sha256:abc' },
+      test_mod: { pack_id: 'test_mod', 生效锚点: 'era_大明', 基底契约: '>=4.1.0', 内容哈希: 'sha256:abc' },
     }).success).toBe(true);
   });
 });

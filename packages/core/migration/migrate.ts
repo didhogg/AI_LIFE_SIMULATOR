@@ -1048,6 +1048,34 @@ function migrate内容分级位置(raw: Record<string, unknown>): Record<string,
   };
 }
 
+// ── K6 pack_id 回填（批⑤·within-v4.1·幂等·只补 mod注册表）─────────────────────────────
+// 迁移纪律：只处理 mod注册表；effect包/事件包/战术包/补丁集/纪元包一律不迁移。
+// 幂等：pack_id 已非空则跳过不覆盖；migration_version 仅在有实际回填时 +1。
+// verbatim 回填：record key 原样写入 pack_id，不归一化、不加工。
+
+export function backfillPackId(raw: Record<string, unknown>): Record<string, unknown> {
+  const modReg = asRec(raw['mod注册表']);
+  if (Object.keys(modReg).length === 0) return raw;  // 空注册表 → 幂等 no-op
+
+  let anyChanged = false;
+  const newReg: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(modReg)) {
+    const entry = asRec(val);
+    if (asStr(entry['pack_id']) === '') {
+      newReg[key] = { ...entry, pack_id: key };
+      anyChanged = true;
+    } else {
+      newReg[key] = entry;
+    }
+  }
+
+  if (!anyChanged) return raw;  // 全已非空 → 幂等 no-op，不 bump migration_version
+
+  const sys = asRec(raw['_系统']);
+  const newSys = { ...sys, migration_version: asNum(sys['migration_version']) + 1 };
+  return { ...raw, mod注册表: newReg, _系统: newSys };
+}
+
 // ── migrate (public entry) ─────────────────────────────────────────────────────
 
 export function migrate(input: unknown): MigrateResult {
@@ -1055,7 +1083,7 @@ export function migrate(input: unknown): MigrateResult {
   // buildV41Raw already emits new key names; applyPrefixRenames is a no-op here
   // but is exported for callers who load existing V4.1 saves with old key names.
   // Within-v4.1 migrations run here (after buildV41Raw v4.1 early-return path).
-  const rawMigrated = migrate内容分级位置(raw);
+  const rawMigrated = backfillPackId(migrate内容分级位置(raw));
   const state = RootSchema.parse(rawMigrated);
 
   // Community-gate self-heal: 内容分级 !== 'community' 时强制 允许玩家覆盖=false，不 throw

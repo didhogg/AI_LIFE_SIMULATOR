@@ -262,11 +262,18 @@ export const Ring2在途调用信封Schema = z.object({
 }).default({});
 
 // ══════════════════════════════════════════
+// K6 pack_id 命名空间正则（批⑤·Step 1·接 6.59 IM3 白名单·蛇形小写起头）
+// 适用范围：非空 pack_id 校验；空串 '' 作合法哨兵（D2 不预收）
+// TODO(P0-6·IM3)：pack_id 命名空间化（mod 命名空间前缀/注册表接线）留 P0-6
+// ══════════════════════════════════════════
+const pack_id正则 = /^[a-z][a-z0-9_]*$/;
+
+// ══════════════════════════════════════════
 // mod 注册表（6.6/6.62/6.74/B1c·ATTR_WHITELIST 退役）
 // ══════════════════════════════════════════
 
 const mod条目Schema = z.object({
-  pack_id: z.string().default(''),
+  pack_id: z.string().regex(pack_id正则, { message: 'pack_id 须为蛇形 /^[a-z][a-z0-9_]*$/' }), // K6 Step2·必填·去 default·backfillPackId 迁移前置保证合规
   版本: z.string().default(''),
   启用: z.boolean().default(true),
   优先级: z.number().int().min(0).default(0),
@@ -307,7 +314,7 @@ export const intervention_pack_v1Schema = z.object({
   money_delta: z.record(z.string(), z.number()).optional(),
   flags_add:   z.array(z.string()).optional(),
 
-  pack_id: z.string().default(''), // 同 mod 注册表口径·K6 单一权威约束留待 P0-6 一并收紧
+  pack_id: z.string().refine((v) => v === '' || pack_id正则.test(v), { message: 'pack_id 须为蛇形 /^[a-z][a-z0-9_]*$/' }).default(''), // K6 Step1·非空校验·Step2 与迁移同落补 mod条目
   deltas: z.array(intervention_pack_delta条目Schema).optional(),
   trigger: z.string().optional(), // DSL v1 谓词串·与 lore.ts 触发条件/触发谓词同一套文法，P0-6 实装求值器前仅占位
   side_effect_level: 副作用级别枚举Schema.optional(),

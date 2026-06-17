@@ -442,4 +442,63 @@ effect 包 `deltas` 数组每条条目必须依次过五道闸：
 
 **现状**：`server.ts:542-616` 前端为自写 inline `<script>`，无第三方 JS 注入点，暂无实际威胁；本批先明文钉死契约，现状合规。
 
+---
+
+# Q · 批⑤ K6 pack_id 单一权威契约（P0-6 前钉死 · 本批落地）
+
+> **本节性质**：批⑤ Step 4 明文钉死 pack_id 单一权威契约。运行时消费 / 自环拒收 / 命名空间化 / 散落别名归一留 P0-6；本节 doc-only 描述已落地的 schema + 迁移约束。
+
+## Q·1 · 字段 = 唯一权威
+
+`mod条目.pack_id`（`packages/core/schema/memory.ts`）是 pack 身份的**唯一权威来源**：
+
+- 形态：`z.string().regex(/^[a-z][a-z0-9_]*$/)` — 蛇形必填，无 `.default('')`（Step 2 落地）。
+- **废除三路隐性 fallback 概念**（R2 勘察确认本就无 `resolvePackId` 消费链）：  
+  ① 字段值（旧：可为空串）② record key 兜底 ③ `.default('')` 空串哨兵。  
+  迁移后唯有字段值有效，record key 仅在迁移期作回填来源，运行时不再回落。
+
+## Q·2 · record key 仅回填来源（迁移期）
+
+`backfillPackId(raw)`（`packages/core/migration/migrate.ts`）——within-v4.1 迁移函数：
+
+- 遍历 `mod注册表` record，对 `pack_id === ''` 或缺失的条目 verbatim 回填其 record key。
+- **幂等**：pack_id 已非空则跳过；`migration_version` 仅在有实际回填时 +1；空注册表 / 全非空注册表均为 no-op（不 bump）。
+- **verbatim 原则**：不归一化、不加工 record key。record key 为非蛇形的归一议题 defer P0-6（IM3）。
+- 接入 `migrate()` pipeline（在 `migrate内容分级位置` 之后、`RootSchema.parse` 之前）。
+- 双机恒等已验：fixture `mod_pack_legacy_v40.json` 双跑，第二次 `migration_version` 不再 +1，pack_id 不变。
+
+## Q·3 · 蛇形正则白名单（B2）
+
+```
+/^[a-z][a-z0-9_]*$/
+```
+
+- 小写字母起头，后接小写字母 / 数字 / 下划线，无长度上限（本批）。
+- 常量 `pack_id正则` 定义于 `memory.ts:269`，`mod条目Schema` 和 `effect 包非空校验` 共用同一常量。
+
+## Q·4 · effect 包跟随（D2 不预收）
+
+`intervention_pack_v1Schema.pack_id`（`memory.ts:317`）：
+
+- 形态：`z.string().refine(v => v === '' || 正则.test(v)).default('')`。
+- 保留 `.default('')`：effect 包可不带 pack_id（空串合法哨兵）。
+- 非空时执行正则校验：已填则必须符合蛇形白名单。
+- **真收紧**（必填 + 去 default）留 effect 挂载 / 接线批（P0-6），本批不预收。
+
+## Q·5 · Defer P0-6 逐条明文
+
+| 编号 | 内容 | 原因 |
+|------|------|------|
+| C2 | **自环拒收**：pack 引用自身时拒收 | 需先建 pack 引用结构（拓扑 K1 SCC 缩点）·当前无引用消费者 |
+| IM3 | **pack_id 进 governedKeySpace 命名空间化**：pack_id 加入 11 命名空间枚举、统一散落别名（`来源.包id` / `_来源包` / `来源包`） | 命名空间枚举封闭·本批不扩展；散落别名语义澄清需设计 |
+| D2 | **effect pack_id 必填收紧**（去 `.default('')`） | effect 包挂载 / 接线批统一收紧，禁本批预收 |
+| R4 | **pack_id 运行时消费**（`resolvePackId`）| 当前无消费者（R2 勘察零命中）；接线批再造 |
+
+## Q·6 · 红线（与批级红线一致）
+
+- 不碰指纹取材集（`fingerprintManifest.ts` — R6 勘察确认 pack_id 不进指纹）。
+- 不碰结算管线（`gate.ts` / `assertConservation`）。
+- 不碰 `RING_K` / 定点数学（`fixed.ts`）/ `rng.ts` / `canonicalize`。
+- pack_id 收紧不改判定取材语义。
+
 **实装留 P0-6/P1** — CSP 响应头 + sandbox iframe + 净化器留 P0-6 导入闸 / P1 前端。

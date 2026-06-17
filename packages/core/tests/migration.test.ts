@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { migrate, buildV41Raw, applyPrefixRenames, parseChineseDateToEpochMin, getTickMinutes } from '../migration/migrate.js';
+import { migrate, buildV41Raw, applyPrefixRenames, backfillPackId, parseChineseDateToEpochMin, getTickMinutes } from '../migration/migrate.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 function loadFixture(name: string): Record<string, unknown> {
@@ -11,6 +11,7 @@ function loadFixture(name: string): Record<string, unknown> {
 
 const richV31 = loadFixture('stat_data_v31_rich.json');
 const blankV31 = loadFixture('stat_data_v31_blank.json');
+const legacyV40 = loadFixture('mod_pack_legacy_v40.json');
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -201,6 +202,49 @@ describe('migrate V3.1 → V4.1', () => {
     expect(sys['migration_version']).toBe(4); // 3 + 1
     const sys2 = twice['_系统'] as Record<string, unknown>;
     expect(sys2['migration_version']).toBe(4); // unchanged on second pass
+  });
+
+  // ── backfillPackId 幂等性（K6 批⑤·Step 2）─────────────────────────────────────
+  it('backfillPackId: 空注册表 no-op（migration_version 不变）', () => {
+    const raw = { mod注册表: {}, _系统: { migration_version: 5 } };
+    const result = backfillPackId(raw);
+    expect(result).toBe(raw);  // 同一引用 = 未产生新对象
+    expect((result['_系统'] as Record<string, unknown>)['migration_version']).toBe(5);
+  });
+
+  it('backfillPackId: 缺 pack_id 的条目从 record key 回填·migration_version +1', () => {
+    const raw = {
+      mod注册表: { my_mod: { 版本: '1.0', 启用: true } },
+      _系统: { migration_version: 2 },
+    };
+    const once = backfillPackId(raw);
+    const reg = once['mod注册表'] as Record<string, Record<string, unknown>>;
+    expect(reg['my_mod']?.['pack_id']).toBe('my_mod');
+    expect((once['_系统'] as Record<string, unknown>)['migration_version']).toBe(3);
+  });
+
+  it('backfillPackId: 二次运行幂等·migration_version 不再 +1·pack_id 不变', () => {
+    const raw = {
+      mod注册表: { my_mod: { 版本: '1.0' } },
+      _系统: { migration_version: 2 },
+    };
+    const once = backfillPackId(raw);
+    const twice = backfillPackId(once);
+    expect(twice).toBe(once);  // 同一引用 = 完全 no-op
+    const reg = twice['mod注册表'] as Record<string, Record<string, unknown>>;
+    expect(reg['my_mod']?.['pack_id']).toBe('my_mod');
+    expect((twice['_系统'] as Record<string, unknown>)['migration_version']).toBe(3);
+  });
+
+  it('backfillPackId: 已有 pack_id 的条目不被覆盖', () => {
+    const raw = {
+      mod注册表: { key_a: { pack_id: 'existing_id' } },
+      _系统: { migration_version: 0 },
+    };
+    const result = backfillPackId(raw);
+    expect(result).toBe(raw);  // no-op：所有条目已有 pack_id
+    const reg = result['mod注册表'] as Record<string, Record<string, unknown>>;
+    expect(reg['key_a']?.['pack_id']).toBe('existing_id');
   });
 
   // ── 故障注入: 极端 / 空输入 ────────────────────────────────────────────────────
@@ -719,5 +763,37 @@ describe('migrate内容分级位置 · 内容分级旧中文值映射', () => {
   it('未知旧值 fallback → off', () => {
     const result = migrate(makeV41WithOldRating('some-unknown'));
     expect(result.state.$玩家偏好.内容分级).toBe('off');
+  });
+});
+
+// ══════════════════════════════════════════
+// K6 pack_id 回填·fixture 级 pipeline + 双机迁移恒等（batch⑤ Step 3）
+// 单元幂等（backfillPackId）已在 Step 2 覆盖；此处是 pipeline 级 + fixture 级双机恒等。
+// ══════════════════════════════════════════
+describe('K6 pack_id backfill — fixture pipeline + 双机恒等', () => {
+  it('断言一: 迁移后 pack_id 等于 record key（verbatim）', () => {
+    const result = migrate(legacyV40);
+    const reg = asRec(result.state['mod注册表']);
+    expect(asRec(reg['my_mod'])['pack_id']).toBe('my_mod');
+    expect(asRec(reg['legacy_pack'])['pack_id']).toBe('legacy_pack');
+  });
+
+  it('断言二: schema 合规（migrate pipeline 不 throw·RootSchema.parse 已内置）', () => {
+    expect(() => migrate(legacyV40)).not.toThrow();
+    expect(migrate(legacyV40).state['_系统版本']).toBe('4.1');
+  });
+
+  it('断言三（双机恒等）: 第二次 migrate → migration_version 不再 +1·pack_id 不变', () => {
+    const first = migrate(legacyV40);
+    const mv1 = asNum(asRec(first.state['_系统'])['migration_version']);
+
+    const second = migrate(first.state);
+    const mv2 = asNum(asRec(second.state['_系统'])['migration_version']);
+
+    expect(mv2).toBe(mv1);
+
+    const reg = asRec(second.state['mod注册表']);
+    expect(asRec(reg['my_mod'])['pack_id']).toBe('my_mod');
+    expect(asRec(reg['legacy_pack'])['pack_id']).toBe('legacy_pack');
   });
 });

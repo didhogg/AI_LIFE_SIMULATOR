@@ -1,0 +1,11 @@
+{
+  "_系统版本": "4.1",
+  "_系统": {
+    "schema_version": 0,
+    "migration_version": 0
+  },
+  "mod注册表": {
+    "my_mod": { "pack_id": "", "版本": "1.0.0" },
+    "legacy_pack": { "版本": "0.9.0" }
+  }
+}
