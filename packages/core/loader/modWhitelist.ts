@@ -70,3 +70,18 @@ export function deriveModAwareWhitelist(
   }
   return [...base, ...extra];
 }
+
+// ─── Runtime consumption anchor (B6 / first consumer) ────────────────────────
+//
+// When the import-gate fires (B6), the canonical call sequence is:
+//   1. Parse mod注册表 (RootSchema.parse or migrate()).
+//   2. const lor = computeLoadOrder(parsedModRegistry);
+//   3. const whitelist = deriveModAwareWhitelist(lor, parsedModRegistry);
+//   4. runDryRun(whitelist)  →  assert all checks pass before consuming mod content.
+//
+// Until B6: no hosts/ variable; whitelist is derived and verified in CI only.
+// Do NOT add any dead-code variable to server.ts / index.ts before step (4) has
+// a live consumer.
+//
+// B2 extension: when mod条目 gains contribution fields (e.g. 可写键: string[]),
+// fill the extension point in the for-loop above — no other changes needed.

@@ -246,8 +246,18 @@ const VERB_TARGET_PROBES: Array<{ probe: string; description: string }> = [
   { probe: 'NPC.{id}.属性.体质',                    description: '兜底·代表叶节点（直改）' },
 ];
 
-export function runDryRun(): DryRunResult {
-  const all = deriveWritableWhitelist();
+// B1·K1 Step 3b: promoted from one-shot dry-run to standing CI guard.
+// Accepts an optional entries snapshot; defaults to deriveWritableWhitelist() for
+// backward compatibility. Pass deriveModAwareWhitelist(loadOrder, registry) from
+// loader/modWhitelist to guard the full mod-aware derivation.
+//
+// Runtime consumption anchor (B6 / first consumer):
+//   When the import-gate fires (B6), call runDryRun(deriveModAwareWhitelist(lor, reg))
+//   with the live registry after mod注册表 parse; assert report.checkA/B/C.pass all true
+//   before allowing any mod content consumption. This is the intended wiring point.
+//   Until then: no hosts/ variable; whitelist is derived and checked in CI only.
+export function runDryRun(entries: DerivedEntry[] = deriveWritableWhitelist()): DryRunResult {
+  const all = entries;
   const pathToEntry = new Map(all.map(e => [e.path, e]));
 
   // ── Check A: prefix layer correctness ─────────────────────────────────────

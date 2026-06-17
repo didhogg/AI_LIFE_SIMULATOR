@@ -1,10 +1,11 @@
-// B1·K1 Step 3a — modWhitelist unit tests
+// B1·K1 Step 3a+3b — modWhitelist unit tests
 // Full-set merge whitelist derivation: static RootSchema ∪ per-mod contributions.
+// Step 3b: runDryRun promoted to standing CI guard consuming deriveModAwareWhitelist.
 // Self-contained; no expectTypeOf / @ts-expect-error per project test paradigm.
 import { describe, it, expect } from 'vitest';
 import { computeLoadOrder, type ModRegistry } from '../loader/modGraph.js';
 import { deriveModAwareWhitelist, type DerivedEntry } from '../loader/modWhitelist.js';
-import { deriveWritableWhitelist } from '../schema/whitelistDryRun.js';
+import { deriveWritableWhitelist, runDryRun } from '../schema/whitelistDryRun.js';
 
 // ─── Type-level helpers ───────────────────────────────────────────────────────
 
@@ -190,5 +191,53 @@ describe('六禁 — no localeCompare method call in modWhitelist', () => {
       'utf8',
     );
     expect(src).not.toContain('.localeCompare(');
+  });
+});
+
+// ─── Step 3b: runDryRun promoted to standing CI guard ────────────────────────
+//
+// Guards that deriveModAwareWhitelist(emptyRegistry) passes the same three
+// checks as the original static derivation. This is the CI anchor proving the
+// new function is a valid superset replacement for deriveWritableWhitelist().
+
+describe('Step 3b · runDryRun(modAware) — CI guard with empty registry', () => {
+  const emptyLor = computeLoadOrder({});
+  const modAwareEntries = deriveModAwareWhitelist(emptyLor, {});
+
+  it('check A passes: layer classification correct', () => {
+    const report = runDryRun(modAwareEntries);
+    expect(report.checkA.pass).toBe(true);
+    expect(report.checkA.misclassified).toEqual([]);
+  });
+
+  it('check B passes: open-string vs enum distinguishable', () => {
+    const report = runDryRun(modAwareEntries);
+    expect(report.checkB.pass).toBe(true);
+    expect(report.checkB.distinguishable).toBe(true);
+  });
+
+  it('check C passes: all 20 verb target probes covered', () => {
+    const report = runDryRun(modAwareEntries);
+    expect(report.checkC.pass).toBe(true);
+    expect(report.checkC.missing).toEqual([]);
+  });
+});
+
+describe('Step 3b · backward compat: runDryRun() == runDryRun(modAware)', () => {
+  it('no-arg default produces identical result to mod-aware with empty registry', () => {
+    const emptyLor = computeLoadOrder({});
+    const modAwareEntries = deriveModAwareWhitelist(emptyLor, {});
+    const defaultReport = runDryRun();
+    const modAwareReport = runDryRun(modAwareEntries);
+    // Structural deep-equal via JSON: same entries → same check results.
+    expect(JSON.stringify(defaultReport)).toBe(JSON.stringify(modAwareReport));
+  });
+});
+
+describe('Step 3b · determinism: runDryRun(modAware) double-run', () => {
+  it('two runs produce identical report JSON', () => {
+    const lor = computeLoadOrder({ a: mod(['b']), b: mod([]) });
+    const entries = deriveModAwareWhitelist(lor, { a: mod(['b']), b: mod([]) });
+    expect(JSON.stringify(runDryRun(entries))).toBe(JSON.stringify(runDryRun(entries)));
   });
 });
