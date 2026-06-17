@@ -81,7 +81,7 @@ export const 货币系统Schema = z.object({
     金额: z.number().default(0),
   })).default([]),
   经济依附: 经济依附Schema.default({}),
-  账户: 账户Schema.default({}), // ⚠️ 单例退化态·per-entity 化排 B6-Step6 前独立临界批
+  账户: z.record(z.string(), 账户Schema).default({}), // per-entity（B6·账本迁移批）
   市场状态: 市场状态Schema.default({}),
 });
 

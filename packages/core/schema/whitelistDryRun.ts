@@ -233,7 +233,7 @@ const VERB_TARGET_PROBES: Array<{ probe: string; description: string }> = [
   { probe: 'NPC.{id}.当前作息模式',                 description: '⑤切换作息模式' },
   { probe: '长期归档',                              description: '⑥战果档·长期归档数组' },
   { probe: '地图.地点.{id}',                        description: '⑦地点创建/修改' },
-  { probe: '货币系统.账户.持有.{id}',               description: '⑧转账·账户持有' },
+  { probe: '货币系统.账户.{id}.持有.{id}',           description: '⑧转账·账户持有' },
   { probe: 'NPC.{id}.状态标签',                     description: '⑨状态变更·状态标签' },
   { probe: '全局.约定库.{id}',                      description: '⑩缔约·约定创建/修改' },
   { probe: '认知档案.{id}.{id}.了解度',             description: '⑪印象涟漪·认知档案了解度' },

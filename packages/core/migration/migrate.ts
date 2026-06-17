@@ -1100,6 +1100,36 @@ export function migrateS1S1b(raw: Record<string, unknown>): Record<string, unkno
   };
 }
 
+// ── backfill 货币账户 per-entity（B6·账本迁移批） ──────────────────────────────
+// Shape嗅探幂等门：账户首值含 持有/储蓄 key → 已是 per-entity → no-op。
+// 旧单例形态：账户顶层含 持有/储蓄 → 清空为 {}（Option B·零假设·余额存 slice Map）。
+// 空 map → no-op（已是 per-entity 初始态）。
+
+export function backfill货币账户PerEntity(raw: Record<string, unknown>): Record<string, unknown> {
+  const 货币 = asRec(raw['货币系统']);
+  const 账户 = asRec(货币['账户']);
+
+  // 空 map → 已是 per-entity 初始态，no-op
+  const vals = Object.values(账户);
+  if (vals.length === 0) return raw;
+
+  // Shape嗅探：首值含 持有/储蓄 → 已 per-entity，no-op
+  const firstRec = typeof vals[0] === 'object' && vals[0] !== null
+    ? vals[0] as Record<string, unknown>
+    : {};
+  if ('持有' in firstRec || '储蓄' in firstRec) return raw;
+
+  // 旧单例形态：账户本层含 持有/储蓄 → 清空（Option B）
+  if ('持有' in 账户 || '储蓄' in 账户) {
+    const new货币 = { ...货币, 账户: {} };
+    const sys = asRec(raw['_系统']);
+    const newSys = { ...sys, migration_version: asNum(sys['migration_version']) + 1 };
+    return { ...raw, 货币系统: new货币, _系统: newSys };
+  }
+
+  return raw; // 其他未知形态 → no-op
+}
+
 // ── migrate (public entry) ─────────────────────────────────────────────────────
 
 export function migrate(input: unknown): MigrateResult {
@@ -1107,7 +1137,7 @@ export function migrate(input: unknown): MigrateResult {
   // buildV41Raw already emits new key names; applyPrefixRenames is a no-op here
   // but is exported for callers who load existing V4.1 saves with old key names.
   // Within-v4.1 migrations run here (after buildV41Raw v4.1 early-return path).
-  const rawMigrated = backfillPackId(migrateS1S1b(migrate内容分级位置(raw)));
+  const rawMigrated = backfill货币账户PerEntity(backfillPackId(migrateS1S1b(migrate内容分级位置(raw))));
   let state: RootState = RootSchema.parse(normalizeRegistryKeyNames(rawMigrated)); // S3 读卡口
 
   // Community-gate self-heal: 内容分级 !== 'community' 时强制 允许玩家覆盖=false，不 throw
