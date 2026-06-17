@@ -3,7 +3,7 @@ dist/
 .DS_Store
 *.tsbuildinfo
 .turbo/
-docs/spec/
+# docs/spec/
 .env
 .env.local
 .claude/
