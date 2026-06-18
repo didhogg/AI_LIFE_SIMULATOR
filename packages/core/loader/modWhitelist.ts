@@ -51,6 +51,8 @@ export function deriveModAwareWhitelist(
   for (const key of loadOrder.flattenedLoadOrder) {
     const modEntry = registry[key];
     if (modEntry === undefined) continue;
+    // K6·B6 轨道分流：非 gameplay 轻轨不贡献可写键（schema superRefine 已拒裂，此为 defence-in-depth）
+    if (modEntry.轨道 !== undefined && modEntry.轨道 !== 'gameplay') continue;
     for (const path of modEntry.可写键 ?? []) modPaths.add(path);
   }
 

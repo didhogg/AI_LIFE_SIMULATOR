@@ -309,3 +309,29 @@ describe('可写键 contribution — whitelist extension', () => {
     expect(count).toBe(1);
   });
 });
+
+// ─── K1·B6 import-gate fire — E-a Step 1 ─────────────────────────────────────
+
+describe('K1·B6 import-gate — 空 registry trivial pass', () => {
+  it('空 mod 注册表 → deriveModAwareWhitelist + runDryRun 全部通过', () => {
+    const reg: ModRegistry = {};
+    const lor = computeLoadOrder(reg);
+    const wl = deriveModAwareWhitelist(lor, reg);
+    const dr = runDryRun(wl);
+    expect(dr.checkA.pass).toBe(true);
+    expect(dr.checkB.pass).toBe(true);
+    expect(dr.checkC.pass).toBe(true);
+  });
+});
+
+describe('K6·B6 轨道分流 — 轻轨 mod 可写键不入白名单', () => {
+  it('cosmetic 轨道 mod 携带 可写键 → 路径不进入白名单', () => {
+    const reg: ModRegistry = {
+      skin: { 依赖: [], pack_id: 'skin', 轨道: 'cosmetic', 可写键: ['外观.skin_color'] },
+    };
+    const lor = computeLoadOrder(reg);
+    const wl = deriveModAwareWhitelist(lor, reg);
+    const paths = wl.map(e => e.path);
+    expect(paths).not.toContain('外观.skin_color');
+  });
+});

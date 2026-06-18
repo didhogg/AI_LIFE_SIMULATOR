@@ -4,7 +4,9 @@
 import { RootSchema, RootSchemaStrict, type RootState, type _mod墓碑库Type, type mod墓碑条目Type } from '../schema/index.js';
 import { normalizeRegistryKeyNames, assertGovernedKeysNormalized } from '../interfaces/keyNormalize.js'; // B5·S3 读卡口 / B6·S1S1b 写卡口
 import { computeLoadOrder } from '../loader/modGraph.js';
+import { deriveModAwareWhitelist } from '../loader/modWhitelist.js';
 import { coerceSemver, satisfies as semverSatisfies } from '../loader/semver.js';
+import { runDryRun } from '../schema/whitelistDryRun.js';
 import {
   parseChineseDateToEpochMin,
   getTickMinutes,
@@ -1230,6 +1232,19 @@ export function migrate(input: unknown): MigrateResult {
         }
       }
       if (changed) state = { ...state, _mod墓碑库: semverTombs };
+    }
+  }
+
+  // K1·B6: derive mod-aware whitelist and run dry-run assertion (fail-closed).
+  // lor was computed above (after self-loop/cascade/semver tombstone passes).
+  // Empty registry → flattenedLoadOrder = [] → modPaths = {} → trivially passes.
+  {
+    const whitelist = deriveModAwareWhitelist(lor, state.mod注册表);
+    const dr = runDryRun(whitelist);
+    const failing = (['checkA', 'checkB', 'checkC'] as const).filter(k => !dr[k].pass);
+    if (failing.length > 0) {
+      const detail = failing.map(k => `${k}: ${JSON.stringify(dr[k])}`).join('; ');
+      throw new Error(`K1·白名单干跑失败（B6·import-gate）: ${detail}`);
     }
   }
 
