@@ -76,11 +76,12 @@ export const 受治理路径Schema = z.string().superRefine((raw, ctx) => {
 
 // ══════════════════════════════════════════
 // 受治理句柄 Schema（Step 7·handlerRef add-constraint·零迁移·fail-open）
-// 拍板：① 解除通道 不碰（无命名空间槽·已记 P0-6）；② 扁平单 token（禁内部点号）；
-//   ③ 单一共享 schema（side_effects 的 sideEffect句柄 / cascade_on_change 的 cascade句柄 共用）。
+// 拍板：① 解除通道 已收紧为受治理句柄（B6·拦截器句柄第13槽·本批落）；② 扁平单 token（禁内部点号）；
+//   ③ 单一共享 schema（side_effects·cascade_on_change·解除通道 共用）。
 // 与 受治理路径Schema 同构，但整串当单段校验（不 .split('.')）——handler 键必须恰好一个合法段。
 // 同样不查 registry 成员，天然 fail-open；存储形状不变：z.string() + .superRefine，z.infer 仍 string。
-// TODO(P0-6)：against 受治理键空间注册表Schema 实际成员（命名空间='sideEffect句柄'/'cascade句柄'）
+// TODO(P0-6)：against 受治理键空间注册表Schema 实际成员
+//   （命名空间='sideEffect句柄'/'cascade句柄'/'拦截器句柄'）
 //   的导入闸 fire 留 P0-6·registry 未 populate 前 fail-open。
 // ══════════════════════════════════════════
 
@@ -102,7 +103,7 @@ export const 受治理句柄Schema = z.string().superRefine((raw, ctx) => {
 });
 
 // ══════════════════════════════════════════
-// 命名空间枚举（封闭·12 项·到此锁定；B2·S4 解锁：+mod包）
+// 命名空间枚举（封闭·13 项·到此锁定；B2·S4 解锁：+mod包；B6 +拦截器句柄）
 // ══════════════════════════════════════════
 
 export const 命名空间枚举 = [
@@ -118,6 +119,7 @@ export const 命名空间枚举 = [
   '母题',            // 保留槽·fail-open 下 mod 自带母题天然放行·本步不 fire 不收紧
   '纪元',            // 保留占位·本步不入册数据
   'mod包',           // B2·S4·K6②：mod 条目命名空间化；mod 条目.命名空间 强约束 defer B2 拍板④
+  '拦截器句柄',      // B6·verb.ts 不可逆Schema.解除通道·拦截解除机制受治理引用（成员级校验 fail-open·留 P0-6）
 ] as const;
 export type 命名空间Type = (typeof 命名空间枚举)[number];
 

@@ -2033,9 +2033,21 @@ describe('4.8 Memory / Schedule layer', () => {
       it('重掷策略 省略时 default 落 \'禁用\'', () => {
         expect(不可逆Schema.parse({}).重掷策略).toBe('禁用');
       });
-      it('解除通道?: 省略 ok / 传 string ok', () => {
+      it('解除通道?: 省略 ok / 合法句柄 ok（B6·受治理句柄·断肢重生术 CJK 通过）', () => {
         expect(不可逆Schema.safeParse({}).success).toBe(true);
         expect(不可逆Schema.safeParse({ 解除通道: '断肢重生术' }).success).toBe(true);
+        expect(不可逆Schema.safeParse({ 解除通道: 'break_curse' }).success).toBe(true);
+      });
+      it('解除通道: JS 保留键被 受治理句柄Schema 拦截（B6·拦截器句柄第13槽·add-constraint）', () => {
+        expect(不可逆Schema.safeParse({ 解除通道: '__proto__' }).success).toBe(false);
+        expect(不可逆Schema.safeParse({ 解除通道: 'constructor' }).success).toBe(false);
+        expect(不可逆Schema.safeParse({ 解除通道: 'prototype' }).success).toBe(false);
+      });
+      it('解除通道: 空串被 受治理句柄Schema 拦截', () => {
+        expect(不可逆Schema.safeParse({ 解除通道: '' }).success).toBe(false);
+      });
+      it('解除通道: 含点号被 受治理句柄Schema 拦截（扁平单 token 纪律）', () => {
+        expect(不可逆Schema.safeParse({ 解除通道: 'a.b' }).success).toBe(false);
       });
       it('.strict(): 未知键 safeParse().success===false', () => {
         expect(不可逆Schema.safeParse({ 未知字段: 1 }).success).toBe(false);
@@ -3424,8 +3436,8 @@ describe('6.59 受治理键空间注册表 S1', () => {
   it('.strict(): 注册表顶层 塞未知字段 safeParse().success===false', () => {
     expect(受治理键空间注册表Schema.safeParse({ 未知字段: 1 }).success).toBe(false);
   });
-  it('命名空间枚举: 12 项全部合法值逐一 parse 通过', () => {
-    expect(命名空间枚举.length).toBe(12);
+  it('命名空间枚举: 13 项全部合法值逐一 parse 通过', () => {
+    expect(命名空间枚举.length).toBe(13);
     for (const ns of 命名空间枚举) {
       expect(键条目Schema.safeParse({ 规范键: 'k', 命名空间: ns }).success).toBe(true);
     }
@@ -3439,6 +3451,14 @@ describe('6.59 受治理键空间注册表 S1', () => {
   it("命名空间枚举 B2·S4: 'mod包' 新项可用于归并条目Schema", () => {
     expect(归并条目Schema.safeParse({
       别名: 'hero_pack', 规范键: 'hero_pack_v1', 命名空间: 'mod包',
+    }).success).toBe(true);
+  });
+  it("命名空间枚举 B6: '拦截器句柄' 第13槽可用于键条目Schema", () => {
+    expect(键条目Schema.safeParse({ 规范键: 'break_curse', 命名空间: '拦截器句柄' }).success).toBe(true);
+  });
+  it("命名空间枚举 B6: '拦截器句柄' 第13槽可用于归并条目Schema", () => {
+    expect(归并条目Schema.safeParse({
+      别名: '断肢解除', 规范键: '断肢重生术', 命名空间: '拦截器句柄',
     }).success).toBe(true);
   });
   it('规范键: 缺失时拒收（必填）', () => {
