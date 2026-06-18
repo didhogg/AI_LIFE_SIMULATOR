@@ -1501,6 +1501,82 @@ describe('B5.6 · backfill货币账户PerEntity — _应收/_费用 幂等 + 双
   });
 });
 
+// ── B6·AA4 账户 record key 保留键防护测试 ──────────────────────────────────────
+describe('B6 · AA4 · 账户键 superRefine — JS 保留键拒收 + 合法键通过', () => {
+  const RESERVED = ['__proto__', 'constructor', 'prototype'] as const;
+
+  // ── 账户 entity key 拒收 ────────────────────────────────────────────────────
+  for (const bad of RESERVED) {
+    it(`账户 entity key "${bad}" → safeParse false（原型污染防护）`, () => {
+      expect(货币系统Schema.safeParse({ 账户: { [bad]: {} } }).success).toBe(false);
+    });
+  }
+
+  // ── _负债 key 拒收 ──────────────────────────────────────────────────────────
+  for (const bad of RESERVED) {
+    it(`_负债 key "${bad}" → safeParse false`, () => {
+      expect(货币系统Schema.safeParse({
+        账户: { '某实体键': { _负债: { [bad]: 'pact_x' } } },
+      }).success).toBe(false);
+    });
+  }
+
+  // ── _应收 key 拒收 ──────────────────────────────────────────────────────────
+  for (const bad of RESERVED) {
+    it(`_应收 key "${bad}" → safeParse false`, () => {
+      expect(货币系统Schema.safeParse({
+        账户: { '某实体键': { _应收: { [bad]: 'pact_x' } } },
+      }).success).toBe(false);
+    });
+  }
+
+  // ── 持有（币种 key）拒收 ────────────────────────────────────────────────────
+  for (const bad of RESERVED) {
+    it(`持有 币种 key "${bad}" → safeParse false`, () => {
+      expect(货币系统Schema.safeParse({
+        账户: { '某实体键': { 持有: { [bad]: 100 } } },
+      }).success).toBe(false);
+    });
+  }
+
+  // ── __sink__ entity key 不误拒（SINK_ENTITY_KEY 实证）──────────────────────
+  it('__sink__ 作 entity key → 通过（SINK_ENTITY_KEY·非 JS 保留键）', () => {
+    expect(货币系统Schema.safeParse({ 账户: { '__sink__': {} } }).success).toBe(true);
+  });
+
+  // ── 老档合法键兼容回归 ──────────────────────────────────────────────────────
+  it('合法 entity key（pc_linjiu/npc_wang）→ 通过', () => {
+    expect(货币系统Schema.safeParse({
+      账户: { 'pc_linjiu': { 持有: { 文: 30 } }, 'npc_wang': { 持有: { 文: 200 } } },
+    }).success).toBe(true);
+  });
+  it('合法 _负债 key（debt_001）→ 通过', () => {
+    expect(货币系统Schema.safeParse({
+      账户: { '某实体键': { _负债: { 'debt_001': 'pact_借款_001' } } },
+    }).success).toBe(true);
+  });
+  it('合法 _应收 key（recv_001）→ 通过', () => {
+    expect(货币系统Schema.safeParse({
+      账户: { '某实体键': { _应收: { 'recv_001': 'pact_赊账_王掌柜' } } },
+    }).success).toBe(true);
+  });
+  it('合法 持有 币种 key（文/两/铜/贯）→ 通过', () => {
+    expect(货币系统Schema.safeParse({
+      账户: { '某实体键': { 持有: { 文: 30, 两: 1, 铜: 500, 贯: 0 } } },
+    }).success).toBe(true);
+  });
+  it('合法 被动收入来源 key（商铺/投资）→ 通过', () => {
+    expect(货币系统Schema.safeParse({
+      账户: { '某实体键': { 被动收入来源: { 商铺: 100, 投资: 50 } } },
+    }).success).toBe(true);
+  });
+  it('空键 → safeParse false（账户键不可为空）', () => {
+    expect(货币系统Schema.safeParse({
+      账户: { '': {} },
+    }).success).toBe(false);
+  });
+});
+
 describe('4.8 Memory / Schedule layer', () => {
   // ── 最小开局状态 ──────────────────────────────────────────────────────────────
   it('valid empty parse (minimal state)', () => {

@@ -1,5 +1,6 @@
 // 4.7 经济层
 import { z } from 'zod';
+import { 是JS保留键 } from './governedKeySpace.js';
 
 // ── 币种定义 ──
 const 币种定义Schema = z.object({
@@ -28,30 +29,43 @@ export const 资产条目Schema = z.object({
   域籍: z.string().optional(),
 });
 
+// ── 账户键 superRefine（AA4·禁 JS 保留键·防原型污染） ──
+// 复用 governedKeySpace.是JS保留键；扁平 token 不 split·不调 规范化键码位（账户键非注册表键）。
+// add-constraint only：z.infer 仍 string，存储形状不变，零迁移。
+const 账户键Schema = z.string().superRefine((raw, ctx) => {
+  if (raw === '') {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: '账户键: 不可为空' });
+    return;
+  }
+  if (是JS保留键(raw)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: `账户键: 命中 JS 保留键黑名单「${raw}」` });
+  }
+});
+
 // ── 账户 ──
 // 账本语义钉死（P0-6 黄金窗口）：账本键约定 = 实体键（主角/NPC/组织均可持账）。
 // 当前单例形态为主角中心退化态；per-entity 化（账户 → z.record(实体键, 账户Schema)）
 // 为破坏性迁移，排 B6-Step6 白名单派生 fire 前独立批，另行 ALERT。
 export const 账户Schema = z.object({
-  持有: z.record(z.string(), z.number()).default({}), // 币种→金额（允许为负=透支档）
-  储蓄: z.record(z.string(), z.number()).default({}),
+  持有: z.record(账户键Schema, z.number()).default({}), // 币种→金额（允许为负=透支档）
+  储蓄: z.record(账户键Schema, z.number()).default({}),
   本期收入: z.object({
     总额: z.number().default(0),
-    明细: z.record(z.string(), z.number()).default({}), // 网点id/来源→金额
+    明细: z.record(账户键Schema, z.number()).default({}), // 网点id/来源→金额
   }).default({}),
   本期支出: z.object({
     总额: z.number().default(0),
-    明细: z.record(z.string(), z.number()).default({}),
+    明细: z.record(账户键Schema, z.number()).default({}),
   }).default({}),
-  _负债: z.record(z.string(), z.string()).default({}),  // 债务ID→约定库键
-  _应收: z.record(z.string(), z.string()).default({}),  // 应收ID→约定库键（金额真值单源在约定库·与_负债对称）
+  _负债: z.record(账户键Schema, z.string()).default({}),  // 债务ID→约定库键
+  _应收: z.record(账户键Schema, z.string()).default({}),  // 应收ID→约定库键（金额真值单源在约定库·与_负债对称）
   // accrual 消费报表流·不进 getNetAsset·与 本期支出(现金流) 非双写——
   // _费用=赊账消费时点记，本期支出=现金流出时点记
   _费用: z.object({
     总额: z.number().default(0),
-    明细: z.record(z.string(), z.number()).default({}),
+    明细: z.record(账户键Schema, z.number()).default({}),
   }).default({}),
-  被动收入来源: z.record(z.string(), z.number()).default({}),
+  被动收入来源: z.record(账户键Schema, z.number()).default({}),
   资产: z.array(资产条目Schema).default([]),
 });
 
@@ -88,7 +102,7 @@ export const 货币系统Schema = z.object({
     金额: z.number().default(0),
   })).default([]),
   经济依附: 经济依附Schema.default({}),
-  账户: z.record(z.string(), 账户Schema).default({}), // per-entity（B6·账本迁移批）
+  账户: z.record(账户键Schema, 账户Schema).default({}), // per-entity（B6·账本迁移批）
   市场状态: 市场状态Schema.default({}),
 });
 
