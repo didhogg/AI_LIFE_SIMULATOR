@@ -20,8 +20,11 @@ import {
   提案单条目Schema,
   方向槽枚举,
   指令信封Schema,
+  失败工单条目Schema,
+  失败工单Schema,
 } from '../schema/proposal.js';
-import type { 提案单条目Type, 提案单Type } from '../schema/proposal.js';
+import type { 提案单条目Type, 提案单Type, FailureTicketType } from '../schema/proposal.js';
+import type { FailureTicket } from '../replay/types.js';
 import { 席位表Schema } from '../schema/actor.js';
 import type { 席位表Type } from '../schema/actor.js';
 import type { CheckInput } from '../engine/check.js';
@@ -130,6 +133,16 @@ describe('P0-1 Batch 3 Schema: 指令信封（txn_id 组级原子事务 ID）', 
   it('strip: 未知字段被剥离', () => {
     const res = 指令信封Schema.parse({ 提案: {}, 未知字段: 'y' });
     expect(res).not.toHaveProperty('未知字段');
+  });
+  it('提案血统 absent (optional·零迁移)', () => {
+    const res = 指令信封Schema.parse({ 提案: {} });
+    expect(res.提案血统).toBeUndefined();
+  });
+  it('提案血统 present (string·Z3·6.68)', () => {
+    expect(指令信封Schema.safeParse({
+      提案血统: 'pc_linjiu',
+      提案: { 动作类别: '转账', 目标引用: 'npc_wang' },
+    }).success).toBe(true);
   });
 });
 
@@ -566,6 +579,50 @@ describe('6.59 registry 键空间够不到核心调用（编译期断言·钉死
     type Assert = _Expect<H extends string ? (string extends H ? true : false) : false>;
     const _: Assert = true;
     expect(_).toBe(true);
+  });
+});
+
+// ── Z5·失败工单 Schema（6.68·地基·零迁移·逻辑实装 P0-7）────────────────────────────
+
+describe('Z5 失败工单 Schema（6.68·Zod 地基·proposal.ts）', () => {
+  it('最小合法条目（旧字段·Z5 字段全缺省）', () => {
+    expect(失败工单条目Schema.safeParse({
+      tickId: 'tick-001', callGeneration: 'gen-0', errorCode: 'timeout',
+    }).success).toBe(true);
+  });
+  it('Z5 字段全填 parse 通过', () => {
+    expect(失败工单条目Schema.safeParse({
+      tickId: 'tick-002', callGeneration: 'gen-1', errorCode: 'soft-reject',
+      detail: '模型拒绝',
+      提案单引用: 'prop_20260618_001',
+      叙事段引用: '42',
+      表达式预求值: 8,
+      已冻结: true,
+    }).success).toBe(true);
+  });
+  it('Z5 字段全 absent（可空·零迁移）', () => {
+    const res = 失败工单条目Schema.parse({ tickId: 'tick-003', callGeneration: 'gen-2', errorCode: 'ctx-overflow' });
+    expect(res.提案单引用).toBeUndefined();
+    expect(res.叙事段引用).toBeUndefined();
+    expect(res.表达式预求值).toBeUndefined();
+    expect(res.已冻结).toBeUndefined();
+  });
+  it('表达式预求值 拒收浮点（.int() 约束）', () => {
+    expect(失败工单条目Schema.safeParse({
+      tickId: 'tick-004', callGeneration: 'gen-3', errorCode: 'err',
+      表达式预求值: 3.14,
+    }).success).toBe(false);
+  });
+  it('失败工单Schema 默认空数组', () => {
+    expect(失败工单Schema.parse(undefined)).toEqual([]);
+  });
+  // ── 单源派生编译期断言：FailureTicket ≡ FailureTicketType ────────────────────
+  it('FailureTicket（replay） ≡ FailureTicketType（proposal）编译期逐字节同型', () => {
+    type Assert1 = _Expect<FailureTicket extends FailureTicketType ? true : false>;
+    type Assert2 = _Expect<FailureTicketType extends FailureTicket ? true : false>;
+    const _1: Assert1 = true;
+    const _2: Assert2 = true;
+    expect(_1 && _2).toBe(true);
   });
 });
 

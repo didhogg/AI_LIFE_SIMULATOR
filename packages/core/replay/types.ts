@@ -5,6 +5,7 @@
 import type { RootState } from '../schema/index.js';
 import type { TickLogEntry } from '../schema/system.js';
 import type { ModelRouteDecision } from '../prompt/index.js';
+import type { FailureTicketType } from '../schema/proposal.js';
 
 // ── §九 十类输入集 ─────────────────────────────────────────────────────────────
 
@@ -14,13 +15,9 @@ export interface ExternalInjection {
   payload: unknown;
 }
 
-/** ⑤ 失败工单·LLM 调用短路用·callGeneration 供 AA1 stale 丢弃判断 */
-export interface FailureTicket {
-  tickId: string;
-  callGeneration: string;
-  errorCode: string;
-  detail?: string;
-}
+/** ⑤ 失败工单·LLM 调用短路用·callGeneration 供 AA1 stale 丢弃判断
+ *  单源派生自 proposal.ts 失败工单条目Schema（禁两份手维护）*/
+export type FailureTicket = FailureTicketType;
 
 /** ⑧ 选择器 extensional 展开落账·预录 LLM 输出 */
 export interface AccountingRecord {
