@@ -10,3 +10,6 @@ export type {
   ComputeDeltaOptions,
   ComputeDeltaErrorCode,
 } from './computeDelta.js';
+
+export { runProposalGate } from './runProposalGate.js';
+export type { ProposalGateResult } from './runProposalGate.js';
