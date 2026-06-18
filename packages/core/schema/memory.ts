@@ -1,6 +1,15 @@
 // 4.8 记忆·事件·调度层
 import { z } from 'zod';
-import { 受治理路径Schema } from './governedKeySpace.js';
+import { 受治理路径Schema, 是JS保留键 } from './governedKeySpace.js';
+
+// ── 记录键 superRefine（AA4·禁 JS 保留键·防原型污染） ──
+// key schema 方式：在 Zod 构造 record 结果前拦截，正确处理 __proto__ 等保留键。
+// add-constraint only：z.infer 仍 string，零迁移。
+const 记录键Schema = z.string().superRefine((raw, ctx) => {
+  if (是JS保留键(raw)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: `记录键: 命中 JS 保留键黑名单「${raw}」` });
+  }
+});
 
 // ══════════════════════════════════════════
 // 工作记忆 / 长期归档通用条目（计时重标定为绝对时间）
@@ -241,7 +250,8 @@ const 叙事调用条目Schema = 核心调用条目Schema.extend({
 //   ①叙事质量二审  ②玩家代理回复  ③小剧场
 // 其余键由 mod 扩展注入（开放 record）
 // 运行时以叙事条目 schema 为基准（超集·核心条目零迁移向下兼容）
-export const 调用类型注册表Schema = z.record(z.string(), 叙事调用条目Schema).default({});
+export const 调用类型注册表Schema = z.record(记录键Schema, 叙事调用条目Schema)
+  .default({});
 
 // ── 类型导出（TS 编译期口径锁·scope 断言用）──────────────────────────────────────────
 export type 核心调用条目Type = z.infer<typeof 核心调用条目Schema>;
@@ -317,7 +327,7 @@ const mod条目Schema = z.object({
   }
 });
 
-export const mod注册表Schema = z.record(z.string(), mod条目Schema)
+export const mod注册表Schema = z.record(记录键Schema, mod条目Schema)
   .superRefine((val, ctx) => {
     // K6⑤: record key must equal pack_id; backfillPackId aligns migration-time entries.
     // Non-migration paths (B6 import gate) are caught here before parse succeeds.
@@ -360,7 +370,7 @@ export const mod墓碑条目Schema = z.object({
 }).strict();
 export type mod墓碑条目Type = z.infer<typeof mod墓碑条目Schema>;
 
-export const _mod墓碑库Schema = z.record(z.string(), mod墓碑条目Schema);
+export const _mod墓碑库Schema = z.record(记录键Schema, mod墓碑条目Schema);
 export type _mod墓碑库Type = z.infer<typeof _mod墓碑库Schema>;
 
 // ── effect 包格式（对撞④·intervention_pack.v1·落地过 clamp·过闸逻辑 P0-6）──────────
@@ -377,8 +387,8 @@ const intervention_pack_delta条目Schema = z.object({
 });
 
 export const intervention_pack_v1Schema = z.object({
-  agent_delta: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
-  money_delta: z.record(z.string(), z.number()).optional(),
+  agent_delta: z.record(记录键Schema, z.record(记录键Schema, z.unknown())).optional(),
+  money_delta: z.record(记录键Schema, z.number()).optional(),
   flags_add:   z.array(z.string()).optional(),
 
   pack_id: z.string().regex(pack_id正则, { message: 'pack_id 须为蛇形 /^[a-z][a-z0-9_]*$/' }), // K6③·S2·必填·去空串豁免·去 default·对齐 mod条目单一权威口径

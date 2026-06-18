@@ -3766,3 +3766,98 @@ describe('B5·S1+S1b · RootSchema 挂载 · 整体可空·零迁移', () => {
     expect(FINGERPRINT_EXCLUDED_FIELDS as readonly string[]).not.toContain('键空间归并表');
   });
 });
+
+// ── B6·AA4 record 解析层 JS 保留键黑名单 fire（路径 I·schema superRefine·add-constraint）──
+describe('B6·AA4 · JS 保留键黑名单 record 面（economy.ts + memory.ts）', () => {
+  const RESERVED = ['__proto__', 'constructor', 'prototype'] as const;
+
+  // ── 货币系统 3 面 ─────────────────────────────────────────────────────────
+  describe('货币系统.币种定义 key', () => {
+    it.each(RESERVED)('保留键「%s」→ 拒收', (k) => {
+      expect(货币系统Schema.safeParse({ 币种定义: { [k]: {} } }).success).toBe(false);
+    });
+    it('合法币种键「文」→ 通过', () => {
+      expect(货币系统Schema.safeParse({ 币种定义: { '文': {} } }).success).toBe(true);
+    });
+  });
+
+  describe('货币系统.汇率 key', () => {
+    it.each(RESERVED)('保留键「%s」→ 拒收', (k) => {
+      expect(货币系统Schema.safeParse({ 汇率: { [k]: 1 } }).success).toBe(false);
+    });
+    it('合法汇率键「银」→ 通过', () => {
+      expect(货币系统Schema.safeParse({ 汇率: { '银': 0.5 } }).success).toBe(true);
+    });
+  });
+
+  describe('市场状态.行业景气 key', () => {
+    it.each(RESERVED)('保留键「%s」→ 拒收', (k) => {
+      expect(货币系统Schema.safeParse({ 市场状态: { 行业景气: { [k]: 50 } } }).success).toBe(false);
+    });
+    it('合法行业键「酿酒」→ 通过', () => {
+      expect(货币系统Schema.safeParse({ 市场状态: { 行业景气: { '酿酒': 60 } } }).success).toBe(true);
+    });
+  });
+
+  // ── mod 注册表 / 墓碑库 ────────────────────────────────────────────────────
+  describe('mod注册表 key（constructor/prototype 补漏）', () => {
+    it('constructor → 拒收（pack_id 正则原来放行该漏洞·本批补）', () => {
+      expect(mod注册表Schema.safeParse({ constructor: { pack_id: 'constructor' } }).success).toBe(false);
+    });
+    it('prototype → 拒收', () => {
+      expect(mod注册表Schema.safeParse({ prototype: { pack_id: 'prototype' } }).success).toBe(false);
+    });
+    it('合法 mod key「base_mod」→ 通过', () => {
+      expect(mod注册表Schema.safeParse({ base_mod: { pack_id: 'base_mod' } }).success).toBe(true);
+    });
+  });
+
+  describe('_mod墓碑库 key', () => {
+    it.each(RESERVED)('保留键「%s」→ 拒收', (k) => {
+      expect(_mod墓碑库Schema.safeParse({ [k]: { 记录键: k, 原因: '其他' } }).success).toBe(false);
+    });
+    it('合法墓碑键「base_mod」→ 通过', () => {
+      expect(_mod墓碑库Schema.safeParse({ base_mod: { 记录键: 'base_mod', 原因: '自环' } }).success).toBe(true);
+    });
+  });
+
+  // ── 调用类型注册表 ────────────────────────────────────────────────────────
+  describe('调用类型注册表 key', () => {
+    it.each(RESERVED)('保留键「%s」→ 拒收', (k) => {
+      expect(调用类型注册表Schema.safeParse({ [k]: {} }).success).toBe(false);
+    });
+    it('合法调用类型键「叙事质量二审」→ 通过', () => {
+      expect(调用类型注册表Schema.safeParse({ '叙事质量二审': {} }).success).toBe(true);
+    });
+  });
+
+  // ── intervention_pack: agent_delta 两层 + money_delta ────────────────────
+  const validPackBase = { pack_id: 'test_mod' };
+
+  describe('intervention_pack agent_delta 第一层 entity key', () => {
+    it.each(RESERVED)('保留键「%s」→ 拒收', (k) => {
+      expect(intervention_pack_v1Schema.safeParse({ ...validPackBase, agent_delta: { [k]: { '好感': 1 } } }).success).toBe(false);
+    });
+    it('合法 entity key「pc_linjiu」→ 通过', () => {
+      expect(intervention_pack_v1Schema.safeParse({ ...validPackBase, agent_delta: { pc_linjiu: { '好感': 1 } } }).success).toBe(true);
+    });
+  });
+
+  describe('intervention_pack agent_delta 第二层 field-path key', () => {
+    it.each(RESERVED)('保留键「%s」→ 拒收', (k) => {
+      expect(intervention_pack_v1Schema.safeParse({ ...validPackBase, agent_delta: { pc_linjiu: { [k]: 1 } } }).success).toBe(false);
+    });
+    it('合法字段键「好感」→ 通过', () => {
+      expect(intervention_pack_v1Schema.safeParse({ ...validPackBase, agent_delta: { pc_linjiu: { '好感': 1 } } }).success).toBe(true);
+    });
+  });
+
+  describe('intervention_pack money_delta entity key', () => {
+    it.each(RESERVED)('保留键「%s」→ 拒收', (k) => {
+      expect(intervention_pack_v1Schema.safeParse({ ...validPackBase, money_delta: { [k]: 10 } }).success).toBe(false);
+    });
+    it('合法 entity key「pc_linjiu」→ 通过', () => {
+      expect(intervention_pack_v1Schema.safeParse({ ...validPackBase, money_delta: { pc_linjiu: 10 } }).success).toBe(true);
+    });
+  });
+});

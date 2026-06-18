@@ -29,6 +29,15 @@ export const 资产条目Schema = z.object({
   域籍: z.string().optional(),
 });
 
+// ── 经济记录键 superRefine（AA4·禁 JS 保留键·防原型污染） ──
+// 复用 governedKeySpace.是JS保留键；add-constraint only：z.infer 仍 string，零迁移。
+// 用于 货币系统 中 币种定义/汇率/行业景气 三个 record 面。
+const 经济记录键Schema = z.string().superRefine((raw, ctx) => {
+  if (是JS保留键(raw)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: `经济记录键: 命中 JS 保留键黑名单「${raw}」` });
+  }
+});
+
 // ── 账户键 superRefine（AA4·禁 JS 保留键·防原型污染） ──
 // 复用 governedKeySpace.是JS保留键；扁平 token 不 split·不调 规范化键码位（账户键非注册表键）。
 // add-constraint only：z.infer 仍 string，存储形状不变，零迁移。
@@ -82,7 +91,7 @@ const 市场状态Schema = z.object({
   大盘景气: z.number().min(0).max(100).default(50),
   通胀率: z.number().default(0),    // 年化（纪元时间）
   基准利率: z.number().default(0),  // 年化
-  行业景气: z.record(z.string(), z.number().min(0).max(100)).default({}),
+  行业景气: z.record(经济记录键Schema, z.number().min(0).max(100)).default({}),
   时代风波: z.string().default(''),
   // 区域物价 → 引用地图侧（不双写）
 });
@@ -92,9 +101,9 @@ const 市场状态Schema = z.object({
 // ══════════════════════════════════════════
 
 export const 货币系统Schema = z.object({
-  币种定义: z.record(z.string(), 币种定义Schema).default({}),
+  币种定义: z.record(经济记录键Schema, 币种定义Schema).default({}),
   基准币种: z.string().default(''),
-  汇率: z.record(z.string(), z.number().min(0)).default({}), // 币种→对基准汇率
+  汇率: z.record(经济记录键Schema, z.number().min(0)).default({}), // 币种→对基准汇率
   换汇登记: z.array(z.object({
     时间: z.number().int().default(0), // 绝对纪元分钟
     从: z.string().default(''),
