@@ -1,6 +1,7 @@
 // 4.3 角色层（主角 = 组件齐全的 NPC 特例）
 import { z } from 'zod';
 import { 不可逆Schema } from './verb.js';
+import { 受治理句柄Schema } from './governedKeySpace.js';
 
 // ══════════════════════════════════════════
 // 公共子 schema（被其他文件引用）
@@ -74,8 +75,8 @@ const 特质条目Schema = z.object({
   // 轻伤等可治愈项不带（§十一 防过度标记）。缺省即 undefined，既有存档零迁移。
   不可逆: 不可逆Schema.optional(),
   // Step 5·通道 A 第②类「特质/状态子类」占位键，复用本 schema 作子类宿主，不新建表。
-  // TODO 序②(6.59) 收紧为受治理键空间注册表键。
-  子类键: z.string().optional(),
+  // 序②(6.59) 已收紧为受治理句柄Schema（形态约束·成员校验 defer P0-6·B6·Phase B-d）
+  子类键: 受治理句柄Schema.optional(),
 });
 
 const 情绪条目Schema = z.object({
@@ -96,8 +97,8 @@ const 状态标签条目Schema = z.object({
   // 轻伤等可治愈项不带（§十一 防过度标记）。缺省即 undefined，既有存档零迁移。
   不可逆: 不可逆Schema.optional(),
   // Step 5·通道 A 第②类「特质/状态子类」占位键，复用本 schema 作子类宿主，不新建表。
-  // TODO 序②(6.59) 收紧为受治理键空间注册表键。
-  子类键: z.string().optional(),
+  // 序②(6.59) 已收紧为受治理句柄Schema（形态约束·成员校验 defer P0-6·B6·Phase B-d）
+  子类键: 受治理句柄Schema.optional(),
 });
 
 const 技能施放Schema = z.object({

@@ -57,8 +57,8 @@ export const 动词目标槽Schema = z.string().default('');
 const 动词Option基础Schema = z.object({
   side_effects: z.array(受治理句柄Schema).optional(), // Step 7：形态 refine 已收紧·成员校验留 P0-6（sideEffect句柄）
   // 通道 A·标的类型（单态串·不分叉·沿用既有选择器惯例，不新造文法）
-  // TODO 序②(6.59) 收紧为受治理键空间注册表键
-  标的类型: z.string().optional(),
+  // 序②(6.59) 已收紧为受治理句柄Schema（形态约束·成员校验 defer P0-6·B6·Phase B-d）
+  标的类型: 受治理句柄Schema.optional(),
 }).strict();
 
 export const 转移OptionSchema = 动词Option基础Schema.optional();
