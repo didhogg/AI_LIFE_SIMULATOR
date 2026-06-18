@@ -16,7 +16,7 @@ import { RE_ZERO_WIDTH } from '../engine/text/chineseNumber.js';
 // Step 5b：首步 NFC→NFKC（NFKC ⊋ NFC，既做规范组合又做兼容折叠，如 Ａ→A / １→1）。
 // 纯函数：无 I/O·无副作用·无随机·无时间·无全局态·确定性·同输入恒同输出。
 // 本步零接线：不进确定性引擎/指纹取材/结算热路径，不在任何闸/写入口调用。
-// TODO(P0-6·S3)：双卡口（写入口/读出口）wiring 调用本函数·留 P0-6·本步只交纯函数。
+// S3 双卡口已接：读 normalizeRegistryKeyNames @ migrate.ts:1157（5caaac9·B5）/ 写 assertGovernedKeysNormalized @ migrate.ts:1238（2872c24·B6）。
 // TODO(P0-6)：繁简只警示非规范化·需简繁对照表·本步不做（已拍降级 P0-6）。
 // ══════════════════════════════════════════
 

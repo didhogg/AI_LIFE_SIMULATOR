@@ -6,7 +6,7 @@
 //   对既有已规范化数据为 no-op → 指纹/黄金向量零漂移。
 //
 // 写卡口：assertGovernedKeysNormalized — 纯断言·发现非规范态即返回违例·不静默改写。
-//   写卡口活线接入 defer B6（不碰 hosts/snapshot.ts）。
+//   写卡口已接·migrate.ts:1238（2872c24）。
 //
 // 红线：不 import rng/hashPresetFingerprint/gate/fingerprintManifest；不碰 hosts/。
 
@@ -91,7 +91,7 @@ export function normalizeRegistryKeyNames(raw: Record<string, unknown>): Record<
   return { ...raw, 受治理键空间注册表: newReg, 键空间归并表: newMerge };
 }
 
-// ── 写卡口（纯断言·活线接入 defer B6） ──────────────────────────────────────────
+// ── 写卡口（纯断言·已接·migrate.ts:1238·2872c24） ───────────────────────────────
 
 function collectRegViolations(registry: unknown, out: GovernedKeyViolation[]): void {
   if (!isRec(registry)) return;
