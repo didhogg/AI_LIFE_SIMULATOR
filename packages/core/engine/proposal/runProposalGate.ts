@@ -8,6 +8,7 @@ import type { RootState } from '../../schema/index.js';
 import { deriveModAwareWhitelist, type DerivedEntry } from '../../loader/modWhitelist.js';
 import { computeLoadOrder } from '../../loader/modGraph.js';
 import { getM3Violation } from '../../interfaces/patchInvariant.js';
+import { checkM2Violation } from '../../interfaces/authGate.js';
 import { checkC6SeatScope } from '../../interfaces/seatScope.js';
 import { mergeInterventionDeltas, type K5DeltaEntry } from '../../interfaces/interventionMerge.js';
 import { clampLedger } from '../math/ledger.js';
@@ -72,6 +73,12 @@ export function runProposalGate(
   // Snapshot for atomic rollback (structuredClone: Node 24 built-in, no JSON.stringify).
   const snapshot = structuredClone(state) as RootState;
 
+  // Gate③-M2: 覆写授权源 pre-check（proposal-level·fail-closed·zero state write）
+  const m2 = checkM2Violation(授权源);
+  if (m2.violation) {
+    return { ok: false, gate: '③-M2', reason: m2.诊断, state: snapshot };
+  }
+
   // K5 merge: combine packs into a single deterministic delta list.
   const merged = mergeInterventionDeltas(packs ?? []);
 
@@ -80,7 +87,7 @@ export function runProposalGate(
 
   // Gate② + Gate③: validate all merged delta paths before any write (fail-fast).
   for (const delta of merged) {
-    const { path, op } = delta;
+    const { path, op, value } = delta;
 
     // Gate②-a: path must appear in the writable whitelist.
     if (!isWhitelisted(path, whitelist)) {
@@ -97,8 +104,10 @@ export function runProposalGate(
       }
     }
 
-    // Gate③: M3 structural invariant (hard-exclude prefixes + forward-only violation).
-    const m3 = getM3Violation(path, op);
+    // Gate③: M3 structural invariant. For set ops, pass old/new values for forward-only comparison.
+    const oldVal = op === 'set' ? readAtPath(state as unknown as Record<string, unknown>, path) : undefined;
+    const newVal = op === 'set' ? (value as unknown) : undefined;
+    const m3 = getM3Violation(path, op, oldVal, newVal);
     if (m3 !== null) {
       return { ok: false, gate: '③-M3', reason: m3, state: snapshot };
     }

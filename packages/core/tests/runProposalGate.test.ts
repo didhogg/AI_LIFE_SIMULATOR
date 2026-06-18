@@ -50,19 +50,19 @@ function pack(entries: K5DeltaEntry[]): K5DeltaEntry[][] {
 
 describe('Gate① — Zod shape validation', () => {
   it('rejects non-object envelope', () => {
-    const r = runProposalGate(null, BASE_STATE, 'seat1', 'test');
+    const r = runProposalGate(null, BASE_STATE, 'seat1', '系统');
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.gate).toBe('①-shape');
   });
 
   it('rejects missing 提案 field', () => {
-    const r = runProposalGate({ txn_id: 'x' }, BASE_STATE, 'seat1', 'test');
+    const r = runProposalGate({ txn_id: 'x' }, BASE_STATE, 'seat1', '系统');
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.gate).toBe('①-shape');
   });
 
   it('accepts minimal valid envelope with no packs', () => {
-    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'test');
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统');
     expect(r.ok).toBe(true);
   });
 });
@@ -75,7 +75,7 @@ describe('Gate② — whitelist', () => {
       ENV_BASIC,
       BASE_STATE,
       'seat1',
-      'test',
+      '系统',
       pack([{ path: '危险路径.foo', op: 'add', value: 1 }]),
     );
     expect(r.ok).toBe(false);
@@ -90,7 +90,7 @@ describe('Gate② — whitelist', () => {
       ENV_BASIC,
       BASE_STATE,
       'seat1',
-      'test',
+      '系统',
       pack([{ path: WL_PATH, op: 'add', value: 10 }]),
     );
     expect(r.ok).toBe(true);
@@ -101,7 +101,7 @@ describe('Gate② — whitelist', () => {
       ENV_BASIC,
       BASE_STATE,
       'seat1',
-      'test',
+      '系统',
       pack([{ path: '不存在.xxx', op: 'set', value: 1 }]),
     );
     expect(r.ok).toBe(false);
@@ -119,7 +119,7 @@ describe('Gate② — C6 seat scope', () => {
       ENV_BASIC,
       BASE_STATE,
       'seat1',
-      'test',
+      '系统',
       pack([{ path: WL_PATH, op: 'add', value: 5 }]),
     );
     expect(r.ok).toBe(true);
@@ -138,7 +138,7 @@ describe('Gate② — C6 seat scope', () => {
       ENV_BASIC,
       multiSeatState,
       'seat_a',
-      'test',
+      '系统',
       pack([{ path: 'NPC.npc_wang.当前作息模式', op: 'set', value: '营业中' }]),
     );
     expect(r.ok).toBe(false);
@@ -162,7 +162,7 @@ describe('Gate③ — M3 structural invariant', () => {
       ENV_BASIC,
       BASE_STATE,
       'seat1',
-      'test',
+      '系统',
       pack([{ path: '_作弊标记', op: 'add', value: 1 }]),
     );
     expect(r.ok).toBe(false);
@@ -177,7 +177,7 @@ describe('Gate③ — M3 structural invariant', () => {
       ENV_BASIC,
       BASE_STATE,
       'seat1',
-      'test',
+      '系统',
       pack([{ path: '编年史.序号', op: 'sub', value: 1 }]),
     );
     expect(r.ok).toBe(false);
@@ -192,7 +192,7 @@ describe('Gate④ — K5 delta application', () => {
       ENV_BASIC,
       BASE_STATE,
       'seat1',
-      'test',
+      '系统',
       pack([{ path: WL_PATH, op: 'add', value: 50 }]),
     );
     expect(r.ok).toBe(true);
@@ -204,7 +204,7 @@ describe('Gate④ — K5 delta application', () => {
       ENV_BASIC,
       BASE_STATE,
       'seat1',
-      'test',
+      '系统',
       pack([{ path: WL_PATH, op: 'sub', value: 30 }]),
     );
     expect(r.ok).toBe(true);
@@ -217,7 +217,7 @@ describe('Gate④ — K5 delta application', () => {
       ENV_BASIC,
       BASE_STATE,
       'seat1',
-      'test',
+      '系统',
       pack([{ path: WL_PATH, op: 'clamp', value: 150 }]),
     );
     expect(r.ok).toBe(true);
@@ -230,7 +230,7 @@ describe('Gate④ — K5 delta application', () => {
       ENV_BASIC,
       BASE_STATE,
       'seat1',
-      'test',
+      '系统',
       pack([{ path: WL_PATH, op: 'clamp', value: 500 }]),
     );
     expect(r.ok).toBe(true);
@@ -243,7 +243,7 @@ describe('Gate④ — K5 delta application', () => {
       { path: WL_PATH, op: 'lock', value: 0 },
       { path: WL_PATH, op: 'add', value: 10 },
     ];
-    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'test', [entries]);
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统', [entries]);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.gate).toBe('④-delta');
   });
@@ -255,7 +255,7 @@ describe('Gate④ — K5 delta application', () => {
       ENV_BASIC,
       BASE_STATE,
       'seat1',
-      'test',
+      '系统',
       pack([{ path: '货币系统.账户.npc_missing.持有.文', op: 'add', value: 1 }]),
     );
     expect(r.ok).toBe(false);
@@ -266,7 +266,7 @@ describe('Gate④ — K5 delta application', () => {
     // Pack1: clamp ceiling=300, Pack2: clamp ceiling=120 → merged ceiling=120.
     const p1: K5DeltaEntry[] = [{ path: WL_PATH, op: 'clamp', value: 300 }];
     const p2: K5DeltaEntry[] = [{ path: WL_PATH, op: 'clamp', value: 120 }];
-    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'test', [p1, p2]);
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统', [p1, p2]);
     expect(r.ok).toBe(true);
     if (r.ok) expect(getHoldings(r.state, 'npc_wang')['文']).toBe(120);
   });
@@ -277,7 +277,7 @@ describe('Gate④ — K5 delta application', () => {
       ENV_BASIC,
       BASE_STATE,
       'seat1',
-      'test',
+      '系统',
       pack([{ path: WL_PATH, op: 'add', value: 100, max_delta: 20 }]),
     );
     expect(r.ok).toBe(true);
@@ -289,31 +289,31 @@ describe('Gate④ — K5 delta application', () => {
 
 describe('Gate⑤ — audit log append', () => {
   it('appends one log entry on success', () => {
-    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'auth_src');
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统');
     expect(r.ok).toBe(true);
     if (r.ok) expect(getLog(r.state)).toHaveLength(1);
   });
 
   it('log entry has correct 时间 from world clock (100)', () => {
-    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'auth_src');
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统');
     expect(r.ok).toBe(true);
     if (r.ok) expect(getLog(r.state)[0]?.['时间']).toBe(100);
   });
 
   it('log entry 授权源 matches parameter', () => {
-    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'gm_override');
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '玩家确认');
     expect(r.ok).toBe(true);
-    if (r.ok) expect(getLog(r.state)[0]?.['授权源']).toBe('gm_override');
+    if (r.ok) expect(getLog(r.state)[0]?.['授权源']).toBe('玩家确认');
   });
 
   it('txn_id forwarded to 提案单引用 in log entry', () => {
-    const r = runProposalGate(ENV_TXN, BASE_STATE, 'seat1', 'auth_src');
+    const r = runProposalGate(ENV_TXN, BASE_STATE, 'seat1', '系统');
     expect(r.ok).toBe(true);
     if (r.ok) expect(getLog(r.state)[0]?.['提案单引用']).toBe('txn_001');
   });
 
   it('no 提案单引用 in log entry when txn_id absent', () => {
-    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'auth_src');
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统');
     expect(r.ok).toBe(true);
     if (r.ok) expect(Object.prototype.hasOwnProperty.call(getLog(r.state)[0], '提案单引用')).toBe(false);
   });
@@ -323,7 +323,7 @@ describe('Gate⑤ — audit log append', () => {
       ENV_BASIC,
       BASE_STATE,
       'seat1',
-      'test',
+      '系统',
       pack([{ path: '非白名单路径.x', op: 'add', value: 1 }]),
     );
     expect(r.ok).toBe(false);
@@ -340,7 +340,7 @@ describe('runProposalGate — determinism', () => {
       ENV_BASIC,
       BASE_STATE,
       'seat1',
-      'auth',
+      '系统',
       pack([{ path: WL_PATH, op: 'add', value: 7 }]),
     ];
     const r1 = runProposalGate(...opts);
@@ -352,7 +352,7 @@ describe('runProposalGate — determinism', () => {
 
   it('input state is not mutated by gate run', () => {
     const before = JSON.stringify(BASE_STATE);
-    runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'test', pack([{ path: WL_PATH, op: 'add', value: 99 }]));
+    runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统', pack([{ path: WL_PATH, op: 'add', value: 99 }]));
     expect(JSON.stringify(BASE_STATE)).toBe(before);
   });
 });
@@ -376,7 +376,7 @@ describe('§2 · ±Infinity safety — clamp lo=-Infinity / hi=Infinity', () => 
       全局: {},
     });
     // clamp ceiling=0; cur=-1e9 < 0 → NOT hit; v1.max(-1e9,-Infinity)=-1e9 → unchanged
-    const r = runProposalGate(ENV_BASIC, negState, 'seat1', 'test',
+    const r = runProposalGate(ENV_BASIC, negState, 'seat1', '系统',
       pack([{ path: WL_PATH, op: 'clamp', value: 0 }]));
     expect(r.ok).toBe(true);
     if (r.ok) {
@@ -389,7 +389,7 @@ describe('§2 · ±Infinity safety — clamp lo=-Infinity / hi=Infinity', () => 
 
   it('clamp ceiling hit: written value is finite number equal to ceiling (not NaN/Infinity)', () => {
     // cur=200, ceiling=150 → 200>150 → clampLedger returns hardHi=150 (finite).
-    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'test',
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统',
       pack([{ path: WL_PATH, op: 'clamp', value: 150 }]));
     expect(r.ok).toBe(true);
     if (r.ok) {
@@ -412,7 +412,7 @@ describe('§3 · atomic rollback + DSL串拒 + mutation+clamp combo', () => {
       { path: WL_PATH, op: 'add', value: 50 },
       { path: '货币系统.账户.npc_zzz.持有.文', op: 'add', value: 1 },
     ];
-    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'test', [p]);
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统', [p]);
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.gate).toBe('④-delta');
@@ -424,7 +424,7 @@ describe('§3 · atomic rollback + DSL串拒 + mutation+clamp combo', () => {
   it('§3-4 · string value in add op → Gate④ type-mismatch fail-closed (DSL 串到 add 拒)', () => {
     // K5DeltaEntry.value: number|string; string routed to add hits computeDelta type-mismatch.
     const entry: K5DeltaEntry = { path: WL_PATH, op: 'add', value: 'dsl:ceil*0.5' };
-    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'test', [[entry]]);
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统', [[entry]]);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.gate).toBe('④-delta');
   });
@@ -435,8 +435,123 @@ describe('§3 · atomic rollback + DSL串拒 + mutation+clamp combo', () => {
       { path: WL_PATH, op: 'add', value: 50 },
       { path: WL_PATH, op: 'clamp', value: 220 },
     ];
-    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'test', [p]);
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统', [p]);
     expect(r.ok).toBe(true);
     if (r.ok) expect(getHoldings(r.state, 'npc_wang')['文']).toBe(220); // min(250, 220)
+  });
+});
+
+// ─── ⊕-3 · Gate③-M2 覆写授权源认证 ──────────────────────────────────────────
+
+describe('⊕-3 · Gate③-M2 — 覆写授权源认证（M2 pre-check）', () => {
+  it('有效授权源「系统」→ M2 放行（not gate=③-M2）', () => {
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统');
+    expect(r.ok).toBe(true);
+  });
+
+  it('有效授权源「裁判」→ M2 放行', () => {
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '裁判');
+    expect(r.ok).toBe(true);
+  });
+
+  it('有效授权源「玩家确认」→ M2 放行', () => {
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '玩家确认');
+    expect(r.ok).toBe(true);
+  });
+
+  it('无效授权源（任意串）→ gate=③-M2 fail-closed', () => {
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'mod_自命授权');
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.gate).toBe('③-M2');
+  });
+
+  it('天命通道授权源「天命」→ gate=③-M2 fail-closed', () => {
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '天命');
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.gate).toBe('③-M2');
+  });
+
+  it('空串授权源 → gate=③-M2 fail-closed', () => {
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '');
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.gate).toBe('③-M2');
+  });
+
+  it('M2 拒 → state===snapshot（零状态写·原子回滚）', () => {
+    // Verify returned state equals original snapshot (no 持有 mutation, no log entry)
+    const r = runProposalGate(
+      ENV_BASIC, BASE_STATE, 'seat1', '无效授权源',
+      pack([{ path: WL_PATH, op: 'add', value: 999 }]),
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(getHoldings(r.state, 'npc_wang')['文']).toBe(200); // no mutation
+      expect(getLog(r.state)).toHaveLength(0);                  // no log entry
+    }
+  });
+});
+
+// ─── ⊕-3 · C6 Rule②③④ ────────────────────────────────────────────────────────
+
+describe('⊕-3 · Gate② — C6 Rule②③④ 补全', () => {
+  const MULTI_SEAT: RootState = RootSchema.parse({
+    货币系统: { 账户: { npc_wang: { 持有: { 文: 200 } } } },
+    _状态机: { 双时钟: { 世界钟: 100 } },
+    _席位表: {
+      seat_a: { 焦点角色键: 'npc_wang', 控制者: '人类', 连接状态: '本地' },
+      seat_b: { 焦点角色键: 'npc_hong', 控制者: 'AI',   连接状态: '本地' },
+    },
+    全局: {},
+  });
+
+  it('Rule② · seatId 不在席位表 → ②-C6（无效席位）', () => {
+    const r = runProposalGate(
+      ENV_BASIC, MULTI_SEAT, 'seat_ghost', '系统',
+      pack([{ path: 'NPC.npc_wang.姓名', op: 'set', value: '王' }]),
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.gate).toBe('②-C6');
+  });
+
+  it('Rule③ · 焦点角色键===targetCharKey → 多席正向合格（C6 不拦）', () => {
+    // seat_a.焦点角色键 === 'npc_wang'; writing to NPC.npc_wang.* → eligible
+    const r = runProposalGate(
+      ENV_BASIC, MULTI_SEAT, 'seat_a', '系统',
+      pack([{ path: 'NPC.npc_wang.姓名', op: 'set', value: '王' }]),
+    );
+    // C6 must NOT block; may fail at Gate④ (path-not-found in test state)
+    if (!r.ok) expect(r.gate).not.toBe('②-C6');
+  });
+
+  it('Rule④ · 焦点角色键===\'\' → ②-C6（无焦点席位）', () => {
+    const noFocusState: RootState = RootSchema.parse({
+      货币系统: { 账户: { npc_wang: { 持有: { 文: 200 } } } },
+      _状态机: { 双时钟: { 世界钟: 100 } },
+      _席位表: {
+        seat_a: { 焦点角色键: '',         控制者: '人类', 连接状态: '本地' },
+        seat_b: { 焦点角色键: 'npc_hong', 控制者: 'AI',   连接状态: '本地' },
+      },
+      全局: {},
+    });
+    const r = runProposalGate(
+      ENV_BASIC, noFocusState, 'seat_a', '系统',
+      pack([{ path: 'NPC.npc_wang.姓名', op: 'set', value: '王' }]),
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.gate).toBe('②-C6');
+  });
+});
+
+// ─── ⊕-3 · K5 多包合并 content op 后载覆盖显式验收 ──────────────────────────
+
+describe('⊕-3 · K5 多包合并 — content op 后载覆盖', () => {
+  it('两包同路径 add：后包 value 覆盖先包（last-writer-wins·最终+30）', () => {
+    // mergeInterventionDeltas: content op = last-writer-wins by load order
+    // Pack1: add 10 → Pack2: add 30 → merged: add 30 (not add 40, not add 10)
+    const p1: K5DeltaEntry[] = [{ path: WL_PATH, op: 'add', value: 10 }];
+    const p2: K5DeltaEntry[] = [{ path: WL_PATH, op: 'add', value: 30 }];
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统', [p1, p2]);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(getHoldings(r.state, 'npc_wang')['文']).toBe(230); // 200+30
   });
 });

@@ -45,15 +45,35 @@ export function isM3ForwardOnlyViolation(path: string, op: DeltaOp | string): bo
 
 /**
  * 综合 M3 检验：返回结构违例描述（非 null 即违例），合法则返回 null。
- * 优先检查硬排除，次检查 forward-only 逆向。
+ * 优先检查硬排除，次检查 forward-only 逆向，最后检查 forward-only set 值单调性。
+ * oldValue/newValue 为可选参数（B6·⊕-3·向下兼容：旧两参调用零改）。
  * 纯函数·确定性。供 superRefine 及独立测试使用。
  */
-export function getM3Violation(path: string, op: DeltaOp | string): string | null {
+export function getM3Violation(
+  path: string,
+  op: DeltaOp | string,
+  oldValue?: unknown,
+  newValue?: unknown,
+): string | null {
   if (isM3HardExcluded(path)) {
     return `M3: 路径「${path}」首段以「_」或「$」开头，为结构不变量硬排除字段，禁止写入`;
   }
   if (isM3ForwardOnlyViolation(path, op)) {
     return `M3: 路径「${path}」为 forward-only 键，禁止 sub 操作（逆向违例）`;
+  }
+  // B6·⊕-3: forward-only set 值比较（有新旧值时启用·缺省 skip·向下兼容）
+  if (
+    (M3_FORWARD_ONLY_PATHS as readonly string[]).includes(path) &&
+    op === 'set' &&
+    oldValue !== undefined &&
+    newValue !== undefined
+  ) {
+    if (typeof oldValue !== 'number' || typeof newValue !== 'number') {
+      return `M3: forward-only 路径「${path}」set op 新旧值须为 number（oldValue: ${typeof oldValue}·newValue: ${typeof newValue}）`;
+    }
+    if (newValue < oldValue) {
+      return `M3: forward-only set 不可回退：路径「${path}」新值 ${newValue} < 旧值 ${oldValue}`;
+    }
   }
   return null;
 }
