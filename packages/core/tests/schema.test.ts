@@ -2259,6 +2259,18 @@ describe('4.9 $ layer', () => {
       ],
     }).success).toBe(true);
   });
+  it('存档头: U3a·迁移戳 多条目（≥2 entry·累积审计链）', () => {
+    expect(存档头Schema.safeParse({
+      迁移戳: [
+        { 源版本: '4.0', 目标版本: '4.1', 迁移映射哈希: 'sha256:aaa...', 墙钟时间: '2026-05-01T00:00:00Z' },
+        { 源版本: '4.1', 目标版本: '4.2', 迁移映射哈希: 'sha256:bbb...', 墙钟时间: '2026-06-18T00:00:00Z' },
+      ],
+    }).success).toBe(true);
+  });
+  it('存档头: U3a·引擎版本谱 valid（present=string array）', () => {
+    const res = 存档头Schema.parse({ 引擎版本谱: ['4.0.0', '4.1.0'] });
+    expect(res.引擎版本谱).toEqual(['4.0.0', '4.1.0']);
+  });
   it('存档头: N2·系统事件镜像 valid（只读白名单）', () => {
     expect(存档头Schema.safeParse({
       系统事件镜像: { 全局回滚次数: 5, 周目数: 2, 换角数: 1, 裸SL次数: 3 },
