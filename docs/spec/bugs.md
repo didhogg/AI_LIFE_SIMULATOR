@@ -276,10 +276,10 @@
 ## P0-6 · 五道闸 + 导入闸（开工前最后窗口 · 主战场）
 
 - [x]  🟠【守恒断言 core·选项A·✅完结 2026-06-18·commit 00bb3ed】`assertConservation(accounts, expectedNetAsset, getNetAsset)` **纯函数（工具）归 P0-6·本轮提前落地**（落 `packages/core/engine/conservation.ts`+`ConservationError`·economy.ts 补 export 账户Schema/账户Type·tests/conservation.test.ts 5 单测·码点序·throw + 实体级 diff·getNetAsset 注入·与债务模型解耦·禁第二实现·单 commit 3 文件 +124/−1·tsc 零新增·test 2304·lint 220·红线零 diff·指纹/向量基线不回归采信）。⚠ **接进 `runTick` 的接线代码 = 拆 P0-7**（见 P0-7 段「守恒断言接线」行·蓝图落地映射②）。
-- [x]  🟠【K1·6.52】两段式加载：SCC 缩点 → 拓扑序 → 全集合并后才派生白名单（死锁级）✅**B1 完结**（commit 5ecc309/1e05ce0/66d9fb4·活线消费接线 fire B6）
+- [x]  🟠【K1·6.52】两段式加载：SCC 缩点 → 拓扑序 → 全集合并后才派生白名单（死锁级）✅**B1+B6·E-a 完结**（commit 5ecc309/1e05ce0/66d9fb4·活线消费接线·deriveModAwareWhitelist+runDryRun 接 migrate.ts import-gate·4d55b5f）
 - [x]  🟠【K4·6.52】禁用闸 + 墓碑化存根（跨包悬空引用真洞 · 高危优先）✅**B2 完结**（commit d17fd9a/d7c7518/ef9e570·墓碑可审计·活线 fire B6）
 - [x]  🟠【K6·6.52】单一权威 pack_id（废三级 fallback）+ 命名空间正则白名单 + 自环拒收（安全级）✅**B2 完结**（+ K6⑤ key===pack_id 收紧 commit 92dbb92·命名空间唯一·别名可达）
-- [x]  🟠【K6 扩·QoL 轨道·6.78·2026-06-17】✅**B2 schema 完结**（轨道 enum gameplay|cosmetic|view|macro 落·轻轨带可写键拒收·闸分流活线 fire B6）mod 命名空间化加「能力种类／轨道」维度（`gameplay|cosmetic|view|macro`）：能力声明驱动闸分流——重轨（碰可写键/effect）过五道闸；轻轨（零可写键+零effect+零判定输入引用）走声明式表现+只读 selector+意图宏。与 S5 可写键贡献字段同位落 schema·**CC 指令同步加此维度**（详见蓝图 6.78 双轨制）
+- [x]  🟠【K6 扩·QoL 轨道·6.78·2026-06-17】✅**B2 schema + B6·E-a 轨道分流活线 完结**（轨道 enum gameplay|cosmetic|view|macro 落·轻轨带可写键拒收·modWhitelist.ts 轨道过滤·4d55b5f）mod 命名空间化加「能力种类／轨道」维度（`gameplay|cosmetic|view|macro`）：能力声明驱动闸分流——重轨（碰可写键/effect）过五道闸；轻轨（零可写键+零effect+零判定输入引用）走声明式表现+只读 selector+意图宏。与 S5 可写键贡献字段同位落 schema·**CC 指令同步加此维度**（详见蓝图 6.78 双轨制）
 - [ ]  🟠【K2/K3/K4 键名冻结 enforcement·6.52·从 P0-1 移入·2026-06-18】「任何被存档引用的 mod 键」键名冻结的**闸 enforcement**（导入闸校验·冻结键改名即拒收/墓碑）——schema 半已在 P0-1 结清（占位形态/模板快照/血统只读化）·此为闸逻辑半·随五道闸键校验一并 fire。
 - [x]  🟠【K2/K5·6.52】semver 区间求交（交空显式拒收）+ 补丁叠加约束取严/内容后载覆盖 ✅**B3 semver（acd5f07）+ B5 Step1 K5 取严 merge（4a33e03）完结**（intersect 消费/导入闸 fire B6）
 - [x]  🟠【M2/M3·6.50】覆写授权源认证（mod 自封天命降级打标记）+ 规则补丁负面清单（结构不变量硬排除、forward-only）✅**B5 Step3 完结**（commit 03d502c·M2 谓词+墓碑'覆写授权越权'·M3 forward-only/硬排除·活线 fire B6）
