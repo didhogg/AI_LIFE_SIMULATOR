@@ -356,3 +356,87 @@ describe('runProposalGate — determinism', () => {
     expect(JSON.stringify(BASE_STATE)).toBe(before);
   });
 });
+
+// ─── §2 ±Infinity safety (clampLedger lo=-Infinity / hi=Infinity) ─────────────
+//
+// Proof: clampLedger(amount, -Infinity, Infinity, path, hardHi) has zero NaN paths:
+//   (A) amount > hardHi  → boolean comparison only; returns hardHi (finite). ✓
+//   (B) amount > Infinity → always false for finite amount; dead branch.        ✓
+//   (C) v1.max(amount, -Infinity) = Math.max(amount, -Infinity) = amount        ✓
+//       (IEEE 754: max(x, -∞) = x for any finite x).
+// No hi−lo arithmetic, no division, no multiplication involving ±Infinity.
+
+describe('§2 · ±Infinity safety — clamp lo=-Infinity / hi=Infinity', () => {
+  it('extreme negative current value: lo=-Infinity does not misfire (overdraft preserved)', () => {
+    // Large overdraft: 文 = -1_000_000_000 (valid integer, legitimate overdraft)
+    const negState = RootSchema.parse({
+      货币系统: { 账户: { npc_wang: { 持有: { 文: -1_000_000_000 } } } },
+      _状态机: { 双时钟: { 世界钟: 100 } },
+      _席位表: {},
+      全局: {},
+    });
+    // clamp ceiling=0; cur=-1e9 < 0 → NOT hit; v1.max(-1e9,-Infinity)=-1e9 → unchanged
+    const r = runProposalGate(ENV_BASIC, negState, 'seat1', 'test',
+      pack([{ path: WL_PATH, op: 'clamp', value: 0 }]));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      const val = getHoldings(r.state, 'npc_wang')['文'] as number;
+      expect(typeof val).toBe('number');
+      expect(Number.isFinite(val)).toBe(true);
+      expect(val).toBe(-1_000_000_000); // floor -Infinity does not misfire
+    }
+  });
+
+  it('clamp ceiling hit: written value is finite number equal to ceiling (not NaN/Infinity)', () => {
+    // cur=200, ceiling=150 → 200>150 → clampLedger returns hardHi=150 (finite).
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'test',
+      pack([{ path: WL_PATH, op: 'clamp', value: 150 }]));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      const val = getHoldings(r.state, 'npc_wang')['文'] as number;
+      expect(typeof val).toBe('number');
+      expect(Number.isFinite(val)).toBe(true);
+      expect(val).toBe(150); // equals ceiling, not NaN/Infinity
+    }
+  });
+});
+
+// ─── §3 · Missing coverage (§3-3 atomic rollback / §3-4 DSL串 / §3-5 add+clamp) ─
+
+describe('§3 · atomic rollback + DSL串拒 + mutation+clamp combo', () => {
+  it('§3-3 · Gate④ partial failure → snapshot returned, no partial writes committed', () => {
+    // Two adds in one pack: npc_wang (exists, w<z) then npc_zzz (absent, path-not-found).
+    // Sorted order: npc_wang add runs first (succeeds, working=250), then npc_zzz fails.
+    // On failure, return state=snapshot (original 200), not the partial working copy.
+    const p: K5DeltaEntry[] = [
+      { path: WL_PATH, op: 'add', value: 50 },
+      { path: '货币系统.账户.npc_zzz.持有.文', op: 'add', value: 1 },
+    ];
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'test', [p]);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.gate).toBe('④-delta');
+      // snapshot preserved: npc_wang.持有.文 must be original 200, not partial 250
+      expect(getHoldings(r.state, 'npc_wang')['文']).toBe(200);
+    }
+  });
+
+  it('§3-4 · string value in add op → Gate④ type-mismatch fail-closed (DSL 串到 add 拒)', () => {
+    // K5DeltaEntry.value: number|string; string routed to add hits computeDelta type-mismatch.
+    const entry: K5DeltaEntry = { path: WL_PATH, op: 'add', value: 'dsl:ceil*0.5' };
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'test', [[entry]]);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.gate).toBe('④-delta');
+  });
+
+  it('§3-5 · add then clamp same path = min(current+delta, ceiling)', () => {
+    // Sorted: add(a) before clamp(c). add: 200+50=250. clamp ceiling=220: 250>220 → 220.
+    const p: K5DeltaEntry[] = [
+      { path: WL_PATH, op: 'add', value: 50 },
+      { path: WL_PATH, op: 'clamp', value: 220 },
+    ];
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', 'test', [p]);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(getHoldings(r.state, 'npc_wang')['文']).toBe(220); // min(250, 220)
+  });
+});
