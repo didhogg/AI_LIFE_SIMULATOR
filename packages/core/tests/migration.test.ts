@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { migrate, buildV41Raw, applyPrefixRenames, backfillPackId, migrateS1S1b, parseChineseDateToEpochMin, getTickMinutes } from '../migration/migrate.js';
+import { assertGovernedKeysNormalized } from '../interfaces/keyNormalize.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 function loadFixture(name: string): Record<string, unknown> {
@@ -1037,5 +1038,42 @@ describe('B5·S1+S1b · migrateS1S1b 迁移函数', () => {
     const r1 = migrate(richV31).state;
     const r2 = migrate(migrate(richV31).state).state;
     expect(r2).toEqual(r1);
+  });
+});
+
+// ── B6·S1/S1b · 受治理键空間写卡口 regression lock ─────────────────────────────
+describe('B6·S1/S1b · 受治理键空间写卡口 regression lock', () => {
+  it('脏 registry（全角键名）→ 写卡口检出违例', () => {
+    // Simulate dirty state reaching the write gate (read gate bypassed)
+    const dirty: Record<string, unknown> = {
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'Ａ', 命名空间: '币种' }], // U+FF21 full-width A → normalizes to 'A'
+      },
+    };
+    const violations = assertGovernedKeysNormalized(dirty);
+    expect(violations.length).toBeGreaterThan(0);
+    const first = violations[0]!; // length checked above; noUncheckedIndexedAccess requires non-null assertion
+    expect(first.raw).toBe('Ａ');
+    expect(first.normalized).toBe('A');
+    expect(first.field).toMatch(/受治理键空间注册表/);
+  });
+
+  it('空 registry → migrate 全链无 throw、写卡口零违例', () => {
+    expect(() => migrate(richV31)).not.toThrow();
+    const { state } = migrate(richV31);
+    const violations = assertGovernedKeysNormalized(state as unknown as Record<string, unknown>);
+    expect(violations).toEqual([]);
+  });
+
+  it('已归一 registry + 归并表 → 写卡口零违例（幂等）', () => {
+    const clean: Record<string, unknown> = {
+      受治理键空间注册表: {
+        键条目: [{ 规范键: '文', 命名空间: '币种' }],
+      },
+      键空间归并表: {
+        归并条目: [{ 别名: '钱', 规范键: '文', 命名空间: '币种' }],
+      },
+    };
+    expect(assertGovernedKeysNormalized(clean)).toEqual([]);
   });
 });

@@ -2,7 +2,7 @@
 // No IO, no Date.now, no Math.random (ESLint bans in packages/core/).
 
 import { RootSchema, RootSchemaStrict, type RootState, type _mod墓碑库Type, type mod墓碑条目Type } from '../schema/index.js';
-import { normalizeRegistryKeyNames } from '../interfaces/keyNormalize.js'; // B5·S3 读卡口
+import { normalizeRegistryKeyNames, assertGovernedKeysNormalized } from '../interfaces/keyNormalize.js'; // B5·S3 读卡口 / B6·S1S1b 写卡口
 import { computeLoadOrder } from '../loader/modGraph.js';
 import { coerceSemver, satisfies as semverSatisfies } from '../loader/semver.js';
 import {
@@ -1231,6 +1231,14 @@ export function migrate(input: unknown): MigrateResult {
       }
       if (changed) state = { ...state, _mod墓碑库: semverTombs };
     }
+  }
+
+  // B6·S1/S1b write gate: read gate (line above RootSchema.parse) must have normalized all keys first.
+  // Any violations here = regression (future write path bypassed normalizeRegistryKeyNames).
+  const _gwViolations = assertGovernedKeysNormalized(state as unknown as Record<string, unknown>);
+  if (_gwViolations.length > 0) {
+    const detail = _gwViolations.map(v => `${v.field}: "${v.raw}" → "${v.normalized}"`).join('; ');
+    throw new Error(`受治理键空间写卡口（B6·S1/S1b）: 未归一键名 [${detail}]`);
   }
 
   return { state, log };
