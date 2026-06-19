@@ -404,6 +404,10 @@ export const 二审维度条目Schema = z.object({
   规则或提示词: z.string().default(''),
   阈值: z.number().optional(),
   默认开: z.boolean().optional(),
+  // L-8 · 越界分类法（enum·非开放串·确定性·L-28 Cheating枚举依赖此）
+  // L-28: 路径+席位已被五道闸结构（runProposalGate·Gate②白名单+C6）覆盖；
+  //        Cheating 枚举在此处落地以供 P0-6 二审维度库引用
+  越界类型: z.enum(['Off-Topic', 'Cheating']).optional(),
 }).strip();
 
 // 缺口二·小剧场剧本库（6.75）
@@ -513,6 +517,24 @@ export const 玩法预设Schema = z.object({
   世界遗产白名单出厂值: z.array(z.string()).optional(),
   // 顺手·离场演化契约出厂模板（6.45·契约来路②兜底·record(组织类型→模板)）
   离场演化契约出厂模板: z.record(z.string(), z.unknown()).optional(),
+
+  // ── Phase-L 补漏批 ────────────────────────────────────────────────────────
+  // L-1/L-6 · 社会角色参数（叙事旋钮·不进 hashJudgmentBundle·派生公式 defer P0-10）
+  // w_i,k = 角色类型 i 在社会角色 k 上的贡献权重；δ = 效应量（角色变化→属性影响系数）
+  社会角色定义表: z.record(z.string(), z.object({
+    名称: z.string().default(''),
+    描述: z.string().optional(),
+  })).optional(),
+  社会角色权重表: z.record(z.string(), z.record(z.string(), z.number())).optional(),
+  社会角色效应量表: z.record(z.string(), z.number()).optional(),
+
+  // L-7 · 角色激活阈值（叙事旋钮·不进 hashJudgmentBundle·定点+迟滞带·复用 fixed.ts·禁第二实现）
+  // 激活上限: 热度≥此值 → 角色进入「激活」态；沉默下限: 热度<此值 → 进入「沉默」态
+  // 派生公式（角色热度→激活态谓词）defer（依赖信念派生·P0-7+）
+  角色激活配置: z.object({
+    激活上限: z.number().min(0).max(100).optional(),
+    沉默下限: z.number().min(0).max(100).optional(),
+  }).optional(),
 });
 
 export type 玩法预设Type = z.infer<typeof 玩法预设Schema>;

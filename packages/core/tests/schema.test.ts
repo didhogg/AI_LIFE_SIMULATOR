@@ -4014,3 +4014,156 @@ describe('L-12 · backfillPhaseL1b · pure-optional 零迁移幂等', () => {
     expect(backfillPhaseL1b(raw)).toBe(raw);
   });
 });
+
+// ══════════════════════════════════════════
+// ⊕-L Step 2 · 拍定批验收
+// ══════════════════════════════════════════
+
+// ── L-1/L-6 · 性格五轴 facet 子结构 ────────────────────────────────────────
+describe('L-1/L-6 · 性格五轴 facet optional 子结构', () => {
+  it('valid: NPC 五轴无 facet（默认路径）', () => {
+    const res = NpcSchema.safeParse({ 性格五轴: { 开放: 60, 尽责: 70, 外向: 50, 宜人: 80, 神经质: 20 } });
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data.性格五轴.facet).toBeUndefined();
+  });
+  it('valid: NPC 五轴含 facet 键值对', () => {
+    const res = NpcSchema.safeParse({ 性格五轴: { 开放: 60, 尽责: 70, 外向: 50, 宜人: 80, 神经质: 20,
+      facet: { '信任感': 65, '坦诚度': 72 } } });
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data.性格五轴.facet?.['信任感']).toBe(65);
+  });
+  it('invalid: facet 值超出 0-100 范围', () => {
+    const res = NpcSchema.safeParse({ 性格五轴: { 开放: 50, 尽责: 50, 外向: 50, 宜人: 50, 神经质: 50,
+      facet: { '越界值': 150 } } });
+    expect(res.success).toBe(false);
+  });
+});
+
+// ── L-1/L-6 · 社会角色参数 + L-7 · 角色激活配置 ────────────────────────────
+describe('L-1/L-6 社会角色参数 + L-7 角色激活配置 · 玩法预设 optional', () => {
+  it('valid: 玩法预设无社会角色参数（默认路径）', () => {
+    const res = 玩法预设Schema.safeParse({});
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data.社会角色定义表).toBeUndefined();
+      expect(res.data.角色激活配置).toBeUndefined();
+    }
+  });
+  it('valid: 社会角色三表同时提供', () => {
+    const res = 玩法预设Schema.safeParse({
+      社会角色定义表: { '学生': { 名称: '学生' }, '老师': { 名称: '老师' } },
+      社会角色权重表: { '玩家': { '学生': 0.8, '老师': 0.2 } },
+      社会角色效应量表: { '学生→社交': 0.3 },
+    });
+    expect(res.success).toBe(true);
+  });
+  it('valid: L-7 角色激活配置 激活上限+沉默下限', () => {
+    const res = 玩法预设Schema.safeParse({ 角色激活配置: { 激活上限: 70, 沉默下限: 30 } });
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data.角色激活配置?.激活上限).toBe(70);
+      expect(res.data.角色激活配置?.沉默下限).toBe(30);
+    }
+  });
+  it('invalid: 激活上限超出 0-100', () => {
+    const res = 玩法预设Schema.safeParse({ 角色激活配置: { 激活上限: 110 } });
+    expect(res.success).toBe(false);
+  });
+});
+
+// ── L-2b · 当时快照 + L-22 · 来源类型 ──────────────────────────────────────
+describe('L-2b 当时快照 + L-22 来源类型 · 印象条目 optional', () => {
+  const baseImp = { 标签: 't', 极性: '正', 强度: 10, 来源: 'e', 获知时间: 0, 衰减速率: 0 };
+  const wrap = (imp: Record<string, unknown>) =>
+    认知档案Schema.safeParse({ obs: { tgt: { 印象: [imp] } } });
+
+  it('valid: 印象条目不含当时快照/来源类型（默认路径）', () => {
+    const res = wrap(baseImp);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      const imp = res.data['obs']?.['tgt']?.印象[0];
+      expect(imp?.当时快照).toBeUndefined();
+      expect(imp?.来源类型).toBeUndefined();
+    }
+  });
+  it('valid: 来源类型 = 一手观测', () => {
+    expect(wrap({ ...baseImp, 来源类型: '一手观测' }).success).toBe(true);
+  });
+  it('valid: 来源类型 = 二手转述', () => {
+    expect(wrap({ ...baseImp, 来源类型: '二手转述' }).success).toBe(true);
+  });
+  it('valid: 来源类型 = 玩家陈述', () => {
+    expect(wrap({ ...baseImp, 来源类型: '玩家陈述' }).success).toBe(true);
+  });
+  it('invalid: 来源类型 值不在枚举内（开放串被拒）', () => {
+    expect(wrap({ ...baseImp, 来源类型: '系统写入' }).success).toBe(false);
+  });
+  it('valid: 当时快照 含白名单子集字段', () => {
+    const res = wrap({ ...baseImp, 当时快照: { 所在地点: '图书馆', 情绪键: '专注' } });
+    expect(res.success).toBe(true);
+    if (res.success) {
+      const snap = res.data['obs']?.['tgt']?.印象[0]?.当时快照;
+      expect(snap?.所在地点).toBe('图书馆');
+      expect(snap?.情绪键).toBe('专注');
+    }
+  });
+  it('valid: 当时快照 + 来源类型 同批', () => {
+    expect(wrap({ ...baseImp, 来源类型: '一手观测', 当时快照: { 所在地点: '校园', 情绪键: '愉快' } }).success).toBe(true);
+  });
+});
+
+// ── L-8 · 二审维度条目 越界类型枚举 ──────────────────────────────────────────
+describe('L-8 · 二审维度条目 越界类型 enum（Off-Topic/Cheating）', () => {
+  it('valid: 无越界类型字段（默认）', () => {
+    const res = 二审维度条目Schema.safeParse({ 键: 'k1', 名称: '测试', 检测方式: '机械', 规则或提示词: '规则A' });
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data.越界类型).toBeUndefined();
+  });
+  it('valid: 越界类型 = Off-Topic', () => {
+    const res = 二审维度条目Schema.safeParse({ 键: 'k2', 名称: '离题检测', 检测方式: '机械', 规则或提示词: 'r', 越界类型: 'Off-Topic' });
+    expect(res.success).toBe(true);
+  });
+  it('valid: 越界类型 = Cheating', () => {
+    const res = 二审维度条目Schema.safeParse({ 键: 'k3', 名称: '作弊检测', 检测方式: '审稿提示词', 规则或提示词: 'p', 越界类型: 'Cheating' });
+    expect(res.success).toBe(true);
+  });
+  it('invalid: 越界类型不在枚举内（开放串被拒）', () => {
+    const res = 二审维度条目Schema.safeParse({ 键: 'k4', 名称: '越权', 检测方式: '机械', 规则或提示词: 'r', 越界类型: 'Spam' });
+    expect(res.success).toBe(false);
+  });
+});
+
+// ── L-9 · 动词 precond + effect_decls ────────────────────────────────────────
+describe('L-9 · 动词Option基础Schema precond + effect_decls', () => {
+  it('valid: 无 precond/effect_decls（默认路径）', () => {
+    const res = 动词OptionSchema表.转移.safeParse({});
+    expect(res.success).toBe(true);
+  });
+  it('valid: precond 列表', () => {
+    const res = 动词OptionSchema表.调整.safeParse({ precond: ['货币系统.账户.主角.持有.金 >= 100'] });
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data?.precond).toEqual(['货币系统.账户.主角.持有.金 >= 100']);
+  });
+  it('valid: effect_decls 列表', () => {
+    const res = 动词OptionSchema表.转移.safeParse({ effect_decls: ['货币系统.账户.主角.持有.金', '货币系统.账户.目标.持有.金'] });
+    expect(res.success).toBe(true);
+  });
+  it('valid: precond + effect_decls + side_effects 三者共存', () => {
+    const res = 动词OptionSchema表.赋予.safeParse({
+      precond: ['声望.值 >= 50'],
+      effect_decls: ['属性.体质'],
+      side_effects: [],
+    });
+    expect(res.success).toBe(true);
+  });
+  it('invalid: strict 拒绝未知字段', () => {
+    const res = 动词OptionSchema表.披露.safeParse({ unknown_field: 'x' });
+    expect(res.success).toBe(false);
+  });
+  it('全 10 动词均支持 precond/effect_decls', () => {
+    for (const [name, schema] of Object.entries(动词OptionSchema表)) {
+      const r = schema.safeParse({ precond: ['test'], effect_decls: ['path.a'] });
+      expect(r.success, `${name} should accept precond+effect_decls`).toBe(true);
+    }
+  });
+});

@@ -59,6 +59,10 @@ const 动词Option基础Schema = z.object({
   // 通道 A·标的类型（单态串·不分叉·沿用既有选择器惯例，不新造文法）
   // 序②(6.59) 已收紧为受治理句柄Schema（形态约束·成员校验 defer P0-6·B6·Phase B-d）
   标的类型: 受治理句柄Schema.optional(),
+  // L-9 · 前置条件（谓词列表·V3 单态目标槽配对·接线留 P0-7·⊥ side_effects）
+  precond: z.array(z.string()).optional(),
+  // L-9 · 效果声明（自我声明将触发的变更路径·V5 对称性·接线留 P0-7·⊥ side_effects受治理句柄）
+  effect_decls: z.array(z.string()).optional(),
 }).strict();
 
 export const 转移OptionSchema = 动词Option基础Schema.optional();

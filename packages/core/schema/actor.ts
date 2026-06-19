@@ -55,6 +55,8 @@ const 性格五轴Schema = z.object({
   外向: z.number().min(0).max(100).default(50),
   宜人: z.number().min(0).max(100).default(50),
   神经质: z.number().min(0).max(100).default(50),
+  // L-1/L-6 · facet 子结构（optional·零迁移·5 轴对外·防双轨·补充粒度而非替换轴）
+  facet: z.record(z.string(), z.number().min(0).max(100)).optional(),
 });
 
 const 特质效果Schema = z.object({
@@ -548,6 +550,13 @@ const 印象条目Schema = z.object({
   // L-2a · 观测行为发生时刻（绝对纪元分钟·⊥「获知时间」·optional·零迁移）
   // 获知时间 = 信息传入认知的时刻；观测拍号 = 观测行为实际发生的时刻（可早于获知时间）
   观测拍号: z.number().int().optional(),
+  // L-2b · 观测时刻目标状态快照（白名单子集·非全状态·防快照膨胀/指纹噪声·optional·零迁移）
+  当时快照: z.object({
+    所在地点: z.string().optional(),  // 观测时目标所在地点键
+    情绪键: z.string().optional(),    // 观测时目标情绪状态键
+  }).optional(),
+  // L-22 · 信息来源渠道分类（enum·optional·零迁移·⊥「来源」字段自由串）
+  来源类型: z.enum(['一手观测', '二手转述', '玩家陈述']).optional(),
 });
 
 const 认知档案条目Schema = z.object({

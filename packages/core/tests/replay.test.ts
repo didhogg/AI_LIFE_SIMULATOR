@@ -418,3 +418,31 @@ describe('AA 对撞⑥: 临时容器不进快照（易失态断言）', () => {
     expect(r1.盐值).toBe(r2.盐值);
   });
 });
+
+// ── L-30 · 动词 fixture 接入 REPLAY hook ────────────────────────────────────
+// 可完成性算法外移 P0-10；本节只验证含动词意图标签的 tick 重放逐位恒等
+// verbIntentFixture: 含动词意图标签的标准 tick fixture，供后续动词 REPLAY case 引用
+export const verbIntentFixture = {
+  tickId: 'tick-verb-调整',
+  意图标签: ['动词:调整', '标的类型:货币系统.账户.主角.持有.金'],
+  salt: 77,
+} as const;
+
+describe('REPLAY-01 · L-30 动词 fixture 重放', () => {
+  it('含动词意图标签的 tick·重放路由逐位恒等（路由冻结不受意图标签影响）', () => {
+    const entry = makeEntry(verbIntentFixture.tickId, 'default', null, '动词调整', verbIntentFixture.salt);
+    const r1 = replayTick(makeInput(entry, { 意图标签: [...verbIntentFixture.意图标签] }));
+    const r2 = replayTick(makeInput(entry, { 意图标签: [...verbIntentFixture.意图标签] }));
+    expect(r1.路由一致).toBe(true);
+    expect(r1.盐值).toBe(verbIntentFixture.salt);
+    expect(r1.盐值).toBe(r2.盐值);
+    expect(r1.路由决策?.routedVia).toBe(r2.路由决策?.routedVia);
+  });
+  it('动词意图标签差异·不影响路由冻结（路由来自 tick_log·不来自意图标签）', () => {
+    const entry = makeEntry(verbIntentFixture.tickId, 'default', null, '动词调整', verbIntentFixture.salt);
+    const r1 = replayTick(makeInput(entry, { 意图标签: ['动词:调整'] }));
+    const r2 = replayTick(makeInput(entry, { 意图标签: ['动词:转移', '标的类型:其他'] }));
+    expect(r1.盐值).toBe(r2.盐值);
+    expect(r1.路由决策?.routedVia).toBe(r2.路由决策?.routedVia);
+  });
+});
