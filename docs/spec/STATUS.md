@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# HEAD=1fb958a | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-P7-3窗口
+# HEAD=8984380 | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-P7-4窗口
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -66,6 +66,16 @@
   - soak --seed 12345 --runs 1 ✅ · 300×8 ✅（双轨守恒全绿）
   - gate.ts 零 diff · 红线 diff 空 · REPLAY-01=24 · C2=17 · 指纹=84/17 · 黄金向量逐位恒等
   - non-blocking defer → 梯队4：spanMinutes:240 参数化（D4 节拍源）/ C1 _应收/_应付（依赖 DSL parser）
+- [x] P0-7 梯队4 · 触发/级联/并发临界·C1闭合·spanMinutes参数化 · commit=8984380 · test=2705(+49)
+  - P7-4a: cascade.ts/js — J1/J6 单写者 worklist 不动点迭代·visited 防环·MAX_CASCADE_ROUNDS=8 超界 throw
+  - P7-4b: snapshot.ts ObservationEntry/PendingHit 类型化·rewind.ts/js 从快照还原两表（防漂移·J2/J4）
+  - P7-4c: concurrency.ts/js — ModalStackController(栈深4·epoch围栏过期作废·pop落地态兜底) + Ring2GenerationTracker(AA1世代核对·世代不匹配→弃·防双落账)
+  - P7-4d: deterministicLottery(seed%candidates·可复现·禁Math.random) + IntentBarrier(全席位收齐才放行·节拍公平·flush清空下拍)
+  - P7-4e: txnGroup.ts/js — V1/V6 拍首快照预求值+到达序 sortByArrivalOrder+all-or-nothing 原子提交（半组失败全组回滚）
+  - C1 closure: netAsset.ts getNetAsset(acct, 全局?) — _应收/_负债 via 约定库[key].条款[0].标的(string→Number·DSL对象→0 defer P2)·向后兼容(无全局时行为不变)
+  - spanMinutes 参数化：commitViaRunTick 删 :240 硬编码 → runTick 读 state.世界._本拍跨度（D4 真实节拍源）
+  - soak: +runC1CovenantScenario (应收==应付 Σ守恒断言·3 assertions)·300×8 双轨全绿
+  - gate.ts 零 diff · 红线 diff 空 · REPLAY-01=24 · C2=17 · 指纹=84/17 · 黄金向量逐位恒等
 - [ ] F-b · handlerRef进指纹+AA6「改side_effects集→指纹变」断言（rng.ts additive-only已授权） · 判据=rng.ts扩optional签名·断言绿·指纹84/17不破 · 红线?rng.ts函数体不改·仅扩optional参数
 - [ ] D-a · lore谓词冻结+受控接口能力集(R6 a-d/R10)+Y13+IM3+保真度三档落血统（DSL parser拍板3已授权） · 判据=DSL parser实装后·lore导入闸绿 · 红线?否
 - [ ] D-b · DSL v1文法冻结（照冻结清单M·1 EBNF）+S-1 fixture gate（向后兼容已拍板·只补gate） · 判据=DSL parser实装后·v1表达式当前文法parse过且求值恒等 · 红线?否
