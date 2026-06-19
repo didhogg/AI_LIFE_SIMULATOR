@@ -4,6 +4,7 @@ import { join, dirname } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { migrate, buildV41Raw, applyPrefixRenames, backfillPackId, migrateS1S1b, parseChineseDateToEpochMin, getTickMinutes } from '../migration/migrate.js';
 import { assertGovernedKeysNormalized } from '../interfaces/keyNormalize.js';
+import { mod墓碑原因枚举 } from '../schema/memory.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 function loadFixture(name: string): Record<string, unknown> {
@@ -1075,5 +1076,70 @@ describe('B6·S1/S1b · 受治理键空间写卡口 regression lock', () => {
       },
     };
     expect(assertGovernedKeysNormalized(clean)).toEqual([]);
+  });
+});
+
+// ── E-e · 冻结键改名 enforcement ──────────────────────────────────────────────
+describe('E-e · 冻结键改名 enforcement（mod-load 阶段）', () => {
+  // 基底：用 blankV31 迁移后的 V4.1 state 作为 spread 基底，确保必填字段完整
+  const base = migrate(blankV31).state;
+
+  const frozenRegistry = {
+    键条目: [{ 规范键: 'gold', 命名空间: '币种', 不可变: true }],
+  };
+  const modEntry = {
+    pack_id: 'bad_mod', 版本: '1.0.0', 启用: true, 优先级: 0,
+    依赖: [], 冲突: [], 命名空间: '', 作者: '', 轨道: 'gameplay' as const,
+  };
+
+  it('case-1: key 未冻结时 → 归并别名通过，无墓碑', () => {
+    const input = {
+      ...base,
+      受治理键空间注册表: { 键条目: [{ 规范键: 'silver', 命名空间: '币种' }] },
+      键空间归并表: { 归并条目: [{ 别名: 'silver', 规范键: 'aurum', 命名空间: '币种', 来源包: 'bad_mod' }] },
+      mod注册表: { bad_mod: modEntry },
+    };
+    const { state } = migrate(input);
+    expect(state._mod墓碑库?.['bad_mod']).toBeUndefined();
+  });
+
+  it('case-2: 冻结 key 被声明为归并别名 → 写墓碑 reason=冻结键改名', () => {
+    const input = {
+      ...base,
+      受治理键空间注册表: frozenRegistry,
+      键空间归并表: { 归并条目: [{ 别名: 'gold', 规范键: 'aurum', 命名空间: '币种', 来源包: 'bad_mod' }] },
+      mod注册表: { bad_mod: modEntry },
+    };
+    const { state } = migrate(input);
+    const tomb = state._mod墓碑库?.['bad_mod'];
+    expect(tomb?.原因).toBe('冻结键改名');
+    expect(tomb?.pack_id).toBe('bad_mod');
+    expect(tomb?.诊断).toContain('gold');
+  });
+
+  it('case-3: 规范键=冻结 key（仅加别名·非改名）→ 不误伤，无墓碑', () => {
+    // 归并条目.规范键 = 冻结 key 表示「给冻结键加别名」，不是对其改名，不拦截
+    const input = {
+      ...base,
+      受治理键空间注册表: frozenRegistry,
+      键空间归并表: { 归并条目: [{ 别名: 'gilded', 规范键: 'gold', 命名空间: '币种', 来源包: 'good_mod' }] },
+      mod注册表: { good_mod: { ...modEntry, pack_id: 'good_mod' } },
+    };
+    const { state } = migrate(input);
+    expect(state._mod墓碑库?.['good_mod']).toBeUndefined();
+  });
+
+  it('case-4: mod墓碑原因枚举含「冻结键改名」且既有值不变', () => {
+    const values = [...mod墓碑原因枚举];
+    expect(values).toContain('冻结键改名');
+    // 既有值完整性（顺序无关）
+    expect(values).toContain('自环');
+    expect(values).toContain('依赖被拒');
+    expect(values).toContain('冲突');
+    expect(values).toContain('key不等pack_id');
+    expect(values).toContain('semver不兼容');
+    expect(values).toContain('覆写授权越权');
+    expect(values).toContain('其他');
+    expect(values.length).toBe(8); // 7 原有 + 1 新增
   });
 });

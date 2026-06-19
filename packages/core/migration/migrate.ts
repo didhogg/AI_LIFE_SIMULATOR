@@ -1246,6 +1246,41 @@ export function migrate(input: unknown): MigrateResult {
     }
   }
 
+  // E-e: 冻结键改名 enforcement（mod-load 阶段·load 期硬拦·确定性）
+  // 检出归并条目.别名 = 已冻结规范键（受治理键空间注册表.不可变:true）且 来源包 在 mod注册表 内 → 拒收 + 墓碑。
+  // fail 行为：拒绝该条 mod 变更，不 crash 全局（与 semver/K6 同形）；多条违例合并为一条诊断串（确定性排序）。
+  {
+    const frozenKeys = new Set<string>(
+      (state.受治理键空间注册表.键条目 ?? [])
+        .filter((e) => e.不可变 === true)
+        .map((e) => e.规范键),
+    );
+    if (frozenKeys.size > 0) {
+      const violators = new Map<string, string[]>(); // modKey → violated aliases
+      for (const entry of (state.键空间归并表.归并条目 ?? [])) {
+        if (frozenKeys.has(entry.别名) && entry.来源包 !== undefined && entry.来源包 in state.mod注册表) {
+          const list = violators.get(entry.来源包) ?? [];
+          list.push(entry.别名);
+          violators.set(entry.来源包, list);
+        }
+      }
+      if (violators.size > 0) {
+        const eeTombs = { ...(state._mod墓碑库 ?? {}) } as _mod墓碑库Type;
+        for (const [modKey, aliases] of violators) {
+          const packId = state.mod注册表[modKey]?.pack_id;
+          const tomb: mod墓碑条目Type = {
+            记录键: modKey,
+            原因: '冻结键改名',
+            ...(packId !== undefined ? { pack_id: packId } : {}),
+            诊断: `冻结键 [${[...aliases].sort().join(', ')}] 被声明为归并别名，mod 拒收`,
+          };
+          eeTombs[modKey] = tomb;
+        }
+        state = { ...state, _mod墓碑库: eeTombs };
+      }
+    }
+  }
+
   // K1·B6: derive mod-aware whitelist and run dry-run assertion (fail-closed).
   // lor was computed above (after self-loop/cascade/semver tombstone passes).
   // Empty registry → flattenedLoadOrder = [] → modPaths = {} → trivially passes.

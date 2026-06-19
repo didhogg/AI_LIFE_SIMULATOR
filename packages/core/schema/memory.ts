@@ -360,6 +360,7 @@ export const mod墓碑原因枚举 = [
   'key不等pack_id', // K6⑤：record key !== pack_id（强制收紧后不一致拒收）
   'semver不兼容',   // B3 预留：基底契约 semver 不满足
   '覆写授权越权',   // B5·M2：mod 经普通通道宣称覆写/天命授权但授权源无效
+  '冻结键改名',     // E-e：mod 对已冻结规范键（不可变:true）做归并别名重映射（拒改名）
   '其他',           // 兜底·确定性描述须在 诊断 字段说明
 ] as const;
 export type mod墓碑原因Type = (typeof mod墓碑原因枚举)[number];
