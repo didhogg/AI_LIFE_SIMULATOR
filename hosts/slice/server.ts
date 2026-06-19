@@ -37,13 +37,11 @@ import {
   SAVE_SEED,
   CREDIT_AMOUNT,
   CREDIT_REASON,
-  EXPECTED_NET_ASSET,
 } from "./fixture/world.js";
 import { assemblePrompt } from "./assemble.js";
 import { callNarrative } from "./adapter/openai-compatible.js";
-import { assertConservation, assertNetZero } from "./ledger/gate.js";
-import { assertConservation as coreAssertConservation } from "@ai-life-sim/core/engine/conservation";
-import { getNetAsset, BASE_CURRENCY } from "./ledger/netAsset.js";
+import { BASE_CURRENCY } from "./ledger/netAsset.js";
+import { runTick } from "@ai-life-sim/core/engine/tick";
 import { SINK_ENTITY_KEY } from "@ai-life-sim/core";
 import { TransferWorklist } from "./ledger/commit.js";
 import { initBalances, snapshotBalances } from "./ledger/state.js";
@@ -56,7 +54,7 @@ import { filterSecretsForPOV } from "@ai-life-sim/core/engine/knowledgeFilter";
 import type { 秘密库条目Type } from "@ai-life-sim/core";
 
 // ── 游戏状态单例 ───────────────────────────────────────────────────────────────
-const state = buildWorld();
+let state = buildWorld();
 let header = createArchiveHeader(SAVE_SEED);
 const INITIAL_BALANCES: Record<string, number> = {
   [PC]: 30,
@@ -153,11 +151,12 @@ function syncBalancesToState(): void {
   }
 }
 
-// ── 核心 Σ 守恒断言（P0-7 P7-1b·换接点·gate.ts 本体零 diff）──────────────────
-function assertCoreConservation(): void {
-  const 账户 = state.货币系统?.账户;
-  if (!账户) return;
-  coreAssertConservation(账户, EXPECTED_NET_ASSET, getNetAsset);
+// ── runTick 委托（P7-2g·单一结算路径）─────────────────────────────────────────
+// 流程：balances Map → syncBalancesToState → runTick（守恒·幂等·涟漪·衰减）→ state 更新
+function commitViaRunTick(tickId: string): void {
+  syncBalancesToState();
+  const result = runTick(state, { tickId, spanMinutes: 240 });
+  state = result.state;
 }
 
 // ── 叙事调用（带知情过滤·fail-open 短路：无 key 返回 stub）───────────────────
@@ -254,6 +253,7 @@ async function handleAction(action: string, text?: string): Promise<{
           系数组指纹: "",
           盐值: header.全局回滚计数器,
         });
+        commitViaRunTick(`tick-web-${tickCount}`);
         lifecycle = "空闲";
         return { narrative, status: getStatus() };
       }
@@ -281,11 +281,7 @@ async function handleAction(action: string, text?: string): Promise<{
         assertSinkNotFrom(giveTx);
         const wl = new TransferWorklist();
         wl.load(giveTx);
-        const records = wl.commit(balances);
-        assertConservation(records);
-        assertNetZero(records);
-        syncBalancesToState();
-        assertCoreConservation();
+        wl.commit(balances);
         tickLog.push({
           tick_id: `tick-web-${tickCount}`,
           拍计数: tickCount,
@@ -293,6 +289,7 @@ async function handleAction(action: string, text?: string): Promise<{
           系数组指纹: "",
           盐值: header.全局回滚计数器,
         });
+        commitViaRunTick(`tick-web-${tickCount}`);
         lifecycle = "空闲";
         return { narrative, status: getStatus() };
       }
@@ -329,9 +326,7 @@ async function handleAction(action: string, text?: string): Promise<{
             assertSinkNotFrom(creditTx);
             const wl = new TransferWorklist();
             wl.load(creditTx);
-            const records = wl.commit(balances);
-            assertConservation(records);
-            assertNetZero(records);
+            wl.commit(balances);
             debt += credit; // 贷：林九应付 ↑
             wangReceivable += credit; // 借：王掌柜应收 ↑（同额）
             creditCount += 1;
@@ -344,8 +339,6 @@ async function handleAction(action: string, text?: string): Promise<{
             }
           }
         }
-        syncBalancesToState();
-        assertCoreConservation();
         assertTrialBalance();
         header = bumpSalt(header);
         tickLog.push({
@@ -357,6 +350,7 @@ async function handleAction(action: string, text?: string): Promise<{
           系数组指纹: "",
           盐值: checkResult.salt,
         });
+        commitViaRunTick(`tick-web-${tickCount}`);
         lifecycle = "空闲";
         return {
           narrative,
@@ -402,13 +396,9 @@ async function handleAction(action: string, text?: string): Promise<{
         assertSinkNotFrom(repayTx);
         const wl = new TransferWorklist();
         wl.load(repayTx);
-        const records = wl.commit(balances);
-        assertConservation(records);
-        assertNetZero(records);
+        wl.commit(balances);
         debt -= repay;           // 借：林九应付 ↓
         wangReceivable -= repay; // 贷：王掌柜应收 ↓（镜像同额）
-        syncBalancesToState();
-        assertCoreConservation();
         assertTrialBalance();
         tickLog.push({
           tick_id: `tick-web-${tickCount}`,
@@ -417,6 +407,7 @@ async function handleAction(action: string, text?: string): Promise<{
           系数组指纹: "",
           盐值: header.全局回滚计数器,
         });
+        commitViaRunTick(`tick-web-${tickCount}`);
         lifecycle = "空闲";
         return { narrative, status: getStatus() };
       }
@@ -437,6 +428,7 @@ async function handleAction(action: string, text?: string): Promise<{
         // 还原现金账本
         balances.clear();
         for (const [k, v] of rw.balances) balances.set(k, v);
+        syncBalancesToState(); // 回滚后将账本 Map 重新同步到 state.货币系统.账户
         // 还原债务（赊账不动现金，必须从 auxStack 按同一索引取回拍前值）
         const aux = auxStack[idx];
         debt = aux ? aux.debt : 0;
@@ -488,6 +480,7 @@ async function handleAction(action: string, text?: string): Promise<{
           系数组指纹: "",
           盐值: header.全局回滚计数器,
         });
+        commitViaRunTick(`tick-web-${tickCount}`);
         lifecycle = "空闲";
         return { narrative, status: getStatus() };
       }
