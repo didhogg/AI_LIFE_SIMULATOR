@@ -1191,6 +1191,33 @@ export function checkS3WriteGate(state: RootState, log: MigLog[]): void {
   }
 }
 
+// ── L3·人称二元组合法性（导入闸·fail-open·warn/error 级）────────────────────────
+//
+// 遵 system.ts:83「机械校验是 P0-6 导入闸的事，本层只建字段」。
+// 视角宿主：开放串；内置特殊值 = '上帝/全知旁白'（精确匹配·非 includes）。
+// error: 视角宿主='上帝/全知旁白' ∧ 人称='一' — 全知视角不可与第一人称并用。
+// warn:  人称∈{'一','二'} ∧ 视角宿主='' — 一/二人称须绑定单一宿主。
+// fail-open：绝不 throw；绝不 mutate state。
+export function checkL3PersonGate(state: RootState, log: MigLog[]): void {
+  const setting = state._叙事设置.人称;
+
+  if (setting.视角宿主 === '上帝/全知旁白' && setting.人称 === '一') {
+    log.push({
+      level: 'error',
+      path: '_叙事设置.人称',
+      msg: 'L3人称闸: 全知视角（上帝/全知旁白）与第一人称不可并用·fail-open放行',
+    });
+  }
+
+  if ((setting.人称 === '一' || setting.人称 === '二') && setting.视角宿主 === '') {
+    log.push({
+      level: 'warn',
+      path: '_叙事设置.人称',
+      msg: `L3人称闸: ${setting.人称}人称须绑定单一视角宿主（视角宿主为空）·fail-open放行`,
+    });
+  }
+}
+
 // ── migrate (public entry) ─────────────────────────────────────────────────────
 
 export function migrate(input: unknown): MigrateResult {
@@ -1336,6 +1363,8 @@ export function migrate(input: unknown): MigrateResult {
 
   // S3·写卡口（fail-open·最靠后·state 已定型·绝不 mutate）
   checkS3WriteGate(state, log);
+  // L3·人称二元组合法性（fail-open·并入警示族）
+  checkL3PersonGate(state, log);
 
   return { state, log };
 }

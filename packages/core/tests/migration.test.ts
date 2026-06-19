@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { migrate, checkS3WriteGate, buildV41Raw, applyPrefixRenames, backfillPackId, migrateS1S1b, parseChineseDateToEpochMin, getTickMinutes, type MigLog } from '../migration/migrate.js';
+import { migrate, checkS3WriteGate, checkL3PersonGate, buildV41Raw, applyPrefixRenames, backfillPackId, migrateS1S1b, parseChineseDateToEpochMin, getTickMinutes, type MigLog } from '../migration/migrate.js';
 import { assertGovernedKeysNormalized } from '../interfaces/keyNormalize.js';
 import { mod墓碑原因枚举 } from '../schema/memory.js';
 import type { RootState } from '../schema/index.js';
@@ -1189,5 +1189,61 @@ describe('S3·写卡口（fail-open·JS保留键检测·导入闸）', () => {
     expect(s3Errors.length).toBe(3);
     // 纯观测：state 未被 mutate
     expect(JSON.stringify(fakeState)).toBe(snapBefore);
+  });
+});
+
+// ── L3·人称二元组合法性（导入闸·fail-open·warn/error 级）────────────────────────
+describe('L3·人称二元组合法性（fail-open·导入闸·警示族）', () => {
+  const base = migrate(blankV31).state;
+
+  it('case-1: 全知×第一人称 → level:error log，不 throw，path 精确', () => {
+    const fakeState = {
+      ...base,
+      _叙事设置: {
+        ...base._叙事设置,
+        人称: { ...base._叙事设置.人称, 视角宿主: '上帝/全知旁白', 人称: '一' },
+      },
+    };
+    const log: MigLog[] = [];
+    expect(() => checkL3PersonGate(fakeState as unknown as RootState, log)).not.toThrow();
+    const entry = log.find(e => e.level === 'error' && e.path === '_叙事设置.人称');
+    expect(entry).toBeDefined();
+    expect(entry?.msg).toContain('L3人称闸');
+    expect(entry?.msg).toContain('第一人称');
+  });
+
+  it('case-2: 一人称视角宿主为空 → level:warn log，不 throw', () => {
+    const fakeState = {
+      ...base,
+      _叙事设置: {
+        ...base._叙事设置,
+        人称: { ...base._叙事设置.人称, 视角宿主: '', 人称: '一' },
+      },
+    };
+    const log: MigLog[] = [];
+    expect(() => checkL3PersonGate(fakeState as unknown as RootState, log)).not.toThrow();
+    const entry = log.find(e => e.level === 'warn' && e.path === '_叙事设置.人称');
+    expect(entry).toBeDefined();
+    expect(entry?.msg).toContain('L3人称闸');
+  });
+
+  it('case-3: 合法组合（全知×三人称）→ 无 L3 log', () => {
+    const fakeState = {
+      ...base,
+      _叙事设置: {
+        ...base._叙事设置,
+        人称: { ...base._叙事设置.人称, 视角宿主: '上帝/全知旁白', 人称: '三' },
+      },
+    };
+    const log: MigLog[] = [];
+    checkL3PersonGate(fakeState as unknown as RootState, log);
+    const l3Entries = log.filter(e => e.msg.includes('L3人称闸'));
+    expect(l3Entries).toEqual([]);
+  });
+
+  it('case-4: migrate 全链 — 默认 state（二人称·宿主空）不产生 error，仅可能有 warn', () => {
+    const result = migrate(blankV31);
+    const l3Errors = result.log.filter(e => e.level === 'error' && e.msg.includes('L3人称闸'));
+    expect(l3Errors).toEqual([]);
   });
 });

@@ -385,14 +385,14 @@ describe('Task 4B stub: irreversible 重放守卫（对撞⑤·未实装）', ()
 // ── Task 4C: 受控接口能力集 [TOOL] ───────────────────────────────────────────
 
 describe('Task 4C stub: 受控接口能力集 [TOOL]（对撞·未实装）', () => {
-  const VALID_TYPES: ToolCapabilityType[] = ['code', 'llm', 'roll_dice', 'trigger', 'output_tag'];
+  const VALID_TYPES: ToolCapabilityType[] = ['code', 'llm', 'roll_dice', 'json_schema', 'trigger', 'output_tag'];
 
   it('executeToolCapability 抛出「未实装」', () => {
     const d: ToolCapabilityDescriptor = { type: 'roll_dice' };
     expect(() => executeToolCapability(d, {})).toThrow('未实装');
   });
 
-  it('ToolCapabilityType 包含全部五类', () => {
+  it('ToolCapabilityType 包含全部六类', () => {
     for (const t of VALID_TYPES) {
       const d: ToolCapabilityDescriptor = { type: t };
       expect(() => executeToolCapability(d, {})).toThrow('未实装');
