@@ -43,7 +43,9 @@ import { callNarrative } from "./adapter/openai-compatible.js";
 import { BASE_CURRENCY } from "./ledger/netAsset.js";
 import { runTick } from "@ai-life-sim/core/engine/tick";
 import { SINK_ENTITY_KEY } from "@ai-life-sim/core";
-import { TransferWorklist } from "./ledger/commit.js";
+import { TransferWorklist, commitWithLineage } from "./ledger/commit.js";
+import { TicketStore } from "./engine/ticket.js";
+import type { LineageTransfer, FrozenTicket } from "./engine/ticket.js";
 import { initBalances, snapshotBalances } from "./ledger/state.js";
 import { runD20Check } from "./engine/check.js";
 import { createArchiveHeader, bumpSalt } from "./engine/archive.js";
@@ -52,6 +54,10 @@ import type { SliceTickLog, TickLifecycleState } from "./engine/snapshot.js";
 import { rewindTick } from "./engine/rewind.js";
 import { filterSecretsForPOV } from "@ai-life-sim/core/engine/knowledgeFilter";
 import type { 秘密库条目Type } from "@ai-life-sim/core";
+
+// ── P7-3 事务保真单例 ─────────────────────────────────────────────────────────
+const ticketStore   = new TicketStore();   // Z5 工单库 / 3d irreversible 防护
+const committedEvents = new Set<string>(); // 6.67 幂等键集（eventId → 不双落账）
 
 // ── 游戏状态单例 ───────────────────────────────────────────────────────────────
 let state = buildWorld();
@@ -240,20 +246,40 @@ async function handleAction(action: string, text?: string): Promise<{
         takeSnapshot();
         tickCount++;
         lifecycle = "结算中";
+        const eventId对话 = `tick-web-${tickCount}`;
         const narrative = await narrativeWithFilter(
           `拍${tickCount}：林九与在场人物交谈。`,
         );
         lastNarrative = narrative;
         narrativeHistory.push(narrative);
         actionHistory.push("对话");
+        // Z5: 冻结工单（无转账·仅 irreversible LLM 叙事载荷）
+        ticketStore.freeze({
+          tickId: eventId对话, eventId: eventId对话, narrative,
+          frozenTransfers: [],
+          hasIrreversibleEffects: true,
+          frozenPayloads: [{ effectType: 'llm_narrative', payload: narrative }],
+        });
         tickLog.push({
-          tick_id: `tick-web-${tickCount}`,
+          tick_id: eventId对话,
           拍计数: tickCount,
           结果摘要: narrative.slice(0, 40),
           系数组指纹: "",
           盐值: header.全局回滚计数器,
         });
-        commitViaRunTick(`tick-web-${tickCount}`);
+        try {
+          commitViaRunTick(eventId对话);
+        } catch (err) {
+          // Z5: runTick 失败 → 还原 balances（LLM 已调·无转账·仅回时钟）
+          const snap = ring.getLast();
+          if (snap) {
+            balances.clear();
+            for (const [k, v] of Object.entries(snap.balances)) balances.set(k, v);
+            syncBalancesToState();
+          }
+          lifecycle = "空闲";
+          throw err;
+        }
         lifecycle = "空闲";
         return { narrative, status: getStatus() };
       }
@@ -271,27 +297,51 @@ async function handleAction(action: string, text?: string): Promise<{
         takeSnapshot();
         tickCount++;
         lifecycle = "结算中";
-        const narrative = await narrativeWithFilter(
+        const eventId给钱 = `tick-web-${tickCount}`;
+        const narrative给钱 = await narrativeWithFilter(
           `拍${tickCount}：林九掏出2文铜钱递给红姨，作为跑腿酬劳。`,
         );
-        lastNarrative = narrative;
-        narrativeHistory.push(narrative);
+        lastNarrative = narrative给钱;
+        narrativeHistory.push(narrative给钱);
         actionHistory.push("给钱");
-        const giveTx = [{ from: PC, to: NPC_HONG, amount: 2, reason: "小费" }];
-        assertSinkNotFrom(giveTx);
-        const wl = new TransferWorklist();
-        wl.load(giveTx);
-        wl.commit(balances);
+        // Z3 血统传输（预求值·金额已定）
+        const giveTxL: LineageTransfer[] = [
+          { from: PC, to: NPC_HONG, amount: 2, reason: "小费", eventId: eventId给钱 },
+        ];
+        assertSinkNotFrom(giveTxL);
+        // Z5: 冻结工单（先于 balances 变更）
+        const ticket给钱: FrozenTicket = {
+          tickId: eventId给钱, eventId: eventId给钱, narrative: narrative给钱,
+          frozenTransfers: giveTxL,
+          hasIrreversibleEffects: true,
+          frozenPayloads: [{ effectType: 'llm_narrative', payload: narrative给钱 }],
+        };
+        ticketStore.freeze(ticket给钱);
+        // Z3: commit with lineage（无血统拒收 + all-or-nothing + 幂等）
+        commitWithLineage(giveTxL, balances, committedEvents);
         tickLog.push({
-          tick_id: `tick-web-${tickCount}`,
+          tick_id: eventId给钱,
           拍计数: tickCount,
           结果摘要: "给红姨2文小费",
           系数组指纹: "",
           盐值: header.全局回滚计数器,
         });
-        commitViaRunTick(`tick-web-${tickCount}`);
+        try {
+          commitViaRunTick(eventId给钱);
+        } catch (err) {
+          // Z5: runTick 失败 → 还原 balances + 撤销 committedEvents
+          const snap = ring.getLast();
+          if (snap) {
+            balances.clear();
+            for (const [k, v] of Object.entries(snap.balances)) balances.set(k, v);
+            syncBalancesToState();
+          }
+          committedEvents.delete(eventId给钱);
+          lifecycle = "空闲";
+          throw err;
+        }
         lifecycle = "空闲";
-        return { narrative, status: getStatus() };
+        return { narrative: narrative给钱, status: getStatus() };
       }
 
       case "检定": {
@@ -314,6 +364,7 @@ async function handleAction(action: string, text?: string): Promise<{
         lastNarrative = narrative;
         narrativeHistory.push(narrative);
         actionHistory.push(checkResult.success ? "赊账成功" : "赊账失败");
+        const eventId检定 = `tick-web-${tickCount}`;
         if (checkResult.success) {
           // 真·赊账：王掌柜把 CREDIT_AMOUNT 文的等值（酒菜）垫给林九——现金账本里体现为一笔守恒的
           // 王掌柜→林九 转账（林九拿到等值、王掌柜垫出本钱），同时记一对债权债务腿：
@@ -322,11 +373,20 @@ async function handleAction(action: string, text?: string): Promise<{
           // 垫资以王掌柜兜里现金为上限（账面非负），实际记账金额 = 能垫出的数。
           const credit = Math.min(CREDIT_AMOUNT, balances.get(NPC_WANG) ?? 0);
           if (credit > 0) {
-            const creditTx = [{ from: NPC_WANG, to: PC, amount: credit, reason: CREDIT_REASON }];
-            assertSinkNotFrom(creditTx);
-            const wl = new TransferWorklist();
-            wl.load(creditTx);
-            wl.commit(balances);
+            const creditTxL: LineageTransfer[] = [
+              { from: NPC_WANG, to: PC, amount: credit, reason: CREDIT_REASON, eventId: eventId检定 },
+            ];
+            assertSinkNotFrom(creditTxL);
+            // Z5: 冻结工单（先于 balances 变更）
+            ticketStore.freeze({
+              tickId: eventId检定, eventId: eventId检定,
+              narrative: narrativeHistory[narrativeHistory.length - 1] ?? '',
+              frozenTransfers: creditTxL,
+              hasIrreversibleEffects: true,
+              frozenPayloads: [{ effectType: 'llm_narrative', payload: narrativeHistory[narrativeHistory.length - 1] ?? '' }],
+            });
+            // Z3: commit with lineage
+            commitWithLineage(creditTxL, balances, committedEvents);
             debt += credit; // 贷：林九应付 ↑
             wangReceivable += credit; // 借：王掌柜应收 ↑（同额）
             creditCount += 1;
@@ -342,7 +402,7 @@ async function handleAction(action: string, text?: string): Promise<{
         assertTrialBalance();
         header = bumpSalt(header);
         tickLog.push({
-          tick_id: `tick-web-${tickCount}`,
+          tick_id: eventId检定,
           拍计数: tickCount,
           结果摘要: checkResult.success
             ? `赊账成功·欠款累计${debt}文`
@@ -350,7 +410,20 @@ async function handleAction(action: string, text?: string): Promise<{
           系数组指纹: "",
           盐值: checkResult.salt,
         });
-        commitViaRunTick(`tick-web-${tickCount}`);
+        try {
+          commitViaRunTick(eventId检定);
+        } catch (err) {
+          // Z5: runTick 失败 → 还原 balances + 撤销 committedEvents
+          const snap = ring.getLast();
+          if (snap) {
+            balances.clear();
+            for (const [k, v] of Object.entries(snap.balances)) balances.set(k, v);
+            syncBalancesToState();
+          }
+          committedEvents.delete(eventId检定);
+          lifecycle = "空闲";
+          throw err;
+        }
         lifecycle = "空闲";
         return {
           narrative,
@@ -392,22 +465,44 @@ async function handleAction(action: string, text?: string): Promise<{
         lastNarrative = narrative;
         narrativeHistory.push(narrative);
         actionHistory.push("还账");
-        const repayTx = [{ from: PC, to: NPC_WANG, amount: repay, reason: CREDIT_REASON }];
-        assertSinkNotFrom(repayTx);
-        const wl = new TransferWorklist();
-        wl.load(repayTx);
-        wl.commit(balances);
+        const eventId还账 = `tick-web-${tickCount}`;
+        const repayTxL: LineageTransfer[] = [
+          { from: PC, to: NPC_WANG, amount: repay, reason: CREDIT_REASON, eventId: eventId还账 },
+        ];
+        assertSinkNotFrom(repayTxL);
+        // Z5: 冻结工单（先于 balances 变更）
+        ticketStore.freeze({
+          tickId: eventId还账, eventId: eventId还账, narrative,
+          frozenTransfers: repayTxL,
+          hasIrreversibleEffects: true,
+          frozenPayloads: [{ effectType: 'llm_narrative', payload: narrative }],
+        });
+        // Z3: commit with lineage
+        commitWithLineage(repayTxL, balances, committedEvents);
         debt -= repay;           // 借：林九应付 ↓
         wangReceivable -= repay; // 贷：王掌柜应收 ↓（镜像同额）
         assertTrialBalance();
         tickLog.push({
-          tick_id: `tick-web-${tickCount}`,
+          tick_id: eventId还账,
           拍计数: tickCount,
           结果摘要: `还账${repay}文·余欠${debt}文`,
           系数组指纹: "",
           盐值: header.全局回滚计数器,
         });
-        commitViaRunTick(`tick-web-${tickCount}`);
+        try {
+          commitViaRunTick(eventId还账);
+        } catch (err) {
+          // Z5: runTick 失败 → 还原 balances + 撤销 committedEvents
+          const snap = ring.getLast();
+          if (snap) {
+            balances.clear();
+            for (const [k, v] of Object.entries(snap.balances)) balances.set(k, v);
+            syncBalancesToState();
+          }
+          committedEvents.delete(eventId还账);
+          lifecycle = "空闲";
+          throw err;
+        }
         lifecycle = "空闲";
         return { narrative, status: getStatus() };
       }
@@ -424,6 +519,9 @@ async function handleAction(action: string, text?: string): Promise<{
         // 若每次都对 ring.size-1 悔棋而不缩 ring，size-1 永远指向同一个最新快照 → 只能回退一拍。
         // 所以这里记下目标索引，悔棋后用 ring.all() 重建一个去掉该快照的新 ring，下次悔棋自然指向上一拍。
         const idx = ring.size - 1;
+        // Z3/6.67: 记录被回滚拍的 eventId（快照 tick 即拍前编号·被回滚动作的 tickId = tick+1）
+        const rewoundSnap = ring.get(idx);
+        const rewoundEventId = rewoundSnap ? `tick-web-${rewoundSnap.tick + 1}` : null;
         const rw = rewindTick(ring, idx, header);
         // 还原现金账本
         balances.clear();
@@ -442,6 +540,8 @@ async function handleAction(action: string, text?: string): Promise<{
         tickLog.length = 0;
         for (const e of rw.tick_log) tickLog.push(e);
         header = rw.header; // 全局回滚计数器 +1（已在 rewindTick 中 bumpSalt）
+        // 6.67/Z3: 解锁被回滚的 eventId，使悔棋后同拍重试可通过幂等检查
+        if (rewoundEventId) committedEvents.delete(rewoundEventId);
         // 缩 ring + auxStack：丢掉刚消费的快照，使下次悔棋指向更早一拍（多步回退，上限 WEB_RING_CAP）
         const kept = ring.all().slice(0, idx);
         ring = new SnapshotRingBuffer(WEB_RING_CAP);
@@ -469,20 +569,39 @@ async function handleAction(action: string, text?: string): Promise<{
         takeSnapshot();
         tickCount++;
         lifecycle = "结算中";
-        const narrative = await narrativeWithFilter(`拍${tickCount}：${input}`);
-        lastNarrative = narrative;
-        narrativeHistory.push(narrative);
+        const eventId自定义 = `tick-web-${tickCount}`;
+        const narrative自定义 = await narrativeWithFilter(`拍${tickCount}：${input}`);
+        lastNarrative = narrative自定义;
+        narrativeHistory.push(narrative自定义);
         actionHistory.push(`自定义：${input.slice(0, 20)}`);
+        // Z5: 冻结工单（无转账·仅 irreversible LLM 载荷）
+        ticketStore.freeze({
+          tickId: eventId自定义, eventId: eventId自定义, narrative: narrative自定义,
+          frozenTransfers: [],
+          hasIrreversibleEffects: true,
+          frozenPayloads: [{ effectType: 'llm_narrative', payload: narrative自定义 }],
+        });
         tickLog.push({
-          tick_id: `tick-web-${tickCount}`,
+          tick_id: eventId自定义,
           拍计数: tickCount,
           结果摘要: `自定义对话：${input.slice(0, 30)}`,
           系数组指纹: "",
           盐值: header.全局回滚计数器,
         });
-        commitViaRunTick(`tick-web-${tickCount}`);
+        try {
+          commitViaRunTick(eventId自定义);
+        } catch (err) {
+          const snap = ring.getLast();
+          if (snap) {
+            balances.clear();
+            for (const [k, v] of Object.entries(snap.balances)) balances.set(k, v);
+            syncBalancesToState();
+          }
+          lifecycle = "空闲";
+          throw err;
+        }
         lifecycle = "空闲";
-        return { narrative, status: getStatus() };
+        return { narrative: narrative自定义, status: getStatus() };
       }
 
       default:
