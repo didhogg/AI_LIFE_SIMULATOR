@@ -6,6 +6,15 @@ import { runProposalGate } from '../engine/proposal/runProposalGate.js';
 import { RootSchema } from '../schema/index.js';
 import type { RootState } from '../schema/index.js';
 import type { K5DeltaEntry } from '../interfaces/interventionMerge.js';
+import { assertConservation } from '../engine/conservation.js';
+import type { 账户Type } from '../schema/economy.js';
+import {
+  FINGERPRINT_BUNDLE_MEMBERS,
+  FINGERPRINT_PRESET_FIELDS,
+  FINGERPRINT_SNAPSHOT_FIELDS,
+  FINGERPRINT_EXCLUDED_FIELDS,
+} from '../engine/fingerprintManifest.js';
+import { M3_FORWARD_ONLY_PATHS } from '../interfaces/patchInvariant.js';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -553,5 +562,156 @@ describe('⊕-3 · K5 多包合并 — content op 后载覆盖', () => {
     const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统', [p1, p2]);
     expect(r.ok).toBe(true);
     if (r.ok) expect(getHoldings(r.state, 'npc_wang')['文']).toBe(230); // 200+30
+  });
+});
+
+// ─── ⊕-4 e2e · 提案闸端到端验收（收官） ─────────────────────────────────────────
+
+describe('⊕-4 e2e-1 · happy path：全链 ①→⑤ 含多包 add+clamp+audit', () => {
+  it('add 50 → clamp 220 → final=220; assertConservation 通过; 指纹 manifest 恒等', () => {
+    // Pack1: add 50 (200→250); Pack2: clamp ceiling=220 (250>220→220).
+    // mergeInterventionDeltas codepoint sort: 'add'<'clamp' → add processes first.
+    const p1: K5DeltaEntry[] = [{ path: WL_PATH, op: 'add', value: 50 }];
+    const p2: K5DeltaEntry[] = [{ path: WL_PATH, op: 'clamp', value: 220 }];
+    const envelope = { txn_id: 'e2e_001', 提案: { 动作类别: '转账', 目标引用: 'npc_wang' } };
+
+    const r = runProposalGate(envelope, BASE_STATE, 'seat1', '系统', [p1, p2]);
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    // ① state was modified (different content from BASE_STATE)
+    expect(JSON.stringify(r.state)).not.toBe(JSON.stringify(BASE_STATE));
+
+    // ② holdings = 200 + 50 = 250 → clamp ceiling 220 → 220
+    expect(getHoldings(r.state, 'npc_wang')['文']).toBe(220);
+
+    // ③ audit log: 1 entry with all key fields written
+    const log = getLog(r.state);
+    expect(log).toHaveLength(1);
+    expect(log[0]?.['授权源']).toBe('系统');
+    expect(log[0]?.['提案单引用']).toBe('e2e_001');
+    expect(log[0]?.['时间']).toBe(100);
+    expect(log[0]?.['级别']).toBe('L1');
+
+    // ④ assertConservation: single account npc_wang, net = Σ持有 = 220
+    const accts = ((r.state.货币系统 as Record<string, unknown>)['账户']) as Record<string, 账户Type>;
+    expect(() =>
+      assertConservation(accts, 220, (acct: 账户Type) =>
+        Object.values(acct.持有).reduce((s, v) => s + v, 0),
+      ),
+    ).not.toThrow();
+
+    // ⑤ fingerprint manifest frozen: 17+7+5+49=78 entries (fingerprint.property.test → 84 cases)
+    expect(
+      FINGERPRINT_BUNDLE_MEMBERS.length + FINGERPRINT_PRESET_FIELDS.length +
+      FINGERPRINT_SNAPSHOT_FIELDS.length + FINGERPRINT_EXCLUDED_FIELDS.length,
+    ).toBe(78);
+  });
+});
+
+describe('⊕-4 e2e-2 · fail-closed Gate② → 全状态 deepEqual（零写）', () => {
+  it('非白名单路径 reject → JSON.stringify(result.state) 逐字节 === snapshot', () => {
+    const snapshot = JSON.parse(JSON.stringify(BASE_STATE)) as RootState;
+    const r = runProposalGate(
+      ENV_BASIC,
+      BASE_STATE,
+      'seat1',
+      '系统',
+      pack([{ path: '非白名单路径.forbidden', op: 'add', value: 1 }]),
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.gate).toBe('②-whitelist');
+    expect(JSON.stringify(r.state)).toBe(JSON.stringify(snapshot));
+  });
+});
+
+describe('⊕-4 e2e-3 · fail-closed Gate④ partial failure → 全状态 deepEqual（零写）', () => {
+  it('partial pack: npc_wang add 成功后 npc_zzz fail → snapshot 返回·partial write 回滚', () => {
+    const snapshot = JSON.parse(JSON.stringify(BASE_STATE)) as RootState;
+    // Sort order (codepoint): npc_wang < npc_zzz → npc_wang add runs first (working=300),
+    // then npc_zzz fails (path-not-found) → orchestrator returns snapshot (not working).
+    const p: K5DeltaEntry[] = [
+      { path: WL_PATH, op: 'add', value: 100 },
+      { path: '货币系统.账户.npc_zzz.持有.文', op: 'add', value: 1 },
+    ];
+    const r = runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统', [p]);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.gate).toBe('④-delta');
+    // full state deepEqual: partial write (npc_wang 200→300) must be rolled back
+    expect(JSON.stringify(r.state)).toBe(JSON.stringify(snapshot));
+  });
+});
+
+describe('⊕-4 e2e-4 · M3 forward-only set 回退：orchestrator 全链拦截（state 零写）', () => {
+  it('编年史.序号 set 回退被 orchestrator 拒收·state 逐字段不变', () => {
+    // '编年史.序号' is in M3_FORWARD_ONLY_PATHS (forward-only monotone key).
+    // Current whitelist: schema has _编年史 with _ prefix → read-only → Gate②-whitelist fires first.
+    // Gate③-M3 is defense-in-depth for paths that later become whitelisted.
+    // Both gates enforce the invariant; this test verifies orchestrator-level enforcement.
+    expect(M3_FORWARD_ONLY_PATHS as readonly string[]).toContain('编年史.序号');
+
+    const forwardOnlyState = JSON.parse(JSON.stringify(BASE_STATE)) as RootState;
+    (forwardOnlyState as unknown as Record<string, unknown>)['编年史'] = { 序号: 100 };
+
+    const r = runProposalGate(
+      ENV_BASIC,
+      forwardOnlyState,
+      'seat1',
+      '系统',
+      pack([{ path: '编年史.序号', op: 'set', value: 50 }]), // newValue 50 < oldValue 100
+    );
+
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    // Gate②-whitelist for current config; Gate③-M3 if path ever enters writable whitelist.
+    expect(['②-whitelist', '③-M3']).toContain(r.gate);
+    // Zero write: state must equal forwardOnlyState snapshot exactly
+    expect(JSON.stringify(r.state)).toBe(JSON.stringify(forwardOnlyState));
+  });
+});
+
+describe('⊕-4 e2e-5 · 透支负值：sub 致余额为负·lo=-Infinity 不 floor·原子提交成功', () => {
+  it('200 - 300 = -100（透支合法域·clampLedger lo=-Infinity·not floored to 0）', () => {
+    const r = runProposalGate(
+      ENV_BASIC,
+      BASE_STATE,
+      'seat1',
+      '系统',
+      pack([{ path: WL_PATH, op: 'sub', value: 300 }]),
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const val = getHoldings(r.state, 'npc_wang')['文'] as number;
+    expect(val).toBe(-100); // overdraft: not floored to 0 (lo=-Infinity in clampLedger)
+    expect(Number.isFinite(val)).toBe(true);
+    expect(typeof val).toBe('number');
+    // full commit: audit log written
+    expect(getLog(r.state)).toHaveLength(1);
+  });
+});
+
+describe('⊕-4 e2e-6 · 全 fail-closed 路径：BASE_STATE 入参在任何拒收后不被 mutate', () => {
+  it('Gate①②③④ 各拒收路径后 BASE_STATE 逐字节不变（入参不可变性）', () => {
+    const before = JSON.stringify(BASE_STATE);
+
+    // Gate①: bad shape (null envelope)
+    runProposalGate(null, BASE_STATE, 'seat1', '系统');
+
+    // Gate②-whitelist: non-whitelisted path
+    runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统',
+      pack([{ path: '禁止路径.forbidden', op: 'add', value: 1 }]));
+
+    // Gate③-M2: invalid auth source
+    runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '天命');
+
+    // Gate④: whitelisted pattern but concrete key absent → path-not-found
+    runProposalGate(ENV_BASIC, BASE_STATE, 'seat1', '系统',
+      pack([{ path: '货币系统.账户.npc_nobody.持有.文', op: 'add', value: 1 }]));
+
+    // BASE_STATE must be bitwise identical to before all runs
+    expect(JSON.stringify(BASE_STATE)).toBe(before);
   });
 });
