@@ -17,7 +17,11 @@
 export const M3_HARD_EXCLUDED_PREFIXES = Object.freeze(['_', '$'] as const);
 
 // ── forward-only 键路径（静态 const·只增不减） ───────────────────────────────────
-// 这些路径的值只允许增大（sub op 为结构违例·set 值比较 defer B6）
+// 这些路径的值只允许增大（sub op 为结构违例·set 值比较 defer B6）。
+// dead-defense 说明：当前两条路径在静态白名单中结构性不可达（'编年史' 不是 RootSchema
+// 顶层 key；'落账记录.序号' 顶层不存在且 落账记录条目Schema 无 序号 字段），Gate②-whitelist
+// 永远先拦。若 schema 演化使任一路径进入 writable 白名单，patchInvariant.test.ts 的
+// whitelist ∩ M3_FORWARD_ONLY_PATHS 守卫断言将首先失败，须补真打 Gate③-M3 的 e2e。
 export const M3_FORWARD_ONLY_PATHS = Object.freeze([
   '编年史.序号',
   '落账记录.序号',

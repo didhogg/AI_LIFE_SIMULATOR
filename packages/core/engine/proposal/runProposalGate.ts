@@ -105,6 +105,9 @@ export function runProposalGate(
     }
 
     // Gate③: M3 structural invariant. For set ops, pass old/new values for forward-only comparison.
+    // dead-defense: current M3_FORWARD_ONLY_PATHS entries are structurally blocked by Gate②
+    // (their top-level keys don't exist or are read-only in RootSchema). This gate becomes
+    // reachable if schema evolution adds a writable forward-only path; see whitelist guard test.
     const oldVal = op === 'set' ? readAtPath(state as unknown as Record<string, unknown>, path) : undefined;
     const newVal = op === 'set' ? (value as unknown) : undefined;
     const m3 = getM3Violation(path, op, oldVal, newVal);

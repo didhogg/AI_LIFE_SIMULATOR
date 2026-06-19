@@ -666,8 +666,11 @@ describe('⊕-4 e2e-4 · M3 forward-only set 回退：orchestrator 全链拦截�
 
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    // Gate②-whitelist for current config; Gate③-M3 if path ever enters writable whitelist.
-    expect(['②-whitelist', '③-M3']).toContain(r.gate);
+    // '编年史' is not a top-level key in RootSchema (actual key is '_编年史', read-only).
+    // Gate②-whitelist structurally fires first; Gate③-M3 is dead-defense for this path.
+    // If this assertion ever changes to '③-M3', a whitelist ∩ M3_FORWARD_ONLY_PATHS guard
+    // test in patchInvariant.test.ts will have already caught the schema drift.
+    expect(r.gate).toBe('②-whitelist');
     // Zero write: state must equal forwardOnlyState snapshot exactly
     expect(JSON.stringify(r.state)).toBe(JSON.stringify(forwardOnlyState));
   });

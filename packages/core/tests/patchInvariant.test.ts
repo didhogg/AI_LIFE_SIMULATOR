@@ -8,6 +8,7 @@ import {
   getM3Violation,
 } from '../interfaces/patchInvariant.js';
 import { intervention_pack_v1Schema } from '../schema/memory.js';
+import { deriveWritableWhitelist } from '../schema/whitelistDryRun.js';
 
 // ── 常量冻结 ─────────────────────────────────────────────────────────────────
 
@@ -195,5 +196,25 @@ describe('B5 · M3 · schema superRefine 集成', () => {
     expect(intervention_pack_v1Schema.safeParse({
       pack_id: 'test_m3',
     }).success).toBe(true);
+  });
+});
+
+// ── M3 forward-only ∩ whitelist 防回归守卫 ───────────────────────────────────
+// 断言 M3_FORWARD_ONLY_PATHS 与 deriveWritableWhitelist() 的 writable 路径集合
+// 交集为空。若此断言失败：某 forward-only 路径已变成 whitelist-writable，
+// Gate③-M3-at-orchestrator 自此可达 → 必须补「白名单内但 forward-only 违例」
+// 的真打 e2e（gate==='③-M3'），不得删此守卫或改为 .not.toEqual([]) 降级通过。
+
+describe('M3 dead-defense · forward-only ∩ whitelist 防回归守卫', () => {
+  it('M3_FORWARD_ONLY_PATHS 与静态白名单 writable 路径集合交集为空', () => {
+    const writablePaths = new Set(
+      deriveWritableWhitelist()
+        .filter(e => e.layer === 'writable')
+        .map(e => e.path),
+    );
+    const intersection = (M3_FORWARD_ONLY_PATHS as readonly string[]).filter(p =>
+      writablePaths.has(p),
+    );
+    expect(intersection).toEqual([]);
   });
 });
