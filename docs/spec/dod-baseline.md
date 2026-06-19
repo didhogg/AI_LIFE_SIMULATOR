@@ -1,126 +1,104 @@
-# DoD 基准面豁免清单（dod-baseline.md）
+# P0-6 五道闸主战场 + 导入闸 — 批次切分与排程
 
-> 来源：AA3 半天会（玩家 2026-06-16 正式签字放行）。本文件是 DoD 基准面的**可执行规范**，详稿留 Notion AA3 页。
-判定图例：✅ 保留 spec-in（导入闸必须支持）｜🟡 豁免 out-of-scope（优雅降级·不报错）｜⚰️ 墓碑 reject（拒收+落墓碑·禁静默丢弃）｜⚖️ 中立不识别。
-> 
+<aside>
+🎉
 
----
+闸二全清（AA3 半天会第 7 轮转正 · commit `c185dd6`）→ P0-6 正式解锁。本页 = P0-6 主战场的批次切分、依赖序、每批 DoD 与红线。批次序为我拍的最优序，可随时 拍板 调整。
 
-## §1 · 预设（破限 / NSFW baseline）
+</aside>
 
-| 项 | 判定 | 口径 |
-| --- | --- | --- |
-| `claude_use_sysprompt`（系统提示投递通道） | ✅ 保留 | 作为元数据保留：system 字段 vs 全塞 user/assistant 轮 |
-| `assistant_prefill` 预填串 | ✅ 保留 | 一等字段·仅 Claude 支持·内容过 IM4 + 分级 |
-| 破限引子三件套 `{思维链引子, 注入角色, 预填串}` | ✅ 保留 | per-provider·入指纹排除·玻璃箱可见 |
-| 内容分级 clamp（explicit→light / community→off） | ✅ 保留 | 默认 off clamp |
-| community 专家门（解锁覆盖+预填+CoT） | ✅ 保留 | 单闸进入·明示离开安全默认·解锁项进指纹·红线不在可解锁范围 |
-| 多档 NSFW baseline（sfw/light/full） | ✅ 保留 | 导入默认取最低档·玩家显式升档 |
-| 预设内嵌可执行 JS 配独立 API | ⚰️ 墓碑 | R6-a：非任意 JS；内嵌 url 🟡 提示 / 内嵌 key ⚰️ |
-| 预设内嵌 `regex_scripts` | （见 §6） | avatar/preset 粒度执行白名单·默认隔离须显式授权 |
-| 伪审核员 / 伪权威人格越狱 | （当内容） | prompt-injection 式·当内容不当指令执行（卡-B） |
-| 卡/预设/世界书内嵌 MVU 状态变量 | （见 §4/§5） | → schema 迁移 + 数据分层 |
+## 🔴 红线（每批恒定·不可碰）
 
-## §2 · 插件 / 类酒馆前端（真相层 ⊥ 派生层两桶）
+- 不碰：确定性引擎 / 指纹取材计算（`fnv1a32` · `canonicalize` · `hashPresetFingerprint` · `FINGERPRINT_*`）/ 结算管线（`gate.ts` · `assertConservation`）/ `RING_K` / 定点数学库。
+- 接指纹函数时只允许 **只读调用**（如 `hashPresetFingerprint`），绝不改其取材字段集（`FINGERPRINT_BUNDLE_MEMBERS` 17 项 / `EXCLUDED_FIELDS` 57 项）。
 
-| 项 | 判定 | 口径 |
-| --- | --- | --- |
-| 外置宿主状态 | ✅ 保留·两桶 | 真相层（账本/已结算标记/单写者落账/生成任务态）随 U1 全树迁移（律庚）；纯派生镜像（渲染缓存/UI 态）仅重建不迁移 |
-| 多 Agent 记忆图 | ✅ 保留·归派生 | 叙事侧派生召回层·**绝不喂判定/记账（R2-b）**·从真相层可重建（能派生不存储） |
-| 云端持久化数据 | ✅ 保留·归镜像 | 同步/备份镜像层·非真相源（真相=本地 append-only 事件日志+integrity+指纹）·**机密绝不上云（R5-a）** |
-| 宿主 UI 注入 / 渲染缓存索引 | ✅ 保留 | 展示层·走 §6 IM4 净化白名单；渲染缓存=U5 派生载荷·本地化+哈希去重·进指纹排除 |
+## 🧭 批次切分顺序（依赖序）
 
-## §3 · 公益站（端点元数据 + 路由）
+单批一闭环 · CC 一次一 Step · 侦察（读only·回报不猜）→ 拍板 → 执行 → commit 落地才勾。
 
-| 项 | 判定 | 口径 |
-| --- | --- | --- |
-| `NSFW降级目标模型键` 缺省 / 缺 key | 🟡 豁免+降级 | 缺 key→nsfw-disabled·缺省走主模型；带审核变体标 `moderated`·NSFW 场景询问玩家是否回退 |
-| N-6 房间级路由 × 公益站共享 key | ✅ 保留 | key = 一个 `apiKeyRef`·零新增安全面 |
-| 多人同房共用 key 成本/路由归属 | ✅ 保留 | 成本归房主 `apiKeyRef`·`routedVia` 记端点·RPM 节流+退避 |
-| 反代 / 自定义端点档 | ✅ 保留（→ P0-7） | 模型键扩展 `{protocol, baseURL, apiKeyRef, modelId}`·key 走机密区·机密区主动配 ✅；卡/预设内嵌 endpoint+明文 key ⚰️（同 §7） |
-- **跨切**：端点配额预检（超限优雅 clamp/降级·Token 上限灌进体积闸）·健康探测低频化·批量护栏（800 agent 跑长程**禁走公益端点**·只允许交互单拍）·端点 `usageTerms` 保留并尊重·凭证套利型归 §7 类型 C·图像端点保留不路由。
-- **⛔ 透明切模型硬约束（玩家定）**：任何模型切换（NSFW 降级 / 批量护栏触发）**必须提醒玩家、禁黑箱切**——切换事件落 `_tick_log.路由快照` 且对玩家可见（哪个槽位、为何切、切到哪）。
-- **不做**：不内置/不分发反向取 key 脚本（VertexAI 逆向鉴权等）·引擎只给「填自定义端点」中性能力。
+| 批 | 内容 | 依赖 | 为什么这个序 |
+| --- | --- | --- | --- |
+| **B1** | K1 两段式加载（SCC 缩点→拓扑序→全集合并→派生白名单） | 批② `c780c63` 白名单 dry-run | 地基 · 死锁级 · K4/K6/K2 全在它之上跑 |
+| **B2** | K4 墓碑 + K6 pack_id fire（①自环拒收 ②命名空间化+别名 ③必填收紧 ④`resolvePackId`） | B1（自环拒收要 K1 的图） | pack_id 全链路必须先钉死再往上建 |
+| **B3** | K2/K5 semver 兼容校验 | B2 | 版本闸建在 pack_id 唯一性之上 |
+| **B4** | effect 包过闸（批③ deferred：聚合 body+挂 RootSchema+`content_hash`+热加载点+AA6 全名单） | B1–B3 | effect 要消费白名单+pack_id+semver |
+| **B5** | M2/M3 + S1/S2/S3 + C6 | B4 | 主体闸逻辑 · 待 B5 侦察补全细目 |
+| **B6** | 导入闸（批④ deferred 子域 1–4 + 外链三态本地化快照器） | B1–B5 | 导入要复用全部下游闸 + 外链本地化 |
+| **B7** | Q 批 + V3 收尾 | B1–B6 | 收口 · 待 B7 侦察补全细目 |
 
-## §4 · 世界书
+## 📋 每批 DoD
 
-| 项 | 判定 | 口径 |
-| --- | --- | --- |
-| 条件触发注入 → 触发扫描器 | ✅ 保留 | 四轴保真（`position`/`depth`/`insertion_order`/`constant` 蓝灯 ⊥ `selective` 绿灯+`keys`）确定性排序；`probability`→`random` ⚰️ 改确定性种子；注入面分 用户输入/AI 输出/世界书/CoT 四面 |
-| 递归 / 深度触发载荷 | ✅ 保留 | `exclude_recursion`/`prevent_recursion`/`delay_until_recursion` 确定性复现；计时三件套 `sticky`/`cooldown`/`delay` 锚游戏绝对时间 |
-| 世界书状态变量 | ✅ 保留·三剥离 | 独立 lorebook（`{entries}`）≠ 卡内 `character_book`（字段同构·双形态导入·拆进 `_lore知识库`）；迁移三剥离：状态逻辑入 `$`/`_` 层 ⊥ 静态 lore 入 `_lore知识库` ⊥ 渲染入 §6 |
-- **跨切**：独立 lorebook 与卡-D `character_book` 字段同构；内嵌 regex 走 §6/正-B（默认隔离须显式授权）；概率/随机触发一律确定性种子；创作者自设护栏（≥18）与 §7 红线独立（红线凌驾·不冲突）。
+### B1 · K1 两段式加载
 
-## §5 · 角色卡
+- mod/包 依赖图建图 → Tarjan/Kosaraju **SCC 缩点**（真环 → 超级节点·不死锁）。
+- **自环拒收**（K6① 联动）：建图阶段检出自环 → 拒收 + 断言。
+- 缩点后 DAG **拓扑排序** → **全集合并后一次性派生白名单**（不增量·避免顺序依赖）。
+- 批② `c780c63` 的 dry-run 本批转正为正式派生。
+- **DoD**：同输入同白名单序（跨机确定）· 环不死锁 · 自环拒收有断言 · REPLAY/C2 不破。
+- 🔴 白名单派生只读包元数据 · 不改指纹取材。
+- ✅ **完结（2026-06-17·拍板微调）**：依赖图 → Tarjan SCC 缩点 → Kahn 拓扑 → 全集合并派生 → dry-run 转 CI 守卫（`runDryRun(entries?)`）全部就位；**运行时消费接线 defer 到 B6 导入闸首个消费者**（`migrate.ts:1087` `RootSchema.parse` 后 `runDryRun(deriveModAwareWhitelist(lor, reg))` assert）。零 hosts/ 接线 · 零死代码 · commit 5ecc309/1e05ce0/66d9fb4 · 75 测试 · 零漂移。
 
-| 项 | 判定 | 口径 |
-| --- | --- | --- |
-| `开场白[]` 素材包 | ✅ 保留 | `alternate_greetings[]`+`first_mes`·`pick` 哈希确定性种子（非 `random`）·允许异构条目（完整开场/短指令桩/超长单开场） |
-| 群聊卡 → `_席位表` 升格 | ✅ 保留·源码定 | 四态激活·SWAP=每席独立装配 ⊥ APPEND=多卡合并·`talkativeness`=发言权重·`Math.random`→种子。**样本留 P1 补**（玩家 2026-06-16 拍板：社区几无真群聊卡，焊死前无须补卡级样本） |
-| 卡内状态变量 → schema 迁移 | ✅ 保留 | 跨度 无状态→好感度→金钱→完整 MVU；迁移须剥离 真相层变量 ⊥ §6 渲染引擎 |
-| 人格字段 → OCEAN | ✅ 保留 | `personality` 普遍空·人格散在 description/世界书/`depth_prompt`（OCEAN=领先点） |
-| 导入内容自带使用限制声明（禁 ST 外导入 / CC BY-NC-ND） | ⚖️ 中立 | 引擎不读取、不解析、不据此放行或拒收·属创作者社交约定。与机密治理（§7）、端点 `usageTerms`（§3）不同维度 |
+### B2 · K4 墓碑 + K6 pack_id fire
 
-## §6 · UI 美化（双层拆分）
+- K4：⚰️ 拒收落墓碑（AA3 三桶 ⚰️ 语义）· 墓碑记录可审计。
+- K6① 自环拒收（与 B1 图联动）。
+- K6② IM3 pack_id 进 `governedKeySpace` 命名空间化 + 别名。
+- K6③ effect 包 pack_id 必填收紧（批⑤ `memory.ts:317` 已 `refine default('')`，本批转必填）。
+- K6④ pack_id 运行时消费 `resolvePackId`。
+- 🆕 K6⑤ **record key === pack_id 收紧**（B1 拍板补漏·2026-06-17）：B1 图节点身份暂用 `mod注册表` 的 **record key**（schema 层未强制 key===pack_id·pack_id 后补）→ 本批补 refine 强制 `record key === 条目.pack_id`，不一致拒收 + 落墓碑；迁移期 backfill 对齐既有档。
+- 🆕 K6⑥ **能力种类／轨道维度**（QoL 双轨 · 6.78 · 2026-06-17）：mod 命名空间化加 `轨道: gameplay|cosmetic|view|macro` 维度——能力声明驱动闸分流（重轨碰可写键/effect → 过五道闸；轻轨零可写键+零effect+零判定输入引用 → 声明式表现+只读 selector+意图宏）；随 S5 与 `可写键` 贡献字段同位落 schema（详见蓝图 6.78）。
+- **DoD**：pack_id 全链路必填 · 命名空间唯一 · `resolvePackId` 解析正确 · 别名可达 · 墓碑可审计 · **record key===pack_id 强制** · **轨道维度静态可判轨**。
+- ✅ **完结（2026-06-17 · commit d17fd9a/d7c7518/ef9e570）**：S1 墓碑 schema slot → S2 effect pack_id 必填 → S3 自环/key≠pack_id 拒收落墓碑 + backfill 强制覆盖对齐 → S4 命名空间枚举 +1（'mod包'）+ 别名骨架 → S5 `resolvePackId` + `可写键` 贡献字段 + 轨道维度（gameplay 重轨/cosmetic·view·macro 轻轨·轻轨带可写键拒收）全部就位。运行时接线（轨道闸分流/resolvePackId 消费/可写键消费/命名空间强约束）defer 到 B6/拍板④。2060 测试 · 指纹 84 零漂移 · 零早接线。
 
-| 项 | 判定 | 口径 |
-| --- | --- | --- |
-| 注入式 HTML/CSS/JS | ✅ 保留·双层 | ① 声明式主题字段（~40 个）→ typed 外观 schema（无代码·安全·可迁移）；② `custom_css` 大 blob → 必过 IM4/CSS 净化白名单（剥/白名单 `@import` 远程字体·封 `url(javascript:)`/`expression()`/`behavior:`·SVG `data:` 滤镜审查·远程 `url()` 本地化）。ST 专属 DOM 选择器不映射 → 外部主题=参考非逐字导入·我方出 typed GAL 皮肤层 |
-| 皮肤层资源 → 渲染缓存索引 | ✅ 保留 | `@import` 远程字体/远程图标=派生渲染缓存（U5 载荷·能派生不存储）·本地化+哈希去重+离线化·**远程热链 ⚰️ 墓碑（外联+易腐）**·主题=展示层 ⊥ 真值层·进指纹排除 |
-- **跨切**：用户人设世界书归玩家人设池（走 §4）；卡内嵌 `regex_scripts`/HTML 渲染走正-B（默认隔离须授权）；内嵌 `<script>`/JS → R6-a 受控·不开放 `globalThis`。
+### B3 · K2/K5 semver
 
-## §7 · 教程区 · 反向代理 / 反向获取 key
+- semver range 解析 + 兼容校验 · 不兼容拒收。
+- **DoD**：版本号解析正确 · 不兼容包拒收 + 落墓碑/降级。
+- 🟢 **Step 0 侦察完结（2026-06-17）**：版本/基底契约 两字段已有 schema slot（纯 string·零校验）；墓碑原因 `semver不兼容` 已预留（memory.ts:341）；写入点复用 migrate() 墓碑段（migrate.ts:1104-1127·自环/依赖被拒之后）；红线零交叉（仅动 memory.ts/migrate.ts/loader/tests）。
+- 📌 **B3 拍定口径（2026-06-17 · 技术拍板）**：
+    - ① **校验面**：B3 主体 = 基底契约 vs `_系统版本` **单 mod 硬拒**（🔴唯一判据·确定性·有 fixtures）。对官方基底包：每个存活 mod 的 基底契约 都须含 `_系统版本` → 交集恒含该点·永不为空 → set-level 求交 moot，不做无谓接线。真正的「同包单实例求交」前提是依赖边带版本区间，B1 依赖只存 id 无此输入 → B3 只交付**确定性 semver 求交纯函数 + 测试**，消费接线 defer（零死代码）。
+    - ② **coerce**：**不改** `_系统版本`（真相层·疑入指纹·不可动）；semver util 内确定性 `coerceSemver('4.1')→'4.1.0'`（缺段补 `.0`）仅比较时用；**不**另建会漂移的 `ENGINE_SEMVER` 常量 · 单一真相源 = `_系统版本`。
+    - ③ **semver 实现**：**手写最小子集**（承 Tarjan/Kahn/fnv1a32 一脉·零依赖·确定性·全可测）；仅支持 fixtures 的 `>= > <= < =` 比较器 + 空格 AND 组合；遇 `^`/`~`/`||`/prerelease 等不支持语法 → **显式拒绝/抛错** · 绝不静默误判。
+    - ④ **K5 范围**：B3 **零 runtime**；取严 merge 整条留 **B5**（消费者注释已 defer B5/P0-6·避免预埋形态错返工）；B3 仅在 schema 留 `TODO(B5)` 注释指向取严 · **不动** intervention_pack 形态。
+- ✅ **完结（2026-06-17 · commit acd5f07）**：`semver.ts` 手写最小子集（parseSemver/coerceSemver/satisfies/intersect/validateRange · 零依赖 · 不支持语法显式抛错）；migrate() K6① 墓碑段后追加 K2 基底契约硬拒（coerceSemver(`_系统版本`)+satisfies→false 写 `semver不兼容` 墓碑 · Object.keys().sort() 码点序 · 确定性幂等）；memory.ts 版本/基底契约 加格式 refine；K5 仅留 `TODO(B5)` 注释不动形态。2115 测试（+55）· 指纹 84 零漂移 · REPLAY 22 · C2 17 · 红线 diff 空 · 多 mod 同包求交消费 + K5 取严 merge defer B5/B6（`intersect()` 已就位）。
 
-| 项 | 判定 | 口径 |
-| --- | --- | --- |
-| 内嵌 反代地址 / 中转 endpoint | 🟡 豁免 | 提示·不自动套用 |
-| 内嵌 明文 key / 共享 key（含占位 key） | ⚰️ 墓碑 | 禁随卡静默流通 |
-| 第三方中转内容分级 / NSFW 路由 | ✅ 保留 | 强制 `catalog_source` 标记 + 健康探测 + fallback |
-| 反代配置 × N-6 房间级路由 | ✅ 保留 | 反代 6 字段进指纹排除 B1d |
+### B4 · effect 包过闸（批③ deferred）
 
-**三类模式**（统一收敛为「自定义端点档：`baseURL` + `apiKeyRef`」）：
+- effect 聚合函数 body + 接 `hashPresetFingerprint`（只读）+ 挂载 RootSchema + `content_hash` 填充 + 热加载点 + AA6 全名单 fire。
+- **DoD**：effect 包过五道闸 · `content_hash` 正确 · 热加载确定 · 指纹只读不改取材。
 
-- **A 免费额度直发 key**：机密区主动填 ✅；卡/预设内嵌明文 key ⚰️。注册机/临时邮箱/虚拟卡薅额度=第三方站 ToS 滥用·引擎不内置不收录。
-- **B 自部署反代**：`baseURL` 🟡 豁免（提示·不自动套用）；内嵌明文 key ⚰️；不内置/不分发部署脚本。
-- **C 凭证套利 / CLI 反代（最高风险）**：仅中性支持「填 `baseURL`」；不内置/不分发提取工具（R6-a）；默认挂健康探测 + fallback。
+### B5 · M2/M3 + S1/S2/S3 + C6
 
-**统一铁律**：① 内嵌明文 key（含占位）一律 ⚰️；② `baseURL` 可识别提示但绝不自动生效·`localhost`/私网提示「需自部署」；③ 多协议记 `protocol`；④ 第三方中转强制 `catalog_source` + 健康探测 + fallback；⑤ 反代 6 字段进指纹排除 B1d。
+- 主体闸逻辑（M = ? · S = ? · C6 = ?）。
+- **DoD**：待 B5 Step 0 侦察补全后拍板。
 
----
+### B6 · 导入闸（批④ deferred + 外链三态）
 
-## 附录 A · 外链按字段类型分桶（外链三态·收紧 §6.2/§7）
+- 子域1 导出剥离 fire（`securityBoundary.ts` 敏感键 `['baseURL','apiKeyRef','modelId','protocol']`）。
+- 子域2 CSP + sandbox iframe + 净化器。
+- 子域3 强制降级「需确认」fire（主权降级 `z.enum(['需确认','凌驾抢话档'])`）。
+- 子域4 effect deltas 过五道闸 + clamp/lock。
+- **外链三态本地化快照器**（被动资产 ✅保留：导入期本地化快照 + content-hash 去重 · 实时热链 ⚰️ · 失败→🟡占位降级）。
+- **DoD**：导入全过闸 · 敏感键剥离 · iframe 沙箱隔离 · 外链本地化确定。
 
-URL 不按字符串一刀切，而按其所在的 **typed 字段槽** 判定：
+### B7 · Q 批 + V3
 
-| 字段类型 | 判定 | 处理 |
-| --- | --- | --- |
-| 图片 / 字体 / 媒体 / 被动文本资产 | ✅ 保留 | **导入期本地化快照 + content-hash 去重**·改写为本地资源引用；**实时热链机制本身仍 ⚰️**（渲染期绝不实时拉取）。本地化失败 / 玩家拒下载 → 🟡 占位优雅降级 |
-| `endpoint` / `baseURL` | 🟡 豁免 | 提示·不自动套用·须玩家在机密区主动配 |
-| `script` / `code` / 明文 `key` | ⚰️ 墓碑 | 内嵌可执行 / 明文密钥拒收 + 落墓碑（红线·R6-a） |
-- **理由**：被动 ≠ 安全——远程图片 URL 是活的威胁面（追踪像素 / IP 抓取 / referer 泄露），与「是否可执行」无关；外链易腐破确定性与可用性；本地化保离线。
-- **实现**：导入期「本地化快照器」·归 **P0-6 导入闸**。
+- 收尾批。
+- **DoD**：待 B7 Step 0 侦察补全后拍板。
 
-## 附录 B · 指纹排除名单（B1d）
+## ✅ 排程 checklist
 
-同一存档走不同反代端点 / 换主题，指纹与重放须判等，故下列字段**不进判定面指纹**：
+- [x]  B1 · K1 两段式加载（**完结 2026-06-17** · commit 5ecc309/1e05ce0/66d9fb4 · 75 测试 · 零漂移）
+- [x]  B2 · K4 墓碑 + K6 pack_id fire（**完结 2026-06-17** · commit d17fd9a/d7c7518/ef9e570 · S1–S5 · 2060 测试 · 零漂移）
+- [x]  B3 · K2/K5 semver（**完结 2026-06-17** · commit acd5f07 · 2115 测试 · K5→B5 · 零漂移）
+- [ ]  B4 · effect 包过闸
+- [ ]  B5 · M2/M3 + S1/S2/S3 + C6
+- [ ]  B6 · 导入闸
+- [ ]  B7 · Q 批 + V3
 
-- 反代 / 自定义端点字段族（`protocol` / `baseURL` / `endpoint` / `apiKeyRef` / `modelId` 等「反代 6 字段」）
-- 外观主题字段（声明式 typed 外观 schema 全字段）
-- 渲染缓存索引（主题资源 / token 缓存 / 卡缓存 / 缩略图）
+<aside>
+🤝
 
-新增成员须入 B1d 名单 + 跑「排除成员变 → 指纹不变」断言。
+**交接给 CC 的方式**：一次一 Step · 读only 先侦察（回报不猜）· 绿报后拍板再执行 · commit 落地才在本页勾 · 额度紧时侦察走 plain shell `grep`/`cat`（零 CC 浪费）。每批完成后回写 docs/spec/*.md 对应口径。
 
-## 附录 C · 透明切模型硬约束（玩家定）
-
-- 禁黑箱切模型；任何切换（NSFW 降级 / 批量护栏触发）落 `_tick_log.路由快照{routedVia, modelKey, explicitReason}` 且对玩家可见。
-- 只在玩家已配 key 的模型间切；禁路由无 key 模型（缺 key → nsfw-disabled 自动降级）。
-
-## 附录 D · Defer 清单（焊死后接线）
-
-| 项 | 归宿 |
-| --- | --- |
-| 反代 / 自定义端点档（schema + 协议适配 + fallback 链） | P0-7 调用注册表 / 模型槽位 |
-| 导入期本地化快照器（附录 A 实现） | P0-6 导入闸 |
-| effect 包 content_hash 聚合函数 body + 接 hashPresetFingerprint | P0-6（红线·指纹取材计算） |
-| 群聊卡 → `_席位表` 卡级样本 | P1 |
-| RAG / 记忆图旁路实装 | P0-8 / P2 |
+</aside>

@@ -1,0 +1,158 @@
+<!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
+# HEAD=b72b1d1（M-a/M-b 待落 commit） | 焊死状态=未焊 | 更新=2026-06-19/CC-M纵切窗口
+
+> 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
+> 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
+
+---
+
+## §1 NOW（依赖序=做序·ready·非焊敏感）
+
+- [x] G1 · 元层开关走组边界专项 test · commit=18c8576 · test=2544
+- [x] L-15 · 物品/角色三态不可逆状态机（enum+谓词+Gate③-L15） · commit=b72b1d1 · test=2565
+- [x] G-a · 13命名空间 reconcile（reconcile-only·无commit·无真漏·无新enum）
+- [ ] J-a · docs/spec口径回写（蓝图4.x誊写/彩蛋池装配器规格/U5冻结载荷枚举/各批口径同步决议+docs） · 判据=文件提交即完·用户侧起草 · 红线?否
+- [x] 八场景复验 · REPLAY-01=24 / C2=17 / 指纹=84 / 黄金向量 5c1d0233·63b3e729·db10d5c7 逐位恒等·全绿无回归 · test=2565→2571（M-a+6）
+- [x] M-a · 纵切重接真接口 · commit=待落 · test=2571（+6 mIntegration）
+  - world.ts/world.js: RootSchema.parse() 消除类型债（TS2345·buildWorld返RootState）
+  - assemble.ts:56: 账户路径 B5.5 per-entity 修正（[pcKey].持有 而非 .持有直接访）
+  - packages/core/package.json: 补3条exports（runProposalGate/computeDelta/interventionMerge）
+  - mIntegration.test.ts: 6 真件集成测试（Gate①②③④⑤全路径·原state不可变·M2拒绝）
+- [x] M-b · soak 300×8 全绿 · commit=（含M-a同批落）
+  - 借还闭环场景·三条守恒不变量（试算平衡/清偿能力闸/现金方向）逐位恒等
+- [x] M-c · 纵切回填 · commit=（同批）
+  - 已运行验证字段：NPC[k].姓名/位置/属性.体质/属性.魅力 · 全局.秘密库[k] 全8字段 · 全局.地点[k].名称/描述 · 货币系统.基准币种/.账户[k].持有[currency] · _系统版本/_tick
+  - Gate验证路径：①信封parse(提案:{}) · ②白名单+seatId · ③M2(天命→拒绝·gate=③-M2) · ④computeDelta(add·proposedValue=150) · ④clampLedger({value,exceeded}) · ④mergeInterventionDeltas(max_delta取严=80) · ⑤原子提交(state=130·原state=100不变)
+  - 黄金窗口缺口：零新增（M-a发现assemble.ts B5.5路径错误已修·world.ts类型债已清·均已在bugs.md历史记录中）
+  - 场景固化：mIntegration.test.ts = slice层 fixture（REPLAY-01/C2在packages/core红线内·不新增）
+- [ ] M-d · 焊死信心签收（端到端逐位恒等绿+黄金窗口零新增缺口→回报供Notion审计·候选） · 判据=M-c完成 · 红线?否
+- [ ] P0-7-start · 结算管线起步（守恒接线getNetAsset→runTick/sink物化/\_费用accrual·侦察先行） · 判据=M-d绿后·守恒接线绿·REPLAY/C2不破·hosts/gate.ts本体零diff · 红线?gate.ts本体勿碰
+- [ ] F-b · handlerRef进指纹+AA6「改side_effects集→指纹变」断言（rng.ts additive-only已授权） · 判据=rng.ts扩optional签名·断言绿·指纹84/17不破 · 红线?rng.ts函数体不改·仅扩optional参数
+- [ ] D-a · lore谓词冻结+受控接口能力集(R6 a-d/R10)+Y13+IM3+保真度三档落血统（DSL parser拍板3已授权） · 判据=DSL parser实装后·lore导入闸绿 · 红线?否
+- [ ] D-b · DSL v1文法冻结（照冻结清单M·1 EBNF）+S-1 fixture gate（向后兼容已拍板·只补gate） · 判据=DSL parser实装后·v1表达式当前文法parse过且求值恒等 · 红线?否
+- [ ] S-1 · 存量DSL表达式v1→v2向后兼容fixture gate（DSL parser已授权） · 判据=DSL parser实装后·fixture gate绿 · 红线?否
+
+---
+
+## §2 WELD QUEUE（零迁移焊敏感·ready）
+
+- [ ] G-d-partial · AA4余面add-constraint·actor.ts内部record面+null-proto存储层（schema superRefine·零迁移·不改schemaKeys） · 焊敏感=schema(actor.ts superRefine add-constraint)
+
+---
+
+## §3 BLOCKED（consumer-blocked / 依赖未满 / 需拍板）
+
+### Phase F（指纹红线批）
+
+- [ ] F-a · effect包活线（接hashPresetFingerprint+RootSchema挂载+content_hash填充+热加载+AA6 fire） · 解锁=effect挂载点拍板（顶层键vs嵌mod注册表·**NOT授权**） ∧ P0-7 effect生产者
+- [ ] F-c · U3指纹版本分段（与M6共用分段机·碰fingerprint） · 解锁=P0-3分段机器（rng.ts已授权·仅剩此锁）
+
+### Phase G（registry populate 路径II）
+
+- [ ] G-b · path II populate registry（mod条目加命名空间键声明） · 解锁=mod生态路径II
+- [ ] G-c · S2跨包仲裁+母题写入口fire · 解锁=G-b
+- [ ] G-d-registry · deltas.path/handlerRef严格化（registry填充后） · 解锁=G-b
+- [ ] G-e · S5规则引用完整性扫描扩维（被规则引用即冻结） · 解锁=G-b
+
+### Phase H（签名+外链+子域·全defer）
+
+- [ ] H-a · 6.74验签+DP验签放行+原生卡包通道⑮ · 解锁=crypto路径三选一拍板（park不强决）
+- [ ] H-b · 外链三态本地化快照器 · 解锁=hosts/tavern P1
+- [ ] H-c-1 · 导出剥离fire（securityBoundary.ts 4敏感键·常量已锁） · 解锁=hosts/导出管线（P0-9/P0-11）
+- [ ] H-c-2 · CSP+sandbox iframe · 解锁=hosts/tavern P1
+- [ ] H-c-3 · 主权降级「需确认」fire（schema slot在位） · 解锁=P0-7安全地板接线
+- [ ] H-c-4 · effect deltas过五道闸clamp · 解锁=P0-7 effect包loader
+
+### Phase I-b（盐·consumer-blocked）
+
+- [ ] I-b-G6 · G6小剧场盐隔离 · 解锁=P0-5 G6 consumer（rng.ts已授权·仅剩consumer锁）
+- [ ] I-b-盐3 · 出厂离场契约进指纹+补结RNG第三盐 · 解锁=P2 offstageSettler（rng.ts已授权·仅剩consumer锁）
+
+### B6残留
+
+- [ ] B6-I · S3写卡口接存档口（RootState层·fail-open·defense-in-depth） · 解锁=P0-9存档层 ∧ hosts/ALERT评估
+- [ ] S6 · 受治理键空间enumerate populate+S6实装铁律（未注册串=降级非拒收） · 解锁=G-b路径II
+- [ ] V3展开器 · 动词目标槽运行时展开（真键字典序·verb.ts:44单态已锁） · 解锁=P0-7 runtime展开接线（还卡P0-7）
+- [ ] G7 · 死亡拦截器引擎级硬顶（一次死亡至多拦截一次） · 解锁=P0-7结算管线
+- [ ] effect-过闸 · effect包deltas过五道闸+受补丁clamp/lock约束 · 解锁=P0-7 effect包loader
+
+### Phase L（deferred items）
+
+- [ ] L-13 · 记忆recency并入P0-3统一衰减累积器（0.995指数因子·L-1/L-6已✅） · 解锁=P0-3衰减引擎
+- [ ] L-14 · 历法权威表+时代错置校验数据源 · 解锁=P0-3时间核
+- [ ] L-16 · 叙事校验闸/二审/自反思走指令组边界接线 · 解锁=P0-8叙事校验闸
+- [ ] L-17 · 效果4类+房间不可挂属性白名单（L-9已✅） · 解锁=L-9 effect executor接线（P0-4/P0-7）
+- [ ] L-18 · 纠偏重写=模态内步骤·不新增模态栈深度 · 解锁=P0-8
+- [ ] L-19 · 任务显式状态机（START→SEARCHING→RETURNING→COMPLETE） · 解锁=L-9 effect executor ∧ P0-4任务schema（还卡L-9接线+P0-4·stateMachine.ts已完整实装）
+- [ ] L-20 · 校验闸/因果校验器LLM调用独立盐隔离（rng.ts已授权·仅剩consumer） · 解锁=P0-5 G6盐 consumer
+- [ ] L-21 · LLM重要度分创建即冻结+进指纹+永不重算 · 解锁=fingerprintManifest红线 ∧ P0-7 effect活线
+- [ ] L-24-结构 · 归一化准入闸·确定性自动修复（补缺字段/非法prefab/越界坐标） · 解锁=P0-8
+- [ ] L-26 · 校验失败闭环·有界重试≤3 · 解锁=P0-8
+- [ ] L-27 · 前置条件代码化（位置/库存/属性三类·L-9已✅） · 解锁=L-9 effect executor接线（P0-4/P0-7）
+- [ ] L-28-枚举 · Cheating枚举并入钳制闸/动词白名单 · 解锁=P0-8校验闸consumer
+- [ ] L-29 · 两模式按子系统指派（Graph-First/Post-Generation-Validation） · 解锁=P0-8
+- [ ] L-30-算法 · 动态新动作可达性回归校验 · 解锁=P0-10
+
+### Phase K/B7（gated by P0-7）
+
+- [ ] K-a · Q批+V3收尾（Q1/Q2/Q4/Q6写入口·Q3落账型·V3展开器写入口·V3谓词求值侧） · 解锁=P0-7（Q批+V3写入口） ∧ DSL text parser实装（V3谓词求值侧·已授权·合并P0-7后做）
+
+### 后续阶段（P0-7+）
+
+- [ ] P0-7-remainder · Z3/Z5/J1/级联轮/模态并发/V1/AA1主接线等结算子项 · 解锁=P0-7-start落地
+- [ ] P0-8 · prompt组装+叙事校验闸+信念派生+知情过滤+切片预算 · 解锁=P0-7
+- [ ] P0-9 · 存档层G2原子性/U1迁移单元/U3版本分段 · 解锁=P0-7基础
+- [ ] P0-10 · 回归测试体系+DoD复验 · 解锁=P0-8+P0-9
+- [ ] P0-11 · 双宿主薄壳 · 解锁=P0-10
+- [ ] P1 · 酒馆宿主+全生命周期demo+导入器 · 解锁=P0-11
+- [ ] P2 · offstageSettler+RAG+多人+第三盐+离场演化 · 解锁=P1
+
+---
+
+## §4 UNBLOCK HOOKS
+
+```
+八场景复验完成       → M-a, M-b, M-c, M-d（纵切体检）
+
+P0-7-start完成      → F-a(partial·effect生产者), H-c-3, H-c-4,
+                       G7, V3展开器(runtime), effect-过闸,
+                       L-21(partial·effect活线), K-a(Q批+V3写入口侧),
+                       P0-7-remainder
+
+L-9 effect          → L-17(executor侧·P0-4接线), L-27(executor侧·P0-4接线),
+executor接线          L-19(executor+任务schema)
+
+DSL text parser     → D-a(§1·已授权待实装), D-b(§1·已授权待实装),
+实装（已授权）        S-1(§1·已授权待实装), K-a(V3谓词求值侧·合并P0-7后做)
+
+P0-3分段机器        → F-c(U3指纹版本分段)
+
+mod生态路径II       → G-b, G-c, G-d-registry, G-e, S6
+
+crypto路径拍板      → H-a（选C=归hosts则等P0-11）
+
+P0-8完成            → L-16, L-18, L-24-结构, L-26, L-28-枚举, L-29
+
+P0-9完成            → B6-I(S3写卡口接存档口), G2, U1
+
+P0-11完成           → H-b, H-c-2(CSP sandbox), P1
+
+K-a完成             → P0-6焊死·转P0-7正式
+
+P2完成              → I-b-盐3(第三盐+离场契约指纹), offstageSettler接线
+```
+
+---
+
+## 快速参考：关键指标基线（HEAD=b72b1d1）
+
+| 指标 | 值 |
+|------|-----|
+| test | 2571（+6 M-a mIntegration） |
+| tsc | 28（CC环境30·含2预存于非改动文件） |
+| lint | 220 errors（baseline·勿新增） |
+| schemaKeys | 52 |
+| 指纹 | 84（fingerprintManifest 17条目） |
+| REPLAY-01 | 24（+2 L-15 三态断言） |
+| C2 chaos | 17 |
+| 黄金向量 | 5c1d0233 / 63b3e729 / db10d5c7（逐位恒等·勿重生成） |
