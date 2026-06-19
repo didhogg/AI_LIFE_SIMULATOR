@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# HEAD=43af2a0 | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-P0-7梯队2窗口
+# HEAD=36a2b56 | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-P7-2g窗口
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -50,6 +50,14 @@
   - hosts/slice/ledger/netAsset.ts — 重导出 core 权威实现（向后兼容）
   - m_p7tier2.test.ts 35 tests（纯函数·幂等·结算序·涟漪·D4种子·守恒·50拍黄金主线·schema验证）
   - gate.ts 零 diff · 红线 diff 空 · REPLAY-01=24 · C2=17 · 指纹=84/17 · 黄金向量逐位恒等
+- [x] P0-7 梯队2.5 P7-2g · slice server.ts 切换到 core runTick · commit=36a2b56 · test=2624（无新增·零回归）
+  - handleAction 内嵌结算环（assertConservation/assertNetZero/assertCoreConservation）全部废除
+  - 五个动作（对话/给钱/检定/还账/自定义对话）统一走 commitViaRunTick：syncBalancesToState→runTick→state 更新
+  - 悔棋：还原 balances 后补 syncBalancesToState 回同步
+  - 移除 coreAssertConservation 包装函数·EXPECTED_NET_ASSET/getNetAsset server.ts 内引用
+  - 双路径删除 grep 确认：server.ts 内无 assertConservation/assertNetZero/assertCoreConservation 残留
+  - soak --seed 12345 --runs 1 ✅ · 300×8 ✅（双轨守恒·对子+Σ 全绿）
+  - gate.ts 零 diff · 红线 diff 空 · REPLAY-01=24 · C2=17 · 黄金向量逐位恒等
 - [ ] F-b · handlerRef进指纹+AA6「改side_effects集→指纹变」断言（rng.ts additive-only已授权） · 判据=rng.ts扩optional签名·断言绿·指纹84/17不破 · 红线?rng.ts函数体不改·仅扩optional参数
 - [ ] D-a · lore谓词冻结+受控接口能力集(R6 a-d/R10)+Y13+IM3+保真度三档落血统（DSL parser拍板3已授权） · 判据=DSL parser实装后·lore导入闸绿 · 红线?否
 - [ ] D-b · DSL v1文法冻结（照冻结清单M·1 EBNF）+S-1 fixture gate（向后兼容已拍板·只补gate） · 判据=DSL parser实装后·v1表达式当前文法parse过且求值恒等 · 红线?否
