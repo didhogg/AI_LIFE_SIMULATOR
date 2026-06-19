@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# HEAD=cd5d4fb | 焊死状态=已焊候选（待 Notion 审计确认） | 更新=2026-06-19/CC-M纵切窗口
+# HEAD=a7c3f69 | 焊死状态=已焊候选（待 Notion 审计确认） | 更新=2026-06-19/CC-M纵切窗口
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -13,19 +13,19 @@
 - [x] G-a · 13命名空间 reconcile（reconcile-only·无commit·无真漏·无新enum）
 - [ ] J-a · docs/spec口径回写（蓝图4.x誊写/彩蛋池装配器规格/U5冻结载荷枚举/各批口径同步决议+docs） · 判据=文件提交即完·用户侧起草 · 红线?否
 - [x] 八场景复验 · REPLAY-01=24 / C2=17 / 指纹=84 / 黄金向量 5c1d0233·63b3e729·db10d5c7 逐位恒等·全绿无回归 · test=2565→2571（M-a+6）
-- [x] M-a · 纵切重接真接口 · commit=待落 · test=2571（+6 mIntegration）
+- [x] M-a · 纵切重接真接口 · commit=cd5d4fb · test=2571（+6 mIntegration）
   - world.ts/world.js: RootSchema.parse() 消除类型债（TS2345·buildWorld返RootState）
   - assemble.ts:56: 账户路径 B5.5 per-entity 修正（[pcKey].持有 而非 .持有直接访）
   - packages/core/package.json: 补3条exports（runProposalGate/computeDelta/interventionMerge）
   - mIntegration.test.ts: 6 真件集成测试（Gate①②③④⑤全路径·原state不可变·M2拒绝）
-- [x] M-b · soak 300×8 全绿 · commit=（含M-a同批落）
+- [x] M-b · soak 300×8 全绿 · commit=cd5d4fb（同M-a批）
   - 借还闭环场景·三条守恒不变量（试算平衡/清偿能力闸/现金方向）逐位恒等
-- [x] M-c · 纵切回填 · commit=（同批）
+- [x] M-c · 纵切回填 · commit=cd5d4fb（同M-a批）
   - 已运行验证字段：NPC[k].姓名/位置/属性.体质/属性.魅力 · 全局.秘密库[k] 全8字段 · 全局.地点[k].名称/描述 · 货币系统.基准币种/.账户[k].持有[currency] · _系统版本/_tick
   - Gate验证路径：①信封parse(提案:{}) · ②白名单+seatId · ③M2(天命→拒绝·gate=③-M2) · ④computeDelta(add·proposedValue=150) · ④clampLedger({value,exceeded}) · ④mergeInterventionDeltas(max_delta取严=80) · ⑤原子提交(state=130·原state=100不变)
   - 黄金窗口缺口：零新增（M-a发现assemble.ts B5.5路径错误已修·world.ts类型债已清·均已在bugs.md历史记录中）
   - 场景固化：mIntegration.test.ts = slice层 fixture（REPLAY-01/C2在packages/core红线内·不新增）
-- [x] M-d · 焊死信心签收 · commit=cd5d4fb（M-a）/ 5bc64d3（docs）
+- [x] M-d · 焊死信心签收 · commit=a7c3f69
   - 端到端：2571/2571 pass · REPLAY-01=24 · C2=17 · 指纹=84 · 黄金向量逐位恒等（「黄金向量·种子 1/2/3 hex 值固定」C2 测试通过）
   - 黄金窗口：零新增缺口（M-a 修复项均已在 bugs.md 历史条目中有记录）
   - 结论：**P0-6 焊死信心 ✅** — 导入闸 + 五道闸 weld 契约当前态确定性/回放/指纹基线已锁
@@ -148,7 +148,7 @@ P2完成              → I-b-盐3(第三盐+离场契约指纹), offstageSettle
 
 ---
 
-## 快速参考：关键指标基线（HEAD=b72b1d1）
+## 快速参考：关键指标基线（HEAD=a7c3f69）
 
 | 指标 | 值 |
 |------|-----|
