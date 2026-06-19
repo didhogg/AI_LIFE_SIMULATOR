@@ -27,8 +27,8 @@ export function 规范化键码位(raw: string): string {
 }
 
 // ══════════════════════════════════════════
-// AA4 JS 保留键黑名单（原型污染防护·常量 + helper·零接线）
-// TODO(P0-6·Step5/闸)：注册写入口拒收保留键的 fire 留 P0-6·本步只交常量+helper·零接线。
+// AA4 JS 保留键黑名单（原型污染防护·常量 + helper）
+// fire 已由 S3 写卡口实装（migration/migrate.ts · checkS3WriteGate · fail-open）。
 // ══════════════════════════════════════════
 
 export const JS保留键黑名单 = Object.freeze(['__proto__', 'constructor', 'prototype'] as const);

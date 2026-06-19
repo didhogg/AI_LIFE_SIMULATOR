@@ -2,7 +2,8 @@
 // No IO, no Date.now, no Math.random (ESLint bans in packages/core/).
 
 import { RootSchema, RootSchemaStrict, type RootState, type _mod墓碑库Type, type mod墓碑条目Type } from '../schema/index.js';
-import { normalizeRegistryKeyNames, assertGovernedKeysNormalized } from '../interfaces/keyNormalize.js'; // B5·S3 读卡口 / B6·S1S1b 写卡口
+import { normalizeRegistryKeyNames, assertGovernedKeysNormalized } from '../interfaces/keyNormalize.js'; // B5·读卡口(normalizeRegistryKeyNames) / B6·S1S1b 写卡口(assertGovernedKeysNormalized)
+import { 是JS保留键 } from '../schema/governedKeySpace.js'; // S3·写卡口 JS保留键检查
 import { computeLoadOrder } from '../loader/modGraph.js';
 import { deriveModAwareWhitelist } from '../loader/modWhitelist.js';
 import { coerceSemver, satisfies as semverSatisfies } from '../loader/semver.js';
@@ -1159,6 +1160,37 @@ export function backfillPhaseL1b(raw: Record<string, unknown>): Record<string, u
   return raw;
 }
 
+// ── S3·写卡口（导入闸·fail-open·defense-in-depth）─────────────────────────────
+//
+// 检查 RootState 7 个动态字典区域（z.record<string,*>·外来键）的键名是否命中
+// JS 保留键黑名单（__proto__/constructor/prototype）。
+// fail-open：命中 → push level:'error' log + 放行；绝不 throw；绝不 mutate state。
+// 覆盖面：NPC / 已故NPC归档 / 组织实体 / mod注册表 / _mod墓碑库 / 调用类型注册表 / $模型画像。
+// 排除：货币系统.账户——账户键Schema 已内置 是JS保留键() Zod 级保护，无需重复。
+// 实装说明（govKeySpace.ts:31 TODO 已由此函数完成）。
+export function checkS3WriteGate(state: RootState, log: MigLog[]): void {
+  const areas: Array<[string, object]> = [
+    ['NPC',           state.NPC],
+    ['已故NPC归档',   state.已故NPC归档],
+    ['组织实体',      state.组织实体],
+    ['mod注册表',     state.mod注册表],
+    ['_mod墓碑库',    state._mod墓碑库 ?? {}],
+    ['调用类型注册表', state.调用类型注册表],
+    ['$模型画像',     state.$模型画像],
+  ];
+  for (const [area, dict] of areas) {
+    for (const key of Object.keys(dict)) {
+      if (是JS保留键(key)) {
+        log.push({
+          level: 'error',
+          path: `${area}.${key}`,
+          msg: `S3写卡口: JS保留键「${key}」命中黑名单（原型污染防护·fail-open放行）`,
+        });
+      }
+    }
+  }
+}
+
 // ── migrate (public entry) ─────────────────────────────────────────────────────
 
 export function migrate(input: unknown): MigrateResult {
@@ -1301,6 +1333,9 @@ export function migrate(input: unknown): MigrateResult {
     const detail = _gwViolations.map(v => `${v.field}: "${v.raw}" → "${v.normalized}"`).join('; ');
     throw new Error(`受治理键空间写卡口（B6·S1/S1b）: 未归一键名 [${detail}]`);
   }
+
+  // S3·写卡口（fail-open·最靠后·state 已定型·绝不 mutate）
+  checkS3WriteGate(state, log);
 
   return { state, log };
 }

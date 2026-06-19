@@ -2,9 +2,10 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { migrate, buildV41Raw, applyPrefixRenames, backfillPackId, migrateS1S1b, parseChineseDateToEpochMin, getTickMinutes } from '../migration/migrate.js';
+import { migrate, checkS3WriteGate, buildV41Raw, applyPrefixRenames, backfillPackId, migrateS1S1b, parseChineseDateToEpochMin, getTickMinutes, type MigLog } from '../migration/migrate.js';
 import { assertGovernedKeysNormalized } from '../interfaces/keyNormalize.js';
 import { mod墓碑原因枚举 } from '../schema/memory.js';
+import type { RootState } from '../schema/index.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 function loadFixture(name: string): Record<string, unknown> {
@@ -1141,5 +1142,52 @@ describe('E-e · 冻结键改名 enforcement（mod-load 阶段）', () => {
     expect(values).toContain('覆写授权越权');
     expect(values).toContain('其他');
     expect(values.length).toBe(8); // 7 原有 + 1 新增
+  });
+});
+
+// ── S3·写卡口（导入闸·fail-open·JS保留键防护）────────────────────────────────
+describe('S3·写卡口（fail-open·JS保留键检测·导入闸）', () => {
+  const base = migrate(blankV31).state;
+
+  it('case-1: 合法键直通——migrate 全链无 S3 error log', () => {
+    const result = migrate(blankV31);
+    const s3Errors = result.log.filter(e => e.level === 'error' && e.msg.startsWith('S3写卡口'));
+    expect(s3Errors).toEqual([]);
+  });
+
+  it('case-2: NPC 区 __proto__ 键 → level:error log，不 throw，path 精确', () => {
+    // JSON.parse 可将 __proto__ 创建为 own enumerable property（不同于对象字面量语法）
+    const npcWithProto = JSON.parse('{"__proto__": {}}') as Record<string, unknown>;
+    const fakeState = { ...base, NPC: npcWithProto };
+    const log: MigLog[] = [];
+    expect(() => checkS3WriteGate(fakeState as unknown as RootState, log)).not.toThrow();
+    const entry = log.find(e => e.path === 'NPC.__proto__');
+    expect(entry?.level).toBe('error');
+    expect(entry?.msg).toContain('S3写卡口');
+    expect(entry?.msg).toContain('__proto__');
+  });
+
+  it('case-3: mod注册表 constructor 键 → level:error log，fail-open 不 throw', () => {
+    const modWithCtor = JSON.parse('{"constructor": {}}') as Record<string, unknown>;
+    const fakeState = { ...base, mod注册表: modWithCtor };
+    const log: MigLog[] = [];
+    expect(() => checkS3WriteGate(fakeState as unknown as RootState, log)).not.toThrow();
+    const entry = log.find(e => e.path === 'mod注册表.constructor');
+    expect(entry?.level).toBe('error');
+  });
+
+  it('case-4: 三保留键同批检出 + state 纯观测不 mutate', () => {
+    const withProto    = JSON.parse('{"__proto__": {}}') as Record<string, unknown>;
+    const withCtor     = JSON.parse('{"constructor": {}}') as Record<string, unknown>;
+    const withProto2   = JSON.parse('{"prototype": {}}') as Record<string, unknown>;
+    const fakeState = { ...base, NPC: withProto, mod注册表: withCtor, 调用类型注册表: withProto2 };
+    const snapBefore   = JSON.stringify(fakeState);
+    const log: MigLog[] = [];
+    checkS3WriteGate(fakeState as unknown as RootState, log);
+    // 三条 error（__proto__ / constructor / prototype）
+    const s3Errors = log.filter(e => e.level === 'error' && e.msg.includes('S3写卡口'));
+    expect(s3Errors.length).toBe(3);
+    // 纯观测：state 未被 mutate
+    expect(JSON.stringify(fakeState)).toBe(snapBefore);
   });
 });
