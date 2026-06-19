@@ -37,10 +37,14 @@ import {
   SAVE_SEED,
   CREDIT_AMOUNT,
   CREDIT_REASON,
+  EXPECTED_NET_ASSET,
 } from "./fixture/world.js";
 import { assemblePrompt } from "./assemble.js";
 import { callNarrative } from "./adapter/openai-compatible.js";
 import { assertConservation, assertNetZero } from "./ledger/gate.js";
+import { assertConservation as coreAssertConservation } from "@ai-life-sim/core/engine/conservation";
+import { getNetAsset, BASE_CURRENCY } from "./ledger/netAsset.js";
+import { SINK_ENTITY_KEY } from "@ai-life-sim/core";
 import { TransferWorklist } from "./ledger/commit.js";
 import { initBalances, snapshotBalances } from "./ledger/state.js";
 import { runD20Check } from "./engine/check.js";
@@ -58,6 +62,7 @@ const INITIAL_BALANCES: Record<string, number> = {
   [PC]: 30,
   [NPC_WANG]: 200,
   [NPC_HONG]: 0,
+  [SINK_ENTITY_KEY]: 0,
 };
 const balances = initBalances(INITIAL_BALANCES);
 // 网页测试壳的快照保留量：远大于引擎 RING_K（护城河的有界记忆模型）。
@@ -126,6 +131,33 @@ function assertTrialBalance(): void {
       `净资产守恒失败：现金${cash}+应收${wangReceivable}−应付${debt}=${net}，应为${INITIAL_NET_WORTH}`,
     );
   }
+}
+
+// ── sink 只进不出守卫（P0-7 P7-1c）────────────────────────────────────────────
+function assertSinkNotFrom(transfers: { from: string }[]): void {
+  for (const t of transfers) {
+    if (t.from === SINK_ENTITY_KEY) {
+      throw new Error(`守恒违规: sink(${SINK_ENTITY_KEY}) 只进不出·禁止作为 from`);
+    }
+  }
+}
+
+// ── 账本 Map → state.货币系统.账户 同步（P0-7 P7-1b）──────────────────────────
+// 仅同步 balances Map 中存在的键；state.货币系统.账户 需由 buildWorld 提前建好对应 slot
+function syncBalancesToState(): void {
+  const 账户 = state.货币系统?.账户;
+  if (!账户) return;
+  for (const [entityKey, amount] of balances) {
+    const acct = 账户[entityKey];
+    if (acct) acct.持有[BASE_CURRENCY] = amount;
+  }
+}
+
+// ── 核心 Σ 守恒断言（P0-7 P7-1b·换接点·gate.ts 本体零 diff）──────────────────
+function assertCoreConservation(): void {
+  const 账户 = state.货币系统?.账户;
+  if (!账户) return;
+  coreAssertConservation(账户, EXPECTED_NET_ASSET, getNetAsset);
 }
 
 // ── 叙事调用（带知情过滤·fail-open 短路：无 key 返回 stub）───────────────────
@@ -245,11 +277,15 @@ async function handleAction(action: string, text?: string): Promise<{
         lastNarrative = narrative;
         narrativeHistory.push(narrative);
         actionHistory.push("给钱");
+        const giveTx = [{ from: PC, to: NPC_HONG, amount: 2, reason: "小费" }];
+        assertSinkNotFrom(giveTx);
         const wl = new TransferWorklist();
-        wl.load([{ from: PC, to: NPC_HONG, amount: 2, reason: "小费" }]);
+        wl.load(giveTx);
         const records = wl.commit(balances);
         assertConservation(records);
         assertNetZero(records);
+        syncBalancesToState();
+        assertCoreConservation();
         tickLog.push({
           tick_id: `tick-web-${tickCount}`,
           拍计数: tickCount,
@@ -289,16 +325,27 @@ async function handleAction(action: string, text?: string): Promise<{
           // 垫资以王掌柜兜里现金为上限（账面非负），实际记账金额 = 能垫出的数。
           const credit = Math.min(CREDIT_AMOUNT, balances.get(NPC_WANG) ?? 0);
           if (credit > 0) {
+            const creditTx = [{ from: NPC_WANG, to: PC, amount: credit, reason: CREDIT_REASON }];
+            assertSinkNotFrom(creditTx);
             const wl = new TransferWorklist();
-            wl.load([{ from: NPC_WANG, to: PC, amount: credit, reason: CREDIT_REASON }]);
+            wl.load(creditTx);
             const records = wl.commit(balances);
             assertConservation(records);
             assertNetZero(records);
             debt += credit; // 贷：林九应付 ↑
             wangReceivable += credit; // 借：王掌柜应收 ↑（同额）
             creditCount += 1;
+            // P7-1e _费用 accrual：赊账消费时点记（不进 getNetAsset·不进现金流）
+            const pcAcct = state.货币系统?.账户?.[PC];
+            if (pcAcct) {
+              pcAcct._费用.总额 += credit;
+              pcAcct._费用.明细[CREDIT_REASON] =
+                (pcAcct._费用.明细[CREDIT_REASON] ?? 0) + credit;
+            }
           }
         }
+        syncBalancesToState();
+        assertCoreConservation();
         assertTrialBalance();
         header = bumpSalt(header);
         tickLog.push({
@@ -351,15 +398,17 @@ async function handleAction(action: string, text?: string): Promise<{
         lastNarrative = narrative;
         narrativeHistory.push(narrative);
         actionHistory.push("还账");
+        const repayTx = [{ from: PC, to: NPC_WANG, amount: repay, reason: CREDIT_REASON }];
+        assertSinkNotFrom(repayTx);
         const wl = new TransferWorklist();
-        wl.load([
-          { from: PC, to: NPC_WANG, amount: repay, reason: CREDIT_REASON },
-        ]);
+        wl.load(repayTx);
         const records = wl.commit(balances);
         assertConservation(records);
         assertNetZero(records);
         debt -= repay;           // 借：林九应付 ↓
         wangReceivable -= repay; // 贷：王掌柜应收 ↓（镜像同额）
+        syncBalancesToState();
+        assertCoreConservation();
         assertTrialBalance();
         tickLog.push({
           tick_id: `tick-web-${tickCount}`,

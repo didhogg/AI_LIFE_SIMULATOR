@@ -13,6 +13,7 @@
     "./engine/proposal/runProposalGate": "./engine/proposal/runProposalGate.ts",
     "./engine/proposal/computeDelta": "./engine/proposal/computeDelta.ts",
     "./interfaces/interventionMerge": "./interfaces/interventionMerge.ts",
+    "./engine/conservation": "./engine/conservation.ts",
     "./replay": "./replay/index.ts"
   },
   "dependencies": {

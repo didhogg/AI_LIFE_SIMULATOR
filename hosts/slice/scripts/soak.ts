@@ -33,6 +33,9 @@ import { rewindTick } from '../engine/rewind.js';
 import { createArchiveHeader } from '../engine/archive.js';
 import { initBalances, snapshotBalances, getBalance } from '../ledger/state.js';
 import { gateStructural, gateCoverage, assertConservation, assertNetZero } from '../ledger/gate.js';
+import { assertConservation as coreAssertConservation } from '@ai-life-sim/core/engine/conservation';
+import { getNetAsset, BASE_CURRENCY } from '../ledger/netAsset.js';
+import { 账户Schema } from '@ai-life-sim/core';
 import { TransferWorklist } from '../ledger/commit.js';
 import { runD20Check } from '../engine/check.js';
 import { RootSchema } from '@ai-life-sim/core';
@@ -358,6 +361,17 @@ function runOne(runIdx: number, seed: number, ticks: number): Failure[] {
 		for (const k of ENTITIES) {
 			const v = getBalance(balances, k);
 			if (v < 0) add(tick, '账面非负', `${k} 余额为负：${v}`);
+		}
+
+		// 不变量：Σ净值=常数（core Σ 形式·补充校验·与上方现金总额等价但走权威实现路径）
+		const accounts: Record<string, ReturnType<typeof 账户Schema.parse>> = {};
+		for (const [k, v] of balances) {
+			accounts[k] = 账户Schema.parse({ 持有: { [BASE_CURRENCY]: v } });
+		}
+		try {
+			coreAssertConservation(accounts, INITIAL_TOTAL, getNetAsset);
+		} catch (e) {
+			add(tick, 'Σ净值守恒', `core assertConservation 报错：${String(e)}`);
 		}
 
 		// 偏好随机抖动（N-2 验证用：不影响冻结路由）——不产生副作用，仅抽样

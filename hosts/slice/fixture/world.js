@@ -8,7 +8,7 @@
 // 铁律对齐：实体键是稳定结构键（禁随显示名漂移）；能派生的不在此存储；
 // SAVE_SEED / RECIPE 这些判定输入是确定性重放的取材，改动需 bump 指纹。
 // ──────────────────────────────────────────────────────────────────────────────
-import { RootSchema } from '@ai-life-sim/core';
+import { RootSchema, SINK_ENTITY_KEY } from '@ai-life-sim/core';
 // ── 实体键（稳定结构键）─────────────────────────────────────────────────────────
 export const PC = "pc_linjiu";
 export const NPC_WANG = "npc_wang";
@@ -32,6 +32,11 @@ export const RECIPE = {
 // ── 赊账参数：王掌柜垫 8 文等值酒菜给林九 ──────────────────────────────────────────
 export const CREDIT_AMOUNT = 8;
 export const CREDIT_REASON = "赊账·酒菜";
+// ── 初始账本余额（P0-7 守恒接线·与 INITIAL_BALANCES in server.ts 同口径）────────────
+export const INITIAL_PC_BALANCE = 30;
+export const INITIAL_WANG_BALANCE = 200;
+export const INITIAL_HONG_BALANCE = 0;
+export const EXPECTED_NET_ASSET = INITIAL_PC_BALANCE + INITIAL_WANG_BALANCE + INITIAL_HONG_BALANCE;
 // ── 货币单位（显示用后缀）：规范单位「文」，与 CANONICAL_UNITS / index.ts 账面打印一致 ────────────
 export const CURRENCY = "文";
 // ── 秘密库（知情过滤 filterSecretsForPOV 的输入）────────────────────────────────
@@ -71,6 +76,15 @@ export function buildWorld() {
             [PC]:       { 姓名: "林九",  位置: LOC_KEY, 属性: { 体质: 5, 魅力: 6 } },
             [NPC_WANG]: { 姓名: "王掌柜", 位置: LOC_KEY },
             [NPC_HONG]: { 姓名: "红姨",  位置: LOC_KEY },
+        },
+        货币系统: {
+            基准币种: CURRENCY,
+            账户: {
+                [PC]:              { 持有: { [CURRENCY]: INITIAL_PC_BALANCE } },
+                [NPC_WANG]:        { 持有: { [CURRENCY]: INITIAL_WANG_BALANCE } },
+                [NPC_HONG]:        { 持有: { [CURRENCY]: INITIAL_HONG_BALANCE } },
+                [SINK_ENTITY_KEY]: { 持有: { [CURRENCY]: 0 } },
+            },
         },
     });
 }
