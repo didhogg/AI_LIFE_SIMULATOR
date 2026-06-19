@@ -10,6 +10,9 @@
     "./engine/text/chineseNumber": "./engine/text/chineseNumber.ts",
     "./engine/text/canonicalize": "./engine/text/canonicalize.ts",
     "./engine/knowledgeFilter": "./engine/knowledgeFilter.ts",
+    "./engine/proposal/runProposalGate": "./engine/proposal/runProposalGate.ts",
+    "./engine/proposal/computeDelta": "./engine/proposal/computeDelta.ts",
+    "./interfaces/interventionMerge": "./interfaces/interventionMerge.ts",
     "./replay": "./replay/index.ts"
   },
   "dependencies": {

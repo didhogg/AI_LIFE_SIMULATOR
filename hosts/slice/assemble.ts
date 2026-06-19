@@ -50,9 +50,10 @@ export function assemblePrompt(state: RootState, opts: AssembleOptions): {
     ? `体质${attrs['体质'] ?? '?'} 智慧${attrs['智慧'] ?? '?'} 感知${attrs['感知'] ?? '?'} 魅力${attrs['魅力'] ?? '?'} 心理${attrs['心理'] ?? '?'}`
     : '';
 
-  // ── 货币（货币系统.账户 = 主角单账户）──
+  // ── 货币（B5.5 post-per-entity: 账户 = Record<entityKey, 账户Schema>）──
+  // slice 追踪账本走 SliceBalances；此处仅为 prompt 显示读 RootState（默认 0）。
   const currency   = state.货币系统?.基准币种 ?? '文钱';
-  const pcHolding  = (state.货币系统?.账户?.持有 as Record<string, number> | undefined)?.[currency] ?? 0;
+  const pcHolding  = state.货币系统?.账户?.[pcKey]?.持有?.[currency] ?? 0;
 
   // ── M4 已知秘密节（知情过滤后·$谜底 永不输出）────────────────────────────────
   // 铁律：非知情方连该节都不插入（existence-opaque）
