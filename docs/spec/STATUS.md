@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# HEAD=36a2b56 | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-P7-2g窗口
+# HEAD=1fb958a | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-P7-3窗口
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -58,13 +58,14 @@
   - 双路径删除 grep 确认：server.ts 内无 assertConservation/assertNetZero/assertCoreConservation 残留
   - soak --seed 12345 --runs 1 ✅ · 300×8 ✅（双轨守恒·对子+Σ 全绿）
   - gate.ts 零 diff · 红线 diff 空 · REPLAY-01=24 · C2=17 · 黄金向量逐位恒等
-- [ ] P0-7 梯队3 · Z3/Z5/6.67/3d 记账容错·事务保真 · 待 commit（绿报中·候审）
+- [x] P0-7 梯队3 · Z3/Z5/6.67/3d 记账容错·事务保真 · commit=1fb958a · test=2656(+32)
   - hosts/slice/engine/ticket.ts/.js — TicketStore（Z5 工单冻结/6.67 幂等/3d assertNotIrreversibleReroll/replayNarrative）
   - hosts/slice/ledger/commit.ts/.js — commitWithLineage（Z3 无血统拒收+all-or-nothing预验+幂等）+ assertFullProposalConsumed（未消耗打回）
   - hosts/slice/server.ts — ticketStore/committedEvents 接入·五动作冻结+commitWithLineage·runTick 失败 rollback·悔棋解锁 eventId
   - hosts/slice/tests/m_p7tier3.test.ts — 32 tests（Z3×7 / Z5×5 / 6.67×6 / 3d×6 / 顺带单路径×3 / soak守恒×2）
   - soak --seed 12345 --runs 1 ✅ · 300×8 ✅（双轨守恒全绿）
-  - gate.ts 零 diff · 红线 diff 空 · test=2656(+32) · REPLAY-01=24 · C2=17 · 指纹=84/17 · 黄金向量逐位恒等
+  - gate.ts 零 diff · 红线 diff 空 · REPLAY-01=24 · C2=17 · 指纹=84/17 · 黄金向量逐位恒等
+  - non-blocking defer → 梯队4：spanMinutes:240 参数化（D4 节拍源）/ C1 _应收/_应付（依赖 DSL parser）
 - [ ] F-b · handlerRef进指纹+AA6「改side_effects集→指纹变」断言（rng.ts additive-only已授权） · 判据=rng.ts扩optional签名·断言绿·指纹84/17不破 · 红线?rng.ts函数体不改·仅扩optional参数
 - [ ] D-a · lore谓词冻结+受控接口能力集(R6 a-d/R10)+Y13+IM3+保真度三档落血统（DSL parser拍板3已授权） · 判据=DSL parser实装后·lore导入闸绿 · 红线?否
 - [ ] D-b · DSL v1文法冻结（照冻结清单M·1 EBNF）+S-1 fixture gate（向后兼容已拍板·只补gate） · 判据=DSL parser实装后·v1表达式当前文法parse过且求值恒等 · 红线?否
