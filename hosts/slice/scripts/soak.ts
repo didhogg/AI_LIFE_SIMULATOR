@@ -35,7 +35,7 @@ import { initBalances, snapshotBalances, getBalance } from '../ledger/state.js';
 import { gateStructural, gateCoverage, assertConservation, assertNetZero } from '../ledger/gate.js';
 import { assertConservation as coreAssertConservation } from '@ai-life-sim/core/engine/conservation';
 import { getNetAsset, BASE_CURRENCY } from '../ledger/netAsset.js';
-import { 账户Schema } from '@ai-life-sim/core';
+import { 账户Schema, 全局Schema } from '@ai-life-sim/core';
 import { TransferWorklist } from '../ledger/commit.js';
 import { runD20Check } from '../engine/check.js';
 import { RootSchema } from '@ai-life-sim/core';
@@ -495,6 +495,70 @@ function runBorrowRepayScenario(): Failure[] {
 	return fails;
 }
 
+/* ---- C1 约定库 应收==应付 守恒场景 ----
+ * DoD P7-4e: soak 含「应收==应付」进 Σ 守恒。
+ * 验证：双分录对应条目（应收==应付）在 getNetAsset 中相互抵消，
+ * 使得 Σ净值(with全局) == Σ净值(without全局) == 现金总额。
+ */
+function runC1CovenantScenario(): Failure[] {
+	const fails: Failure[] = [];
+	const add = (tick: number, invariant: string, detail: string) =>
+		fails.push({ run: -2, tick, seed: 0, invariant, detail: `[C1约定库] ${detail}` });
+
+	// 约定库：林九欠王掌柜 50 文
+	const 全局 = 全局Schema.parse({
+		约定库: {
+			'cov-loan-50': {
+				形式: '借款',
+				条款: [{ 内容: '欠款50文', 标的: '50', 履行状态: '待履行' }],
+				约束力: 100,
+			},
+		},
+	});
+
+	// 林九：持有 30·无应收·有应付 50 → 净值 = 30 - 50 = -20
+	const pcAcct = 账户Schema.parse({
+		持有: { [BASE_CURRENCY]: 30 },
+		_负债: { 'ln-1': 'cov-loan-50' },
+	});
+	// 王掌柜：持有 200·有应收 50·无应付 → 净值 = 200 + 50 = 250
+	const wangAcct = 账户Schema.parse({
+		持有: { [BASE_CURRENCY]: 200 },
+		_应收: { 'ln-1': 'cov-loan-50' },
+	});
+
+	const pcNetWith   = getNetAsset(pcAcct, 全局);
+	const wangNetWith = getNetAsset(wangAcct, 全局);
+	const sumWith     = pcNetWith + wangNetWith;  // -20 + 250 = 230
+
+	const pcNetWithout   = getNetAsset(pcAcct);    // 30（_负债不计入·无全局）
+	const wangNetWithout = getNetAsset(wangAcct);  // 200（_应收不计入·无全局）
+	const sumWithout     = pcNetWithout + wangNetWithout;  // 230
+
+	// 应收==应付 → 双分录相抵 → Σ 与无约定库时相等
+	if (sumWith !== sumWithout) {
+		add(0, 'C1应收=应付守恒',
+			`Σ净值(with全局)=${sumWith} ≠ Σ净值(without全局)=${sumWithout}（双分录相抵失败）`);
+	}
+
+	// 验证 C1 正确计入：林九净值 = 30 - 50 = -20
+	if (pcNetWith !== -20) {
+		add(0, 'C1应付扣减', `林九净值(with)=${pcNetWith}，期望 -20（30持有 - 50应付）`);
+	}
+
+	// 验证 C1 正确计入：王掌柜净值 = 200 + 50 = 250
+	if (wangNetWith !== 250) {
+		add(0, 'C1应收加算', `王掌柜净值(with)=${wangNetWith}，期望 250（200持有 + 50应收）`);
+	}
+
+	// 无全局时向后兼容：净值 = 现金
+	if (pcNetWithout !== 30) {
+		add(0, 'C1向后兼容', `林九净值(without)=${pcNetWithout}，期望 30（持有·忽略约定库）`);
+	}
+
+	return fails;
+}
+
 /* ---- CLI ---- */
 function parseArgs(argv: string[]) {
 	const get = (name: string, def: number) => {
@@ -508,6 +572,13 @@ function main() {
 	const { runs, ticks, seed: fixedSeed } = parseArgs(process.argv.slice(2));
 	const all: Failure[] = [];
 	let firstBadSeed: number | null = null;
+
+	// C1 约定库 应收==应付 守恒场景
+	const c1Fails = runC1CovenantScenario();
+	if (c1Fails.length) {
+		all.push(...c1Fails);
+		if (firstBadSeed === null) firstBadSeed = 0;
+	}
 
 	// 确定性借还闭环场景：独立于随机 fuzz 跑，先跑、先报
 	const scenarioFails = runBorrowRepayScenario();

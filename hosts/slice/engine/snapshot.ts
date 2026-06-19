@@ -21,13 +21,30 @@ export interface SliceTickLog {
   };
 }
 
+// ── P7-4b 边沿读取类型（上次观测值表 + 挂起命中队列）──────────────────────────────
+/** 上次观测值表 — 阈值触发边沿检测基线（拍首快照·悔棋须同步还原） */
+export interface ObservationEntry {
+  entityKey:     string;
+  attributePath: string;
+  observedValue: number;
+  observedAtTick: number;
+}
+
+/** 挂起命中队列 — 级联触发等待处理条目（拍首快照·悔棋须同步还原） */
+export interface PendingHit {
+  entityKey:   string;
+  triggerId:   string;
+  triggerType: '阈值' | '日期' | '标志' | '关系';
+  pendingSince: number;
+}
+
 // ── 拍前快照主体（进 ring buffer + 进存档体）─────────────────────────────────────
 export interface SliceSnapshot {
   tick:             number;
   balances:         Record<string, number>;   // entity_key → 文钱余额
   tick_log:         SliceTickLog[];
-  observationTable: unknown[];                // stub·M3 始终为空
-  pendingQueue:     unknown[];                // stub·M3 始终为空
+  observationTable: ObservationEntry[];       // P7-4b: 上次观测值表·悔棋须还原
+  pendingQueue:     PendingHit[];             // P7-4b: 挂起命中队列·悔棋须还原
 }
 
 // ── 存档文件（校验和 + 快照体）────────────────────────────────────────────────────

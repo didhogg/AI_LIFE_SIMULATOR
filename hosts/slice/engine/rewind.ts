@@ -3,15 +3,15 @@
 import type { SliceBalances } from '../ledger/state.js';
 import { bumpSalt } from './archive.js';
 import type { MinArchiveHeader } from './archive.js';
-import type { SnapshotRingBuffer, SliceTickLog } from './snapshot.js';
+import type { SnapshotRingBuffer, SliceTickLog, ObservationEntry, PendingHit } from './snapshot.js';
 
 export interface RewindUnit {
   balances:         SliceBalances;
   tick:             number;
   tick_log:         SliceTickLog[];
-  observationTable: unknown[];
-  pendingQueue:     unknown[];
-  header:           MinArchiveHeader; // 全局回滚计数器已 +1（不还原）
+  observationTable: ObservationEntry[];  // P7-4b: 还原拍前观测值表
+  pendingQueue:     PendingHit[];        // P7-4b: 还原拍前挂起命中队列
+  header:           MinArchiveHeader;   // 全局回滚计数器已 +1（不还原）
 }
 
 /**
@@ -32,8 +32,8 @@ export function rewindTick(
     balances:         new Map(Object.entries(snap.balances)) as SliceBalances,
     tick:             snap.tick,
     tick_log:         [...snap.tick_log],
-    observationTable: [],
-    pendingQueue:     [],
-    header:           bumpSalt(header), // 全局回滚计数器 +1，不回滚
+    observationTable: [...snap.observationTable],  // P7-4b: 还原拍前观测值表（防漂移）
+    pendingQueue:     [...snap.pendingQueue],       // P7-4b: 还原拍前挂起命中队列（防漂移）
+    header:           bumpSalt(header),            // 全局回滚计数器 +1，不回滚
   };
 }

@@ -159,9 +159,10 @@ function syncBalancesToState(): void {
 
 // ── runTick 委托（P7-2g·单一结算路径）─────────────────────────────────────────
 // 流程：balances Map → syncBalancesToState → runTick（守恒·幂等·涟漪·衰减）→ state 更新
+// P7-4 顺带：spanMinutes 参数化→读 state.世界._本拍跨度（D4 真实节拍源·不传则 runTick 读世界默认值）
 function commitViaRunTick(tickId: string): void {
   syncBalancesToState();
-  const result = runTick(state, { tickId, spanMinutes: 240 });
+  const result = runTick(state, { tickId });  // spanMinutes 由 state.世界._本拍跨度 提供（D4 节拍源）
   state = result.state;
 }
 
