@@ -127,6 +127,7 @@ const 物品条目Schema = z.object({
   到期: z.number().int().default(0), // 绝对纪元分钟；0 = 永久
   遗失保护: z.boolean().default(false),
   可携意象: z.array(意象条目Schema).default([]), // 6.29
+  物品状态: z.enum(['持有', '遗失', '销毁']).optional().default('持有'), // L-15·三态·零迁移
 });
 
 const 衣物槽Schema = z.object({
@@ -397,7 +398,7 @@ export const NpcSchema = z.object({
   外貌: z.string().default(''),
   背景: z.string().default(''),
   备注: z.string().default(''),
-  存活状态: z.string().default('在世'),
+  存活状态: z.enum(['在世', '失踪', '已故']).default('在世'),
   死亡时间: z.number().int().default(0), // 绝对纪元分钟；0 = 健在
   死因: z.string().default(''),
   位置: z.string().default(''),    // 节点键（原主角位置/轨迹挂到此处）

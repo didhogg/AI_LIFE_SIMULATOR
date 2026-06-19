@@ -8,6 +8,7 @@ import type { RootState } from '../../schema/index.js';
 import { deriveModAwareWhitelist, type DerivedEntry } from '../../loader/modWhitelist.js';
 import { computeLoadOrder } from '../../loader/modGraph.js';
 import { getM3Violation } from '../../interfaces/patchInvariant.js';
+import { isLegalCharTransition, isLegalItemTransition } from '../../interfaces/itemCharStateInvariant.js';
 import { checkM2Violation } from '../../interfaces/authGate.js';
 import { checkC6SeatScope } from '../../interfaces/seatScope.js';
 import { mergeInterventionDeltas, type K5DeltaEntry } from '../../interfaces/interventionMerge.js';
@@ -113,6 +114,35 @@ export function runProposalGate(
     const m3 = getM3Violation(path, op, oldVal, newVal);
     if (m3 !== null) {
       return { ok: false, gate: '③-M3', reason: m3, state: snapshot };
+    }
+
+    // Gate③-L15: 存活状态/物品状态 不可逆转移（L-15·fail-closed·同 M3 pattern）
+    const lastPathSeg = path.split('.').pop() ?? '';
+    if (op === 'set' && (lastPathSeg === '存活状态' || lastPathSeg === '物品状态')) {
+      const oldStr = typeof oldVal === 'string' ? oldVal : undefined;
+      const newStr = typeof value === 'string' ? value : '';
+      if (lastPathSeg === '存活状态') {
+        const hasRevivalFlag = envelope.转域续命授权 === true;
+        if (!isLegalCharTransition(oldStr, newStr, { hasRevivalFlag })) {
+          const hint = oldStr === '已故' && !hasRevivalFlag ? '（已故→在世 需转域续命授权）' : '';
+          return {
+            ok: false,
+            gate: '③-L15',
+            reason: `L-15: 存活状态非法转移「${String(oldStr)}」→「${newStr}」${hint}`,
+            state: snapshot,
+          };
+        }
+      }
+      if (lastPathSeg === '物品状态') {
+        if (!isLegalItemTransition(oldStr, newStr)) {
+          return {
+            ok: false,
+            gate: '③-L15',
+            reason: `L-15: 物品状态非法转移「${String(oldStr)}」→「${newStr}」`,
+            state: snapshot,
+          };
+        }
+      }
     }
   }
 
