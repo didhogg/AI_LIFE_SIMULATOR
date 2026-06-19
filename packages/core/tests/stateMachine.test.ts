@@ -1118,3 +1118,82 @@ describe('P0-4 D2·死亡时刻双登记接口（6.54）', () => {
     expect(dual!.域钟读数).toBe(1200);
   });
 });
+
+// ── G1·P0-4 元层开关走组边界（I-a·专项·bugs.md:167）──────────────────────────
+// 元层写入 → FIFO 队列累积（本拍不生效）；指令组边界 → 整批 flush 给宿主
+// 操作标签用测试本地占位 tag（拍板：不命名抢话/视角/观战/二审正式串）
+
+describe('P0-4 G1·元层开关走组边界（I-a·专项）', () => {
+  it('连续多个元层写入 → 全部 FIFO 入队、拍内中途无执行效果', () => {
+    const s0 = base();
+    const r1 = dispatch(s0, { type: '元层写入', 操作: 'G1_ctrl_alpha', 幂等键: 'k-α' });
+    const r2 = dispatch(r1.新机器状态, { type: '元层写入', 操作: 'G1_ctrl_beta', 幂等键: 'k-β' });
+    const r3 = dispatch(r2.新机器状态, { type: '元层写入', 操作: 'G1_ctrl_gamma' });
+
+    // FIFO 累积顺序恒等
+    expect(r3.新机器状态.元层写队列).toEqual([
+      { 操作: 'G1_ctrl_alpha', 幂等键: 'k-α' },
+      { 操作: 'G1_ctrl_beta', 幂等键: 'k-β' },
+      { 操作: 'G1_ctrl_gamma' },
+    ]);
+
+    // 每次 dispatch 结果中均无「执行」效果——写入仅入队，不立即生效
+    for (const r of [r1, r2, r3]) {
+      expect(r.效果指令.some(f => f.type === '执行元层写队列')).toBe(false);
+    }
+
+    // 机器状态基础态不变
+    expect(r3.新机器状态.当前态).toBe(s0.当前态);
+    expect(r3.新机器状态.模态栈).toEqual(s0.模态栈);
+  });
+
+  it('指令组边界 → 整批一次性 flush 给宿主 + 队列清空（FIFO 顺序恒等）', () => {
+    const s1 = go(base(), '元层写入', { 操作: 'G1_ctrl_alpha', 幂等键: 'k-α' });
+    const s2 = go(s1, '元层写入', { 操作: 'G1_ctrl_beta', 幂等键: 'k-β' });
+    const s3 = go(s2, '元层写入', { 操作: 'G1_ctrl_gamma' });
+
+    const result = dispatch(s3, { type: '指令组边界' });
+
+    expect(result.新机器状态.元层写队列).toEqual([]);
+
+    const batchFx = result.效果指令.find(f => f.type === '执行元层写队列') as
+      { type: string; 条目: { 操作: string; 幂等键?: string }[] } | undefined;
+    expect(batchFx).toBeDefined();
+    expect(batchFx!.条目).toEqual([
+      { 操作: 'G1_ctrl_alpha', 幂等键: 'k-α' },
+      { 操作: 'G1_ctrl_beta', 幂等键: 'k-β' },
+      { 操作: 'G1_ctrl_gamma' },
+    ]);
+  });
+
+  it('元层写绝不在指令组边界前生效 — 未 flush 队列阻断安全接缝（堵 silent fallthrough）', () => {
+    // 非空队列 → 读档须 ERR_UNSAFE_SEAM（G5 安全接缝门规·第三条：指令组已提交）
+    const withPending = go(base(), '元层写入', { 操作: 'G1_ctrl_alpha' });
+    expectCode(() => go(withPending, '读档'), 'ERR_UNSAFE_SEAM');
+
+    // flush 后队列清空 → 安全接缝通过（写入真正生效权交宿主，机器侧视队列为空）
+    const flushed = go(withPending, '指令组边界');
+    expect(() => go(flushed, '读档')).not.toThrow();
+  });
+
+  it('同一拍内多组 元层写入→指令组边界 循环确定性（纯函数·跨调用恒等）', () => {
+    const runGroup = (s0: StateMachineState, ops: string[]) => {
+      let s = s0;
+      for (const op of ops) s = go(s, '元层写入', { 操作: op });
+      return dispatch(s, { type: '指令组边界' });
+    };
+
+    // 纯函数：相同初态 + 相同序列 → 相同输出
+    const rA = runGroup(base(), ['G1_ctrl_alpha', 'G1_ctrl_beta']);
+    const rB = runGroup(base(), ['G1_ctrl_alpha', 'G1_ctrl_beta']);
+    expect(rA.新机器状态).toEqual(rB.新机器状态);
+    expect(rA.效果指令).toEqual(rB.效果指令);
+
+    // 多轮：第二组 flush 仅含第二组条目（第一组已清，不跨组混入）
+    const afterRound1 = rA.新机器状态;
+    const rC = runGroup(afterRound1, ['G1_ctrl_gamma']);
+    const batchFx = rC.效果指令.find(f => f.type === '执行元层写队列') as
+      { type: string; 条目: { 操作: string }[] } | undefined;
+    expect(batchFx!.条目).toEqual([{ 操作: 'G1_ctrl_gamma' }]);
+  });
+});
