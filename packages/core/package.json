@@ -14,6 +14,8 @@
     "./engine/proposal/computeDelta": "./engine/proposal/computeDelta.ts",
     "./interfaces/interventionMerge": "./interfaces/interventionMerge.ts",
     "./engine/conservation": "./engine/conservation.ts",
+    "./engine/netAsset": "./engine/netAsset.ts",
+    "./engine/tick": "./engine/tick.ts",
     "./replay": "./replay/index.ts"
   },
   "dependencies": {

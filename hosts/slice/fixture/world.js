@@ -3,12 +3,13 @@
 // 样例世界（纵切 MVP fixture）：1 主角 + 2 NPC + 1 地点 + 1 秘密。
 //
 // 唯一职责 = 定义并导出「世界常量 + buildWorld()」，供 server.ts / index.ts /
-// assemble.ts 消费。本文件【只描述样例数据】，绝不含 server / HTTP / 结算 / 闸逻辑。
+// assemble.js 消费。本文件【只描述样例数据】，绝不含 server / HTTP / 结算 / 闸逻辑。
 //
 // 铁律对齐：实体键是稳定结构键（禁随显示名漂移）；能派生的不在此存储；
 // SAVE_SEED / RECIPE 这些判定输入是确定性重放的取材，改动需 bump 指纹。
 // ──────────────────────────────────────────────────────────────────────────────
 import { RootSchema, SINK_ENTITY_KEY } from '@ai-life-sim/core';
+import { getNetAsset } from '@ai-life-sim/core/engine/netAsset';
 // ── 实体键（稳定结构键）─────────────────────────────────────────────────────────
 export const PC = "pc_linjiu";
 export const NPC_WANG = "npc_wang";
@@ -32,13 +33,28 @@ export const RECIPE = {
 // ── 赊账参数：王掌柜垫 8 文等值酒菜给林九 ──────────────────────────────────────────
 export const CREDIT_AMOUNT = 8;
 export const CREDIT_REASON = "赊账·酒菜";
+// ── 货币单位（显示用后缀）：规范单位「文」，与 CANONICAL_UNITS / index.ts 账面打印一致 ────────────
+export const CURRENCY = "文";
 // ── 初始账本余额（P0-7 守恒接线·与 INITIAL_BALANCES in server.ts 同口径）────────────
 export const INITIAL_PC_BALANCE = 30;
 export const INITIAL_WANG_BALANCE = 200;
 export const INITIAL_HONG_BALANCE = 0;
-export const EXPECTED_NET_ASSET = INITIAL_PC_BALANCE + INITIAL_WANG_BALANCE + INITIAL_HONG_BALANCE;
-// ── 货币单位（显示用后缀）：规范单位「文」，与 CANONICAL_UNITS / index.ts 账面打印一致 ────────────
-export const CURRENCY = "文";
+// C2 carry-in：实算初始 Σ 净值（非硬编码·使用 getNetAsset 实际口径）
+// golden 断言 ==230：初始账本余额漂移时模块加载即报错（防静默漂移）
+export const EXPECTED_NET_ASSET = (() => {
+    const balances = [
+        [PC, INITIAL_PC_BALANCE],
+        [NPC_WANG, INITIAL_WANG_BALANCE],
+        [NPC_HONG, INITIAL_HONG_BALANCE],
+        [SINK_ENTITY_KEY, 0],
+    ];
+    const total = balances.reduce((s, [, bal]) => {
+        const mockAcct = { 持有: { [CURRENCY]: bal }, 储蓄: {}, 资产: [], _应收: {}, _负债: {}, _费用: { 总额: 0, 明细: {} }, 被动收入来源: {}, 本期收入: { 总额: 0, 明细: {} }, 本期支出: { 总额: 0, 明细: {} } };
+        return s + getNetAsset(mockAcct);
+    }, 0);
+    if (total !== 230) throw new Error(`[golden] EXPECTED_NET_ASSET=${total} ≠ 230（初始账本余额已漂移）`);
+    return total;
+})();
 // ── 秘密库（知情过滤 filterSecretsForPOV 的输入）────────────────────────────────
 export const SECRET_S1 = "S1";
 const 秘密库 = {

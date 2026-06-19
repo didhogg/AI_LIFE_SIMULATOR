@@ -13,6 +13,7 @@
 
 import { RootSchema, SINK_ENTITY_KEY } from "@ai-life-sim/core";
 import type { 秘密库条目Type, RootState } from "@ai-life-sim/core";
+import { getNetAsset } from "@ai-life-sim/core/engine/netAsset";
 
 // ── 实体键（稳定结构键）─────────────────────────────────────────────────────────
 export const PC = "pc_linjiu";
@@ -42,15 +43,30 @@ export const RECIPE = {
 export const CREDIT_AMOUNT = 8;
 export const CREDIT_REASON = "赊账·酒菜";
 
+// ── 货币单位（显示用后缀）：规范单位「文」，与 CANONICAL_UNITS / index.ts 账面打印一致 ────────────
+export const CURRENCY = "文";
+
 // ── 初始账本余额（P0-7 守恒接线·与 INITIAL_BALANCES in server.ts 同口径）────────────
 export const INITIAL_PC_BALANCE = 30;
 export const INITIAL_WANG_BALANCE = 200;
 export const INITIAL_HONG_BALANCE = 0;
-// 预期净值 = Σ 初始持有（含 __sink__=0）；getNetAsset MVP 单币种·_应收/_应付 defer
-export const EXPECTED_NET_ASSET = INITIAL_PC_BALANCE + INITIAL_WANG_BALANCE + INITIAL_HONG_BALANCE;
-
-// ── 货币单位（显示用后缀）：规范单位「文」，与 CANONICAL_UNITS / index.ts 账面打印一致 ────────────
-export const CURRENCY = "文";
+// C2 carry-in：实算初始 Σ 净值（非硬编码·使用 getNetAsset 实际口径）
+// golden 断言 ==230：初始账本余额漂移时模块加载即报错（防静默漂移）
+export const EXPECTED_NET_ASSET: number = (() => {
+	const balances: [string, number][] = [
+		[PC, INITIAL_PC_BALANCE],
+		[NPC_WANG, INITIAL_WANG_BALANCE],
+		[NPC_HONG, INITIAL_HONG_BALANCE],
+		[SINK_ENTITY_KEY, 0],
+	];
+	const total = balances.reduce((s, [, bal]) => {
+		// getNetAsset MVP: 持有[CURRENCY] + 储蓄 + 存货估值（mock 账户对象只含持有）
+		const mockAcct = { 持有: { [CURRENCY]: bal }, 储蓄: {}, 资产: [], _应收: {}, _负债: {}, _费用: { 总额: 0, 明细: {} }, 被动收入来源: {}, 本期收入: { 总额: 0, 明细: {} }, 本期支出: { 总额: 0, 明细: {} } };
+		return s + getNetAsset(mockAcct as Parameters<typeof getNetAsset>[0]);
+	}, 0);
+	if (total !== 230) throw new Error(`[golden] EXPECTED_NET_ASSET=${total} ≠ 230（初始账本余额已漂移）`);
+	return total;
+})();
 
 // ── 秘密库（知情过滤 filterSecretsForPOV 的输入）────────────────────────────────
 // 字段严格对齐 @ai-life-sim/core 的 秘密库条目Schema（每项都有 default，但 z.infer 输出
