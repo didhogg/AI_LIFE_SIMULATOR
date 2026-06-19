@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# HEAD=b72b1d1（M-a/M-b 待落 commit） | 焊死状态=未焊 | 更新=2026-06-19/CC-M纵切窗口
+# HEAD=cd5d4fb | 焊死状态=已焊候选（待 Notion 审计确认） | 更新=2026-06-19/CC-M纵切窗口
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -25,7 +25,11 @@
   - Gate验证路径：①信封parse(提案:{}) · ②白名单+seatId · ③M2(天命→拒绝·gate=③-M2) · ④computeDelta(add·proposedValue=150) · ④clampLedger({value,exceeded}) · ④mergeInterventionDeltas(max_delta取严=80) · ⑤原子提交(state=130·原state=100不变)
   - 黄金窗口缺口：零新增（M-a发现assemble.ts B5.5路径错误已修·world.ts类型债已清·均已在bugs.md历史记录中）
   - 场景固化：mIntegration.test.ts = slice层 fixture（REPLAY-01/C2在packages/core红线内·不新增）
-- [ ] M-d · 焊死信心签收（端到端逐位恒等绿+黄金窗口零新增缺口→回报供Notion审计·候选） · 判据=M-c完成 · 红线?否
+- [x] M-d · 焊死信心签收 · commit=cd5d4fb（M-a）/ 5bc64d3（docs）
+  - 端到端：2571/2571 pass · REPLAY-01=24 · C2=17 · 指纹=84 · 黄金向量逐位恒等（「黄金向量·种子 1/2/3 hex 值固定」C2 测试通过）
+  - 黄金窗口：零新增缺口（M-a 修复项均已在 bugs.md 历史条目中有记录）
+  - 结论：**P0-6 焊死信心 ✅** — 导入闸 + 五道闸 weld 契约当前态确定性/回放/指纹基线已锁
+  - 候选回报：供 Notion P06 主战场审计确认后正式焊死 → 转 P0-7-start
 - [ ] P0-7-start · 结算管线起步（守恒接线getNetAsset→runTick/sink物化/\_费用accrual·侦察先行） · 判据=M-d绿后·守恒接线绿·REPLAY/C2不破·hosts/gate.ts本体零diff · 红线?gate.ts本体勿碰
 - [ ] F-b · handlerRef进指纹+AA6「改side_effects集→指纹变」断言（rng.ts additive-only已授权） · 判据=rng.ts扩optional签名·断言绿·指纹84/17不破 · 红线?rng.ts函数体不改·仅扩optional参数
 - [ ] D-a · lore谓词冻结+受控接口能力集(R6 a-d/R10)+Y13+IM3+保真度三档落血统（DSL parser拍板3已授权） · 判据=DSL parser实装后·lore导入闸绿 · 红线?否
