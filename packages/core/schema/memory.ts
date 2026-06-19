@@ -29,6 +29,8 @@ export const 记忆条目Schema = z.object({
   关联NPC: z.array(z.string()).default([]),
   情绪基调: z.string().default(''),
   思念权重: z.number().min(0).max(100).default(0),
+  // L-4 · 重要度分（importance score·0-100·default 50）= 召回排序主权重。
+  // LLM 创建记忆时写入此字段；P0-7 接线后读取排序；L-21（冻结+指纹）依赖本字段先完成数值化（已满足）。
   权重: z.number().min(0).max(100).default(50),
   上次浮现时间: z.number().int().default(0),
   可浮现: z.boolean().default(true),

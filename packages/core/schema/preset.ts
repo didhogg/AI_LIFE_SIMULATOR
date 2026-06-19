@@ -21,6 +21,15 @@ const 发育阶段Schema = z.object({
   起始年龄分钟: z.number().int().min(0).default(0), // 相对纪元分钟
   结束年龄分钟: z.number().int().min(0).optional(),
   属性系数: z.record(z.string(), z.number()).default({}),
+}).superRefine((data, ctx) => {
+  // L-25 跨字段语义：结束年龄分钟须严格 > 起始年龄分钟（结构有效≠语义合法·防「零时长/逆序」阶段）
+  if (data.结束年龄分钟 !== undefined && data.结束年龄分钟 <= data.起始年龄分钟) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['结束年龄分钟'],
+      message: `发育阶段: 结束年龄分钟 (${data.结束年龄分钟}) 须 > 起始年龄分钟 (${data.起始年龄分钟})`,
+    });
+  }
 });
 
 export const 种族模板Schema = z.record(

@@ -1148,6 +1148,17 @@ export function backfill货币账户PerEntity(raw: Record<string, unknown>): Rec
   return raw; // 其他未知形态 → no-op
 }
 
+// ── Phase-L Step-1b 新字段幂等说明（L-12 横切·零 migration_version bump）──────────────────
+// 涉及字段：印象条目.观测拍号 / 地点条目.{容量,营业时间,活动类型,可行走}
+// 全为 .optional()·旧档经 RootSchema.parse 后对应字段 = undefined·Zod 自动处理·无需结构写入。
+// 幂等：字段已存在则 no-op；不 bump migration_version（pure-optional·零迁移 = L-12 约束已满足）。
+// 「迁移推定」标注：印象条目已有 来源 字段承载来源（旧档迁移时标「迁移推定」·见 build认知档案）；
+// 观测拍号/地点三字段为工具占位字段·无独立来源标注需求。
+export function backfillPhaseL1b(raw: Record<string, unknown>): Record<string, unknown> {
+  // pure-optional fields — Zod parse handles absence; no structural write needed
+  return raw;
+}
+
 // ── migrate (public entry) ─────────────────────────────────────────────────────
 
 export function migrate(input: unknown): MigrateResult {
@@ -1155,7 +1166,7 @@ export function migrate(input: unknown): MigrateResult {
   // buildV41Raw already emits new key names; applyPrefixRenames is a no-op here
   // but is exported for callers who load existing V4.1 saves with old key names.
   // Within-v4.1 migrations run here (after buildV41Raw v4.1 early-return path).
-  const rawMigrated = backfill货币账户PerEntity(backfillPackId(migrateS1S1b(migrate内容分级位置(raw))));
+  const rawMigrated = backfillPhaseL1b(backfill货币账户PerEntity(backfillPackId(migrateS1S1b(migrate内容分级位置(raw)))));
   let state: RootState = RootSchema.parse(normalizeRegistryKeyNames(rawMigrated)); // S3 读卡口
 
   // Community-gate self-heal: 内容分级 !== 'community' 时强制 允许玩家覆盖=false，不 throw

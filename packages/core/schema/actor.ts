@@ -545,6 +545,9 @@ const 印象条目Schema = z.object({
   来源: z.string().default(''),
   获知时间: z.number().int().default(0), // 绝对纪元分钟
   衰减速率: z.number().min(0).default(0),
+  // L-2a · 观测行为发生时刻（绝对纪元分钟·⊥「获知时间」·optional·零迁移）
+  // 获知时间 = 信息传入认知的时刻；观测拍号 = 观测行为实际发生的时刻（可早于获知时间）
+  观测拍号: z.number().int().optional(),
 });
 
 const 认知档案条目Schema = z.object({

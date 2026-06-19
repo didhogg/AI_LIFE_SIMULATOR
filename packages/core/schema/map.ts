@@ -28,6 +28,15 @@ const 相邻条目Schema = z.object({
   目标: z.string().default(''),    // 目标地点键
   方式: z.string().optional(),     // 徒步/水路/传送…
   距离: z.number().min(0).optional(), // 抽象距离，单位由预设定义
+}).superRefine((data, ctx) => {
+  // L-25 跨字段语义：方式/距离给出时目标不得为空串（结构有效≠语义合法·防悬空边）
+  if ((data.方式 !== undefined || data.距离 !== undefined) && data.目标 === '') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['目标'],
+      message: '相邻条目: 已指定方式/距离时目标不得为空串',
+    });
+  }
 });
 
 const 地点条目Schema = z.object({
@@ -69,6 +78,12 @@ const 地点条目Schema = z.object({
   }).optional(),
   // 6.42 分区惰性·进区才展开下级占位
   分区键: z.string().optional(),
+  // L-5 · 地点物理规范（optional·零迁移·⊥「大小:string」描述串）
+  容量: z.number().int().min(0).optional(),   // 最大同时在场人数
+  营业时间: z.string().optional(),             // 开放串·如「08:00-22:00」
+  活动类型: z.string().optional(),             // '单人'/'双人'/'多人'（开放串）
+  // L-3a · 可行走性标记（optional·零迁移·引擎可读·⊥ 前端绘图字段）
+  可行走: z.boolean().optional(),
 });
 
 // ══════════════════════════════════════════
