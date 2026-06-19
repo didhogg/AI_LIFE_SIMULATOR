@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# HEAD=a7c3f69 | 焊死状态=已焊候选（待 Notion 审计确认） | 更新=2026-06-19/CC-M纵切窗口
+# HEAD=a7c3f69 | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-19/CC-P0-7-start窗口
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -30,7 +30,8 @@
   - 黄金窗口：零新增缺口（M-a 修复项均已在 bugs.md 历史条目中有记录）
   - 结论：**P0-6 焊死信心 ✅** — 导入闸 + 五道闸 weld 契约当前态确定性/回放/指纹基线已锁
   - 候选回报：供 Notion P06 主战场审计确认后正式焊死 → 转 P0-7-start
-- [ ] P0-7-start · 结算管线起步（守恒接线getNetAsset→runTick/sink物化/\_费用accrual·侦察先行） · 判据=M-d绿后·守恒接线绿·REPLAY/C2不破·hosts/gate.ts本体零diff · 红线?gate.ts本体勿碰
+- [x] P0-6 DONE · 导入闸+五道闸 weld 契约正式封存 · tag=p0-6-frozen @ a7c3f69 · schemaKeys=52·指纹=84/17·黄金向量 5c1d0233/63b3e729/db10d5c7 · Notion审计签收 2026-06-19
+- [ ] P0-7-start Step 0 · 守恒接线侦察（只读·待拍板） · 判据=Step0回报→玩家拍板接线口径后实装 · 红线?gate.ts本体勿碰
 - [ ] F-b · handlerRef进指纹+AA6「改side_effects集→指纹变」断言（rng.ts additive-only已授权） · 判据=rng.ts扩optional签名·断言绿·指纹84/17不破 · 红线?rng.ts函数体不改·仅扩optional参数
 - [ ] D-a · lore谓词冻结+受控接口能力集(R6 a-d/R10)+Y13+IM3+保真度三档落血统（DSL parser拍板3已授权） · 判据=DSL parser实装后·lore导入闸绿 · 红线?否
 - [ ] D-b · DSL v1文法冻结（照冻结清单M·1 EBNF）+S-1 fixture gate（向后兼容已拍板·只补gate） · 判据=DSL parser实装后·v1表达式当前文法parse过且求值恒等 · 红线?否
