@@ -19,8 +19,12 @@
 //   5. Output is deterministic: derived entries sorted by 命名空间 then 规范键 asc.
 //   6. Disabled mods (启用===false) are excluded.
 //
+// onConflict (C1 G-c): called when two mods claim the same (规范键, 命名空间);
+//   winner = the mod that wins the arbitration; loser = the mod that is dropped.
+//   Deterministic: always called in priority-then-codepoint order.
+//
 // Returns the same reference if nothing was added (fast path for empty registries).
-export function populateGoverneKeyRegistry(modRegistry, existingRegistry) {
+export function populateGoverneKeyRegistry(modRegistry, existingRegistry, onConflict) {
     const existing = existingRegistry.键条目 ?? [];
     // Set of "规范键|命名空间" keys already in hand-crafted entries (highest priority)
     const existingSet = new Set(existing.map(e => `${e.规范键}|${e.命名空间}`));
@@ -49,8 +53,16 @@ export function populateGoverneKeyRegistry(modRegistry, existingRegistry) {
         // Explicit 命名空间键声明 (D1: author priority over auto-enumerate)
         for (const decl of mod.命名空间键声明 ?? []) {
             const key = `${decl.规范键}|${decl.命名空间}`;
-            if (existingSet.has(key) || derived.has(key))
-                continue; // already claimed by higher/earlier
+            if (existingSet.has(key))
+                continue; // hand-crafted entries always win; no conflict log
+            if (derived.has(key)) {
+                // C1 G-c: conflict detected — loser is current mod (lower priority/later codepoint)
+                if (onConflict) {
+                    const winner = derived.get(key).来源包 ?? '?';
+                    onConflict(decl.规范键, decl.命名空间, winner, mod.pack_id);
+                }
+                continue;
+            }
             derived.set(key, {
                 ...decl,
                 来源包: decl.来源包 ?? mod.pack_id,

@@ -1150,6 +1150,132 @@ export function checkGoverneRegistryMembership(state, log) {
         }
     }
 }
+// ── C2·G-c 母题写入口注册闸（fail-open·MigLog warn）────────────────────────────
+//
+// 梯队C 检查：在 G-b populate 之后，当 registry '母题' 命名空间有注册条目时，
+// 校验 state 中出现的母题字符串是否已注册（fail-open·降级非拒收·D4 统一口径）。
+//
+// 扫描位置（优先级由高到低）：
+//   · _叙事设置.母题权重（record key）
+//   · 全局.母题（open string）
+//   · _lore知识库 递归扫 '母题' / '母题标签' 字段（depth ≤ 6·确定性）
+//
+// fast-exit: '母题' 命名空间在 registry 中无条目 → 直接返回（fail-open）
+// 绝不 throw；绝不 mutate state；迭代 sorted keys 保证重放恒等。
+export function checkMotifRegistration(state, log) {
+    const entries = state.受治理键空间注册表.键条目 ?? [];
+    const motifEntries = entries.filter(e => e.命名空间 === '母题');
+    if (motifEntries.length === 0)
+        return; // fast exit: no motif registry → fail-open
+    const registeredMotifs = new Set(motifEntries.filter(e => e.停用 !== true).map(e => e.规范键));
+    function warnMotif(path, motif) {
+        if (!registeredMotifs.has(motif)) {
+            log.push({
+                level: 'warn',
+                path,
+                msg: `G-c母题未注册: 母题「${motif}」未在受治理键空间注册（降级非拒收）`,
+            });
+        }
+    }
+    // _叙事设置.母题权重 keys
+    const 权重 = state._叙事设置?.['母题权重'];
+    if (权重 !== null && typeof 权重 === 'object' && !Array.isArray(权重)) {
+        for (const k of Object.keys(权重).sort())
+            warnMotif('_叙事设置.母题权重', k);
+    }
+    // 全局.母题 (open string)
+    const 全局 = state.全局;
+    if (typeof 全局?.['母题'] === 'string' && 全局['母题'] !== '') {
+        warnMotif('全局.母题', 全局['母题']);
+    }
+    // _lore知识库: recursive scan for '母题' and '母题标签' fields
+    const lore = state._lore知识库;
+    if (!lore || typeof lore !== 'object')
+        return;
+    function scanNode(path, node, depth) {
+        if (depth > 6 || node === null || typeof node !== 'object')
+            return;
+        if (Array.isArray(node)) {
+            node.forEach((item, i) => scanNode(`${path}[${i}]`, item, depth + 1));
+            return;
+        }
+        const rec = node;
+        // Single 母题 string field
+        if (typeof rec['母题'] === 'string' && rec['母题'] !== '') {
+            warnMotif(`${path}.母题`, rec['母题']);
+        }
+        // 母题标签 array
+        if (Array.isArray(rec['母题标签'])) {
+            rec['母题标签'].forEach((m, i) => {
+                if (typeof m === 'string' && m !== '')
+                    warnMotif(`${path}.母题标签[${i}]`, m);
+            });
+        }
+        // Recurse (skip already-handled keys)
+        for (const k of Object.keys(rec).sort()) {
+            if (k === '母题' || k === '母题标签')
+                continue;
+            scanNode(`${path}.${k}`, rec[k], depth + 1);
+        }
+    }
+    for (const k of Object.keys(lore).sort()) {
+        scanNode(`_lore知识库.${k}`, lore[k], 0);
+    }
+}
+// ── C3/C4·G-e S5 规则引用完整性扫描扩维（fail-open·MigLog warn）────────────────
+//
+// 梯队C 检查（G-e 扩维）：在 G-b populate 之后，扫描 _lore知识库 中任意深度的
+// 字符串值，若其精确匹配 registry 中 停用=true 的治理键（非 sideEffect/cascade/拦截器
+// 句柄命名空间·那些由 S6 处理），则警示「停用键被规则引用」。
+//
+// 设计：「被规则引用的键即冻结」——若已停用但仍被引用，提示应恢复或清理引用。
+//
+// fast-exit：registry 无停用非句柄条目 → 直接返回（fail-open）
+// handler 命名空间（sideEffect句柄/cascade句柄/拦截器句柄）由 S6 处理·本函数跳过。
+// 迭代 sorted keys 保证重放恒等（C4）。
+export function checkDisabledRuleKeyRefs(state, log) {
+    const HANDLER_NS = new Set(['sideEffect句柄', 'cascade句柄', '拦截器句柄']);
+    const entries = state.受治理键空间注册表.键条目 ?? [];
+    const disabledKeys = new Set(entries.filter(e => e.停用 === true && !HANDLER_NS.has(e.命名空间))
+        .map(e => e.规范键));
+    if (disabledKeys.size === 0)
+        return; // fast exit: no disabled non-handler keys
+    const lore = state._lore知识库;
+    if (!lore || typeof lore !== 'object')
+        return;
+    function scanNode(path, node, depth) {
+        if (depth > 8 || node === null || typeof node !== 'object')
+            return;
+        if (typeof node === 'string')
+            return; // guard (shouldn't reach here via recursion)
+        if (Array.isArray(node)) {
+            node.forEach((item, i) => {
+                if (typeof item === 'string' && disabledKeys.has(item)) {
+                    log.push({ level: 'warn', path: `${path}[${i}]`, msg: `G-e停用键被规则引用: 「${item}」已停用但仍被引用（降级非拒收）` });
+                }
+                else {
+                    scanNode(`${path}[${i}]`, item, depth + 1);
+                }
+            });
+            return;
+        }
+        const rec = node;
+        for (const k of Object.keys(rec).sort()) {
+            const v = rec[k];
+            if (typeof v === 'string') {
+                if (disabledKeys.has(v)) {
+                    log.push({ level: 'warn', path: `${path}.${k}`, msg: `G-e停用键被规则引用: 「${v}」已停用但仍被引用（降级非拒收）` });
+                }
+            }
+            else {
+                scanNode(`${path}.${k}`, v, depth + 1);
+            }
+        }
+    }
+    for (const k of Object.keys(lore).sort()) {
+        scanNode(`_lore知识库.${k}`, lore[k], 0);
+    }
+}
 // ── migrate (public entry) ─────────────────────────────────────────────────────
 export function migrate(input) {
     const { raw, log } = buildV41Raw(input);
@@ -1270,9 +1396,16 @@ export function migrate(input) {
     // G-b·mod生态路径II: populate 受治理键空间注册表 from mod entries
     // IM3-D1: pack_id auto-enrolled in 'mod包' namespace
     // G-c: conflict resolution = higher 优先级 wins; codepoint 字典序 tiebreaker
+    // C1: onConflict callback logs G-c仲裁 warn for losing mods (降级非拒收)
     // Runs after E-e (tombstone passes complete) so only accepted mods contribute.
     {
-        const populated = populateGoverneKeyRegistry(state.mod注册表, state.受治理键空间注册表);
+        const populated = populateGoverneKeyRegistry(state.mod注册表, state.受治理键空间注册表, (key, ns, winner, loser) => {
+            log.push({
+                level: 'warn',
+                path: `mod注册表.${loser}.命名空间键声明`,
+                msg: `G-c仲裁: 「${key}」(${ns}) 由「${winner}」胜出·「${loser}」声明被丢弃（降级非拒收·D3 策略）`,
+            });
+        });
         if (populated !== state.受治理键空间注册表) {
             state = { ...state, 受治理键空间注册表: populated };
         }
@@ -1304,5 +1437,9 @@ export function migrate(input) {
     checkS6UnregisteredHandlerRefs(state, log);
     // G-d-registry·可写键路径叶段成员资格检查（fail-open·降级非拒收·梯队B）
     checkGoverneRegistryMembership(state, log);
+    // G-c·母题写入口注册闸（fail-open·降级非拒收·梯队C C2）
+    checkMotifRegistration(state, log);
+    // G-e·S5规则引用完整性扫描扩维·停用键被规则引用（fail-open·降级非拒收·梯队C C3/C4）
+    checkDisabledRuleKeyRefs(state, log);
     return { state, log };
 }

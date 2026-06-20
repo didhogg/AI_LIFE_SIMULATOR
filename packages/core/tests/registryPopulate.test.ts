@@ -13,6 +13,8 @@ import { populateGoverneKeyRegistry } from '../engine/registryPopulate.js';
 import {
   checkS6UnregisteredHandlerRefs,
   checkGoverneRegistryMembership,
+  checkMotifRegistration,
+  checkDisabledRuleKeyRefs,
   type MigLog,
 } from '../migration/migrate.js';
 import { RootSchema } from '../schema/index.js';
@@ -642,5 +644,333 @@ describe('migrate() integration — G-b populate via migrate()', () => {
       .find(e => e.规范键 === 'test_pkg' && e.命名空间 === 'mod包');
     expect(pkgEntry).toBeDefined();
     expect(pkgEntry!.来源包).toBe('test_pkg');
+  });
+});
+
+// ─── C1: G-c 跨包仲裁冲突日志 ───────────────────────────────────────────────
+
+describe('populateGoverneKeyRegistry — C1 G-c conflict logging', () => {
+  it('C1: no conflict → onConflict never called', () => {
+    const conflicts: { key: string; ns: string; winner: string; loser: string }[] = [];
+    populateGoverneKeyRegistry(
+      {
+        a_mod: makeMod('a_mod', {
+          命名空间键声明: [{ 规范键: 'gold', 命名空间: '币种' as const }],
+        }),
+        b_mod: makeMod('b_mod', {
+          命名空间键声明: [{ 规范键: 'silver', 命名空间: '币种' as const }],
+        }),
+      },
+      emptyRegistry() as any,
+      (key, ns, winner, loser) => conflicts.push({ key, ns, winner, loser }),
+    );
+    expect(conflicts).toHaveLength(0);
+  });
+
+  it('C1: same key+ns claimed by two mods → onConflict called for loser', () => {
+    const conflicts: { key: string; ns: string; winner: string; loser: string }[] = [];
+    populateGoverneKeyRegistry(
+      {
+        // a_mod has lower 优先级 so b_mod wins (higher prio), a_mod loses
+        a_mod: makeMod('a_mod', {
+          优先级: 0,
+          命名空间键声明: [{ 规范键: 'gold', 命名空间: '币种' as const, 来源包: 'a_mod' }],
+        }),
+        b_mod: makeMod('b_mod', {
+          优先级: 10,
+          命名空间键声明: [{ 规范键: 'gold', 命名空间: '币种' as const, 来源包: 'b_mod' }],
+        }),
+      },
+      emptyRegistry() as any,
+      (key, ns, winner, loser) => conflicts.push({ key, ns, winner, loser }),
+    );
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]!.key).toBe('gold');
+    expect(conflicts[0]!.ns).toBe('币种');
+    expect(conflicts[0]!.winner).toBe('b_mod'); // higher 优先级 wins
+    expect(conflicts[0]!.loser).toBe('a_mod');
+  });
+
+  it('C1: equal 优先级 tiebreaker → codepoint lower pack_id wins', () => {
+    const conflicts: { key: string; ns: string; winner: string; loser: string }[] = [];
+    populateGoverneKeyRegistry(
+      {
+        z_mod: makeMod('z_mod', {
+          优先级: 5,
+          命名空间键声明: [{ 规范键: 'gem', 命名空间: '稀有度' as const, 来源包: 'z_mod' }],
+        }),
+        a_mod: makeMod('a_mod', {
+          优先级: 5,
+          命名空间键声明: [{ 规范键: 'gem', 命名空间: '稀有度' as const, 来源包: 'a_mod' }],
+        }),
+      },
+      emptyRegistry() as any,
+      (key, ns, winner, loser) => conflicts.push({ key, ns, winner, loser }),
+    );
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]!.winner).toBe('a_mod'); // 'a_mod' < 'z_mod' codepoint
+    expect(conflicts[0]!.loser).toBe('z_mod');
+  });
+
+  it('C1: hand-crafted entry wins silently (no conflict log for hand-crafted wins)', () => {
+    const conflicts: { key: string; ns: string; winner: string; loser: string }[] = [];
+    const existing = {
+      键条目: [{ 规范键: 'gold', 命名空间: '币种' as const, 来源包: 'author' }],
+    };
+    populateGoverneKeyRegistry(
+      {
+        mod_a: makeMod('mod_a', {
+          命名空间键声明: [{ 规范键: 'gold', 命名空间: '币种' as const }],
+        }),
+      },
+      existing as any,
+      (key, ns, winner, loser) => conflicts.push({ key, ns, winner, loser }),
+    );
+    // No conflict log: hand-crafted entries win silently (no loser mod)
+    expect(conflicts).toHaveLength(0);
+  });
+
+  it('C1: conflict log is deterministic (same input → same conflicts)', () => {
+    const mods = {
+      z_mod: makeMod('z_mod', {
+        优先级: 0,
+        命名空间键声明: [{ 规范键: 'coin', 命名空间: '币种' as const, 来源包: 'z_mod' }],
+      }),
+      a_mod: makeMod('a_mod', {
+        优先级: 0,
+        命名空间键声明: [{ 规范键: 'coin', 命名空间: '币种' as const, 来源包: 'a_mod' }],
+      }),
+    };
+    const c1: { key: string; ns: string; winner: string; loser: string }[] = [];
+    populateGoverneKeyRegistry(mods, emptyRegistry() as any, (k, n, w, l) => c1.push({ key: k, ns: n, winner: w, loser: l }));
+    const c2: { key: string; ns: string; winner: string; loser: string }[] = [];
+    populateGoverneKeyRegistry(mods, emptyRegistry() as any, (k, n, w, l) => c2.push({ key: k, ns: n, winner: w, loser: l }));
+    expect(JSON.stringify(c1)).toBe(JSON.stringify(c2));
+  });
+});
+
+// ─── C2: G-c 母题写入口注册闸 ────────────────────────────────────────────────
+
+describe('checkMotifRegistration — C2 G-c', () => {
+  it('C2: no 母题 entries in registry → fast exit, no logs', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'gold', 命名空间: '币种' as const }],
+      },
+    });
+    const log: MigLog[] = [];
+    checkMotifRegistration(state, log);
+    expect(log).toHaveLength(0);
+  });
+
+  it('C2: 母题 in registry + _叙事设置.母题权重 has registered key → no warn', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'adventure', 命名空间: '母题' as const }],
+      },
+      _叙事设置: { 母题权重: { adventure: 1.5 } },
+    });
+    const log: MigLog[] = [];
+    checkMotifRegistration(state, log);
+    expect(log).toHaveLength(0);
+  });
+
+  it('C2: 母题 in 母题权重 but unregistered → warn', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'adventure', 命名空间: '母题' as const }],
+      },
+      _叙事设置: { 母题权重: { adventure: 1.5, unknown_theme: 2.0 } },
+    });
+    const log: MigLog[] = [];
+    checkMotifRegistration(state, log);
+    const warns = log.filter(l => l.msg.includes('unknown_theme'));
+    expect(warns).toHaveLength(1);
+    expect(warns[0]!.msg).toContain('G-c母题未注册');
+    expect(warns[0]!.msg).toContain('降级非拒收');
+  });
+
+  it('C2: 全局.母题 unregistered → warn', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'adventure', 命名空间: '母题' as const }],
+      },
+      全局: { 母题: 'mystery_quest' },
+    });
+    const log: MigLog[] = [];
+    checkMotifRegistration(state, log);
+    expect(log.some(l => l.msg.includes('mystery_quest'))).toBe(true);
+  });
+
+  it('C2: lore entry with 母题 field unregistered → warn', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'adventure', 命名空间: '母题' as const }],
+      },
+      _lore知识库: {
+        event1: { 母题: 'dark_secret' },
+      },
+    });
+    const log: MigLog[] = [];
+    checkMotifRegistration(state, log);
+    expect(log.some(l => l.msg.includes('dark_secret'))).toBe(true);
+  });
+
+  it('C2: lore entry with 母题标签 array → warns for unregistered entries', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'adventure', 命名空间: '母题' as const }],
+      },
+      _lore知识库: {
+        event1: { 母题标签: ['adventure', 'unknown_tag'] },
+      },
+    });
+    const log: MigLog[] = [];
+    checkMotifRegistration(state, log);
+    // 'adventure' registered → no warn; 'unknown_tag' not registered → warn
+    expect(log.some(l => l.msg.includes('adventure'))).toBe(false);
+    expect(log.some(l => l.msg.includes('unknown_tag'))).toBe(true);
+  });
+
+  it('C2: fail-open = never throws', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'theme', 命名空间: '母题' as const }],
+      },
+      _叙事设置: null,
+      全局: null,
+      _lore知识库: null,
+    });
+    const log: MigLog[] = [];
+    expect(() => checkMotifRegistration(state, log)).not.toThrow();
+  });
+
+  it('C2: deterministic: same input → same log output', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'theme', 命名空间: '母题' as const }],
+      },
+      _叙事设置: { 母题权重: { zzz_theme: 2.0, aaa_theme: 1.0 } },
+    });
+    const log1: MigLog[] = [];
+    checkMotifRegistration(state, log1);
+    const log2: MigLog[] = [];
+    checkMotifRegistration(state, log2);
+    expect(JSON.stringify(log1)).toBe(JSON.stringify(log2));
+    // sorted order: aaa_theme before zzz_theme
+    expect(log1[0]!.msg).toContain('aaa_theme');
+    expect(log1[1]!.msg).toContain('zzz_theme');
+  });
+});
+
+// ─── C3/C4: G-e S5 规则引用完整性扫描扩维 ───────────────────────────────────
+
+describe('checkDisabledRuleKeyRefs — C3/C4 G-e', () => {
+  it('C3: no disabled non-handler registry entries → fast exit, no logs', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'gold', 命名空间: '币种' as const }], // active, not disabled
+      },
+    });
+    const log: MigLog[] = [];
+    checkDisabledRuleKeyRefs(state, log);
+    expect(log).toHaveLength(0);
+  });
+
+  it('C3: disabled key NOT referenced in lore → no warn', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'old_coin', 命名空间: '币种' as const, 停用: true }],
+      },
+      _lore知识库: {
+        entry1: { description: 'no reference here' },
+      },
+    });
+    const log: MigLog[] = [];
+    checkDisabledRuleKeyRefs(state, log);
+    expect(log).toHaveLength(0);
+  });
+
+  it('C3: disabled key referenced as string value in lore → warn', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'old_status', 命名空间: '状态子类' as const, 停用: true }],
+      },
+      _lore知识库: {
+        rule1: { target: 'old_status' },
+      },
+    });
+    const log: MigLog[] = [];
+    checkDisabledRuleKeyRefs(state, log);
+    const warns = log.filter(l => l.msg.includes('old_status'));
+    expect(warns).toHaveLength(1);
+    expect(warns[0]!.msg).toContain('G-e停用键被规则引用');
+    expect(warns[0]!.msg).toContain('降级非拒收');
+  });
+
+  it('C3: handler namespace (sideEffect句柄/cascade句柄/拦截器句柄) disabled → NOT scanned by G-e (S6 handles)', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'old_handler', 命名空间: 'sideEffect句柄' as const, 停用: true }],
+      },
+      _lore知识库: {
+        rule1: { ref: 'old_handler' },
+      },
+    });
+    const log: MigLog[] = [];
+    checkDisabledRuleKeyRefs(state, log);
+    // G-e does NOT check handler namespaces (handled by S6)
+    expect(log).toHaveLength(0);
+  });
+
+  it('C3: disabled key in array in lore → warn for each occurrence', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'deprecated_trait', 命名空间: '特质子类' as const, 停用: true }],
+      },
+      _lore知识库: {
+        rule1: { traits: ['brave', 'deprecated_trait', 'kind'] },
+      },
+    });
+    const log: MigLog[] = [];
+    checkDisabledRuleKeyRefs(state, log);
+    expect(log.some(l => l.msg.includes('deprecated_trait'))).toBe(true);
+    // 'brave' and 'kind' not disabled → no warn
+    expect(log.some(l => l.msg.includes('brave'))).toBe(false);
+    expect(log.some(l => l.msg.includes('kind'))).toBe(false);
+  });
+
+  it('C4: deterministic: same input → same log output', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [
+          { 规范键: 'a_dep', 命名空间: '状态子类' as const, 停用: true },
+          { 规范键: 'z_dep', 命名空间: '状态子类' as const, 停用: true },
+        ],
+      },
+      _lore知识库: {
+        rule_z: { ref: 'z_dep' },
+        rule_a: { ref: 'a_dep' },
+      },
+    });
+    const log1: MigLog[] = [];
+    checkDisabledRuleKeyRefs(state, log1);
+    const log2: MigLog[] = [];
+    checkDisabledRuleKeyRefs(state, log2);
+    expect(JSON.stringify(log1)).toBe(JSON.stringify(log2));
+    // sorted: rule_a before rule_z
+    expect(log1[0]!.msg).toContain('a_dep');
+    expect(log1[1]!.msg).toContain('z_dep');
+  });
+
+  it('C4: fail-open = never throws', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'dep_key', 命名空间: '稀有度' as const, 停用: true }],
+      },
+      _lore知识库: null,
+    });
+    const log: MigLog[] = [];
+    expect(() => checkDisabledRuleKeyRefs(state, log)).not.toThrow();
   });
 });
