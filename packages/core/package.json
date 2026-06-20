@@ -31,6 +31,9 @@
     "./engine/knowledgeWrite": "./engine/knowledgeWrite.ts",
     "./engine/time": "./engine/time.ts",
     "./interfaces/combatResolver": "./interfaces/combatResolver.ts",
+    "./engine/beliefDerive": "./engine/beliefDerive.ts",
+    "./engine/narrativeValidator": "./engine/narrativeValidator.ts",
+    "./engine/motivationValidator": "./engine/motivationValidator.ts",
     "./prompt/callRegistry": "./prompt/callRegistry.ts",
     "./replay": "./replay/index.ts"
   },
