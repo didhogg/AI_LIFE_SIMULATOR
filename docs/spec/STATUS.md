@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# HEAD=d2e1646 | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-mod生态路径II梯队D
+# HEAD=074b736 | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-D3梯队M
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -129,6 +129,14 @@
 - [x] G-e · S5规则引用完整性扫描扩维(checkDisabledRuleKeyRefs) · commit=fd05c05（同梯队C）
 - [x] S6 · 受治理键空间句柄命名空间未注册检查(checkS6UnregisteredHandlerRefs) · commit=3f2d145（同梯队A）
 - [x] D-2 · 散落别名归一·mod包命名空间观测（checkPackIdAliases·$隐藏记忆库.延时种子来源.包id / 行动卡库._来源包·fail-open·warn·D-3 defer） · commit=d2e1646 · test=3105(+9)
+- [x] D-3 · 延时种子来源包名归一·additive backfill · commit=074b736 · test=3119(+14)
+  - dollar.ts:289 延时种子.来源 加 来源包 optional（包id 保留 ≥1 版本读回退·D3c守约）
+  - backfillSeedSourcePkgName：包id 非空→写来源包·包id 保留·幂等·sorted·二次no-op
+  - migrateSeed:244 同时填新字段（canonPkg ?? legacyPkg fallback）
+  - checkPackIdAliases 双轨：来源包(新)优先·包id(旧)回退·不双报
+  - +14 tests（backfill幂等/双机恒等/二次no-op/全链端到端·双轨scan4条）
+  - 行动卡侧 _来源包 保留 _ 前缀（computeDelta.ts 只读保护·改名独立批另拍板）
+  - schemaKeys=52·指纹=84/18不变·REPLAY-01=24·C2=17·黄金向量逐位恒等·红线diff空
   - packages/core/engine/loreFreeze.ts — freezeLorePredicate/assertLorePredicateFrozen/readFrozenLorePredicate（L-21同构·创建即冻结·永不重算·fail-closed/fail-open）
   - packages/core/schema/lore.ts — lore条目Schema 加 触发谓词_冻结: z.boolean().optional() + _导入保真度: z.enum(['compat_strict','compat_plus','native']).optional()（additive-only·零迁移）
   - packages/core/engine/fingerprintManifest.ts — BUNDLE_MEMBERS 18→20：'lore谓词集合'(19th) + '受控接口能力集注册集'(20th)·TODO P0-6 comment 删除·lore能力集 EXCLUDED 注释同步
@@ -275,15 +283,15 @@ P2完成              → I-b-盐3(第三盐+离场契约指纹), offstageSettle
 
 ---
 
-## 快速参考：关键指标基线（HEAD=d2e1646）
+## 快速参考：关键指标基线（HEAD=074b736）
 
 | 指标 | 值 |
 |------|-----|
-| test | 3105（60 test files · +9 D-2散落别名·registryPopulate.test.ts 61条） |
+| test | 3119（60 test files · +14 D-3种子来源包名归一） |
 | tsc | 28（CC环境30·含2预存于非改动文件） |
 | lint | 220 errors（baseline·勿新增） |
 | schemaKeys | 52 |
-| 指纹 | 84（fingerprintManifest 18条目·mod生态路径II未新增指纹条目） |
+| 指纹 | 84（fingerprintManifest 18条目·D-3未新增指纹条目） |
 | REPLAY-01 | 24 |
 | C2 chaos | 17 |
 | 黄金向量 | 5c1d0233 / 63b3e729 / db10d5c7（逐位恒等·勿重生成·Option B確認済）|
