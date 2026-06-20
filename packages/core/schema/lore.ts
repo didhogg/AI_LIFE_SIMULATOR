@@ -95,6 +95,18 @@ export const lore条目Schema = z.object({
   // D-a-lore: 导入保真度档落血统（compat_strict/compat_plus/native）
   // 导入时档位写血统元数据·零指纹增长（当前无确定性消费点·档本身不再影响运行）
   _导入保真度: z.enum(导入保真度枚举).optional(),
+
+  // L-14: 历法权威表字段 — 将此条目用作时代数据源时填写（可空·additive-only·零迁移）
+  // 消费分工：结构可判→P0-6 钳制闸（时代存在性校验）/ 语义判→P0-8 校验闸（L-28·时代错置语义）
+  // 本批只下表·不接闸·不接时间核；时代错置校验必须查时间核，不在此自算（时间换算唯一源铁律）
+  // 表本体借 lore谓词集合路径进指纹（触发谓词_冻结后聚合·R7-b gate判定路径）
+  时代名: z.string().optional(),
+  时代范围: z.object({
+    开始年: z.number().int(),
+    结束年: z.number().int().optional(),
+  }).optional(),
+  可用物品类别: z.array(z.string()).optional(),
+  可用制度类别: z.array(z.string()).optional(),
 });
 
 // ══════════════════════════════════════════
