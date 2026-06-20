@@ -1,3 +1,5 @@
+import { CHINESE_NUMBER_RULE_VERSION } from '@ai-life-sim/core/engine/text/chineseNumber';
+import { SOFT_REJECT_RULE_VERSION } from '@ai-life-sim/core/engine/softReject';
 export function createArchiveHeader(seed = 42) {
     return { seed, 全局回滚计数器: 0 };
 }
@@ -6,17 +8,16 @@ export function bumpSalt(h) {
     return { ...h, 全局回滚计数器: h.全局回滚计数器 + 1 };
 }
 // ── D4 demo 用 · 完整存档头（P0-9 前哨 · additive-only · 不改 MinArchiveHeader）──────
-// RULE_VERSION=3 = B3/B4 后新格式（含中文数字/软拒/AOHP 规则版本快照）
-// P0-9 迁移侦察：旧存档 MinArchiveHeader 加载时缺失这些字段 → migrateToFullArchiveHeader 补全
 export const ARCHIVE_RULE_VERSION = 3;
+const AOHP_SEMANTIC_KEY_VERSION = 1;
 export function createFullArchiveHeader(seed = 42) {
     return {
         seed,
         全局回滚计数器: 0,
         RULE_VERSION: ARCHIVE_RULE_VERSION,
-        中文数字解析规则版: 2, // CHINESE_NUMBER_RULE_VERSION
-        软拒规则版: 1, // SOFT_REJECT_RULE_VERSION
-        AOHP语义键版: 1,
+        中文数字解析规则版: CHINESE_NUMBER_RULE_VERSION,
+        软拒规则版: SOFT_REJECT_RULE_VERSION,
+        AOHP语义键版: AOHP_SEMANTIC_KEY_VERSION,
         schemaKeys: 52,
     };
 }
@@ -27,9 +28,9 @@ export function migrateToFullArchiveHeader(h) {
     return {
         ...h,
         RULE_VERSION: ARCHIVE_RULE_VERSION,
-        中文数字解析规则版: 2,
-        软拒规则版: 1,
-        AOHP语义键版: 1,
+        中文数字解析规则版: CHINESE_NUMBER_RULE_VERSION,
+        软拒规则版: SOFT_REJECT_RULE_VERSION,
+        AOHP语义键版: AOHP_SEMANTIC_KEY_VERSION,
         schemaKeys: 52,
     };
 }

@@ -22,6 +22,8 @@ import {
   FINGERPRINT_SNAPSHOT_FIELDS,
   FINGERPRINT_EXCLUDED_FIELDS,
 } from '@ai-life-sim/core/engine/fingerprintManifest';
+import { CHINESE_NUMBER_RULE_VERSION } from '@ai-life-sim/core/engine/text/chineseNumber';
+import { SOFT_REJECT_RULE_VERSION } from '@ai-life-sim/core/engine/softReject';
 
 // ── 宿主层（slice · 只读复用·零函数体改动）──────────────────────────────────────
 import {
@@ -521,14 +523,14 @@ describe('D4 存档读写 — FullArchiveHeader', () => {
     expect(h.RULE_VERSION).toBe(ARCHIVE_RULE_VERSION);
   });
 
-  it('FullArchiveHeader 含 B3 中文数字解析规则版=2', () => {
+  it('FullArchiveHeader 含 B3 中文数字解析规则版 = CHINESE_NUMBER_RULE_VERSION（活常量·防漂移）', () => {
     const h = createFullArchiveHeader(SAVE_SEED);
-    expect(h.中文数字解析规则版).toBe(2);
+    expect(h.中文数字解析规则版).toBe(CHINESE_NUMBER_RULE_VERSION);
   });
 
-  it('FullArchiveHeader 含 B3 软拒规则版=1', () => {
+  it('FullArchiveHeader 含 B3 软拒规则版 = SOFT_REJECT_RULE_VERSION（活常量）', () => {
     const h = createFullArchiveHeader(SAVE_SEED);
-    expect(h.软拒规则版).toBe(1);
+    expect(h.软拒规则版).toBe(SOFT_REJECT_RULE_VERSION);
   });
 
   it('FullArchiveHeader 含 B4 AOHP 语义键版=1', () => {
@@ -557,8 +559,8 @@ describe('D4 存档读写 — FullArchiveHeader', () => {
     const old: MinArchiveHeader = { seed: 99, 全局回滚计数器: 3 };
     const migrated = migrateToFullArchiveHeader(old);
     expect(migrated.RULE_VERSION).toBe(3);
-    expect(migrated.中文数字解析规则版).toBe(2);
-    expect(migrated.软拒规则版).toBe(1);
+    expect(migrated.中文数字解析规则版).toBe(CHINESE_NUMBER_RULE_VERSION);
+    expect(migrated.软拒规则版).toBe(SOFT_REJECT_RULE_VERSION);
     expect(migrated.AOHP语义键版).toBe(1);
   });
 
