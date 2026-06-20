@@ -1,7 +1,14 @@
 // 4.3 角色层（主角 = 组件齐全的 NPC 特例）
 import { z } from 'zod';
 import { 不可逆Schema } from './verb.js';
-import { 受治理句柄Schema } from './governedKeySpace.js';
+import { 受治理句柄Schema, 是JS保留键 } from './governedKeySpace.js';
+
+// ── actor 记录键 superRefine（AA4·禁 JS 保留键·防原型污染） ──
+const actor记录键Schema = z.string().superRefine((k, ctx) => {
+  if (是JS保留键(k)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: `actor记录键: 命中 JS 保留键黑名单「${k}」` });
+  }
+});
 
 // ══════════════════════════════════════════
 // 公共子 schema（被其他文件引用）
@@ -56,11 +63,11 @@ const 性格五轴Schema = z.object({
   宜人: z.number().min(0).max(100).default(50),
   神经质: z.number().min(0).max(100).default(50),
   // L-1/L-6 · facet 子结构（optional·零迁移·5 轴对外·防双轨·补充粒度而非替换轴）
-  facet: z.record(z.string(), z.number().min(0).max(100)).optional(),
+  facet: z.record(actor记录键Schema, z.number().min(0).max(100)).optional(),
 });
 
 const 特质效果Schema = z.object({
-  属性修正: z.record(z.string(), z.number()).default({}),
+  属性修正: z.record(actor记录键Schema, z.number()).default({}),
   成长率或上限修正: z.array(修饰通道引用Schema).default([]),
   检定修正: z.array(修饰通道引用Schema).default([]),
   事件钩子: z.string().default(''),
@@ -200,18 +207,18 @@ const 学业概况Schema = z.object({
 
 const 学业Schema = z.object({
   学籍: 学籍Schema.default({}),
-  在修科目: z.record(z.string(), z.object({
+  在修科目: z.record(actor记录键Schema, z.object({
     发生时间: z.number().int().default(0), // 绝对纪元分钟
     备注: z.string().default(''),
   })).default({}),
-  考试记录: z.record(z.string(), 考试记录条目Schema).default({}),
-  升学记录: z.record(z.string(), z.object({
+  考试记录: z.record(actor记录键Schema, 考试记录条目Schema).default({}),
+  升学记录: z.record(actor记录键Schema, z.object({
     关卡: z.string().default(''),
     结果: z.string().default(''),
     时间: z.number().int().default(0), // 绝对纪元分钟
   })).default({}),
-  学历档案: z.record(z.string(), 学历档案条目Schema).default({}),
-  资质证书: z.record(z.string(), 资质证书条目Schema).default({}),
+  学历档案: z.record(actor记录键Schema, 学历档案条目Schema).default({}),
+  资质证书: z.record(actor记录键Schema, 资质证书条目Schema).default({}),
   学业概况: 学业概况Schema.default({}),
 });
 
@@ -230,7 +237,7 @@ const 任职条目Schema = z.object({
 
 const 职业Schema = z.object({
   任职: z.array(任职条目Schema).default([]),
-  职业履历: z.record(z.string(), z.object({
+  职业履历: z.record(actor记录键Schema, z.object({
     职位: z.string().default(''),
     雇主: z.string().default(''),
     入职时间: z.number().int().default(0), // 绝对纪元分钟；0 = 未记录
@@ -293,10 +300,10 @@ const 忠诚条目Schema = z.object({
 
 // 作息模板：模式→时段→{状态:概率}
 const 作息Schema = z.record(
-  z.string(), // 模式键：常态/战时/逃亡/监禁/守孝 etc.
+  actor记录键Schema, // 模式键：常态/战时/逃亡/监禁/守孝 etc.
   z.record(
-    z.string(), // 时段：早/午/晚 etc.
-    z.record(z.string(), z.number().min(0).max(100)), // 状态→概率
+    actor记录键Schema, // 时段：早/午/晚 etc.
+    z.record(actor记录键Schema, z.number().min(0).max(100)), // 状态→概率
   ),
 ).default({});
 
@@ -409,7 +416,7 @@ export const NpcSchema = z.object({
   虚拟位置: z.string().optional(), // 赛博化身专用
   立绘引用: z.string().optional(), // 生图接口位，P2 前不实现
   // P0-1 黄金窗口·生图/语音字段预埋（实装 P2）
-  视觉锚定特征: z.record(z.string(), z.string()).optional(), // 生图提示词锚定特征表（开放键值对）
+  视觉锚定特征: z.record(actor记录键Schema, z.string()).optional(), // 生图提示词锚定特征表（开放键值对）
   声线: z.string().optional(),                              // RVC 声线模型 ID
 
   // ── 数值面 ──
@@ -418,11 +425,11 @@ export const NpcSchema = z.object({
   行动点: 行动点Schema.default({}),
   性格五轴: 性格五轴Schema.default({}),
   // 性格标签 🧮 派生（五轴阈值映射），不存储
-  特质: z.record(z.string(), 特质条目Schema).default({}),
+  特质: z.record(actor记录键Schema, 特质条目Schema).default({}),
   情绪栈: z.array(情绪条目Schema).default([]),
-  状态标签: z.record(z.string(), 状态标签条目Schema).default({}),
-  技能: z.record(z.string(), 技能条目Schema).default({}),
-  疾病: z.record(z.string(), z.object({
+  状态标签: z.record(actor记录键Schema, 状态标签条目Schema).default({}),
+  技能: z.record(actor记录键Schema, 技能条目Schema).default({}),
+  疾病: z.record(actor记录键Schema, z.object({
     类型: z.string().default('急性'),
     已确诊: z.boolean().default(false),
     病程剩余: z.number().int().min(0).default(0), // 纪元分钟；0 = 慢性
@@ -432,21 +439,21 @@ export const NpcSchema = z.object({
   体征: 体征Schema.default({}),
 
   // ── 资产与社会面 ──
-  物品: z.record(z.string(), 物品条目Schema).default({}),
-  衣物: z.record(z.string(), 衣物槽Schema).default({}),
-  爱好: z.record(z.string(), 爱好条目Schema).default({}),
-  信念: z.record(z.string(), 信念条目Schema).default({}),
+  物品: z.record(actor记录键Schema, 物品条目Schema).default({}),
+  衣物: z.record(actor记录键Schema, 衣物槽Schema).default({}),
+  爱好: z.record(actor记录键Schema, 爱好条目Schema).default({}),
+  信念: z.record(actor记录键Schema, 信念条目Schema).default({}),
   学业: 学业Schema.default({}),
   职业: 职业Schema.default({}),
   目标: 目标Schema.default({}),
   居留身份: z.array(居留身份条目Schema).default([]),
   头衔: z.array(z.string()).default([]),
   称号: z.string().default(''),
-  成就: z.record(z.string(), z.object({
+  成就: z.record(actor记录键Schema, z.object({
     解锁时间: z.number().int().default(0), // 绝对纪元分钟；0 = 未记录
     描述: z.string().default(''),
   })).default({}),
-  里程碑: z.record(z.string(), z.object({
+  里程碑: z.record(actor记录键Schema, z.object({
     时间: z.number().int().default(0), // 绝对纪元分钟；0 = 未记录
     标题: z.string().default(''),
     描述: z.string().default(''),
@@ -460,7 +467,7 @@ export const NpcSchema = z.object({
   关系: z.array(关系条目Schema).default([]),
   所属组织: z.array(所属组织条目Schema).default([]),
   职务: z.array(职务条目Schema).default([]),
-  忠诚: z.record(z.string(), 忠诚条目Schema).default({}),
+  忠诚: z.record(actor记录键Schema, 忠诚条目Schema).default({}),
   // 受制于 🧮 派生视图（七源关系图聚合），不存储
   // 秘密索引 🧮 派生（filter 全局.秘密库），不存储
 
@@ -508,14 +515,14 @@ export const NpcSchema = z.object({
 
 // ── 已故 NPC 归档（L2 冻结层） ──
 export const 已故NPC归档Schema = z.record(
-  z.string(),
+  actor记录键Schema,
   z.object({
     称呼: z.string().default(''),
     死亡时间: z.number().int().default(0), // 绝对纪元分钟；0 = 健在
     关键记忆指针: z.string().default(''),
     幽灵形态: z.boolean().default(false), // true = 不实例化，永驻占位
   }),
-).default({});
+).default({}).transform(r => Object.assign(Object.create(null) as typeof r, r));
 
 // ── 死亡事件（6.45·缺口1·拦截=配方引用·⚠概率住检定配方表·不直接写）──────────────
 export const 死亡事件Schema = z.object({
@@ -527,13 +534,13 @@ export const 死亡事件Schema = z.object({
 // ── 席位表（6.53 C1）──────────────────────────────────────────────────────────
 // 会话本地视角·引擎结算不读·单机=单一席位「本机」退化·多人=表内多席位零迁移
 export const 席位表Schema = z.record(
-  z.string(), // 席位id；单机时为'本机'
+  actor记录键Schema, // 席位id；单机时为'本机'
   z.object({
     焦点角色键: z.string().default(''), // NPC键指针
     控制者: z.enum(['人类', 'AI', '空']).default('人类'),
     连接状态: z.string().default('本地'), // 本地/在线/离线/旁观
   }),
-).default({});
+).default({}).transform(r => Object.assign(Object.create(null) as typeof r, r));
 
 // ── 认知档案（6.12/6.37） ──
 // 印象涟漪写入分级（6.65 W1）：
@@ -562,7 +569,7 @@ const 印象条目Schema = z.object({
 
 const 认知档案条目Schema = z.object({
   了解度: z.number().min(0).max(100).default(0),
-  误差表: z.record(z.string(), z.number()).default({}), // 字段→认知值偏差
+  误差表: z.record(actor记录键Schema, z.number()).default({}), // 字段→认知值偏差
   印象: z.array(印象条目Schema).default([]),            // 6.37 条目制式
   时效: z.number().int().default(0),             // 绝对时刻·0=永不过期哨兵
   // ── 对撞③ 姓名知识机制（P0 schema 接缝·渲染期投影·不 baked 进冻结叙事串）─────────────
@@ -576,15 +583,17 @@ const 认知档案条目Schema = z.object({
 });
 
 export const 认知档案Schema = z.record(
-  z.string(), // 观察者 NPC 键
+  actor记录键Schema, // 观察者 NPC 键
   z.record(
-    z.string(), // 目标 NPC 键（含 self → 自我认知）
+    actor记录键Schema, // 目标 NPC 键（含 self → 自我认知）
     认知档案条目Schema,
   ),
-).default({});
+).default({}).transform(r => Object.assign(Object.create(null) as typeof r, r));
 
 // ── 顶层导出 ──
-export const NpcRecordSchema = z.record(z.string(), NpcSchema).default({});
+export const NpcRecordSchema = z.record(actor记录键Schema, NpcSchema)
+  .default({})
+  .transform(r => Object.assign(Object.create(null) as typeof r, r));
 
 export type 意象条目Type = z.infer<typeof 意象条目Schema>;
 export type 修饰通道引用Type = z.infer<typeof 修饰通道引用Schema>;

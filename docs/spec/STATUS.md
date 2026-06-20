@@ -140,7 +140,7 @@
 
 ## §2 WELD QUEUE（零迁移焊敏感·ready）
 
-- [ ] G-d-partial · AA4余面add-constraint·actor.ts内部record面+null-proto存储层（schema superRefine·零迁移·不改schemaKeys） · 焊敏感=schema(actor.ts superRefine add-constraint)
+- [x] G-d-partial · AA4余面add-constraint·actor.ts内部record面+null-proto存储层（schema superRefine·零迁移·不改schemaKeys） · 焊敏感=schema(actor.ts superRefine add-constraint) · 完结 commit=待填 · test=3011(+54)
 
 ---
 

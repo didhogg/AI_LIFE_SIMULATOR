@@ -3971,6 +3971,146 @@ describe('B6·AA4 · JS 保留键黑名单 record 面（economy.ts + memory.ts�
   });
 });
 
+// ── G-d-partial · AA4 · actor.ts record 面 JS 保留键黑名单 + null-proto 存储层 ──────
+describe('G-d-partial · AA4 · actor.ts record 面（superRefine·29面·4顶层null-proto）', () => {
+  const RESERVED = ['__proto__', 'constructor', 'prototype'] as const;
+
+  // ── 4 顶层 export record schema ──────────────────────────────────────────────
+
+  describe('NpcRecordSchema 顶层 key', () => {
+    it.each(RESERVED)('保留键「%s」→ 拒收', (k) => {
+      expect(NpcRecordSchema.safeParse({ [k]: {} }).success).toBe(false);
+    });
+    it('合法 NPC key「npc_001」→ 通过', () => {
+      expect(NpcRecordSchema.safeParse({ npc_001: {} }).success).toBe(true);
+    });
+  });
+
+  describe('已故NPC归档Schema key', () => {
+    it.each(RESERVED)('保留键「%s」→ 拒收', (k) => {
+      expect(已故NPC归档Schema.safeParse({ [k]: { 称呼: '张三' } }).success).toBe(false);
+    });
+    it('合法 key「npc_dead_001」→ 通过', () => {
+      expect(已故NPC归档Schema.safeParse({ npc_dead_001: { 称呼: '张三' } }).success).toBe(true);
+    });
+  });
+
+  describe('席位表Schema key', () => {
+    it.each(RESERVED)('保留键「%s」→ 拒收', (k) => {
+      expect(席位表Schema.safeParse({ [k]: { 焦点角色键: 'pc_001' } }).success).toBe(false);
+    });
+    it('合法席位键「本机」→ 通过（单机退化态）', () => {
+      expect(席位表Schema.safeParse({ 本机: { 焦点角色键: 'pc_001' } }).success).toBe(true);
+    });
+  });
+
+  describe('认知档案Schema 双层 key', () => {
+    it.each(RESERVED)('保留键「%s」→ 拒收（观察者键）', (k) => {
+      expect(认知档案Schema.safeParse({ [k]: {} }).success).toBe(false);
+    });
+    it.each(RESERVED)('保留键「%s」→ 拒收（目标键）', (k) => {
+      expect(认知档案Schema.safeParse({ npc_a: { [k]: {} } }).success).toBe(false);
+    });
+    it('合法双层键「npc_a → npc_b」→ 通过', () => {
+      expect(认知档案Schema.safeParse({ npc_a: { npc_b: {} } }).success).toBe(true);
+    });
+  });
+
+  // ── NpcSchema 内部 record 面（代表性 6 面）───────────────────────────────────
+
+  describe('NpcSchema 内部 record 面', () => {
+    it.each(RESERVED)('特质 key 保留键「%s」→ 拒收', (k) => {
+      expect(NpcSchema.safeParse({ 特质: { [k]: {} } }).success).toBe(false);
+    });
+    it('特质 key 合法键「敏锐」→ 通过', () => {
+      expect(NpcSchema.safeParse({ 特质: { 敏锐: {} } }).success).toBe(true);
+    });
+
+    it.each(RESERVED)('技能 key 保留键「%s」→ 拒收', (k) => {
+      expect(NpcSchema.safeParse({ 技能: { [k]: {} } }).success).toBe(false);
+    });
+    it('技能 key 合法键「剑术」→ 通过', () => {
+      expect(NpcSchema.safeParse({ 技能: { 剑术: {} } }).success).toBe(true);
+    });
+
+    it.each(RESERVED)('物品 key 保留键「%s」→ 拒收', (k) => {
+      expect(NpcSchema.safeParse({ 物品: { [k]: {} } }).success).toBe(false);
+    });
+    it('物品 key 合法键「长剑」→ 通过', () => {
+      expect(NpcSchema.safeParse({ 物品: { 长剑: {} } }).success).toBe(true);
+    });
+
+    it.each(RESERVED)('状态标签 key 保留键「%s」→ 拒收', (k) => {
+      expect(NpcSchema.safeParse({ 状态标签: { [k]: {} } }).success).toBe(false);
+    });
+    it('状态标签 key 合法键「中毒」→ 通过', () => {
+      expect(NpcSchema.safeParse({ 状态标签: { 中毒: {} } }).success).toBe(true);
+    });
+
+    it.each(RESERVED)('忠诚 key 保留键「%s」→ 拒收', (k) => {
+      expect(NpcSchema.safeParse({ 忠诚: { [k]: {} } }).success).toBe(false);
+    });
+    it('忠诚 key 合法键「皇室」→ 通过', () => {
+      expect(NpcSchema.safeParse({ 忠诚: { 皇室: {} } }).success).toBe(true);
+    });
+
+    it.each(RESERVED)('成就 key 保留键「%s」→ 拒收', (k) => {
+      expect(NpcSchema.safeParse({ 成就: { [k]: {} } }).success).toBe(false);
+    });
+    it('成就 key 合法键「首战告捷」→ 通过', () => {
+      expect(NpcSchema.safeParse({ 成就: { 首战告捷: {} } }).success).toBe(true);
+    });
+  });
+
+  // ── 性格五轴 facet optional record（L-1/L-6·facet 纳入保护）──────────────────
+
+  describe('性格五轴 facet record key（L-1/L-6·facet AA4 防护）', () => {
+    it.each(RESERVED)('facet key 保留键「%s」→ 拒收', (k) => {
+      expect(NpcSchema.safeParse({ 性格五轴: { facet: { [k]: 50 } } }).success).toBe(false);
+    });
+    it('facet key 合法键「好奇心」→ 通过', () => {
+      expect(NpcSchema.safeParse({ 性格五轴: { facet: { 好奇心: 70 } } }).success).toBe(true);
+    });
+  });
+
+  // ── null-proto 存储层 正向断言（4 顶层 schema·Object.getPrototypeOf === null）──
+
+  describe('null-proto 存储层（4 顶层 export record schema）', () => {
+    it('NpcRecordSchema.parse({}) → prototype === null', () => {
+      expect(Object.getPrototypeOf(NpcRecordSchema.parse({}))).toBeNull();
+    });
+    it('已故NPC归档Schema.parse({}) → prototype === null', () => {
+      expect(Object.getPrototypeOf(已故NPC归档Schema.parse({}))).toBeNull();
+    });
+    it('席位表Schema.parse({}) → prototype === null', () => {
+      expect(Object.getPrototypeOf(席位表Schema.parse({}))).toBeNull();
+    });
+    it('认知档案Schema.parse({}) → prototype === null', () => {
+      expect(Object.getPrototypeOf(认知档案Schema.parse({}))).toBeNull();
+    });
+  });
+
+  // ── 序列化恒等（护栏②③：JSON.stringify / canonicalize ⊥ 原型）────────────────
+
+  describe('null-proto 序列化恒等（护栏②③）', () => {
+    it('NpcRecordSchema: null-proto 输出与相同 own-props 的普通对象 JSON.stringify 逐字节相同', () => {
+      const parsed = NpcRecordSchema.parse({});
+      const regular = Object.assign({}, parsed); // regular proto, same data
+      expect(JSON.stringify(parsed)).toBe(JSON.stringify(regular));
+    });
+    it('已故NPC归档: null-proto 输出 JSON.stringify 恒等', () => {
+      const data = { npc_dead: { 称呼: '张三' } };
+      const parsed = 已故NPC归档Schema.parse(data);
+      const regular = Object.assign({}, parsed);
+      expect(JSON.stringify(parsed)).toBe(JSON.stringify(regular));
+    });
+    it('NpcRecordSchema: null-proto Object.keys 仍返回 own 键（零 inherited 污染）', () => {
+      const parsed = NpcRecordSchema.parse({ npc_a: {}, npc_b: {} });
+      expect(Object.keys(parsed).sort()).toEqual(['npc_a', 'npc_b']);
+    });
+  });
+});
+
 // ── L-25 · 发育阶段 跨字段语义闸（superRefine）────────────────────────────────────
 describe('L-25 · 发育阶段Schema · 跨字段语义 superRefine', () => {
   const makeRace = (stages: unknown[]) =>
