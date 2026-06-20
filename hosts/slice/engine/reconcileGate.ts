@@ -11,7 +11,8 @@
 // 玩家主权铁律: 不自动重生·不替玩家选·不抬 token 预算（调用方仅单次重试）
 // UX: rollHint 用于重Roll图标旁常驻静态文字·不弹窗·不主动教学
 
-import { gateCoverage, type TickProposal, type GateContext, type CoverageResult } from '../ledger/gate.js';
+import { gateCoverage, type GateContext, type CoverageResult } from '../ledger/gate.js';
+import type { TickProposal } from '../ledger/proposalSchema.js';
 import { CHINESE_NUMBER_RULE_VERSION } from '@ai-life-sim/core/engine/text/chineseNumber';
 import type { SoftRejectHint } from '@ai-life-sim/core/engine/narrativeValidator';
 

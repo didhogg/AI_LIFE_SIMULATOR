@@ -274,6 +274,24 @@
   - packages/core/tests/runProposalGate.test.ts: manifest总数 83→84
   - hosts/slice/tests/m_p8tier4.test.ts（新·47 tests）: ①语义键结构+同义归一+碰撞消歧+零误撞 ②稳定性+进指纹边界(顺序无关) ③菜单知情过滤(越权不生成+rollHint) ④Anti-Labeling+OCEAN+lint断言 ⑤NSFW defer P1确认
   - 验收：schemaKeys=52·指纹=84(BUNDLE20/PRESET10/SNAP5/EXCL49)·REPLAY-01=24·C2=17·黄金向量逐位恒等·red线diff空(gate/conservation/computeDelta/rng函数体零改)·test 3233→3283(+50全绿·64 files)
+- [x] 纵切 Demo 薄壳 · P0-11 前哨 · web-debug 单宿主端到端 · commit=pending · test=3342(+59)
+  - D0: world.ts TS2345 已清（M-a 批·RootSchema.parse 填满默认值）·schemaKeys=52·tsc 28（baseline）
+  - D0: reconcileGate.ts TS2459 修复（TickProposal 改从 proposalSchema.js 导入·-1 error·无函数体改动）
+  - D1: hosts/web-debug/demo.ts（新·CLI 端到端演示·无LLM·脚本化叙事·D1-D4全覆盖）
+  - D1: assemblePrompt 输出结构·systemPrompt/userPrompt·含NPC姓名/地点/OCEAN注入/Anti-Labeling Directive
+  - D1 prompt-dump: 近K历史注入·live账本注入·lore谓词切片（命中/不命中）·多拍历史跨拍累积
+  - D2: AOHP菜单 buildMenuOptionIds·option_id语义键·同义归一（五文/5文→5文）·碰撞消歧·sortedOptionIds顺序无关·零误撞断言
+  - D2: runReconcileGate 分级失败·covered/hard_rejected(债权)/retried_covered/retried_failed·rollHint常驻图标
+  - D3: POV切换·filterSecretsForPOV(PC=0秘密/NPC_WANG=S1)·assemblePrompt secretSection生成前过滤·$谜底零泄漏
+  - D3: filterMenuCandidates·secretRef越权→denied(生成前过滤·非隐藏)·NPC_WANG POV→permitted·rollHint
+  - D3: Anti-Labeling Directive存在·OCEAN O50/C50/E50/A50/N50注入NPC行·禁止性格标签·禁止输出数值
+  - D3: NSFW物理隔离·Node环境'window' not in globalThis·demo代码不进指纹(manifest=84)·slice不re-export
+  - D4: hosts/slice/engine/archive.ts additive: FullArchiveHeader(RULE_VERSION=3/中文数字解析规则版2/软拒规则版1/AOHP语义键版1/schemaKeys52)+createFullArchiveHeader+migrateToFullArchiveHeader
+  - D4: JSON往返恒等·migration幂等·seed/计数器守恒·旧MinArchiveHeader→FullArchiveHeader补全
+  - D4 P0-9侦察: 旧存档缺RULE_VERSION/中文数字解析规则版/AOHP语义键版(已记录·本demo不实装迁移)
+  - 验收: schemaKeys=52·指纹manifest=84·黄金向量5c1d0233/63b3e729/db10d5c7逐位恒等·red线diff空·tsc28·test3342(65files)
+  - 不验: 双机恒等（留P0-11）·P0-9存档迁移实装（仅侦察记录）
+  - hosts/slice/tests/m_webdemo.test.ts（新·59 tests）: D0×4 / D1×13 / D2×12 / D3×13 / D4×12 / NSFW×4 / 反人格标签×5
 - [ ] P0-9 · 存档层G2原子性/U1迁移单元/U3版本分段 · 解锁=P0-7基础
 - [ ] P0-10 · 回归测试体系+DoD复验 · 解锁=P0-8+P0-9
 - [ ] P0-11 · 双宿主薄壳 · 解锁=P0-10
@@ -317,15 +335,15 @@ P2完成              → I-b-盐3(第三盐+离场契约指纹), offstageSettle
 
 ---
 
-## 快速参考：关键指标基线（HEAD=aebd117·P0-8 Batch 4）
+## 快速参考：关键指标基线（HEAD=pending·纵切Demo薄壳）
 
 | 指标 | 值 |
 |------|-----|
-| test | 3283（64 test files · +50 P0-8 Batch 4·m_p8tier4.test.ts） |
-| tsc | 28（CC环境30·含2预存于非改动文件） |
+| test | 3342（65 test files · +59 纵切Demo·m_webdemo.test.ts） |
+| tsc | 28（reconcileGate TS2459已修·baseline） |
 | lint | 220 errors（baseline·勿新增） |
 | schemaKeys | 52 |
-| 指纹 | 84（fingerprintManifest BUNDLE20/PRESET10/SNAP5/EXCL49=84条目·AOHP選項id集进PRESET·切片组装不进指纹） |
+| 指纹 | 84（fingerprintManifest BUNDLE20/PRESET10/SNAP5/EXCL49=84条目·demo不进指纹） |
 | REPLAY-01 | 24 |
 | C2 chaos | 17 |
 | 黄金向量 | 5c1d0233 / 63b3e729 / db10d5c7（逐位恒等·勿重生成·Option B確認済）|

@@ -1,4 +1,15 @@
 // P0-8 Batch 3: 对账闸正式化 — M2.5/M2.6/M2.7 三层统一出口 + 分级失败处理
+//
+// 失败分级（拍板①）:
+//   可解析歧义（金额漏项·reason 未定义）→ 单次纠偏重试·失败→「重 Roll」提示
+//   不可解析（语义拦截·reason 有值: 方向/性质/单位/实体）→ 即时硬拒+「重 Roll」提示
+//
+// 进指纹边界（拍板⑤）:
+//   确定性判定（gateCoverage）依赖 CHINESE_NUMBER_RULE_VERSION（'中文数字解析规则版'·fingerprintManifest）
+//   调用方应将 CHINESE_NUMBER_RULE_VERSION 传入 hashPresetFingerprint 的 '中文数字解析规则版' 字段
+//
+// 玩家主权铁律: 不自动重生·不替玩家选·不抬 token 预算（调用方仅单次重试）
+// UX: rollHint 用于重Roll图标旁常驻静态文字·不弹窗·不主动教学
 import { gateCoverage } from '../ledger/gate.js';
 import { CHINESE_NUMBER_RULE_VERSION } from '@ai-life-sim/core/engine/text/chineseNumber';
 /** 对账失败重Roll提示（常驻图标旁·不弹窗·不教学·不替玩家做事） */
@@ -11,6 +22,16 @@ export const RECONCILE_ROLL_HINT = {
  *
  * 判定路径: 确定性·依赖 CHINESE_NUMBER_RULE_VERSION（进指纹·'中文数字解析规则版'）
  * 切片降级: 不在此层（组装层·不进指纹）
+ *
+ * 分级规则:
+ *   - covered → 无需处理
+ *   - covered:false + reason 有值（语义拦截）→ 即时硬拒（hard_rejected）
+ *   - covered:false + reason 未定义（金额漏项）→ 单次纠偏重试（需提供 retryNarrative）
+ *
+ * @param narrative       首次叙事文本
+ * @param proposal        提案（含 transfers 金额列表）
+ * @param retryNarrative  纠偏重试叙事（金额漏项时由调用方提供；不提供则直接降级）
+ * @param context         可选世界上下文（from/to 实体校验·M2.7 要求③）
  */
 export function runReconcileGate(narrative, proposal, retryNarrative, context) {
     const ruleVersion = CHINESE_NUMBER_RULE_VERSION;
@@ -30,6 +51,7 @@ export function runReconcileGate(narrative, proposal, retryNarrative, context) {
     }
     // ── 金额漏项（reason 未定义）→ 单次纠偏重试（可解析歧义）────────────────────────────
     if (retryNarrative === undefined) {
+        // 未提供重试叙事：无重试来源·直接降级（调用方未触发 LLM 重写）
         return {
             status: 'retried_failed',
             finalCoverage: first,
