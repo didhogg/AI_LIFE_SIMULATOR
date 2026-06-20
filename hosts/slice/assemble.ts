@@ -9,7 +9,7 @@ import {
 } from '@ai-life-sim/core/engine/knowledgeFilter';
 import { evalPredStr } from '@ai-life-sim/core/engine/dsl/eval';
 import type { DslContext } from '@ai-life-sim/core/engine/dsl/eval';
-import { DEFAULT_NEAR_K, CALL_TYPE_REGISTRY, type NarrativeCallTypeKey } from '@ai-life-sim/core/prompt/callRegistry';
+import { DEFAULT_NEAR_K, CALL_TYPE_REGISTRY, type NarrativeCallTypeKey, type ProposalConstraint } from '@ai-life-sim/core/prompt/callRegistry';
 import {
   applySliceBudget,
   estimateSliceTokens,
@@ -44,6 +44,11 @@ export interface AssembleOptions {
 
   // ── 调用类型标注（接切片预算 6.64·超限触发 B1-B6 降级·日志参考用）────────────────────
   callTypeKey?: NarrativeCallTypeKey;
+
+  // ── 当拍 AOHP 约束注入（B-E2-01·transfer 金额·物品·数量·不进指纹·R7-b）────────────
+  // 作用：告知 LLM 本拍已确定的货币/物品流转数值，使叙事金额与 reconcileGate 解析一致。
+  // 单位口径：与 reconcileGate 一致（CANONICAL_UNITS=文/文钱）。
+  proposalConstraints?: ProposalConstraint;
 }
 
 export function assemblePrompt(state: RootState, opts: AssembleOptions): {
@@ -54,7 +59,7 @@ export function assemblePrompt(state: RootState, opts: AssembleOptions): {
     pcKey, locName,
     povEntityKey, visibleSecrets,
     nearK, narrativeHistory, historyTicks, actionHistory,
-    balances, lorePredCtx, callTypeKey,
+    balances, lorePredCtx, callTypeKey, proposalConstraints,
   } = opts;
 
   // ── 主角 ──────────────────────────────────────────────────────────────────────
@@ -274,6 +279,26 @@ export function assemblePrompt(state: RootState, opts: AssembleOptions): {
   // 最近动作序列
   if (recentActions) {
     userParts.push(`【最近动作顺序】${recentActions}`);
+  }
+
+  // 当拍约定账变（B-E2-01·不进指纹·R7-b·让 LLM 使用规范货币单位）
+  // 口径：CANONICAL_UNITS=文/文钱（与 reconcileGate 解析口径一致·禁铜钱/枚/块/两）
+  if (proposalConstraints) {
+    const constraintLines: string[] = [];
+    for (const t of (proposalConstraints.transfers ?? [])) {
+      const fromName = (state.NPC?.[t.from] as { 姓名?: string } | undefined)?.姓名 ?? t.from;
+      const toName   = (state.NPC?.[t.to]   as { 姓名?: string } | undefined)?.姓名 ?? t.to;
+      constraintLines.push(`${fromName}→${toName}: ${t.amount}${currency}`);
+    }
+    for (const item of (proposalConstraints.items ?? [])) {
+      constraintLines.push(`物品「${item.id}」×${item.quantity}件`);
+    }
+    if (constraintLines.length > 0) {
+      userParts.push(
+        `【当拍约定账变（叙事须覆盖·货币单位写"${currency}"·禁铜钱/枚/块/两）】`,
+        ...constraintLines,
+      );
+    }
   }
 
   const userPrompt = userParts.join('\n');

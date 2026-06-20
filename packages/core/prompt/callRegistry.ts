@@ -19,6 +19,15 @@ export const NARRATIVE_CALL_TYPES = {
 
 export type NarrativeCallTypeKey = (typeof NARRATIVE_CALL_TYPES)[keyof typeof NARRATIVE_CALL_TYPES];
 
+// ── 当拍 AOHP 约束（F0·B-E2-01·不进指纹·R7-b）──────────────────────────────────
+/** 当拍 AOHP 约束条目（来源=当拍提案·assemblePrompt 注入 userPrompt·不进指纹）*/
+export interface ProposalConstraint {
+  /** 转账约束（from→to·amount·单位取 state.货币系统.基准币种） */
+  transfers?: Array<{ from: string; to: string; amount: number }>;
+  /** 物品流转约束（物品 id·数量·P1 扩展位·当前可传空）*/
+  items?: Array<{ id: string; quantity: number }>;
+}
+
 // ── 调用类型规格（输出格式作可插拔数据项）────────────────────────────────────────────
 // 截断优先级：数组靠前的切片优先被截断（低优先级 → 先截）
 export interface CallTypeSpec {
@@ -42,6 +51,12 @@ export interface CallTypeSpec {
   副作用级别: 'none' | 'sandbox' | 'irreversible';
   /** 拒答/超时/畸形时的回退链（空 = 降级兜底·不再试其他类型） */
   回退链: NarrativeCallTypeKey[];
+  /** 当拍约束注入位声明（true=此调用类型支持约束注入·assemblePrompt 读此标志决定是否展开）*/
+  当拍约束注入位?: {
+    transfer金额: boolean;
+    物品id: boolean;
+    数量: boolean;
+  };
 }
 
 // ── 调用类型注册表（可插拔数据项·禁写死 K 值·禁内联 prompt 串）────────────────────
@@ -65,6 +80,7 @@ export const CALL_TYPE_REGISTRY: Record<NarrativeCallTypeKey, CallTypeSpec> = {
     切片预算:     { 软上限tokens: 800, 截断优先级: ['lore底层', '编年史', '认知投影', 'NPC记忆', '近K历史'] },
     副作用级别:   'none',
     回退链:       [],
+    当拍约束注入位: { transfer金额: true, 物品id: true, 数量: true },
   },
   叙事质量二审: {
     上下文组装器: 'assembler_审稿',

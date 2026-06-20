@@ -1,12 +1,23 @@
-// P0-8 Batch 1: LLM 调用类型注册表骨架（compiled JS）
+// P0-8 Batch 1: LLM 调用类型注册表骨架
+// 元数据层 — 输入切片声明 / 输出 schema / 温度档 / 回退策略
+// 铁律：本文件零裸 prompt 字符串；prompt 文本组装住 hosts/slice/assemble.ts
+// 确定性铁律：切片注入不进指纹（叙事路径 R7-b·禁混入 gate 判定路径）
+// ── 近 K 拍窗口默认值（接切片预算 6.64·参数化可配·禁写死 K）──────────────────────
 export const DEFAULT_NEAR_K = 6;
+// ── 具名调用类型键（冻结·改键须整体替换）────────────────────────────────────────────
+// schema/memory.ts 注释中已命名三类（叙事质量二审/玩家代理回复/小剧场）；
+// 本层补充运行时必用的开场白叙事/主线叙事两种。
 export const NARRATIVE_CALL_TYPES = {
-    开场白叙事: '开场白叙事',
-    主线叙事: '主线叙事',
-    叙事质量二审: '叙事质量二审',
-    玩家代理回复: '玩家代理回复',
-    小剧场: '小剧场',
+    开场白叙事: '开场白叙事', // 序章加载（拒答/超时/畸形走回退链·降级直接登场）
+    主线叙事: '主线叙事', // 主循环每拍叙事生成
+    叙事质量二审: '叙事质量二审', // schema memory.ts 已冻结具名·高质量模型
+    玩家代理回复: '玩家代理回复', // schema memory.ts 已冻结具名·对白
+    小剧场: '小剧场', // schema memory.ts 已冻结具名·场景式
 };
+// ── 当拍 AOHP 约束（F0·B-E2-01·不进指纹·R7-b）──────────────────────────────────
+// ProposalConstraint: { transfers?: [{from,to,amount}], items?: [{id,quantity}] }
+// 调用方从 callRegistry.ts 导入类型；JS 端无需重复声明接口。
+// ── 调用类型注册表（可插拔数据项·禁写死 K 值·禁内联 prompt 串）────────────────────
 export const CALL_TYPE_REGISTRY = {
     开场白叙事: {
         上下文组装器: 'assembler_开场白',
@@ -16,7 +27,7 @@ export const CALL_TYPE_REGISTRY = {
         超时重试策略: '超时30s/重试2次',
         切片预算: { 软上限tokens: 600, 截断优先级: ['lore底层', '编年史', 'NPC记忆', '认知投影'] },
         副作用级别: 'none',
-        回退链: [],
+        回退链: [], // 开场白无后续类型·直接降级登场兜底
     },
     主线叙事: {
         上下文组装器: 'assembler_主线',
@@ -27,6 +38,7 @@ export const CALL_TYPE_REGISTRY = {
         切片预算: { 软上限tokens: 800, 截断优先级: ['lore底层', '编年史', '认知投影', 'NPC记忆', '近K历史'] },
         副作用级别: 'none',
         回退链: [],
+        当拍约束注入位: { transfer金额: true, 物品id: true, 数量: true },
     },
     叙事质量二审: {
         上下文组装器: 'assembler_审稿',
@@ -59,6 +71,7 @@ export const CALL_TYPE_REGISTRY = {
         回退链: [],
     },
 };
+/** 按调用类型键查询规格 */
 export function getCallTypeSpec(key) {
     return CALL_TYPE_REGISTRY[key];
 }

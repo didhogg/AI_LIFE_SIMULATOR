@@ -161,7 +161,7 @@ async function runScene1(): Promise<SceneResult> {
     printTurn(turns[0]!);
   }
 
-  // ── 拍 2: 给钱 5文 → reconcileGate ─────────────────────────────────────────
+  // ── 拍 2: 给钱 5文 → reconcileGate（B-E2-01修复·注入当拍约束）──────────────
   {
     const snap = store.load();
     const { systemPrompt, userPrompt } = assemblePrompt(snap.state, {
@@ -170,6 +170,9 @@ async function runScene1(): Promise<SceneResult> {
       povEntityKey: PC,
       narrativeHistory: histories,
       balances: snap.balances,
+      proposalConstraints: {
+        transfers: [{ from: PC, to: NPC_HONG, amount: 5 }],
+      },
     });
     const llm = await callNarrativeSafe({ systemPrompt, userPrompt });
     const proposal = {

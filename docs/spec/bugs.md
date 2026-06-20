@@ -2,7 +2,7 @@
 
 > 探雷日期: 2026-06-21  
 > 场景数: 3 · 总拍数: 8 · LLM 降级拍数: 0/8（真 LLM 出字全绿）  
-> 基线: HEAD=c02ce1f · test=3342→3364（+22）  
+> 基线: HEAD=c02ce1f → B-E2-01 patch 后 test=3385（+21）  
 
 ## 场景列表
 
@@ -16,15 +16,18 @@
 
 ## Bug 清单（探雷发现）
 
-### [B-E2-01] LLM 叙事用词与 reconcileGate 提案金额不匹配
+### [B-E2-01] LLM 叙事用词与 reconcileGate 提案金额不匹配 ✅ 已修复
 
 | 项目 | 内容 |
 |------|------|
 | **现象** | 场景1拍2：提案 `transfers[{from:PC, to:NPC_HONG, amount:5}]`，LLM 生成叙事含「三枚铜钱」而非「五文」，reconcileGate 返回 `hard_rejected`（期望 `covered`）。探雷首次运行触发，再次运行 LLM 生成不同文本未触发。 |
-| **疑因** | prompt 中未明确告知 LLM「本拍发生转账金额=5文」→ LLM 自由发挥金额，导致 reconcileGate 中文数字解析找不到匹配值。属 prompt 组装层缺失「当拍约束金额」注入。 |
-| **严重度** | major（会导致玩家付钱动作频繁被 hard_rejected，体验破碎） |
-| **归属层** | P0-8/assembler（assemblePrompt 的 userPrompt 中需注入本拍提案约束金额） |
-| **建议** | assemblePrompt userPrompt 中增加「当拍约定账变：玩家 → 红姨 5文」字段注入；或 callRegistry 的「给钱」调用类型显式声明 transfer 约束注入位。 |
+| **根因** | `UNCONFIRMED_UNIT_CHARS='块两贯吊元圆枚银铜钱'` 包含「枚」和「铜」，「三枚铜钱」hit seg2 → `isCanonicalUnit('枚铜钱')=false` → `reason='单位不可确认'` → `hard_rejected`。根本原因：prompt 未向 LLM 声明「当拍 transfer 金额=5文」，LLM 自由发挥使用非规范单位。 |
+| **修复** | F0: `callRegistry.ts` 新增 `ProposalConstraint` 接口 + `当拍约束注入位` 字段（主线叙事声明 transfer/物品/数量注入位）。F1: `assemble.ts` 新增 `proposalConstraints?: ProposalConstraint` 选项 + `userPrompt` 注入`【当拍约定账变（叙事须覆盖·货币单位写"文"·禁铜钱/枚/块/两）】`段。`llmDemo.ts` 场景1拍2 补传 proposalConstraints。 |
+| **单元验证** | `m_p11f1.test.ts` 21 条（F0 宣言 3 + F1 基本动作 9 + B-E2-01 复现/修复链 5 + 指纹隔离 4）全绿。reconcileGate 「三枚铜钱」→ hard_rejected 复现✓；「五文/5文」→ covered ✓。 |
+| **不回归** | test 3385（+21）·schemaKeys=52·指纹 84·黄金向量恒等·红线零 diff。 |
+| **修复 commit** | （待填·B-E2-01 patch） |
+| **严重度** | major（已修复） |
+| **归属层** | P0-8/assembler |
 
 ### [B-E2-02] 连続拍 reconcileGate 拒绝时 tick 不推进
 

@@ -3,7 +3,7 @@ import { evalPredStr } from '@ai-life-sim/core/engine/dsl/eval';
 import { DEFAULT_NEAR_K, CALL_TYPE_REGISTRY } from '@ai-life-sim/core/prompt/callRegistry';
 import { applySliceBudget, estimateSliceTokens, } from '@ai-life-sim/core/engine/sliceBudget';
 export function assemblePrompt(state, opts) {
-    const { pcKey, locName, povEntityKey, visibleSecrets, nearK, narrativeHistory, historyTicks, actionHistory, balances, lorePredCtx, callTypeKey, } = opts;
+    const { pcKey, locName, povEntityKey, visibleSecrets, nearK, narrativeHistory, historyTicks, actionHistory, balances, lorePredCtx, callTypeKey, proposalConstraints, } = opts;
     // ── 主角 ──────────────────────────────────────────────────────────────────────
     const pc = state.NPC?.[pcKey];
     if (!pc)
@@ -195,6 +195,22 @@ export function assemblePrompt(state, opts) {
     // 最近动作序列
     if (recentActions) {
         userParts.push(`【最近动作顺序】${recentActions}`);
+    }
+    // 当拍约定账变（B-E2-01·不进指纹·R7-b·让 LLM 使用规范货币单位）
+    // 口径：CANONICAL_UNITS=文/文钱（与 reconcileGate 解析口径一致·禁铜钱/枚/块/两）
+    if (proposalConstraints) {
+        const constraintLines = [];
+        for (const t of (proposalConstraints.transfers ?? [])) {
+            const fromName = state.NPC?.[t.from]?.姓名 ?? t.from;
+            const toName = state.NPC?.[t.to]?.姓名 ?? t.to;
+            constraintLines.push(`${fromName}→${toName}: ${t.amount}${currency}`);
+        }
+        for (const item of (proposalConstraints.items ?? [])) {
+            constraintLines.push(`物品「${item.id}」×${item.quantity}件`);
+        }
+        if (constraintLines.length > 0) {
+            userParts.push(`【当拍约定账变（叙事须覆盖·货币单位写"${currency}"·禁铜钱/枚/块/两）】`, ...constraintLines);
+        }
     }
     const userPrompt = userParts.join('\n');
     return { systemPrompt, userPrompt };
