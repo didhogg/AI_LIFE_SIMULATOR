@@ -15,6 +15,7 @@ import {
   checkGoverneRegistryMembership,
   checkMotifRegistration,
   checkDisabledRuleKeyRefs,
+  checkPackIdAliases,
   type MigLog,
 } from '../migration/migrate.js';
 import { RootSchema } from '../schema/index.js';
@@ -972,5 +973,118 @@ describe('checkDisabledRuleKeyRefs — C3/C4 G-e', () => {
     });
     const log: MigLog[] = [];
     expect(() => checkDisabledRuleKeyRefs(state, log)).not.toThrow();
+  });
+});
+
+// ─── D-2: 散落别名归一·mod包命名空间观测 ─────────────────────────────────────
+
+describe('checkPackIdAliases — D-2 散落别名', () => {
+  it('D-2: no mod包 registry entries → fast exit, no logs', () => {
+    const state = makeState({
+      受治理键空间注册表: { 键条目: [{ 规范键: 'gold', 命名空间: '币种' as const }] },
+      $隐藏记忆库: { 延时种子: { s1: { 来源: { 包id: 'unknown_mod' } } } },
+      行动卡库: { card1: { _来源包: 'unknown_mod' } },
+    });
+    const log: MigLog[] = [];
+    checkPackIdAliases(state, log);
+    expect(log).toHaveLength(0);
+  });
+
+  it('D-2: 延时种子.来源.包id 空串哨兵 → skip, no warn', () => {
+    const state = makeState({
+      受治理键空间注册表: { 键条目: [{ 规范键: 'my_mod', 命名空间: 'mod包' as const }] },
+      $隐藏记忆库: { 延时种子: { s1: { 来源: { 包id: '' } } } },
+    });
+    const log: MigLog[] = [];
+    checkPackIdAliases(state, log);
+    expect(log).toHaveLength(0);
+  });
+
+  it('D-2: 延时种子.来源.包id 已注册 → no warn', () => {
+    const state = makeState({
+      受治理键空间注册表: { 键条目: [{ 规范键: 'my_mod', 命名空间: 'mod包' as const }] },
+      $隐藏记忆库: { 延时种子: { s1: { 来源: { 包id: 'my_mod' } } } },
+    });
+    const log: MigLog[] = [];
+    checkPackIdAliases(state, log);
+    expect(log).toHaveLength(0);
+  });
+
+  it('D-2: 延时种子.来源.包id 未注册 → warn with correct path', () => {
+    const state = makeState({
+      受治理键空间注册表: { 键条目: [{ 规范键: 'my_mod', 命名空间: 'mod包' as const }] },
+      $隐藏记忆库: { 延时种子: { seed_x: { 来源: { 包id: 'ghost_mod' } } } },
+    });
+    const log: MigLog[] = [];
+    checkPackIdAliases(state, log);
+    expect(log).toHaveLength(1);
+    expect(log[0]!.level).toBe('warn');
+    expect(log[0]!.path).toBe('$隐藏记忆库.延时种子.seed_x.来源.包id');
+    expect(log[0]!.msg).toContain('ghost_mod');
+    expect(log[0]!.msg).toContain('D-2散落别名');
+  });
+
+  it('D-2: 行动卡库._来源包 空串哨兵 → skip, no warn', () => {
+    const state = makeState({
+      受治理键空间注册表: { 键条目: [{ 规范键: 'my_mod', 命名空间: 'mod包' as const }] },
+      行动卡库: { card1: { _来源包: '' } },
+    });
+    const log: MigLog[] = [];
+    checkPackIdAliases(state, log);
+    expect(log).toHaveLength(0);
+  });
+
+  it('D-2: 行动卡库._来源包 已注册 → no warn', () => {
+    const state = makeState({
+      受治理键空间注册表: { 键条目: [{ 规范键: 'core_base', 命名空间: 'mod包' as const }] },
+      行动卡库: { card1: { _来源包: 'core_base' } },
+    });
+    const log: MigLog[] = [];
+    checkPackIdAliases(state, log);
+    expect(log).toHaveLength(0);
+  });
+
+  it('D-2: 行动卡库._来源包 未注册 → warn with correct path', () => {
+    const state = makeState({
+      受治理键空间注册表: { 键条目: [{ 规范键: 'core_base', 命名空间: 'mod包' as const }] },
+      行动卡库: { action_a: { _来源包: 'orphan_mod' } },
+    });
+    const log: MigLog[] = [];
+    checkPackIdAliases(state, log);
+    expect(log).toHaveLength(1);
+    expect(log[0]!.level).toBe('warn');
+    expect(log[0]!.path).toBe('行动卡库.action_a._来源包');
+    expect(log[0]!.msg).toContain('orphan_mod');
+    expect(log[0]!.msg).toContain('D-2散落别名');
+  });
+
+  it('D-2: deterministic — sorted key order, same input → same log', () => {
+    const state = makeState({
+      受治理键空间注册表: { 键条目: [{ 规范键: 'known', 命名空间: 'mod包' as const }] },
+      $隐藏记忆库: {
+        延时种子: {
+          z_seed: { 来源: { 包id: 'z_ghost' } },
+          a_seed: { 来源: { 包id: 'a_ghost' } },
+        },
+      },
+    });
+    const log1: MigLog[] = [];
+    checkPackIdAliases(state, log1);
+    const log2: MigLog[] = [];
+    checkPackIdAliases(state, log2);
+    expect(JSON.stringify(log1)).toBe(JSON.stringify(log2));
+    // sorted: a_seed before z_seed
+    expect(log1[0]!.path).toContain('a_seed');
+    expect(log1[1]!.path).toContain('z_seed');
+  });
+
+  it('D-2: fail-open = never throws (null state fields)', () => {
+    const state = makeState({
+      受治理键空间注册表: { 键条目: [{ 规范键: 'pkg', 命名空间: 'mod包' as const }] },
+      $隐藏记忆库: null,
+      行动卡库: null,
+    });
+    const log: MigLog[] = [];
+    expect(() => checkPackIdAliases(state, log)).not.toThrow();
   });
 });

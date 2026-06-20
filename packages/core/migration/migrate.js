@@ -1276,6 +1276,62 @@ export function checkDisabledRuleKeyRefs(state, log) {
         scanNode(`_lore知识库.${k}`, lore[k], 0);
     }
 }
+// ── D-2·散落别名归一·mod包命名空间观测（fail-open·MigLog warn）──────────────────
+//
+// 梯队D 检查：在 G-b populate 之后，当 registry 'mod包' 命名空间有注册条目时，
+// 校验 state 中两处散落的 pack_id 别名字段是否已注册：
+//   · $隐藏记忆库.延时种子[*].来源.包id
+//   · 行动卡库[*]._来源包
+//
+// fast-exit: 'mod包' 命名空间在 registry 中无条目 → 直接返回（fail-open）
+// 空串哨兵（''）跳过校验（与 D2/D4 降级非拒收口径统一）
+// 绝不 throw；绝不 mutate state；迭代 sorted keys 保证重放恒等。
+export function checkPackIdAliases(state, log) {
+    const entries = state.受治理键空间注册表.键条目 ?? [];
+    const pkgEntries = entries.filter(e => e.命名空间 === 'mod包');
+    if (pkgEntries.length === 0)
+        return; // fast exit: no mod包 registry → fail-open
+    const registeredPkgs = new Set(pkgEntries.filter(e => e.停用 !== true).map(e => e.规范键));
+    function warnPkg(path, pkgId) {
+        if (!registeredPkgs.has(pkgId)) {
+            log.push({
+                level: 'warn',
+                path,
+                msg: `D-2散落别名: 包id「${pkgId}」未在 mod包 命名空间注册（降级非拒收）`,
+            });
+        }
+    }
+    // Scan $隐藏记忆库.延时种子[*].来源.包id
+    const 隐库 = state.$隐藏记忆库;
+    const 延时种子 = 隐库?.['延时种子'];
+    if (延时种子 !== null && 延时种子 !== undefined && typeof 延时种子 === 'object' && !Array.isArray(延时种子)) {
+        for (const key of Object.keys(延时种子).sort()) {
+            const entry = 延时种子[key];
+            if (entry !== null && typeof entry === 'object' && !Array.isArray(entry)) {
+                const 来源 = entry['来源'];
+                if (来源 !== null && typeof 来源 === 'object' && !Array.isArray(来源)) {
+                    const 包id = 来源['包id'];
+                    if (typeof 包id === 'string' && 包id !== '') {
+                        warnPkg(`$隐藏记忆库.延时种子.${key}.来源.包id`, 包id);
+                    }
+                }
+            }
+        }
+    }
+    // Scan 行动卡库[*]._来源包
+    const 行动卡 = state.行动卡库;
+    if (行动卡 !== null && 行动卡 !== undefined && typeof 行动卡 === 'object' && !Array.isArray(行动卡)) {
+        for (const key of Object.keys(行动卡).sort()) {
+            const entry = 行动卡[key];
+            if (entry !== null && typeof entry === 'object' && !Array.isArray(entry)) {
+                const 来源包 = entry['_来源包'];
+                if (typeof 来源包 === 'string' && 来源包 !== '') {
+                    warnPkg(`行动卡库.${key}._来源包`, 来源包);
+                }
+            }
+        }
+    }
+}
 // ── migrate (public entry) ─────────────────────────────────────────────────────
 export function migrate(input) {
     const { raw, log } = buildV41Raw(input);
@@ -1441,5 +1497,7 @@ export function migrate(input) {
     checkMotifRegistration(state, log);
     // G-e·S5规则引用完整性扫描扩维·停用键被规则引用（fail-open·降级非拒收·梯队C C3/C4）
     checkDisabledRuleKeyRefs(state, log);
+    // D-2·散落别名归一·mod包命名空间观测（fail-open·降级非拒收·梯队D）
+    checkPackIdAliases(state, log);
     return { state, log };
 }
