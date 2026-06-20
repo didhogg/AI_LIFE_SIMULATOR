@@ -88,6 +88,9 @@ type FullCtx = {
   切片预算覆盖层: unknown;
   渲染模式覆盖: unknown;
   '$模型画像采样参数': unknown;
+  // D-a-lore bundle members (新增·进取材集)
+  lore谓词集合?: unknown;
+  受控接口能力集注册集?: unknown;
   // B-1 lore exclusions
   lore能力集: unknown;
   'output_tag命名空间': unknown;
@@ -232,6 +235,8 @@ function fingerprintOf(ctx: FullCtx): string {
     ...(ctx['级联限制'] !== undefined ? { 级联限制: ctx['级联限制'] } : {}),
     ...(ctx['归并表'] !== undefined ? { 归并表: ctx['归并表'] } : {}),
     ...(ctx['side_effects注册集'] !== undefined ? { side_effects注册集: ctx['side_effects注册集'] } : {}),
+    ...(ctx['lore谓词集合'] !== undefined ? { lore谓词集合: ctx['lore谓词集合'] } : {}),
+    ...(ctx['受控接口能力集注册集'] !== undefined ? { 受控接口能力集注册集: ctx['受控接口能力集注册集'] } : {}),
   });
   return hashPresetFingerprint({
     判定面整包:        bundleHash,
@@ -273,6 +278,8 @@ const BUNDLE_MUTATIONS: Record<FingerprintBundleMember, unknown> = {
   级联限制:            { 最大深度: 5, 最大轮数: 16 },                    // J5
   归并表:              { 分组归并: { 策略: '最高优先' } },               // S4b
   side_effects注册集: ['combat:击杀回复', 'trade:商路利润'],            // F-b·P7-5c
+  lore谓词集合:         { 'cuisine:川菜': '场景.地域 == 四川', 'dialect:苏州话': '角色.出身地 == 苏州 or 场景.地域 == 苏州' },  // D-a-lore
+  受控接口能力集注册集: ['code', 'roll_dice', 'trigger'],               // D-a-lore·R6 a/c/d
 };
 // Compile-time: ensures exhaustiveness whenever FINGERPRINT_BUNDLE_MEMBERS gains a new entry.
 type _BundleMutationsExhaustive = typeof BUNDLE_MUTATIONS extends Record<FingerprintBundleMember, unknown> ? true : never;
@@ -520,5 +527,45 @@ describe('AA6 gate D: 检定配方表内 拓扑/宿主类型 变 → bundle hash
       魅力: { 主属性: '魅力', 副属性列: [{ 轴名: '智慧', 权重: 0.5, 停用: true, 中性缺省: 30 }], 拓扑: '即掷', 宿主类型: '角色' },
     });
     expect(h1).not.toBe(h2);
+  });
+});
+
+// ── D-a-lore: lore谓词集合 + 受控接口能力集注册集 · Option B 黄金向量 + 非重叠 ──
+describe('D-a-lore: lore谓词集合 + 受控接口能力集注册集 指纹断言', () => {
+  it('Option B: 空 lore谓词集合（undefined） → 指纹与无此字段时恒等', () => {
+    // buildWorld() 的 _lore知识库={} → 无条目 → 调用方不传 lore谓词集合 → undefined
+    // hashJudgmentBundle 收到 undefined → canonicalize 不含此字段 → 指纹不变（黄金向量逐位恒等）
+    const fpWithout = fingerprintOf(BASE_CTX);
+    const fpWithUndefined = fingerprintOf({ ...BASE_CTX, lore谓词集合: undefined });
+    expect(fpWithUndefined).toBe(fpWithout);
+  });
+
+  it('Option B: 空 受控接口能力集注册集（undefined） → 指纹与无此字段时恒等', () => {
+    const fpWithout = fingerprintOf(BASE_CTX);
+    const fpWithUndefined = fingerprintOf({ ...BASE_CTX, 受控接口能力集注册集: undefined });
+    expect(fpWithUndefined).toBe(fpWithout);
+  });
+
+  it('受控接口能力集注册集 与 side_effects注册集 独立取材（不重叠·不重复）', () => {
+    const base = fingerprintOf(BASE_CTX);
+    const withCap  = fingerprintOf({ ...BASE_CTX, 受控接口能力集注册集: ['code', 'roll_dice'] });
+    const withSE   = fingerprintOf({ ...BASE_CTX, side_effects注册集: ['combat:击杀回复'] });
+    const withBoth = fingerprintOf({ ...BASE_CTX, 受控接口能力集注册集: ['code'], side_effects注册集: ['combat:击杀回复'] });
+    expect(withCap).not.toBe(base);   // ① 能力集改→指纹变
+    expect(withSE).not.toBe(base);    // ② 副作用集改→指纹变
+    expect(withBoth).not.toBe(withCap);  // ③ 两者独立·能力集单独不等于both
+    expect(withBoth).not.toBe(withSE);   // ④ 两者独立·副作用集单独不等于both
+  });
+
+  it('lore谓词集合: 谓词内容变 → 指纹变', () => {
+    const fp1 = fingerprintOf({ ...BASE_CTX, lore谓词集合: { 'cuisine:川菜': '场景.地域 == 四川' } });
+    const fp2 = fingerprintOf({ ...BASE_CTX, lore谓词集合: { 'cuisine:川菜': '场景.地域 == 北京' } });
+    expect(fp1).not.toBe(fp2);
+  });
+
+  it('lore谓词集合: 新增条目 → 指纹变', () => {
+    const fp1 = fingerprintOf({ ...BASE_CTX, lore谓词集合: { 'cuisine:川菜': '场景.地域 == 四川' } });
+    const fp2 = fingerprintOf({ ...BASE_CTX, lore谓词集合: { 'cuisine:川菜': '场景.地域 == 四川', 'dialect:苏州话': '角色.出身地 == 苏州' } });
+    expect(fp1).not.toBe(fp2);
   });
 });

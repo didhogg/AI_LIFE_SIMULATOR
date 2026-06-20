@@ -602,11 +602,11 @@ describe('⊕-4 e2e-1 · happy path：全链 ①→⑤ 含多包 add+clamp+audit
       ),
     ).not.toThrow();
 
-    // ⑤ fingerprint manifest frozen: 18+7+5+49=79 entries (P7-5c F-b +1 side_effects注册集·fingerprint.property.test → 84 cases)
+    // ⑤ fingerprint manifest frozen: 20+7+5+49=81 entries (D-a-lore +2: lore谓词集合+受控接口能力集注册集·fingerprint.property.test → 94 cases)
     expect(
       FINGERPRINT_BUNDLE_MEMBERS.length + FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length + FINGERPRINT_EXCLUDED_FIELDS.length,
-    ).toBe(79);
+    ).toBe(81);
   });
 });
 

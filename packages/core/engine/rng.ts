@@ -185,6 +185,10 @@ export function hashJudgmentBundle(fields: {
   归并表?: unknown;                 // S4b·归并规则表
   /** F-b·P7-5c: 所有生效 mod 中 verb option.side_effects handlerRef 集合·集合变→判定面变 */
   side_effects注册集?: unknown;
+  /** D-a-lore: _lore知识库全条目触发谓词集合·{loreKey→谓词串} 映射·改谓词即改判定面·R7-b gate判定路径 */
+  lore谓词集合?: unknown;
+  /** D-a-lore: active mod lore条目.能力集[].类型 集合·R6/R10判定面·类比F-b side_effects注册集·与side_effects不重叠 */
+  受控接口能力集注册集?: unknown;
   // TODO(P0-7): 方式×速度换算表 — 家在 P0-7 速度模型，届时加入签名 + 补断言
   // TODO(P0-7): H7量纲表全量 — 家在 P0-7 量纲系统，届时加入签名 + 补断言
 }): string {

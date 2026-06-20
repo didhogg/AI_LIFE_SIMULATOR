@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# HEAD=ee67ef5 | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-DSL-parser窗口
+# HEAD=（D-a-lore commit待定） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-D-a-lore窗口
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -122,6 +122,19 @@
   - 确定性 round-trip：同 AST 双跑求值逐位恒等
   - packages/core/tests/dslParser.test.ts — 92 tests（D-a/D-b/S-1/K-a/in/版本常量）
   - packages/core/tests/fingerprint.property.test.ts — 补 DSL文法版本 bump + 求值器函数库版本 bump → 指纹变 property
+- [x] D-a-lore · lore谓词冻结+受控接口能力集注册集取材+保真度落血统 · commit=（本批·待commit） · test=2957(+31)
+  - packages/core/engine/loreFreeze.ts — freezeLorePredicate/assertLorePredicateFrozen/readFrozenLorePredicate（L-21同构·创建即冻结·永不重算·fail-closed/fail-open）
+  - packages/core/schema/lore.ts — lore条目Schema 加 触发谓词_冻结: z.boolean().optional() + _导入保真度: z.enum(['compat_strict','compat_plus','native']).optional()（additive-only·零迁移）
+  - packages/core/engine/fingerprintManifest.ts — BUNDLE_MEMBERS 18→20：'lore谓词集合'(19th) + '受控接口能力集注册集'(20th)·TODO P0-6 comment 删除·lore能力集 EXCLUDED 注释同步
+  - packages/core/engine/rng.ts — hashJudgmentBundle additive扩 lore谓词集合? + 受控接口能力集注册集? optional·函数体零diff·黄金向量Option B不变
+  - packages/core/tests/fingerprint.property.test.ts — FullCtx +2字段·fingerprintOf spreads +2·BUNDLE_MUTATIONS +2·D-a-lore describe +5 tests（Option B双×2/非重叠/谓词内容变/新增条目变）
+  - packages/core/tests/loreFreeze.test.ts（新建）— 24 tests（freeze/assert/read三件套·L-21同构纪律）
+  - packages/core/package.json — 补 ./engine/loreFreeze 导出
+  - runProposalGate.test.ts:609 manifest count 79→81（+2 bundle members）
+  - schemaKeys=52 守恒·指纹=84/18→84/20(+2)·fingerprint property 84→94 cases·REPLAY-01=24·C2=17·黄金向量逐位恒等
+  - 非重叠证明：受控接口能力集注册集（能力类型串·'code'/...）与 side_effects注册集（handlerRef串·'combat:...'）域完全分离·Gate A自动覆盖
+  - 导入闸fire：defer P1（hosts/tavern consumer未建·与H-c-1/2同档）
+  - gate.ts 零 diff · rng.ts 函数体零 diff · 红线 diff 空
 
 ---
 

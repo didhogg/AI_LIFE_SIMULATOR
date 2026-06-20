@@ -20,6 +20,7 @@
     "./engine/verbExpand": "./engine/verbExpand.ts",
     "./engine/effectGate": "./engine/effectGate.ts",
     "./engine/importanceFreeze": "./engine/importanceFreeze.ts",
+    "./engine/loreFreeze": "./engine/loreFreeze.ts",
     "./engine/sovereigntyFloor": "./engine/sovereigntyFloor.ts",
     "./engine/covenantWrite": "./engine/covenantWrite.ts",
     "./engine/fingerprintManifest": "./engine/fingerprintManifest.ts",

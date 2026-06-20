@@ -1,6 +1,7 @@
 // Module 15 — lore 知识库（世界恒真知识层·AI 只读·随玩法预设/mod 包注入·可空零迁移）
 // 口径锁定：docs/design/lore_tool_spec.md；gate/组装器实装留 P0-6/P0-8。
 import { z } from 'zod';
+import { 导入保真度枚举 } from './preset.js';
 
 // ══════════════════════════════════════════
 // ② 别名同义词条目（进 S 批归并表·受治理键空间）
@@ -86,6 +87,14 @@ export const lore条目Schema = z.object({
 
   // [TOOL] 能力集（此条目可使用的工具类型白名单·入指纹排除名单）
   能力集: z.array(TOOL_能力条目Schema).optional(),
+
+  // D-a-lore: 谓词冻结标志（导入时 freeze·永不重算·配 L-21 纪律）
+  // 冻结后谓词串聚合为 lore谓词集合 → hashJudgmentBundle → 指纹（R7-b gate判定路径）
+  触发谓词_冻结: z.boolean().optional(),
+
+  // D-a-lore: 导入保真度档落血统（compat_strict/compat_plus/native）
+  // 导入时档位写血统元数据·零指纹增长（当前无确定性消费点·档本身不再影响运行）
+  _导入保真度: z.enum(导入保真度枚举).optional(),
 });
 
 // ══════════════════════════════════════════

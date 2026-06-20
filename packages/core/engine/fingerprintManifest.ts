@@ -24,6 +24,8 @@ export const FINGERPRINT_BUNDLE_MEMBERS = [
   '归并表',                 // S4b·归并规则表·判定面·改归并即改判定
   '纠缠闭包弱边阈值',       // 6.66·累积强度 < 阈值截断弱边·判定面·默认0.2·改阈值即改判定
   'side_effects注册集',     // F-b·P7-5c: 所有生效 mod verb option.side_effects handlerRef 集合·改集合即改判定面
+  'lore谓词集合',           // D-a-lore: _lore知识库全条目触发谓词集·{loreKey→谓词串} canonicalize→hash·改谓词即改判定·R7-b gate判定路径
+  '受控接口能力集注册集',   // D-a-lore: active mod lore条目.能力集[].类型 集合·R6/R10判定面·类比F-b side_effects注册集·不与side_effects重叠
   // TODO(P0-7): 方式×速度换算表 — 家在 P0-7 速度模型，届时加入签名 + 补断言
   // TODO(P0-7): H7量纲表全量 — 家在 P0-7 量纲系统，届时加入签名 + 补断言
 ] as const;
@@ -85,9 +87,8 @@ export const FINGERPRINT_EXCLUDED_FIELDS = [
   '切片预算覆盖层',   // $预算控制台·按调用类型覆盖切片预算·叙事/路由层·不影响判定
   '渲染模式覆盖',     // $预算控制台全局渲染模式覆盖·叙事面·不影响判定
   // B-1 lore 知识库接口元数据（仅排除能力路由/命名空间元数据·并非排除整库）
-  // ⚠️ lore.触发谓词 = gate判定路径·将进指纹；下方排除仅限「叙事/路由层」两字段
-  // TODO(P0-6): lore.触发谓词 → gate判定路径 → 纳 FINGERPRINT_BUNDLE_MEMBERS 或独立签名·届时补断言
-  'lore能力集',         // [TOOL] 能力类型白名单·能力路由元数据·叙事调度层·不影响判定面
+  // lore.触发谓词 = gate判定路径·已纳 BUNDLE_MEMBERS 为 lore谓词集合（D-a-lore）；下方排除仅限「叙事/路由层」两字段
+  'lore能力集',         // [TOOL] 能力类型白名单·能力路由元数据·叙事调度层·不影响判定面（与受控接口能力集注册集不同：此为单条目声明元数据·非active集合）
   'output_tag命名空间', // output_tag 变量命名空间·S/K 批治理元数据·不影响判定
   // P0-1 黄金窗口·酒馆功能字段（叙事/LLM路由层·不影响判定面）
   '内容分级',      // B桶状态·内容分级开关·叙事面·不影响判定
