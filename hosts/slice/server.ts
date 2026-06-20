@@ -54,6 +54,7 @@ import type { SliceTickLog, TickLifecycleState } from "./engine/snapshot.js";
 import { rewindTick } from "./engine/rewind.js";
 import { filterSecretsForPOV } from "@ai-life-sim/core/engine/knowledgeFilter";
 import type { 秘密库条目Type } from "@ai-life-sim/core";
+import { DEFAULT_NEAR_K } from "@ai-life-sim/core/prompt/callRegistry";
 
 // ── P7-3 事务保真单例 ─────────────────────────────────────────────────────────
 const ticketStore   = new TicketStore();   // Z5 工单库 / 3d irreversible 防护
@@ -166,55 +167,61 @@ function commitViaRunTick(tickId: string): void {
   state = result.state;
 }
 
-// ── 叙事调用（带知情过滤·fail-open 短路：无 key 返回 stub）───────────────────
+// ── 叙事调用（P0-8 Batch 1：知情过滤前置闸 + 近 K 拍历史 + live 账本 + lore）────
 async function narrativeWithFilter(
   action: string,
   checkInfo?: string,
 ): Promise<string> {
-  const secrets = (state.全局?.秘密库 ?? {}) as Record<string, 秘密库条目Type>;
-  const visible = filterSecretsForPOV(secrets, PC);
-  const { systemPrompt } = assemblePrompt(state, {
-    pcKey: PC,
-    locName: LOC_NAME,
-    visibleSecrets: visible,
-  });
-  // 结构化记忆：账目快照 + 从账本派生的历程次数。
-  // 次数直接从账本算（红姨只从「给钱」收钱、王掌柜只在赊账成功时付钱），悔棋回滚账本后自动跟着回退，绝不算错。
   const bal = snapshotBalances(balances);
   const linjiuBal = bal[PC] ?? 0;
   const wangBal = bal[NPC_WANG] ?? 0;
   const hongBal = bal[NPC_HONG] ?? 0;
+
+  // lore 谓词上下文：用主角属性 + 当前拍计数组成平坦数值快照
+  const pcAttrs = (state.NPC?.[PC]?.属性 ?? {}) as Record<string, number>;
+  const lorePredCtx = { 属性: pcAttrs, 拍计数: tickCount };
+
+  // 知情过滤前置闸：povEntityKey 注入到 assemblePrompt 内部处理（不可旁路）
+  const { systemPrompt } = assemblePrompt(state, {
+    pcKey:           PC,
+    locName:         LOC_NAME,
+    povEntityKey:    PC,           // gate 前置：assembler 内部调用 filterSecretsForPOV
+    narrativeHistory,              // 近 K 拍叙事历史（assembler 取末 DEFAULT_NEAR_K 条）
+    actionHistory,                 // 动作序列（assembler 取末 6 条）
+    balances:        bal,          // live 账本快照
+    lorePredCtx,                   // lore 底层谓词求值上下文
+  });
+
+  // 结构化 userPrompt（游戏特定：债务/时间/写作要求·不进 assembler 通用层）
   const payCount = Math.max(
     0,
     Math.round((hongBal - (INITIAL_BALANCES[NPC_HONG] ?? 0)) / 2),
   );
-  // 债务从 auxStack 同步而来（赊账不动现金，无法只靠账本派生），悔棋会一并回滚。
   const debtLine =
     debt > 0
       ? `林九尚欠王掌柜 ${debt} 文（已赊账 ${creditCount} 次，未还清）。`
       : `林九目前没有欠王掌柜的账。`;
-  // 最近动作顺序：让 NPC 能对「刚给完钱又来赊账」这种转折作出反应，而不只是数次数。
   const recentActions = actionHistory.slice(-6).join(" → ");
   const recap =
     `【当前账目】林九 ${linjiuBal} 文、王掌柜 ${wangBal} 文、红姨 ${hongBal} 文。\n` +
     `【赊欠】${debtLine}\n` +
     `【已发生】林九先前已给红姨钱 ${payCount} 次。` +
     (recentActions ? `\n【最近动作顺序】${recentActions}` : "");
-  // 游戏内时间：随拍确定性推进，到「入夜」收束当天。
   const clock = gameClock(tickCount);
   const timeLine = `第 ${clock.day} 天 · ${clock.label}`;
-  // 上一幕：只喂回最近 1 条，供��气衔接；严禁照抄，否则叙事会收敛成同一段文字、卡死推不动。
-  const lastScene = narrativeHistory[narrativeHistory.length - 1] ?? "";
+  // 近 K 拍叙事（替代旧的只喂最近1条·P0-8 Batch 1 止血）
+  const recentScenes = narrativeHistory.slice(-DEFAULT_NEAR_K);
   const userPrompt =
     `【此刻】${timeLine}\n${recap}\n\n` +
-    (lastScene
-      ? `【上一幕·仅供语气衔接，严禁照抄或改写其措辞、对白与情节】\n${lastScene}\n\n`
+    (recentScenes.length > 0
+      ? `【近期叙事·仅供语气衔接·严禁照抄或改写措辞对白情节】\n` +
+        recentScenes.map((s, i) => `${i + 1}. ${s}`).join("\n") + "\n\n"
       : "") +
     `【本拍行动】${action}` +
     (checkInfo ? `\n[检定结果] ${checkInfo}` : "") +
-    `\n\n【场景铁律】故事永远固定在悦来客栈，在场只有林九、王掌柜、红姨三人。严禁引入任何新人物、新到的客人、新任务、新差事或新地��，也不要让任何人引导林九离开客栈去别处接活。\n` +
+    `\n\n【场景铁律】故事永远固定在悦来客栈，在场只有林九、王掌柜、红姨三人。严禁引入任何新人物、新到的客人、新任务、新差事或新地点，也不要让任何人引导林九离开客栈去别处接活。\n` +
     `\n写作要求：\n` +
-    `1. 必须正面回应林九最近的动作顺序，尤其是自相矛盾的行为（例如先给红姨赏钱、转头又向王掌柜赊账，或赊账后又给钱）——让王掌柜或红姨当��点破、调侃或起疑，而不是无视。\n` +
+    `1. 必须正面回应林九最近的动作顺序，尤其是自相矛盾的行为（例如先给红姨赏钱、转头又向王掌柜赊账，或赊账后又给钱）——让王掌柜或红姨当面点破、调侃或起疑，而不是无视。\n` +
     `2. 推进的是时间与三人之间的情绪与关系，而非引入新事件：结合「${timeLine}」让光线、客流、人物状态随时辰自然变化。\n` +
     (clock.isDayEnd
       ? `3. 现在已是入夜，这是今天最后一刻——请把这一天明确收束（点明天色已暗、客栈打烊、本日结束），不要再起新话头。\n`

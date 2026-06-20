@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=074b736 · STATUS回填=0027b1d | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/reconcile-bugs1
+# code HEAD=P0-8-B1（P0-8 Batch 1 commit pending） · STATUS回填=pending | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/P0-8-Batch1
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -239,7 +239,14 @@
 ### 后续阶段（P0-7+）
 
 - [ ] P0-7-remainder · Z3/Z5/J1/级联轮/模态并发/V1/AA1主接线等结算子项 · 解锁=P0-7-start落地
-- [ ] P0-8 · prompt组装+叙事校验闸+信念派生+知情过滤+切片预算 · 解锁=P0-7
+- [x] P0-8 Batch 1 · 组装器骨架 + 纵切止血（调用类型注册表 + 近K历史 + lore谓词切片 + NPC记忆/情绪 + 知情过滤前置闸 + live账本 + 编年史 + POV认知投影） · commit=pending · test=3152(+33)
+  - packages/core/prompt/callRegistry.ts（新）: CALL_TYPE_REGISTRY 五种具名类型·DEFAULT_NEAR_K=6·CallTypeSpec含切片预算·零裸prompt串
+  - hosts/slice/assemble.ts（升级）: povEntityKey前置闸·nearK历史·narrativeHistory·actionHistory·balances·lorePredCtx·NPC记忆/情绪·编年史·POV认知投影·backward-compat
+  - hosts/slice/server.ts（接线）: narrativeWithFilter切到新assembler API·近K历史扩至DEFAULT_NEAR_K·povEntityKey gate内移
+  - packages/core/package.json: 补 ./prompt/callRegistry export
+  - hosts/slice/tests/m_p8tier1.test.ts（新·33 tests）: ①注册表完整·②近K历史·③动作序列·④lore谓词切片R7-b·⑤NPC记忆·⑥情绪栈·⑦编年史·⑧知情过滤前置闸·⑨live账本·⑩切片不进指纹·⑪双机一致性·⑫POV认知投影
+  - 验收：schemaKeys=52·指纹=84/20不变·REPLAY-01=24·C2=17·黄金向量逐位恒等·红线diff空·test 3119→3152(+33全绿)
+- [ ] P0-8 Batch 2+ · 叙事校验闸+信念派生+知情过滤深化 · 解锁=P0-7
 - [ ] P0-9 · 存档层G2原子性/U1迁移单元/U3版本分段 · 解锁=P0-7基础
 - [ ] P0-10 · 回归测试体系+DoD复验 · 解锁=P0-8+P0-9
 - [ ] P0-11 · 双宿主薄壳 · 解锁=P0-10
@@ -287,11 +294,11 @@ P2完成              → I-b-盐3(第三盐+离场契约指纹), offstageSettle
 
 | 指标 | 值 |
 |------|-----|
-| test | 3119（60 test files · +14 D-3种子来源包名归一） |
+| test | 3152（61 test files · +33 P0-8 Batch 1·m_p8tier1.test.ts） |
 | tsc | 28（CC环境30·含2预存于非改动文件） |
 | lint | 220 errors（baseline·勿新增） |
 | schemaKeys | 52 |
-| 指纹 | 84（fingerprintManifest 18条目·D-3未新增指纹条目） |
+| 指纹 | 84（fingerprintManifest 20条目·P0-8 Batch1不进指纹） |
 | REPLAY-01 | 24 |
 | C2 chaos | 17 |
 | 黄金向量 | 5c1d0233 / 63b3e729 / db10d5c7（逐位恒等·勿重生成·Option B確認済）|

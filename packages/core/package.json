@@ -31,6 +31,7 @@
     "./engine/knowledgeWrite": "./engine/knowledgeWrite.ts",
     "./engine/time": "./engine/time.ts",
     "./interfaces/combatResolver": "./interfaces/combatResolver.ts",
+    "./prompt/callRegistry": "./prompt/callRegistry.ts",
     "./replay": "./replay/index.ts"
   },
   "dependencies": {

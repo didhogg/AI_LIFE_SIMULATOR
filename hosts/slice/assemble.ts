@@ -1,64 +1,162 @@
-// M0 最小 prompt 组装 — 主角 + 在场 NPC + 地点 + 近 K 拍历史
-// M4: 新增 visibleSecrets 参数（知情过滤后才入组装·$谜底 永不送入 LLM）
+// P0-8 Batch 1: prompt 组装层（近 K 历史 + lore 底层谓词切片 + NPC 记忆/情绪 + 知情过滤前置闸）
+// M4: 知情过滤前置闸——喂 AI 的事实切片必先过 filterSecretsForPOV（povEntityKey 路径）
+// 确定性铁律: 组装侧切片 **不进指纹**（叙事注入路径 R7-b·禁混入 gate 判定路径）
 import type { RootState } from '@ai-life-sim/core';
-import type { VisibleSecret } from '@ai-life-sim/core/engine/knowledgeFilter';
+import type { 秘密库条目Type } from '@ai-life-sim/core';
+import {
+  filterSecretsForPOV,
+  type VisibleSecret,
+} from '@ai-life-sim/core/engine/knowledgeFilter';
+import { evalPredStr } from '@ai-life-sim/core/engine/dsl/eval';
+import type { DslContext } from '@ai-life-sim/core/engine/dsl/eval';
+import { DEFAULT_NEAR_K } from '@ai-life-sim/core/prompt/callRegistry';
 
 export type { VisibleSecret };
 
 export interface AssembleOptions {
   pcKey: string;
   locName: string;
-  historyTicks?: string[];
-  /**
-   * M4 知情过滤结果：调用方通过 filterSecretsForPOV 预过滤后传入。
-   * 缺省或空对象 → 不注入秘密节（existence-opaque：连该节存在都不暴露）。
-   * 禁止传入未过滤的 全局.秘密库：过滤在进 prompt 之前做，不是事后打码。
-   */
+
+  // ── 知情过滤（前置闸·M4 治本）────────────────────────────────────────────────────
+  // 推荐路径：提供 povEntityKey → 函数内部自动调用 filterSecretsForPOV（gate 不可旁路）。
+  // 兼容路径：提供 visibleSecrets（已过滤结果·测试/旧调用方可用）。
+  // 两者同时提供时 povEntityKey 优先（内部重新过滤保证一致性）。
+  povEntityKey?: string;
   visibleSecrets?: Record<string, VisibleSecret>;
+
+  // ── 近 K 拍历史（参数化·禁写死）──────────────────────────────────────────────────
+  nearK?: number;                    // 默认 DEFAULT_NEAR_K
+  narrativeHistory?: string[];       // 叙事历史（新）
+  /** @deprecated 改用 narrativeHistory */
+  historyTicks?: string[];
+  actionHistory?: string[];          // 动作序列
+
+  // ── live 账本（组装侧注入·结算不在此）─────────────────────────────────────────────
+  balances?: Record<string, number>; // entityKey → 余额
+
+  // ── lore 底层谓词切片（R7-b 双轨·知识载荷走叙事注入·谓词走 DSL 求值）──────────────
+  lorePredCtx?: DslContext;          // 谓词求值上下文（如 {属性:{体质:5}}）
+
+  // ── 调用类型标注（日志/截断优先级参考用）────────────────────────────────────────────
+  callTypeKey?: string;
 }
 
 export function assemblePrompt(state: RootState, opts: AssembleOptions): {
   systemPrompt: string;
   userPrompt: string;
 } {
-  const { pcKey, locName, visibleSecrets } = opts;
+  const {
+    pcKey, locName,
+    povEntityKey, visibleSecrets,
+    nearK, narrativeHistory, historyTicks, actionHistory,
+    balances, lorePredCtx,
+  } = opts;
 
-  // ── 主角 ──
+  // ── 主角 ──────────────────────────────────────────────────────────────────────
   const pc = state.NPC?.[pcKey];
   if (!pc) throw new Error(`找不到主角 ${pcKey}`);
-  const pcName = pc.姓名 ?? pcKey;
-  const pcBio  = pc.背景 ?? '';
-  const attrs  = pc.属性 as Record<string, number> | undefined;
+  const pcName   = pc.姓名 ?? pcKey;
+  const pcBio    = pc.背景 ?? '';
+  const attrs    = pc.属性 as Record<string, number> | undefined;
+  const pcAttrStr = attrs
+    ? `体质${attrs['体质'] ?? '?'} 智慧${attrs['智慧'] ?? '?'} 感知${attrs['感知'] ?? '?'} 魅力${attrs['魅力'] ?? '?'} 心理${attrs['心理'] ?? '?'}`
+    : '';
 
-  // ── 在场 NPC（同地点·排除主角）──
+  // ── 知情过滤前置闸（M4·gate invariant）────────────────────────────────────────
+  // povEntityKey 路径：函数内部过滤（不可旁路）
+  // visibleSecrets 路径：调用方已过滤（测试/兼容路径）
+  const effectivePovKey = povEntityKey ?? pcKey;
+  let effectiveSecrets: Record<string, VisibleSecret>;
+  if (povEntityKey !== undefined) {
+    const rawSecrets = (state.全局?.秘密库 ?? {}) as Record<string, 秘密库条目Type>;
+    effectiveSecrets = filterSecretsForPOV(rawSecrets, povEntityKey);
+  } else {
+    effectiveSecrets = visibleSecrets ?? {};
+  }
+
+  // ── lore 底层谓词切片（R7-b 叙事注入路径·不进指纹）─────────────────────────────
+  // 谓词命中 = 当前场景适用此 lore 条目；知识载荷注入叙事上下文（不影响判定）
+  const loreLines: string[] = [];
+  if (lorePredCtx) {
+    const loreKB = (state as unknown as Record<string, unknown>)['_lore知识库'] as
+      Record<string, { 触发谓词: string; 知识载荷: string }> | undefined ?? {};
+    for (const entry of Object.values(loreKB)) {
+      const matches = entry.触发谓词
+        ? evalPredStr(entry.触发谓词, lorePredCtx)
+        : true; // 无谓词 = 恒真（通用常识载荷）
+      if (matches && entry.知识载荷) {
+        loreLines.push(entry.知识载荷);
+      }
+    }
+  }
+
+  // ── 货币（live 账本·来自 balances 参数 fallback 读 state）──────────────────────
+  const currency  = state.货币系统?.基准币种 ?? '文钱';
+  const pcHolding = balances
+    ? (balances[pcKey] ?? 0)
+    : (state.货币系统?.账户?.[pcKey]?.持有?.[currency] ?? 0);
+
+  // ── 在场 NPC（同地点·排除主角·含记忆/情绪·组装侧只读·回写属模块6）──────────────
   const npcLines: string[] = [];
   for (const [key, npc] of Object.entries(state.NPC ?? {})) {
     if (key === pcKey) continue;
     if (npc.位置 !== (pc.位置 ?? '')) continue;
+
     const attrStr = npc.属性
       ? Object.entries(npc.属性 as Record<string, number>)
           .map(([k, v]) => `${k}${v}`)
           .join('/')
       : '';
-    npcLines.push(
-      `- ${npc.姓名 ?? key}（${npc.称呼 ?? ''}）：${npc.背景 ?? ''}${attrStr ? `  [${attrStr}]` : ''}`,
-    );
+
+    const npcLine = `- ${npc.姓名 ?? key}（${npc.称呼 ?? ''}）：${npc.背景 ?? ''}${attrStr ? `  [${attrStr}]` : ''}`;
+    npcLines.push(npcLine);
+
+    // NPC 记忆（取重要度≥2·最近3条·只读·回写属模块6+P0-7认知结算）
+    type NpcMemEntry = { 重要度?: number; 摘要?: string; 情绪色彩?: string };
+    const npcMems = ((npc.记忆 as NpcMemEntry[] | undefined) ?? [])
+      .filter((m) => (m.重要度 ?? 0) >= 2)
+      .slice(-3);
+    for (const m of npcMems) {
+      if (m.摘要) npcLines.push(`  记忆: ${m.摘要}${m.情绪色彩 ? `（${m.情绪色彩}）` : ''}`);
+    }
+
+    // NPC 情绪栈（取顶层2条·只读）
+    type EmotionEntry = { 情绪名?: string };
+    const emotions = ((npc.情绪栈 as EmotionEntry[] | undefined) ?? []).slice(-2);
+    for (const e of emotions) {
+      if (e.情绪名) npcLines.push(`  情绪: ${e.情绪名}`);
+    }
   }
 
-  // ── 主角属性摘要 ──
-  const pcAttrStr = attrs
-    ? `体质${attrs['体质'] ?? '?'} 智慧${attrs['智慧'] ?? '?'} 感知${attrs['感知'] ?? '?'} 魅力${attrs['魅力'] ?? '?'} 心理${attrs['心理'] ?? '?'}`
-    : '';
+  // ── 编年史（表层公共·知情过滤后入册·读时全部可见·取最近5条）─────────────────────
+  type ChronicleEntry = { 序号?: number; 标题?: string; 结果摘要行?: string };
+  const chronicle = ((state.全局 as unknown as { _编年史?: ChronicleEntry[] } | undefined)?._编年史 ?? [])
+    .slice(-5);
+  const chronicleLines = chronicle.map(
+    (e) => `[序${e.序号 ?? '?'}] ${e.标题 ?? ''}：${e.结果摘要行 ?? ''}`,
+  );
 
-  // ── 货币（B5.5 post-per-entity: 账户 = Record<entityKey, 账户Schema>）──
-  // slice 追踪账本走 SliceBalances；此处仅为 prompt 显示读 RootState（默认 0）。
-  const currency   = state.货币系统?.基准币种 ?? '文钱';
-  const pcHolding  = state.货币系统?.账户?.[pcKey]?.持有?.[currency] ?? 0;
+  // ── 表层投影：当前 POV 认知档案（标「他以为」·只取本 POV·只读）──────────────────
+  type CogEntry = { 印象?: Array<{ 标签?: string; 极性?: string; 强度?: number }> };
+  type CogArchive = Record<string, CogEntry>;
+  const cogArchive = (state.认知档案 as Record<string, CogArchive> | undefined)?.[effectivePovKey];
+  const cogLines: string[] = [];
+  if (cogArchive) {
+    for (const [targetKey, cog] of Object.entries(cogArchive)) {
+      if (targetKey === effectivePovKey) continue; // 跳过自我认知
+      const imps = (cog.印象 ?? []).slice(-3);
+      if (imps.length > 0) {
+        const impStr = imps
+          .map((i) => `${i.标签 ?? ''}(${i.极性 ?? '—'}·${i.强度 ?? 0})`)
+          .join('、');
+        cogLines.push(`他以为 ${targetKey}：${impStr}`);
+      }
+    }
+  }
 
-  // ── M4 已知秘密节（知情过滤后·$谜底 永不输出）────────────────────────────────
-  // 铁律：非知情方连该节都不插入（existence-opaque）
+  // ── 已知秘密节（知情过滤后·$谜底 永不输出）────────────────────────────────────────
   const secretSection: string[] = [];
-  const visibleEntries = Object.entries(visibleSecrets ?? {});
+  const visibleEntries = Object.entries(effectiveSecrets);
   if (visibleEntries.length > 0) {
     secretSection.push('', '## 当前已知秘密（已知存在·勿在叙事中直接揭示）');
     for (const [id, s] of visibleEntries) {
@@ -66,25 +164,73 @@ export function assemblePrompt(state: RootState, opts: AssembleOptions): {
     }
   }
 
-  const systemPrompt = [
+  // ── systemPrompt 组装（静态世界知识）──────────────────────────────────────────
+  const systemParts: string[] = [
     '你是一款中文武侠模拟游戏的叙事 AI。请用简洁的第三人称为下面这一拍生成一段叙事（50-80 字），',
-    '描述主角刚到客栈的第一印象。不要捏造不在场景中的人物或秘密。',
+    '描述当前场景氛围与主角动作，不要捏造不在场景中的人物或秘密。',
     '',
-    `## 主角`,
+    '## 主角',
     `姓名：${pcName}  称呼：${pc.称呼 ?? ''}`,
     `背景：${pcBio}`,
     `属性：${pcAttrStr}`,
     `身上：${pcHolding}${currency}`,
-    '',
-    `## 地点`,
-    locName,
-    '',
-    `## 在场人物`,
-    npcLines.join('\n') || '（无）',
-    ...secretSection,
-  ].join('\n');
+  ];
 
-  const userPrompt = `拍#${state._tick?.拍计数 ?? 1}：林九踏入悦来客栈，请描写他的第一印象与周围氛围。`;
+  // lore 底层切片（R7-b·叙事注入·仅在有 lorePredCtx 且有匹配时插入）
+  if (loreLines.length > 0) {
+    systemParts.push('', '## 世界常识（lore）');
+    for (const l of loreLines) systemParts.push(l);
+  }
+
+  systemParts.push('', '## 地点', locName, '', '## 在场人物');
+  systemParts.push(npcLines.join('\n') || '（无）');
+
+  // 编年史（表层公共）
+  if (chronicleLines.length > 0) {
+    systemParts.push('', '## 近期编年史');
+    for (const c of chronicleLines) systemParts.push(c);
+  }
+
+  // POV 认知投影（表层投影）
+  if (cogLines.length > 0) {
+    systemParts.push('', '## 主角认知投影（他以为）');
+    for (const c of cogLines) systemParts.push(c);
+  }
+
+  systemParts.push(...secretSection);
+
+  const systemPrompt = systemParts.join('\n');
+
+  // ── userPrompt 组装（动态每拍状态）────────────────────────────────────────────
+  const k = nearK ?? DEFAULT_NEAR_K;
+  const history = narrativeHistory ?? historyTicks ?? [];
+  const recentHistory = history.slice(-k);
+  const recentActions = (actionHistory ?? []).slice(-6).join(' → ');
+
+  const userParts: string[] = [
+    `拍#${state._tick?.拍计数 ?? 1}`,
+  ];
+
+  // live 账本摘要（若提供了账本数据）
+  if (balances) {
+    const balEntries = Object.entries(balances)
+      .map(([k2, v]) => `${k2}:${v}${currency}`)
+      .join(' / ');
+    userParts.push(`【账目】${balEntries}`);
+  }
+
+  // 近 K 拍叙事历史
+  if (recentHistory.length > 0) {
+    userParts.push('', '【近期叙事】');
+    recentHistory.forEach((h, i) => userParts.push(`${i + 1}. ${h}`));
+  }
+
+  // 最近动作序列
+  if (recentActions) {
+    userParts.push(`【最近动作顺序】${recentActions}`);
+  }
+
+  const userPrompt = userParts.join('\n');
 
   return { systemPrompt, userPrompt };
 }
