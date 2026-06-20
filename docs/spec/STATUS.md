@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=（B-E2-01 patch·待 commit） · 前=f0baa77（P0-11探雷轮） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-21/B-E2-01修复
+# code HEAD=b7dfd68（B-E2-01 patch·当拍约束注入） · 前=f0baa77（P0-11探雷轮） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-21/B-E2-01修复
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -158,7 +158,7 @@
     - 场景3（知情过滤边界）：secretRef拦截·NPC_WANG POV·$谜底不泄漏
   - E4 探雷报告：docs/spec/bugs.md · B-E2-01(reconcileGate金额不匹配·major) · B-E2-02(tick不推进·observation)
   - schemaKeys=52·指纹84·黄金向量5c1d0233/63b3e729/db10d5c7逐位恒等·红线diff空
-- [x] B-E2-01 修复 · assemblePrompt 当拍约束注入 · test=3364→3385(+21) · 待 commit
+- [x] B-E2-01 修复 · assemblePrompt 当拍约束注入 · commit=b7dfd68 · test=3364→3385(+21)
   - 根因：UNCONFIRMED_UNIT_CHARS含「枚/铜」→「三枚铜钱」hit seg2→单位不可确认→hard_rejected
   - F0: callRegistry.ts ProposalConstraint接口 + 当拍约束注入位字段（主线叙事声明 transfer/物品/数量）
   - F1: assemble.ts proposalConstraints?:ProposalConstraint → userPrompt【当拍约定账变】段注入（5文·规范单位·禁铜钱/枚/块/两）

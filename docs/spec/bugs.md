@@ -25,7 +25,7 @@
 | **修复** | F0: `callRegistry.ts` 新增 `ProposalConstraint` 接口 + `当拍约束注入位` 字段（主线叙事声明 transfer/物品/数量注入位）。F1: `assemble.ts` 新增 `proposalConstraints?: ProposalConstraint` 选项 + `userPrompt` 注入`【当拍约定账变（叙事须覆盖·货币单位写"文"·禁铜钱/枚/块/两）】`段。`llmDemo.ts` 场景1拍2 补传 proposalConstraints。 |
 | **单元验证** | `m_p11f1.test.ts` 21 条（F0 宣言 3 + F1 基本动作 9 + B-E2-01 复现/修复链 5 + 指纹隔离 4）全绿。reconcileGate 「三枚铜钱」→ hard_rejected 复现✓；「五文/5文」→ covered ✓。 |
 | **不回归** | test 3385（+21）·schemaKeys=52·指纹 84·黄金向量恒等·红线零 diff。 |
-| **修复 commit** | （待填·B-E2-01 patch） |
+| **修复 commit** | b7dfd68 |
 | **严重度** | major（已修复） |
 | **归属层** | P0-8/assembler |
 
