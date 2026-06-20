@@ -14,6 +14,7 @@ import {
   makePeriodConverter,
   writeEpochMinute,
 } from '../engine/time.js';
+import { populateGoverneKeyRegistry } from '../engine/registryPopulate.js';
 
 // Re-export for migration tests that import these from migrate.ts
 export { parseChineseDateToEpochMin, getTickMinutes } from '../engine/time.js';
@@ -1218,6 +1219,79 @@ export function checkL3PersonGate(state: RootState, log: MigLog[]): void {
   }
 }
 
+// ── S6·受治理键空间：未注册句柄检查（fail-open·MigLog warn·与 checkS3WriteGate 同族）──
+//
+// 扫描 _lore知识库 下任意深度节点中三类受治理句柄字段：
+//   side_effects[] → 'sideEffect句柄' 命名空间
+//   cascade_on_change[] → 'cascade句柄' 命名空间
+//   解除通道 → '拦截器句柄' 命名空间
+//
+// fail-open 铁律：
+//   · 对应命名空间在 registry 中无条目 → 该命名空间跳过（空注册表=全放行）
+//   · 绝不 throw；绝不 mutate state；重放定格（同输入→同 log 输出）
+// 挂点：G-b populate 之后·deriveModAwareWhitelist 之前
+export function checkS6UnregisteredHandlerRefs(state: RootState, log: MigLog[]): void {
+  const keys = state.受治理键空间注册表.键条目 ?? [];
+  const sideEffectSet = new Set(
+    keys.filter(e => e.命名空间 === 'sideEffect句柄' && e.停用 !== true).map(e => e.规范键),
+  );
+  const cascadeSet = new Set(
+    keys.filter(e => e.命名空间 === 'cascade句柄' && e.停用 !== true).map(e => e.规范键),
+  );
+  const interceptorSet = new Set(
+    keys.filter(e => e.命名空间 === '拦截器句柄' && e.停用 !== true).map(e => e.规范键),
+  );
+
+  // Fast exit: all three namespaces empty in registry → fail-open (no check)
+  if (sideEffectSet.size === 0 && cascadeSet.size === 0 && interceptorSet.size === 0) return;
+
+  // Recursive scan: any object with known handler keys
+  function scanNode(path: string, node: unknown, depth: number): void {
+    if (depth > 10 || node === null || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      node.forEach((item, i) => scanNode(`${path}[${i}]`, item, depth + 1));
+      return;
+    }
+    const rec = node as Record<string, unknown>;
+    // side_effects[]
+    if (sideEffectSet.size > 0 && Array.isArray(rec['side_effects'])) {
+      for (const h of rec['side_effects'] as unknown[]) {
+        if (typeof h === 'string' && !sideEffectSet.has(h)) {
+          log.push({ level: 'warn', path: `${path}.side_effects`, msg: `S6未注册: sideEffect句柄「${h}」未在受治理键空间注册（降级非拒收）` });
+        }
+      }
+    }
+    // cascade_on_change[]
+    if (cascadeSet.size > 0 && Array.isArray(rec['cascade_on_change'])) {
+      for (const h of rec['cascade_on_change'] as unknown[]) {
+        if (typeof h === 'string' && !cascadeSet.has(h)) {
+          log.push({ level: 'warn', path: `${path}.cascade_on_change`, msg: `S6未注册: cascade句柄「${h}」未在受治理键空间注册（降级非拒收）` });
+        }
+      }
+    }
+    // 解除通道
+    if (interceptorSet.size > 0 && typeof rec['解除通道'] === 'string') {
+      const h = rec['解除通道'] as string;
+      if (!interceptorSet.has(h)) {
+        log.push({ level: 'warn', path: `${path}.解除通道`, msg: `S6未注册: 拦截器句柄「${h}」未在受治理键空间注册（降级非拒收）` });
+      }
+    }
+    // Recurse into children (skip already-handled array/handler fields)
+    for (const k of Object.keys(rec).sort()) {
+      if (k === 'side_effects' || k === 'cascade_on_change' || k === '解除通道') continue;
+      scanNode(`${path}.${k}`, rec[k], depth + 1);
+    }
+  }
+
+  // Primary scan target: _lore知识库 (main source of verb/handler declarations)
+  const lore = (state as unknown as Record<string, unknown>)['_lore知识库'];
+  if (lore && typeof lore === 'object' && !Array.isArray(lore)) {
+    for (const k of Object.keys(lore as Record<string, unknown>).sort()) {
+      scanNode(`_lore知识库.${k}`, (lore as Record<string, unknown>)[k], 0);
+    }
+  }
+}
+
 // ── migrate (public entry) ─────────────────────────────────────────────────────
 
 export function migrate(input: unknown): MigrateResult {
@@ -1340,6 +1414,17 @@ export function migrate(input: unknown): MigrateResult {
     }
   }
 
+  // G-b·mod生态路径II: populate 受治理键空间注册表 from mod entries
+  // IM3-D1: pack_id auto-enrolled in 'mod包' namespace
+  // G-c: conflict resolution = higher 优先级 wins; codepoint 字典序 tiebreaker
+  // Runs after E-e (tombstone passes complete) so only accepted mods contribute.
+  {
+    const populated = populateGoverneKeyRegistry(state.mod注册表, state.受治理键空间注册表);
+    if (populated !== state.受治理键空间注册表) {
+      state = { ...state, 受治理键空间注册表: populated };
+    }
+  }
+
   // K1·B6: derive mod-aware whitelist and run dry-run assertion (fail-closed).
   // lor was computed above (after self-loop/cascade/semver tombstone passes).
   // Empty registry → flattenedLoadOrder = [] → modPaths = {} → trivially passes.
@@ -1365,6 +1450,8 @@ export function migrate(input: unknown): MigrateResult {
   checkS3WriteGate(state, log);
   // L3·人称二元组合法性（fail-open·并入警示族）
   checkL3PersonGate(state, log);
+  // S6·受治理键空间：未注册句柄检查（fail-open·降级非拒收）
+  checkS6UnregisteredHandlerRefs(state, log);
 
   return { state, log };
 }

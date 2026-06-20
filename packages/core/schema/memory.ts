@@ -1,6 +1,6 @@
 // 4.8 记忆·事件·调度层
 import { z } from 'zod';
-import { 受治理路径Schema, 是JS保留键 } from './governedKeySpace.js';
+import { 受治理路径Schema, 是JS保留键, 键条目Schema } from './governedKeySpace.js';
 
 // ── 记录键 superRefine（AA4·禁 JS 保留键·防原型污染） ──
 // key schema 方式：在 Zod 构造 record 结果前拦截，正确处理 __proto__ 等保留键。
@@ -318,6 +318,8 @@ const mod条目Schema = z.object({
 
   // ── B2·S5 字段 ───────────────────────────────────────────────────────────
   可写键: z.array(受治理路径Schema).optional(), // 可写键贡献字段·B6 导入闸消费·运行时 defer
+  // G-b·mod生态路径II：作者显式命名空间键声明（D1 混合·优先于 enumerate 兜底·来源包默认=pack_id）
+  命名空间键声明: z.array(键条目Schema).optional(),
   轨道: z.enum(['gameplay', 'cosmetic', 'view', 'macro']).default('gameplay'), // 蓝图 6.78·静态判轨
 }).superRefine((data, ctx) => {
   // 轨道一致性（静态形状校验·闸分流 defer B6）：
