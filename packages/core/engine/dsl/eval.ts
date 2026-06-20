@@ -3,6 +3,10 @@
 // Division by zero → 0 (parse-fail fallback per M·1 静态约束 1).
 import { v1 } from '../math/fixed.js';
 import type { DslExpr, DslPred } from './fuzzer.js';
+import { tryParsePred } from './parser.js';
+
+/** 求值器函数库版本（FINGERPRINT_PRESET_FIELDS[4]·v1={min,max,clamp,pow,sqrt}·增列超越函数时 bump） */
+export const DSL_EVALUATOR_VERSION = 'v1.0' as const;
 
 // ── Context ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +58,8 @@ export function evalExpr(expr: DslExpr, ctx: DslContext): number {
 /**
  * Evaluate a DSL v1.0 predicate.
  * Depth-1 constraint is enforced by the fuzzer at generation time.
+ * 'in': extensional set membership — requires external set data not available in DslContext;
+ *       returns false (fail-closed) until extensional evaluation is wired (K-a extensional path).
  */
 export function evalPred(pred: DslPred, ctx: DslContext): boolean {
   if (pred.kind === 'logical') {
@@ -69,5 +75,18 @@ export function evalPred(pred: DslPred, ctx: DslContext): boolean {
   if (pred.op === '<')   return l < r;
   if (pred.op === '<=')  return l <= r;
   if (pred.op === '>')   return l > r;
-  return l >= r; // '>='
+  if (pred.op === '>=')  return l >= r;
+  return false; // 'in': extensional set membership · fail-closed (external set data unavailable)
+}
+
+/**
+ * Parse a DSL v1.0 predicate string and evaluate it against a context.
+ * Returns false on parse failure or empty string (fail-closed).
+ * Used for lore 触发谓词 evaluation and K-a intensional predicate queries.
+ */
+export function evalPredStr(src: string, ctx: DslContext): boolean {
+  if (!src) return false;
+  const pred = tryParsePred(src);
+  if (pred === null) return false;
+  return evalPred(pred, ctx);
 }

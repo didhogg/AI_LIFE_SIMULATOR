@@ -6,7 +6,7 @@ import * as prand from 'pure-rand';
 // ── AST types (DSL v1.0 grammar, freeze.md M·1) ──────────────────────────────
 
 export type DslFn = 'min' | 'max' | 'clamp' | 'pow' | 'sqrt';
-export type DslCmpOp = '==' | '!=' | '<' | '<=' | '>' | '>=';
+export type DslCmpOp = '==' | '!=' | '<' | '<=' | '>' | '>=' | 'in';
 export type DslBinOp = '+' | '-' | '*' | '/';
 export type DslLogOp = 'and' | 'or';
 
