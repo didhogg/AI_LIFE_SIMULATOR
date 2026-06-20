@@ -183,6 +183,8 @@ export function hashJudgmentBundle(fields: {
   约定谓词集?: unknown;             // Q5·约定库谓词/选择器谓词定义表
   级联限制?: unknown;               // J5·级联深度N+轮号上限
   归并表?: unknown;                 // S4b·归并规则表
+  /** F-b·P7-5c: 所有生效 mod 中 verb option.side_effects handlerRef 集合·集合变→判定面变 */
+  side_effects注册集?: unknown;
   // TODO(P0-7): 方式×速度换算表 — 家在 P0-7 速度模型，届时加入签名 + 补断言
   // TODO(P0-7): H7量纲表全量 — 家在 P0-7 量纲系统，届时加入签名 + 补断言
 }): string {

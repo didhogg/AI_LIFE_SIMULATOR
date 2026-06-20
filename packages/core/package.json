@@ -16,6 +16,13 @@
     "./engine/conservation": "./engine/conservation.ts",
     "./engine/netAsset": "./engine/netAsset.ts",
     "./engine/tick": "./engine/tick.ts",
+    "./engine/deathIntercept": "./engine/deathIntercept.ts",
+    "./engine/verbExpand": "./engine/verbExpand.ts",
+    "./engine/effectGate": "./engine/effectGate.ts",
+    "./engine/importanceFreeze": "./engine/importanceFreeze.ts",
+    "./engine/sovereigntyFloor": "./engine/sovereigntyFloor.ts",
+    "./engine/covenantWrite": "./engine/covenantWrite.ts",
+    "./engine/fingerprintManifest": "./engine/fingerprintManifest.ts",
     "./replay": "./replay/index.ts"
   },
   "dependencies": {

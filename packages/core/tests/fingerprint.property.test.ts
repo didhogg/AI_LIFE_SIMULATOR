@@ -231,6 +231,7 @@ function fingerprintOf(ctx: FullCtx): string {
     ...(ctx['约定谓词集'] !== undefined ? { 约定谓词集: ctx['约定谓词集'] } : {}),
     ...(ctx['级联限制'] !== undefined ? { 级联限制: ctx['级联限制'] } : {}),
     ...(ctx['归并表'] !== undefined ? { 归并表: ctx['归并表'] } : {}),
+    ...(ctx['side_effects注册集'] !== undefined ? { side_effects注册集: ctx['side_effects注册集'] } : {}),
   });
   return hashPresetFingerprint({
     判定面整包:        bundleHash,
@@ -271,6 +272,7 @@ const BUNDLE_MUTATIONS: Record<FingerprintBundleMember, unknown> = {
   约定谓词集:          { 关系谓词_相邻: 'npc.distance(target) < 2' },  // Q5
   级联限制:            { 最大深度: 5, 最大轮数: 16 },                    // J5
   归并表:              { 分组归并: { 策略: '最高优先' } },               // S4b
+  side_effects注册集: ['combat:击杀回复', 'trade:商路利润'],            // F-b·P7-5c
 };
 // Compile-time: ensures exhaustiveness whenever FINGERPRINT_BUNDLE_MEMBERS gains a new entry.
 type _BundleMutationsExhaustive = typeof BUNDLE_MUTATIONS extends Record<FingerprintBundleMember, unknown> ? true : never;
