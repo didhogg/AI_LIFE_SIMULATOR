@@ -343,6 +343,21 @@ export const 存档头Schema = z.object({
     换角数: z.number().int().min(0).default(0),
     裸SL次数: z.number().int().min(0).default(0),
   }).optional(),
+
+  // F-c层2: 版本分段记录（单台·U3·版本段⊕难度段共用·D1）
+  // 段头锁定引擎版本+Schema版本+难度系数组指纹+前段哈希·哈希链断→拒载+显示警示（D4）
+  // 观测史：只搬运·永不重算（C2·additive-only·零迁移）
+  版本段记录: z.array(z.object({
+    段序号: z.number().int().min(0),
+    引擎版本: z.string().optional(),
+    Schema版本: z.string().optional(),
+    // hashCanonical over (引擎版本, Schema版本, 难度系数组指纹, 前段哈希) — chain integrity
+    段头指纹: z.string().default(''),
+    // hashCanonical(prev 段头指纹); genesis segment = ''
+    前段哈希: z.string().default(''),
+    // M6·C5: difficulty coefficient snapshot fingerprint at segment boundary
+    难度系数组指纹: z.string().optional(),
+  })).optional(),
 });
 
 // ── $meta（跨周目存档层） ──
