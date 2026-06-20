@@ -1292,6 +1292,66 @@ export function checkS6UnregisteredHandlerRefs(state: RootState, log: MigLog[]):
   }
 }
 
+// ── G-d-registry·受治理键空间：可写键路径叶段成员资格检查（fail-open·MigLog warn）──
+//
+// 梯队B 检查（D4 拍板：降级非拒收）：在 G-b populate 之后，当 registry 中存在
+// 非 'mod包' 命名空间条目（即有显式声明的治理键）时，校验各启用 mod 的 可写键[]
+// 路径叶段（最后一个 `.` 段）是否为已注册的活跃治理键。
+//
+// 检查规则：
+//   · 叶段在 registry 中且 停用=true → warn "G-d停用键"
+//   · 叶段不在 registry 中（registry 有非 mod包 条目）→ warn "G-d未注册"
+//   · 叶段在 registry 中且 停用≠true → 合法·无 warn
+//
+// fast-exit 条件（fail-open）：
+//   · registry 无条目 → 直接返回
+//   · registry 仅有 'mod包' 条目（pack_id auto-enroll）→ 直接返回
+//   · 绝不 throw；绝不 mutate state；迭代按字典序保证重放恒等
+export function checkGoverneRegistryMembership(state: RootState, log: MigLog[]): void {
+  const entries = state.受治理键空间注册表.键条目 ?? [];
+  if (entries.length === 0) return; // fast exit: registry empty = fail-open
+
+  // Only activate when registry has non-'mod包' entries (governed keys, not just pack_id auto-enrollments)
+  const governedEntries = entries.filter(e => e.命名空间 !== 'mod包');
+  if (governedEntries.length === 0) return;
+
+  // Build leaf-key lookup: 规范键 → (true=active, false=disabled)
+  // First writer wins (same key might appear in multiple namespaces)
+  const registryKeys = new Map<string, boolean>();
+  for (const e of governedEntries) {
+    if (!registryKeys.has(e.规范键)) {
+      registryKeys.set(e.规范键, e.停用 !== true);
+    }
+  }
+
+  // Scan enabled mods' 可写键 paths; iterate in codepoint order for determinism
+  const modReg = state.mod注册表 ?? {};
+  for (const [modKey, mod] of Object.entries(modReg).sort()) {
+    if (mod.启用 === false) continue;
+    for (const path of mod.可写键 ?? []) {
+      const segments = path.split('.');
+      const leaf = segments[segments.length - 1];
+      if (leaf === undefined || leaf === '') continue;
+
+      const status = registryKeys.get(leaf);
+      if (status === false) {
+        log.push({
+          level: 'warn',
+          path: `mod注册表.${modKey}.可写键`,
+          msg: `G-d停用键: 可写键路径「${path}」叶段「${leaf}」已停用（降级非拒收）`,
+        });
+      } else if (status === undefined) {
+        log.push({
+          level: 'warn',
+          path: `mod注册表.${modKey}.可写键`,
+          msg: `G-d未注册: 可写键路径「${path}」叶段「${leaf}」未在受治理键空间注册（降级非拒收）`,
+        });
+      }
+      // status === true → registered and active → valid, no warn
+    }
+  }
+}
+
 // ── migrate (public entry) ─────────────────────────────────────────────────────
 
 export function migrate(input: unknown): MigrateResult {
@@ -1452,6 +1512,8 @@ export function migrate(input: unknown): MigrateResult {
   checkL3PersonGate(state, log);
   // S6·受治理键空间：未注册句柄检查（fail-open·降级非拒收）
   checkS6UnregisteredHandlerRefs(state, log);
+  // G-d-registry·可写键路径叶段成员资格检查（fail-open·降级非拒收·梯队B）
+  checkGoverneRegistryMembership(state, log);
 
   return { state, log };
 }

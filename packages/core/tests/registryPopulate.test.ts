@@ -10,7 +10,11 @@
 
 import { describe, it, expect } from 'vitest';
 import { populateGoverneKeyRegistry } from '../engine/registryPopulate.js';
-import { checkS6UnregisteredHandlerRefs, type MigLog } from '../migration/migrate.js';
+import {
+  checkS6UnregisteredHandlerRefs,
+  checkGoverneRegistryMembership,
+  type MigLog,
+} from '../migration/migrate.js';
 import { RootSchema } from '../schema/index.js';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -19,11 +23,12 @@ function emptyRegistry() {
   return { 键条目: [] } as { 键条目: { 规范键: string; 命名空间: string; 来源包?: string; 显示名?: string; 别名?: string[]; 停用?: boolean; 不可变?: boolean }[] };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function makeMod(pack_id: string, opts?: {
   优先级?: number;
   启用?: boolean;
   命名空间键声明?: { 规范键: string; 命名空间: string; 来源包?: string }[];
-}) {
+}): any {
   return {
     pack_id,
     启用: opts?.启用 ?? true,
@@ -220,14 +225,16 @@ describe('populateGoverneKeyRegistry — A4 determinism', () => {
   });
 });
 
+// ─── Shared state factory (used by S6 + G-d tests) ───────────────────────────
+
+function makeState(overrides: Record<string, unknown> = {}) {
+  const base = RootSchema.parse({});
+  return { ...base, ...overrides } as ReturnType<typeof RootSchema.parse>;
+}
+
 // ─── S6 checkS6UnregisteredHandlerRefs ────────────────────────────────────────
 
 describe('checkS6UnregisteredHandlerRefs — S6 fail-open', () => {
-  function makeState(overrides: Record<string, unknown> = {}) {
-    // Build a minimal valid state, then overlay _lore知识库 for testing
-    const base = RootSchema.parse({});
-    return { ...base, ...overrides } as ReturnType<typeof RootSchema.parse>;
-  }
 
   it('A3: empty registry → no logs (fail-open fast exit)', () => {
     const state = makeState();
@@ -381,6 +388,222 @@ describe('checkS6UnregisteredHandlerRefs — S6 fail-open', () => {
     const log2: MigLog[] = [];
     checkS6UnregisteredHandlerRefs(state, log2);
     expect(JSON.stringify(log1)).toBe(JSON.stringify(log2));
+  });
+});
+
+// ─── G-d-registry: checkGoverneRegistryMembership ────────────────────────────
+
+describe('checkGoverneRegistryMembership — G-d-registry B1', () => {
+  it('B1: registry empty → fast exit, no logs', () => {
+    const state = makeState({});
+    const log: MigLog[] = [];
+    checkGoverneRegistryMembership(state, log);
+    expect(log).toHaveLength(0);
+  });
+
+  it('B1: registry has only mod包 entries (pack_id auto-enroll) → fast exit, no logs', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'my_mod', 命名空间: 'mod包' as const }],
+      },
+    });
+    const log: MigLog[] = [];
+    checkGoverneRegistryMembership(state, log);
+    expect(log).toHaveLength(0);
+  });
+
+  it('B1: registry has governed entries + mod has 可写键 with registered active leaf → no warn', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'gold', 命名空间: '币种' as const }],
+      },
+      mod注册表: {
+        econ_mod: {
+          pack_id: 'econ_mod',
+          版本: '1.0.0',
+          启用: true,
+          优先级: 0,
+          依赖: [],
+          冲突: [],
+          命名空间: '',
+          作者: '',
+          轨道: 'gameplay' as const,
+          可写键: ['货币系统.账户.main.持有.gold'],
+        },
+      },
+    });
+    const log: MigLog[] = [];
+    checkGoverneRegistryMembership(state, log);
+    expect(log).toHaveLength(0);
+  });
+
+  it('B1: leaf segment disabled in registry → warn G-d停用键', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [
+          { 规范键: 'old_coin', 命名空间: '币种' as const, 停用: true },
+          { 规范键: 'gold', 命名空间: '币种' as const },
+        ],
+      },
+      mod注册表: {
+        legacy_mod: {
+          pack_id: 'legacy_mod',
+          版本: '1.0.0',
+          启用: true,
+          优先级: 0,
+          依赖: [],
+          冲突: [],
+          命名空间: '',
+          作者: '',
+          轨道: 'gameplay' as const,
+          可写键: ['货币系统.账户.main.持有.old_coin'],
+        },
+      },
+    });
+    const log: MigLog[] = [];
+    checkGoverneRegistryMembership(state, log);
+    const warns = log.filter(l => l.msg.includes('G-d停用键'));
+    expect(warns).toHaveLength(1);
+    expect(warns[0]!.msg).toContain('old_coin');
+    expect(warns[0]!.msg).toContain('降级非拒收');
+  });
+
+  it('B1: leaf segment not in registry (but registry has governed entries) → warn G-d未注册', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'gold', 命名空间: '币种' as const }],
+      },
+      mod注册表: {
+        trait_mod: {
+          pack_id: 'trait_mod',
+          版本: '1.0.0',
+          启用: true,
+          优先级: 0,
+          依赖: [],
+          冲突: [],
+          命名空间: '',
+          作者: '',
+          轨道: 'gameplay' as const,
+          可写键: ['角色.特质.brave'],
+        },
+      },
+    });
+    const log: MigLog[] = [];
+    checkGoverneRegistryMembership(state, log);
+    const warns = log.filter(l => l.msg.includes('G-d未注册'));
+    expect(warns).toHaveLength(1);
+    expect(warns[0]!.msg).toContain('brave');
+    expect(warns[0]!.msg).toContain('降级非拒收');
+  });
+
+  it('B1: disabled mod → paths NOT checked', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'gold', 命名空间: '币种' as const }],
+      },
+      mod注册表: {
+        off_mod: {
+          pack_id: 'off_mod',
+          版本: '1.0.0',
+          启用: false,
+          优先级: 0,
+          依赖: [],
+          冲突: [],
+          命名空间: '',
+          作者: '',
+          轨道: 'gameplay' as const,
+          可写键: ['角色.特质.unregistered_trait'],
+        },
+      },
+    });
+    const log: MigLog[] = [];
+    checkGoverneRegistryMembership(state, log);
+    expect(log).toHaveLength(0);
+  });
+
+  it('B1: no 可写键 on mod → no logs', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'gold', 命名空间: '币种' as const }],
+      },
+      mod注册表: {
+        bare_mod: {
+          pack_id: 'bare_mod',
+          版本: '1.0.0',
+          启用: true,
+          优先级: 0,
+          依赖: [],
+          冲突: [],
+          命名空间: '',
+          作者: '',
+          轨道: 'gameplay' as const,
+        },
+      },
+    });
+    const log: MigLog[] = [];
+    checkGoverneRegistryMembership(state, log);
+    expect(log).toHaveLength(0);
+  });
+
+  it('B1: multiple mods, mixed valid/unregistered → warns sorted deterministically', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'gold', 命名空间: '币种' as const }],
+      },
+      mod注册表: {
+        z_mod: {
+          pack_id: 'z_mod',
+          版本: '1.0.0',
+          启用: true,
+          优先级: 0,
+          依赖: [],
+          冲突: [],
+          命名空间: '',
+          作者: '',
+          轨道: 'gameplay' as const,
+          可写键: ['货币系统.持有.silver', '货币系统.持有.gold'],
+        },
+        a_mod: {
+          pack_id: 'a_mod',
+          版本: '1.0.0',
+          启用: true,
+          优先级: 0,
+          依赖: [],
+          冲突: [],
+          命名空间: '',
+          作者: '',
+          轨道: 'gameplay' as const,
+          可写键: ['货币系统.持有.bronze'],
+        },
+      },
+    });
+    const log1: MigLog[] = [];
+    checkGoverneRegistryMembership(state, log1);
+    const log2: MigLog[] = [];
+    checkGoverneRegistryMembership(state, log2);
+    // Deterministic: same input → same output
+    expect(JSON.stringify(log1)).toBe(JSON.stringify(log2));
+    // a_mod (bronze) before z_mod (silver) because of codepoint sort on modKey
+    const paths = log1.map(l => l.path);
+    const firstAMod = paths.findIndex(p => p.includes('a_mod'));
+    const firstZMod = paths.findIndex(p => p.includes('z_mod'));
+    expect(firstAMod).toBeLessThan(firstZMod);
+    // gold is registered → no warn for gold in z_mod
+    expect(log1.some(l => l.msg.includes('gold'))).toBe(false);
+    // silver and bronze are unregistered → warn
+    expect(log1.some(l => l.msg.includes('silver'))).toBe(true);
+    expect(log1.some(l => l.msg.includes('bronze'))).toBe(true);
+  });
+
+  it('B1: fail-open = never throws even with unexpected state structure', () => {
+    const state = makeState({
+      受治理键空间注册表: {
+        键条目: [{ 规范键: 'gold', 命名空间: '币种' as const }],
+      },
+      mod注册表: null, // unusual but must not throw
+    });
+    const log: MigLog[] = [];
+    expect(() => checkGoverneRegistryMembership(state, log)).not.toThrow();
   });
 });
 
