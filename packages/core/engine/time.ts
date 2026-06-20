@@ -266,6 +266,29 @@ export function decayLinear(value: number, ratePerMonth: number, spanMin: number
 }
 
 /**
+ * L-13 统一衰减累积器 — single implementation for 印象/意象/记忆 三处共用。
+ *
+ * Linear decay: Math.max(0, value − ratePerMinute × spanMin).
+ * Optional recency factor via fixedPow (from fixed.ts) — callers MUST NOT use
+ * Math.pow for recency; the optional param enforces one implementation only.
+ *
+ * @param value         current value (non-negative)
+ * @param ratePerMinute per-minute linear subtraction rate; 0 = no linear decay
+ * @param spanMin       tick span in minutes
+ * @param recencyRate   optional per-tick exponential multiplier (e.g. 0.995 for memory);
+ *                      applied once per tick via fixedPow — caller passes the rate, never hardcodes here
+ */
+export function decayStep(
+  value: number,
+  ratePerMinute: number,
+  spanMin: number,
+  recencyRate?: number,
+): number {
+  const afterLinear = Math.max(0, value - ratePerMinute * spanMin);
+  return recencyRate !== undefined ? afterLinear * fixedPow(recencyRate, 1) : afterLinear;
+}
+
+/**
  * Compound-growth factor: (1 + annualRate)^(spanMin / MINUTES_PER_YEAR).
  * Returns a multiplier — caller does: newValue = oldValue * compound(rate, span).
  */

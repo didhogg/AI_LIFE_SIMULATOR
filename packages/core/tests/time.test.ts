@@ -24,6 +24,7 @@ import {
   advanceWorld,
   advanceLens,
   decayLinear,
+  decayStep,
   compound,
   probOverSpan,
   isExpired,
@@ -930,5 +931,52 @@ describe('property roundtrip: date→em→date (500 pure-rand samples, seed=42, 
       const { year, month, day } = epochMinToGregorian(em);
       expect(gregorianToEpochMin(year, month, day)).toBe(em);
     }
+  });
+});
+
+// ── decayStep (L-13 统一衰减累积器) ───────────────────────────────────────────
+// 铁律：印象/意象/记忆三处共用此函数·禁第二实现·recency 通过 fixedPow(fixed.ts) 执行
+
+describe('decayStep (L-13 统一衰减累积器)', () => {
+  it('zero rate, zero span → value unchanged (no decay)', () => {
+    expect(decayStep(80, 0, 0)).toBe(80);
+  });
+  it('linear decay: reduces by ratePerMinute × spanMin', () => {
+    expect(decayStep(100, 0.001, 43200)).toBe(100 - 0.001 * 43200);
+  });
+  it('linear decay: floored at 0 (cannot go negative)', () => {
+    expect(decayStep(10, 1, 43200)).toBe(0);
+  });
+  it('recency only (ratePerMinute=0): multiplies by fixedPow(rate, 1)', () => {
+    const rate = 0.995;
+    expect(decayStep(100, 0, 0, rate)).toBe(100 * fixedPow(rate, 1));
+  });
+  it('linear + recency: combined — linear first, then recency multiplied', () => {
+    const rate = 0.995;
+    const afterLinear = Math.max(0, 80 - 0.001 * 1000);
+    expect(decayStep(80, 0.001, 1000, rate)).toBe(afterLinear * fixedPow(rate, 1));
+  });
+  it('floor-then-recency: linear floors at 0, recency keeps at 0', () => {
+    expect(decayStep(5, 1, 43200, 0.995)).toBe(0);
+  });
+  it('recency=1.0 is identity (no recency effect)', () => {
+    const afterLinear = decayStep(70, 0.001, 100);
+    expect(decayStep(70, 0.001, 100, 1.0)).toBe(afterLinear * fixedPow(1.0, 1));
+  });
+  it('口径 fixture: same decayStep call for 印象/意象/记忆 (no dual implementation)', () => {
+    // 印象 caller: linear rate, no recency
+    const forImpression = decayStep(60, 0.002, 5000);
+    // 意象 caller: same inputs → same output
+    const for意象 = decayStep(60, 0.002, 5000);
+    // 记忆 caller: recency only
+    const forMemory = decayStep(60, 0, 0, 0.995);
+    expect(forImpression).toBe(for意象);
+    expect(forImpression).toBe(Math.max(0, 60 - 0.002 * 5000));
+    expect(forMemory).toBe(60 * fixedPow(0.995, 1));
+  });
+  it('determinism: same inputs produce bit-identical outputs', () => {
+    const a = decayStep(75.5, 0.003, 2000, 0.995);
+    const b = decayStep(75.5, 0.003, 2000, 0.995);
+    expect(a).toBe(b);
   });
 });

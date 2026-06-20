@@ -13,6 +13,7 @@
 import type { RootState } from '../schema/index.js';
 import { assertConservation } from './conservation.js';
 import { getNetAsset } from './netAsset.js';
+import { decayStep } from './time.js';
 
 // ── 环形缓冲上限 ──────────────────────────────────────────────────────────────
 const TICK_LOG_MAX = 8;
@@ -132,28 +133,40 @@ export function runTick(state: RootState, input: TickInput): TickResult {
     // TODO(P0-7): scan relationship triggers
   });
 
-  // Phase 7 · 衰减批 — 按 spanMin × 衰减速率 衰减印象与意象
+  // Phase 7 · 衰减批 — 三处共用 decayStep（印象/意象/记忆·L-13 统一累加器）
   runPhase('衰减批', () => {
-    // 认知档案印象衰减
+    // 认知档案印象衰减（decayStep 统一实现·禁第二实现）
     for (const observerRec of Object.values(s.认知档案)) {
       for (const targetRec of Object.values(observerRec)) {
         for (const imp of targetRec.印象) {
           if (imp.衰减速率 > 0) {
-            imp.强度 = Math.max(0, imp.强度 - imp.衰减速率 * spanMin);
+            imp.强度 = decayStep(imp.强度, imp.衰减速率, spanMin);
           }
         }
         // 剔除衰减至 0 的条目
         targetRec.印象 = targetRec.印象.filter(imp => imp.强度 > 0);
       }
     }
-    // NPC 公共意象衰减
+    // NPC 公共意象衰减（decayStep 统一实现）
     for (const npc of Object.values(s.NPC)) {
       for (const img of npc.意象) {
         if (img.衰减速率 > 0) {
-          img.强度 = Math.max(0, img.强度 - img.衰减速率 * spanMin);
+          img.强度 = decayStep(img.强度, img.衰减速率, spanMin);
         }
       }
       npc.意象 = npc.意象.filter(img => img.强度 > 0);
+    }
+    // L-13: 记忆召回权重 recency 衰减（0.995/拍·调用方传入·fixedPow 确定性·禁 Math.pow）
+    const MEMORY_RECENCY_RATE = 0.995;
+    for (const mem of s.工作记忆 ?? []) {
+      if (mem.权重 > 0) {
+        mem.权重 = decayStep(mem.权重, 0, 0, MEMORY_RECENCY_RATE);
+      }
+    }
+    for (const mem of s.长期归档 ?? []) {
+      if (mem.权重 > 0) {
+        mem.权重 = decayStep(mem.权重, 0, 0, MEMORY_RECENCY_RATE);
+      }
     }
   });
 
