@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# HEAD=f4570ba | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-P7-5窗口
+# HEAD=0eed491 | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-P7-6窗口
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -90,6 +90,19 @@
   - hosts/slice/tests/m_p7tier5.test.ts — 65 tests (DoD全覆盖·P7-5a/b/c/d/e/f各行为断言)
   - 黄金向量 Option B：C2 buildWorld() 不含effect packs → 聚合哈希='' fail-open → 三向量5c1d0233/63b3e729/db10d5c7逐位恒等
   - gate.ts 零 diff · rng.ts 函数体零 diff · 指纹=84/18(F-b+1) · REPLAY-01=24 · C2=17 · 黄金向量逐位恒等
+- [x] P0-7 梯队6 · 黄批结算子项收尾（跨域/知情/Resolver/历法/断言②/AA6·穿插） · commit=0eed491 · test=2832(+61)
+  - P7-6a: packages/core/engine/crossDomain.ts — makeTriTickKey/(globalTick,domainId,seedId)三元定序键·compareTriTickKeys·sortByTriTickKey·computeSupplementInterval·crossDomainOneShot(interest=principal×annualRate×durationMin/518400)
+  - P7-6b: packages/core/engine/tick.ts — SETTLEMENT_PHASES加'媒介拍末取材'(9→10)·涟漪传播<媒介拍末取材<原子提交（涟漪先落账·E4·6.55）
+  - P7-6c: packages/core/engine/knowledgeWrite.ts — KNOWLEDGE_CONSUMER_TYPES(即时现算/落账瞬间定格)·KNOWLEDGE_CONSUMER_REGISTRY(8条目含增审7三槽位雇主/母亲/恋人)·KNOWLEDGE_ENTRY_CHANNELS(4通道)·expandKnowledgeSelector·knowledgeWrite(写入瞬间展开·字典序)
+  - P7-6d: packages/core/engine/groupAnchor.ts — pinGroupAnchor(fnv1a32·pin-once·重复throw)·assertGroupAnchorExists·verifyGroupReplayIdempotency(G3·6.49)
+  - P7-6e: packages/core/interfaces/combatResolver.ts — ExternalRoundEvent接口(eventId/type/payload/roundIndex)·step()第三参升级ExternalRoundEvent[](P7-6e R3·签名冻)
+  - P7-6f: packages/core/engine/time.ts — isNaturalMonthBoundary+computeCalendarContinuation(即时+5/日常+1440/月→nextMonthStart/年→nextYearSameDay)·N-7 modelId单写已确认(✅077f3c7)
+  - P7-6g: 同state同tickId双跑→verifyGroupReplayIdempotency=true(断言②F1组内隔离实证)·AA1世代号核对(Ring2GenerationTracker·世代不匹配→弃)·runTick幂等门
+  - P7-6h: AA6负向控制 — 改effectPack内容→content_hash变(正向)·改无关state字段→effectPackSetHash不变(负向)·双跑逐位恒等
+  - hosts/slice/tests/m_p7tier6.test.ts — 61 tests (P7-6a/b/c/d/e/f/g/h DoD全覆盖)
+  - m_p7tier2.test.ts SETTLEMENT_PHASES.length 更新(9→10·hardcoded count同步)
+  - gate.ts 零 diff · rng.ts 函数体零 diff · 指纹=84/18不变 · schemaKeys=52不变 · REPLAY-01=24 · C2=17 · 黄金向量逐位恒等
+  - soak --seed 12345 --runs 1 ✅ · 300×8 ✅（双轨守恒全绿）
 - [ ] D-a · lore谓词冻结+受控接口能力集(R6 a-d/R10)+Y13+IM3+保真度三档落血统（DSL parser拍板3已授权） · 判据=DSL parser实装后·lore导入闸绿 · 红线?否
 - [ ] D-b · DSL v1文法冻结（照冻结清单M·1 EBNF）+S-1 fixture gate（向后兼容已拍板·只补gate） · 判据=DSL parser实装后·v1表达式当前文法parse过且求值恒等 · 红线?否
 - [ ] S-1 · 存量DSL表达式v1→v2向后兼容fixture gate（DSL parser已授权） · 判据=DSL parser实装后·fixture gate绿 · 红线?否
@@ -209,15 +222,15 @@ P2完成              → I-b-盐3(第三盐+离场契约指纹), offstageSettle
 
 ---
 
-## 快速参考：关键指标基线（HEAD=a7c3f69）
+## 快速参考：关键指标基线（HEAD=0eed491）
 
 | 指标 | 值 |
 |------|-----|
-| test | 2771（+66 P0-7梯队5·m_p7tier5.test.ts 65+count guard 1） |
+| test | 2832（+61 P0-7梯队6·m_p7tier6.test.ts 61条行为断言） |
 | tsc | 28（CC环境30·含2预存于非改动文件） |
 | lint | 220 errors（baseline·勿新增） |
 | schemaKeys | 52 |
-| 指纹 | 84（fingerprintManifest 18条目·F-b +1 side_effects注册集） |
+| 指纹 | 84（fingerprintManifest 18条目·P7-6未新增指纹条目） |
 | REPLAY-01 | 24 |
 | C2 chaos | 17 |
 | 黄金向量 | 5c1d0233 / 63b3e729 / db10d5c7（逐位恒等·勿重生成·Option B確認済）|
