@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=P0-8-B1（P0-8 Batch 1 commit pending） · STATUS回填=pending | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/P0-8-Batch1
+# code HEAD=2fff133（P0-8 Batch 1） · STATUS回填=pending | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/P0-8-Batch1
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -239,7 +239,7 @@
 ### 后续阶段（P0-7+）
 
 - [ ] P0-7-remainder · Z3/Z5/J1/级联轮/模态并发/V1/AA1主接线等结算子项 · 解锁=P0-7-start落地
-- [x] P0-8 Batch 1 · 组装器骨架 + 纵切止血（调用类型注册表 + 近K历史 + lore谓词切片 + NPC记忆/情绪 + 知情过滤前置闸 + live账本 + 编年史 + POV认知投影） · commit=pending · test=3152(+33)
+- [x] P0-8 Batch 1 · 组装器骨架 + 纵切止血（调用类型注册表 + 近K历史 + lore谓词切片 + NPC记忆/情绪 + 知情过滤前置闸 + live账本 + 编年史 + POV认知投影） · commit=2fff133 · test=3152(+33)
   - packages/core/prompt/callRegistry.ts（新）: CALL_TYPE_REGISTRY 五种具名类型·DEFAULT_NEAR_K=6·CallTypeSpec含切片预算·零裸prompt串
   - hosts/slice/assemble.ts（升级）: povEntityKey前置闸·nearK历史·narrativeHistory·actionHistory·balances·lorePredCtx·NPC记忆/情绪·编年史·POV认知投影·backward-compat
   - hosts/slice/server.ts（接线）: narrativeWithFilter切到新assembler API·近K历史扩至DEFAULT_NEAR_K·povEntityKey gate内移
