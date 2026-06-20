@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# HEAD=8984380 | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-P7-4窗口
+# HEAD=f4570ba | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-P7-5窗口
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -76,7 +76,20 @@
   - spanMinutes 参数化：commitViaRunTick 删 :240 硬编码 → runTick 读 state.世界._本拍跨度（D4 真实节拍源）
   - soak: +runC1CovenantScenario (应收==应付 Σ守恒断言·3 assertions)·300×8 双轨全绿
   - gate.ts 零 diff · 红线 diff 空 · REPLAY-01=24 · C2=17 · 指纹=84/17 · 黄金向量逐位恒等
-- [ ] F-b · handlerRef进指纹+AA6「改side_effects集→指纹变」断言（rng.ts additive-only已授权） · 判据=rng.ts扩optional签名·断言绿·指纹84/17不破 · 红线?rng.ts函数体不改·仅扩optional参数
+- [x] P0-7 梯队5 · P0-6→P0-7解锁件接线（G7/V3/effectGate+F-b/L-21/H-c-3/H-c-4/K-a·焊死级） · commit=f4570ba · test=2771(+66)
+  - P7-5a: packages/core/engine/deathIntercept.ts/js — scanDeathIntercept 首命中即停·DEATH_INTERCEPT_TRIGGER='天命:生死判定'·G7硬顶
+  - P7-5b: packages/core/engine/verbExpand.ts/js — expandVerbTarget Unicode码点序(*→全部·字面→单元素·空→空)·applyVerbToTargets V3写入口
+  - P7-5c: packages/core/engine/effectGate.ts/js — runEffectGates 五道闸(③前缀·②白名单·④max_delta钳制·⑤原子令牌)·fillEffectPackHash F-a·computeEffectPackSetHash AA6
+  - P7-5c F-b: fingerprintManifest.ts — FINGERPRINT_BUNDLE_MEMBERS 第18条 side_effects注册集（17→18）
+  - P7-5c F-b: rng.ts — hashJudgmentBundle additive扩 side_effects注册集? optional·函数体零diff·黄金向量不变（Option B）
+  - P7-5d: packages/core/engine/importanceFreeze.ts/js — freezeImportanceScore/assertImportanceFrozen/readFrozenScore·L-21冻结纪律（进指纹 via content_hash→聚合哈希链路）
+  - P7-5d: schema/memory.ts — 記憶條目Schema 加 権重_冻結: z.boolean().optional()（additive-only·zero migration）
+  - P7-5e: packages/core/engine/sovereigntyFloor.ts/js — checkSovereigntyFloor/autoFloorAuthorization/isFloorEvent·H-c-3·主权地板事件5件·凌驾抢话档授权门
+  - P7-5f: packages/core/engine/covenantWrite.ts/js — Q1创建/Q2修改/Q4追加(append-only·已解除拦截)/Q6解除(幂等)·verbWriteToTargets V3写入口
+  - packages/core/package.json — 补8条exports (deathIntercept/verbExpand/effectGate/importanceFreeze/sovereigntyFloor/covenantWrite/fingerprintManifest·含tick已有)
+  - hosts/slice/tests/m_p7tier5.test.ts — 65 tests (DoD全覆盖·P7-5a/b/c/d/e/f各行为断言)
+  - 黄金向量 Option B：C2 buildWorld() 不含effect packs → 聚合哈希='' fail-open → 三向量5c1d0233/63b3e729/db10d5c7逐位恒等
+  - gate.ts 零 diff · rng.ts 函数体零 diff · 指纹=84/18(F-b+1) · REPLAY-01=24 · C2=17 · 黄金向量逐位恒等
 - [ ] D-a · lore谓词冻结+受控接口能力集(R6 a-d/R10)+Y13+IM3+保真度三档落血统（DSL parser拍板3已授权） · 判据=DSL parser实装后·lore导入闸绿 · 红线?否
 - [ ] D-b · DSL v1文法冻结（照冻结清单M·1 EBNF）+S-1 fixture gate（向后兼容已拍板·只补gate） · 判据=DSL parser实装后·v1表达式当前文法parse过且求值恒等 · 红线?否
 - [ ] S-1 · 存量DSL表达式v1→v2向后兼容fixture gate（DSL parser已授权） · 判据=DSL parser实装后·fixture gate绿 · 红线?否
@@ -93,7 +106,9 @@
 
 ### Phase F（指纹红线批）
 
-- [ ] F-a · effect包活线（接hashPresetFingerprint+RootSchema挂载+content_hash填充+热加载+AA6 fire） · 解锁=effect挂载点拍板（顶层键vs嵌mod注册表·**NOT授权**） ∧ P0-7 effect生产者
+- [x] F-a（生产者侧）· content_hash自填充+热加载+AA6 fire · 完结于P7-5c·effectGate.ts（fillEffectPackHash/isEffectPackHashStale/computeEffectPackSetHash）
+- [ ] F-a（挂载侧）· RootSchema挂载（嵌mod注册表·拍板④已决·schemaKeys=52不变） · 解锁=P0-7梯队6 effect生产者+caller接线
+- [x] F-b · side_effects注册集进指纹(18th BUNDLE_MEMBER)+AA6断言 · 完结于P7-5c·fingerprintManifest.ts+rng.ts additive扩
 - [ ] F-c · U3指纹版本分段（与M6共用分段机·碰fingerprint） · 解锁=P0-3分段机器（rng.ts已授权·仅剩此锁）
 
 ### Phase G（registry populate 路径II）
@@ -109,8 +124,8 @@
 - [ ] H-b · 外链三态本地化快照器 · 解锁=hosts/tavern P1
 - [ ] H-c-1 · 导出剥离fire（securityBoundary.ts 4敏感键·常量已锁） · 解锁=hosts/导出管线（P0-9/P0-11）
 - [ ] H-c-2 · CSP+sandbox iframe · 解锁=hosts/tavern P1
-- [ ] H-c-3 · 主权降级「需确认」fire（schema slot在位） · 解锁=P0-7安全地板接线
-- [ ] H-c-4 · effect deltas过五道闸clamp · 解锁=P0-7 effect包loader
+- [x] H-c-3 · 主权降级「需确认」fire · 完结于P7-5e·sovereigntyFloor.ts（checkSovereigntyFloor/autoFloorAuthorization·5件地板事件·凌驾抢话档门）
+- [x] H-c-4 · effect deltas过五道闸clamp · 完结于P7-5c·effectGate.ts（runEffectGates·③前缀·②白名单·④钳制·⑤原子令牌）
 
 ### Phase I-b（盐·consumer-blocked）
 
@@ -121,9 +136,9 @@
 
 - [ ] B6-I · S3写卡口接存档口（RootState层·fail-open·defense-in-depth） · 解锁=P0-9存档层 ∧ hosts/ALERT评估
 - [ ] S6 · 受治理键空间enumerate populate+S6实装铁律（未注册串=降级非拒收） · 解锁=G-b路径II
-- [ ] V3展开器 · 动词目标槽运行时展开（真键字典序·verb.ts:44单态已锁） · 解锁=P0-7 runtime展开接线（还卡P0-7）
-- [ ] G7 · 死亡拦截器引擎级硬顶（一次死亡至多拦截一次） · 解锁=P0-7结算管线
-- [ ] effect-过闸 · effect包deltas过五道闸+受补丁clamp/lock约束 · 解锁=P0-7 effect包loader
+- [x] V3展开器(runtime) · 完结于P7-5b·verbExpand.ts（expandVerbTarget Unicode码点序·applyVerbToTargets）
+- [x] G7 · 死亡拦截器引擎级硬顶 · 完结于P7-5a·deathIntercept.ts（scanDeathIntercept 首命中即停）
+- [x] effect-过闸 · effect包deltas过五道闸 · 完结于P7-5c·effectGate.ts（runEffectGates）
 
 ### Phase L（deferred items）
 
@@ -134,7 +149,7 @@
 - [ ] L-18 · 纠偏重写=模态内步骤·不新增模态栈深度 · 解锁=P0-8
 - [ ] L-19 · 任务显式状态机（START→SEARCHING→RETURNING→COMPLETE） · 解锁=L-9 effect executor ∧ P0-4任务schema（还卡L-9接线+P0-4·stateMachine.ts已完整实装）
 - [ ] L-20 · 校验闸/因果校验器LLM调用独立盐隔离（rng.ts已授权·仅剩consumer） · 解锁=P0-5 G6盐 consumer
-- [ ] L-21 · LLM重要度分创建即冻结+进指纹+永不重算 · 解锁=fingerprintManifest红线 ∧ P0-7 effect活线
+- [x] L-21 · LLM重要度分创建即冻结+进指纹+永不重算 · 完结于P7-5d·importanceFreeze.ts（freezeImportanceScore/assertImportanceFrozen·冻结纪律·进指纹 via content_hash→聚合哈希链路）
 - [ ] L-24-结构 · 归一化准入闸·确定性自动修复（补缺字段/非法prefab/越界坐标） · 解锁=P0-8
 - [ ] L-26 · 校验失败闭环·有界重试≤3 · 解锁=P0-8
 - [ ] L-27 · 前置条件代码化（位置/库存/属性三类·L-9已✅） · 解锁=L-9 effect executor接线（P0-4/P0-7）
@@ -144,7 +159,8 @@
 
 ### Phase K/B7（gated by P0-7）
 
-- [ ] K-a · Q批+V3收尾（Q1/Q2/Q4/Q6写入口·Q3落账型·V3展开器写入口·V3谓词求值侧） · 解锁=P0-7（Q批+V3写入口） ∧ DSL text parser实装（V3谓词求值侧·已授权·合并P0-7后做）
+- [x] K-a（Q批+V3写入口侧）· 完结于P7-5f·covenantWrite.ts（Q1/Q2/Q4/Q6 + verbWriteToTargets）
+- [ ] K-a（V3谓词求值侧）· 解锁=DSL text parser实装（已授权·await parser）·Q3落账型·V3谓词求值侧
 
 ### 后续阶段（P0-7+）
 
@@ -197,11 +213,11 @@ P2完成              → I-b-盐3(第三盐+离场契约指纹), offstageSettle
 
 | 指标 | 值 |
 |------|-----|
-| test | 2589（+18 P0-7梯队1·p7conservation.test.ts） |
+| test | 2771（+66 P0-7梯队5·m_p7tier5.test.ts 65+count guard 1） |
 | tsc | 28（CC环境30·含2预存于非改动文件） |
 | lint | 220 errors（baseline·勿新增） |
 | schemaKeys | 52 |
-| 指纹 | 84（fingerprintManifest 17条目） |
+| 指纹 | 84（fingerprintManifest 18条目·F-b +1 side_effects注册集） |
 | REPLAY-01 | 24 |
 | C2 chaos | 17 |
-| 黄金向量 | 5c1d0233 / 63b3e729 / db10d5c7（逐位恒等·勿重生成） |
+| 黄金向量 | 5c1d0233 / 63b3e729 / db10d5c7（逐位恒等·勿重生成·Option B確認済）|
