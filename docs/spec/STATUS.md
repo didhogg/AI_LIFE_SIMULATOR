@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# HEAD=DSL-parser-commit | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-DSL-parser窗口
+# HEAD=ee67ef5 | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-DSL-parser窗口
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -103,7 +103,7 @@
   - m_p7tier2.test.ts SETTLEMENT_PHASES.length 更新(9→10·hardcoded count同步)
   - gate.ts 零 diff · rng.ts 函数体零 diff · 指纹=84/18不变 · schemaKeys=52不变 · REPLAY-01=24 · C2=17 · 黄金向量逐位恒等
   - soak --seed 12345 --runs 1 ✅ · 300×8 ✅（双轨守恒全绿）
-- [x] D-a · DSL v1.0 string→AST parser实装 · commit=DSL-PENDING · test=2926(+94)
+- [x] D-a · DSL v1.0 string→AST parser实装 · commit=ee67ef5 · test=2926(+94)
   - packages/core/engine/dsl/parser.ts — 递归下降 M·1 EBNF v1.0（tokenizer+Parser·parseExpr/parsePred/tryParseExpr/tryParsePred·DslParseError·DSL_GRAMMAR_VERSION='v1.0'）
   - 完整 token集：INT/IDENT/运算符/比较符(含'in')/逻辑词(and/or)/函数名(min/max/clamp/pow/sqrt)/EOF
   - 函数vs路径消歧：fn名后'('→call·否则→path段·中文路径 /^[\p{L}_][\p{L}\p{N}_]*/u 支持
@@ -113,10 +113,10 @@
   - packages/core/engine/verbExpand.ts — expandVerbTarget K-a谓词求值侧：tryParsePred+evalPred·字面键优先·无resolver时跳过
   - packages/core/package.json — 补 ./engine/dsl/parser + ./engine/dsl/eval 导出
   - tsc 零新增错误 · gate.ts/conservation.ts/rng.ts 函数体零 diff · 指纹=84/18不变 · 黄金向量逐位恒等
-- [x] D-b · DSL v1文法冻结+防双轨（parse路径与fixed.ts逐位恒等） · commit=DSL-PENDING · test=2926
+- [x] D-b · DSL v1文法冻结+防双轨（parse路径与fixed.ts逐位恒等） · commit=ee67ef5 · test=2926
   - 防双轨测试：pow/sqrt/min/max/clamp via parse+eval = fixed.ts 返回值逐位恒等
   - evalExpr/evalPred 全经 parser.ts 路径·禁平台 Math（六禁③）
-- [x] S-1 · fixture gate（v1表达式parse+eval逐位恒等 + v2向后兼容断言）· commit=DSL-PENDING · test=2926
+- [x] S-1 · fixture gate（v1表达式parse+eval逐位恒等 + v2向后兼容断言）· commit=ee67ef5 · test=2926
   - 10条表达式 fixture（min/clamp/pow/sqrt·含除法/一元/嵌套）+ 8条谓词 fixture（全比较符+and/or）
   - v2向后兼容：全部 v1 fixture 在当前文法下 parse 不 throw
   - 确定性 round-trip：同 AST 双跑求值逐位恒等
@@ -189,7 +189,7 @@
 ### Phase K/B7（gated by P0-7）
 
 - [x] K-a（Q批+V3写入口侧）· 完结于P7-5f·covenantWrite.ts（Q1/Q2/Q4/Q6 + verbWriteToTargets）
-- [x] K-a（V3谓词求值侧）· 完结于DSL parser实装·expandVerbTarget DSL谓词筛选+evalPredStr lore触发谓词·commit=DSL-PENDING
+- [x] K-a（V3谓词求值侧）· 完结于DSL parser实装·expandVerbTarget DSL谓词筛选+evalPredStr lore触发谓词·commit=ee67ef5
 
 ### 后续阶段（P0-7+）
 
