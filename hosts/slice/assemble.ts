@@ -9,7 +9,12 @@ import {
 } from '@ai-life-sim/core/engine/knowledgeFilter';
 import { evalPredStr } from '@ai-life-sim/core/engine/dsl/eval';
 import type { DslContext } from '@ai-life-sim/core/engine/dsl/eval';
-import { DEFAULT_NEAR_K } from '@ai-life-sim/core/prompt/callRegistry';
+import { DEFAULT_NEAR_K, CALL_TYPE_REGISTRY, type NarrativeCallTypeKey } from '@ai-life-sim/core/prompt/callRegistry';
+import {
+  applySliceBudget,
+  estimateSliceTokens,
+  type SlicePart,
+} from '@ai-life-sim/core/engine/sliceBudget';
 
 export type { VisibleSecret };
 
@@ -37,8 +42,8 @@ export interface AssembleOptions {
   // ── lore 底层谓词切片（R7-b 双轨·知识载荷走叙事注入·谓词走 DSL 求值）──────────────
   lorePredCtx?: DslContext;          // 谓词求值上下文（如 {属性:{体质:5}}）
 
-  // ── 调用类型标注（日志/截断优先级参考用）────────────────────────────────────────────
-  callTypeKey?: string;
+  // ── 调用类型标注（接切片预算 6.64·超限触发 B1-B6 降级·日志参考用）────────────────────
+  callTypeKey?: NarrativeCallTypeKey;
 }
 
 export function assemblePrompt(state: RootState, opts: AssembleOptions): {
@@ -164,6 +169,39 @@ export function assemblePrompt(state: RootState, opts: AssembleOptions): {
     }
   }
 
+  // ── 切片预算 B1-B6（组装侧·不进指纹）────────────────────────────────────────────
+  // 构建可降级 SlicePart 列表（超限按 lore→nearK→chronicle 顺序降级）
+  const k = nearK ?? DEFAULT_NEAR_K;
+  const history = narrativeHistory ?? historyTicks ?? [];
+  const recentHistory = history.slice(-k);
+
+  const budgetParts: SlicePart[] = [];
+  if (loreLines.length > 0)      budgetParts.push({ key: 'lore',      content: loreLines.join('\n') });
+  if (recentHistory.length > 0)  budgetParts.push({ key: 'nearK',     content: recentHistory.join('\n') });
+  if (chronicleLines.length > 0) budgetParts.push({ key: 'chronicle', content: chronicleLines.join('\n') });
+  // npc/cog/secrets 为不可降级件（不进预算裁剪）
+
+  let activeLoreLines      = loreLines;
+  let activeRecentHistory  = recentHistory;
+  let activeChronicleLines = chronicleLines;
+
+  if (callTypeKey) {
+    const spec = CALL_TYPE_REGISTRY[callTypeKey];
+    const limit = spec.切片预算.软上限tokens;
+    if (estimateSliceTokens(budgetParts) > limit) {
+      const { parts: remaining } = applySliceBudget(budgetParts, { softLimitTokens: limit });
+      const remainSet = new Set(remaining.map(p => p.key));
+      if (!remainSet.has('lore'))      activeLoreLines      = [];
+      if (!remainSet.has('chronicle')) activeChronicleLines = [];
+      const nearKPart = remaining.find(p => p.key === 'nearK');
+      if (!nearKPart) {
+        activeRecentHistory = [];
+      } else if (nearKPart.content !== recentHistory.join('\n')) {
+        activeRecentHistory = nearKPart.content.split('\n').filter(l => l.length > 0);
+      }
+    }
+  }
+
   // ── systemPrompt 组装（静态世界知识）──────────────────────────────────────────
   const systemParts: string[] = [
     '你是一款中文武侠模拟游戏的叙事 AI。请用简洁的第三人称为下面这一拍生成一段叙事（50-80 字），',
@@ -176,19 +214,19 @@ export function assemblePrompt(state: RootState, opts: AssembleOptions): {
     `身上：${pcHolding}${currency}`,
   ];
 
-  // lore 底层切片（R7-b·叙事注入·仅在有 lorePredCtx 且有匹配时插入）
-  if (loreLines.length > 0) {
+  // lore 底层切片（R7-b·叙事注入·仅在有 lorePredCtx 且有匹配且预算允许时插入）
+  if (activeLoreLines.length > 0) {
     systemParts.push('', '## 世界常识（lore）');
-    for (const l of loreLines) systemParts.push(l);
+    for (const l of activeLoreLines) systemParts.push(l);
   }
 
   systemParts.push('', '## 地点', locName, '', '## 在场人物');
   systemParts.push(npcLines.join('\n') || '（无）');
 
-  // 编年史（表层公共）
-  if (chronicleLines.length > 0) {
+  // 编年史（表层公共·预算末位降级件）
+  if (activeChronicleLines.length > 0) {
     systemParts.push('', '## 近期编年史');
-    for (const c of chronicleLines) systemParts.push(c);
+    for (const c of activeChronicleLines) systemParts.push(c);
   }
 
   // POV 认知投影（表层投影）
@@ -202,9 +240,6 @@ export function assemblePrompt(state: RootState, opts: AssembleOptions): {
   const systemPrompt = systemParts.join('\n');
 
   // ── userPrompt 组装（动态每拍状态）────────────────────────────────────────────
-  const k = nearK ?? DEFAULT_NEAR_K;
-  const history = narrativeHistory ?? historyTicks ?? [];
-  const recentHistory = history.slice(-k);
   const recentActions = (actionHistory ?? []).slice(-6).join(' → ');
 
   const userParts: string[] = [
@@ -219,10 +254,10 @@ export function assemblePrompt(state: RootState, opts: AssembleOptions): {
     userParts.push(`【账目】${balEntries}`);
   }
 
-  // 近 K 拍叙事历史
-  if (recentHistory.length > 0) {
+  // 近 K 拍叙事历史（预算超限时已截断）
+  if (activeRecentHistory.length > 0) {
     userParts.push('', '【近期叙事】');
-    recentHistory.forEach((h, i) => userParts.push(`${i + 1}. ${h}`));
+    activeRecentHistory.forEach((h, i) => userParts.push(`${i + 1}. ${h}`));
   }
 
   // 最近动作序列

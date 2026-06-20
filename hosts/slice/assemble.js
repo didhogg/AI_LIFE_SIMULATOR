@@ -1,9 +1,10 @@
-// P0-8 Batch 1: prompt 组装层（compiled JS）
+// P0-8 Batch 1+3: prompt 组装层（compiled JS）+ 切片预算 B1-B6
 import { filterSecretsForPOV } from '@ai-life-sim/core/engine/knowledgeFilter';
 import { evalPredStr } from '@ai-life-sim/core/engine/dsl/eval';
-import { DEFAULT_NEAR_K } from '@ai-life-sim/core/prompt/callRegistry';
+import { DEFAULT_NEAR_K, CALL_TYPE_REGISTRY } from '@ai-life-sim/core/prompt/callRegistry';
+import { applySliceBudget, estimateSliceTokens } from '@ai-life-sim/core/engine/sliceBudget';
 export function assemblePrompt(state, opts) {
-    const { pcKey, locName, povEntityKey, visibleSecrets, nearK, narrativeHistory, historyTicks, actionHistory, balances, lorePredCtx, } = opts;
+    const { pcKey, locName, povEntityKey, visibleSecrets, nearK, narrativeHistory, historyTicks, actionHistory, balances, lorePredCtx, callTypeKey, } = opts;
     // ── 主角 ──
     const pc = state.NPC?.[pcKey];
     if (!pc)
@@ -92,6 +93,34 @@ export function assemblePrompt(state, opts) {
             secretSection.push(`- [${id}] ${s.母题}（严重度${s.严重度}·暴露度${s.暴露度}）`);
         }
     }
+    // ── 切片预算 B1-B6（组装侧·不进指纹）──
+    const k = nearK ?? DEFAULT_NEAR_K;
+    const history = narrativeHistory ?? historyTicks ?? [];
+    const recentHistory = history.slice(-k);
+    const budgetParts = [];
+    if (loreLines.length > 0)      budgetParts.push({ key: 'lore',      content: loreLines.join('\n') });
+    if (recentHistory.length > 0)  budgetParts.push({ key: 'nearK',     content: recentHistory.join('\n') });
+    if (chronicleLines.length > 0) budgetParts.push({ key: 'chronicle', content: chronicleLines.join('\n') });
+    let activeLoreLines = loreLines;
+    let activeRecentHistory = recentHistory;
+    let activeChronicleLines = chronicleLines;
+    if (callTypeKey) {
+        const spec = CALL_TYPE_REGISTRY[callTypeKey];
+        const limit = spec.切片预算.软上限tokens;
+        if (estimateSliceTokens(budgetParts) > limit) {
+            const { parts: remaining } = applySliceBudget(budgetParts, { softLimitTokens: limit });
+            const remainSet = new Set(remaining.map(p => p.key));
+            if (!remainSet.has('lore'))      activeLoreLines = [];
+            if (!remainSet.has('chronicle')) activeChronicleLines = [];
+            const nearKPart = remaining.find(p => p.key === 'nearK');
+            if (!nearKPart) {
+                activeRecentHistory = [];
+            }
+            else if (nearKPart.content !== recentHistory.join('\n')) {
+                activeRecentHistory = nearKPart.content.split('\n').filter(l => l.length > 0);
+            }
+        }
+    }
     // ── systemPrompt ──
     const systemParts = [
         '你是一款中文武侠模拟游戏的叙事 AI。请用简洁的第三人称为下面这一拍生成一段叙事（50-80 字），',
@@ -103,16 +132,16 @@ export function assemblePrompt(state, opts) {
         `属性：${pcAttrStr}`,
         `身上：${pcHolding}${currency}`,
     ];
-    if (loreLines.length > 0) {
+    if (activeLoreLines.length > 0) {
         systemParts.push('', '## 世界常识（lore）');
-        for (const l of loreLines)
+        for (const l of activeLoreLines)
             systemParts.push(l);
     }
     systemParts.push('', '## 地点', locName, '', '## 在场人物');
     systemParts.push(npcLines.join('\n') || '（无）');
-    if (chronicleLines.length > 0) {
+    if (activeChronicleLines.length > 0) {
         systemParts.push('', '## 近期编年史');
-        for (const c of chronicleLines)
+        for (const c of activeChronicleLines)
             systemParts.push(c);
     }
     if (cogLines.length > 0) {
@@ -123,9 +152,6 @@ export function assemblePrompt(state, opts) {
     systemParts.push(...secretSection);
     const systemPrompt = systemParts.join('\n');
     // ── userPrompt ──
-    const k = nearK ?? DEFAULT_NEAR_K;
-    const history = narrativeHistory ?? historyTicks ?? [];
-    const recentHistory = history.slice(-k);
     const recentActions = (actionHistory ?? []).slice(-6).join(' → ');
     const userParts = [`拍#${state._tick?.拍计数 ?? 1}`];
     if (balances) {
@@ -134,9 +160,9 @@ export function assemblePrompt(state, opts) {
             .join(' / ');
         userParts.push(`【账目】${balEntries}`);
     }
-    if (recentHistory.length > 0) {
+    if (activeRecentHistory.length > 0) {
         userParts.push('', '【近期叙事】');
-        recentHistory.forEach((h, i) => userParts.push(`${i + 1}. ${h}`));
+        activeRecentHistory.forEach((h, i) => userParts.push(`${i + 1}. ${h}`));
     }
     if (recentActions) {
         userParts.push(`【最近动作顺序】${recentActions}`);
