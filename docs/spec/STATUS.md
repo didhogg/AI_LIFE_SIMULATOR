@@ -151,7 +151,7 @@
 - [x] F-a（生产者侧）· content_hash自填充+热加载+AA6 fire · 完结于P7-5c·effectGate.ts（fillEffectPackHash/isEffectPackHashStale/computeEffectPackSetHash）
 - [ ] F-a（挂载侧）· RootSchema挂载（嵌mod注册表·拍板④已决·schemaKeys=52不变） · 解锁=P0-7梯队6 effect生产者+caller接线
 - [x] F-b · side_effects注册集进指纹(18th BUNDLE_MEMBER)+AA6断言 · 完结于P7-5c·fingerprintManifest.ts+rng.ts additive扩
-- [ ] F-c · U3指纹版本分段（与M6共用分段机·碰fingerprint） · 解锁=P0-3分段机器（rng.ts已授权·仅剩此锁）
+- [ ] F-c · U3指纹版本分段（与M6共用分段机·碰fingerprint） · 解锁=P0-3分段机器（rng.ts已授权·仅剩此锁）· 层1✅pre-wired(3322071·t3016·+5)：引擎版本/Schema版本进PRESET_FIELDS(7→9)+rng.ts optional签名+property test·层2待P0-3
 
 ### Phase G（registry populate 路径II）
 
