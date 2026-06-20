@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=25dd422（P0-8 Batch 2） · STATUS回填=pending | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/P0-8-Batch2
+# code HEAD=d81eee7（P0-8 Batch 3） · STATUS回填=pending | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/P0-8-Batch3
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -254,6 +254,14 @@
   - packages/core/package.json: 补3条exports(beliefDerive/narrativeValidator/motivationValidator)
   - hosts/slice/tests/m_p8tier2.test.ts（新·38 tests）: ①信念派生P–R–B·②PANGeA校验·③玩家主权·④WhatELSE动机·⑤见真相输出过滤物理隔离
   - 验收：schemaKeys=52·指纹=84/20不变·REPLAY-01=24·C2=17·黄金向量逐位恒等·红线diff空·test 3152→3190(+38全绿)
+- [x] P0-8 Batch 3 · 对账闸族+切片预算B1-B6+N-4输出软拒 · commit=d81eee7 · test=3233(+43)
+  - packages/core/engine/sliceBudget.ts（新）: estimateTokens/estimateSliceTokens/applySliceBudget·B1-B6降级顺序铁律(lore→nearK→chronicle)·组装侧·不进指纹
+  - hosts/slice/engine/reconcileGate.ts（新）: runReconcileGate·M2.5/M2.6/M2.7三层统一出口·分级失败(可解析歧义→单次重试/语义拦截→即时硬拒)·重Roll常驻提示
+  - hosts/slice/engine/outputGuard.ts（新）: N-4输出侧·runOutputGuard复用detectSoftReject·玩家主权铁律(不自动重生/不抬预算)·常驻图标提示·不弹窗
+  - hosts/slice/assemble.ts（升级）: 集成切片预算·callTypeKey路径触发B1-B6降级·向后兼容(无callTypeKey不降级)
+  - packages/core/package.json: 补2条exports(sliceBudget/softReject)
+  - hosts/slice/tests/m_p8tier3.test.ts（新·43 tests）: ①解析器单一真相源·②对账闸分级失败·③指纹边界断言·④切片预算B1-B6降级顺序·⑤N-4玩家主权断言
+  - 验收：schemaKeys=52·指纹=84/20不变·REPLAY-01=24·C2=17·黄金向量逐位恒等·红线diff空·test 3190→3233(+43全绿)
 - [ ] P0-9 · 存档层G2原子性/U1迁移单元/U3版本分段 · 解锁=P0-7基础
 - [ ] P0-10 · 回归测试体系+DoD复验 · 解锁=P0-8+P0-9
 - [ ] P0-11 · 双宿主薄壳 · 解锁=P0-10
@@ -301,11 +309,11 @@ P2完成              → I-b-盐3(第三盐+离场契约指纹), offstageSettle
 
 | 指标 | 值 |
 |------|-----|
-| test | 3152（61 test files · +33 P0-8 Batch 1·m_p8tier1.test.ts） |
+| test | 3233（63 test files · +43 P0-8 Batch 3·m_p8tier3.test.ts） |
 | tsc | 28（CC环境30·含2预存于非改动文件） |
 | lint | 220 errors（baseline·勿新增） |
 | schemaKeys | 52 |
-| 指纹 | 84（fingerprintManifest 20条目·P0-8 Batch1不进指纹） |
+| 指纹 | 84（fingerprintManifest 20条目·P0-8 Batch1/2/3不进指纹·切片预算/降级均不进） |
 | REPLAY-01 | 24 |
 | C2 chaos | 17 |
 | 黄金向量 | 5c1d0233 / 63b3e729 / db10d5c7（逐位恒等·勿重生成·Option B確認済）|
