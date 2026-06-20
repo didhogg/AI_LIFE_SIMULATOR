@@ -40,6 +40,8 @@ export const FINGERPRINT_PRESET_FIELDS = [
   '求值器函数库版本',          // §十A·v1={min,max,clamp,pow,sqrt}逐位恒等·增列超越函数时 bump·旧档锁旧版语义重放
   '软拒检测规则版本',          // N-4·确定性软拒/拒答检测器规则版本·版本变则判定口径变·随 U3 版本分段
   '中文数字解析规则版',        // 对撞⑦·三百/叁佰/3百→300 归一·不确定=假分叉·改版即改判定口径
+  '引擎版本',                  // U3·F-c层1·封段时活动引擎版本·版本变则分段指纹变·字段已在位·分段触发逻辑随P0-3/U3·当前所有preset该字段=undefined
+  'Schema版本',                // U3·F-c层1·封段时Schema版本·版本变则分段指纹变·字段已在位·分段触发逻辑随P0-3/U3·当前所有preset该字段=undefined
   // TODO(P0-6): 6.62 纪元包集版本 — era package version fingerprint placeholder
 ] as const;
 

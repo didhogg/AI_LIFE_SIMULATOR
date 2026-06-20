@@ -230,6 +230,10 @@ export function hashPresetFingerprint(fields: {
   软拒检测规则版本?: number;
   /** 对撞⑦: 中文数字解析规则版·三百/叁佰/3百→300 归一·改版即改判定口径 */
   中文数字解析规则版?: number;
+  /** U3·F-c层1: 封段时活动引擎版本·版本变则分段指纹变·字段已在位·分段触发逻辑随P0-3/U3·当前所有preset该字段=undefined */
+  引擎版本?: string;
+  /** U3·F-c层1: 封段时Schema版本·版本变则分段指纹变·字段已在位·分段触发逻辑随P0-3/U3·当前所有preset该字段=undefined */
+  Schema版本?: string;
   /** 快照锁定组·开局锁定·随档快照；调用方从档内快照传入，绝不读 live 预设 */
   snapshot: {
     /** B1a·明文在册·直接纳入 */
