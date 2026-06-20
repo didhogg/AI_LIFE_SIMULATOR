@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=d81eee7（P0-8 Batch 3） · STATUS回填=pending | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/P0-8-Batch3
+# code HEAD=aebd117（P0-8 Batch 4） · STATUS回填=pending | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/P0-8-Batch4
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -262,6 +262,18 @@
   - packages/core/package.json: 补2条exports(sliceBudget/softReject)
   - hosts/slice/tests/m_p8tier3.test.ts（新·43 tests）: ①解析器单一真相源·②对账闸分级失败·③指纹边界断言·④切片预算B1-B6降级顺序·⑤N-4玩家主权断言
   - 验收：schemaKeys=52·指纹=84/20不变·REPLAY-01=24·C2=17·黄金向量逐位恒等·红线diff空·test 3190→3233(+43全绿)
+- [x] P0-8 Batch 4 · AOHP option_id+菜单生成前知情过滤+反人格标签指令+NSFW调试预留 · commit=aebd117 · test=3283(+50)
+  - packages/core/engine/aohp.ts（新）: buildOptionId/buildMenuOptionIds/sortedOptionIds·语义键verb:target:canonicalArgs·同义归一·碰撞消歧(#fnv1a32_8hex)·零误撞断言·不含序号·只读复用hashCanonical
+  - hosts/slice/engine/menuFilter.ts（新）: filterMenuCandidates·越权选项不生成(非隐藏)·复用filterSecretsForPOV·MENU_FILTER_ROLL_HINT走软拒通道·玩家主权
+  - packages/core/engine/fingerprintManifest.ts（改）: PRESET_FIELDS +1 'AOHP選項id集'（进指纹·additive-only）→ 总条目 83→84（BUNDLE20/PRESET10/SNAP5/EXCL49）
+  - packages/core/engine/rng.ts（改）: hashPresetFingerprint签名 +AOHP選項id集?:string[]（additive-only·函数体零改）
+  - hosts/slice/assemble.ts（改）: callTypeKey补入destructuring(修预存stale.js bug)+Anti-Labeling Directive静态模板+NPC行OCEAN注入(O/C/E/A/N·默认50)
+  - hosts/web-debug/index.ts（改）: isDebugNsfwOverrideActive预留接口（window.__DEBUG_NSFW||nsfw=1·仅web-debug宿主·不影响正式打包）NSFW Ring0 defer P1
+  - packages/core/package.json: +1 export(engine/aohp)
+  - packages/core/tests/fingerprint.property.test.ts: 新增AOHP选项进指纹断言3条(存在改变指纹·不同值改变·预排序恒等)
+  - packages/core/tests/runProposalGate.test.ts: manifest总数 83→84
+  - hosts/slice/tests/m_p8tier4.test.ts（新·47 tests）: ①语义键结构+同义归一+碰撞消歧+零误撞 ②稳定性+进指纹边界(顺序无关) ③菜单知情过滤(越权不生成+rollHint) ④Anti-Labeling+OCEAN+lint断言 ⑤NSFW defer P1确认
+  - 验收：schemaKeys=52·指纹=84(BUNDLE20/PRESET10/SNAP5/EXCL49)·REPLAY-01=24·C2=17·黄金向量逐位恒等·red线diff空(gate/conservation/computeDelta/rng函数体零改)·test 3233→3283(+50全绿·64 files)
 - [ ] P0-9 · 存档层G2原子性/U1迁移单元/U3版本分段 · 解锁=P0-7基础
 - [ ] P0-10 · 回归测试体系+DoD复验 · 解锁=P0-8+P0-9
 - [ ] P0-11 · 双宿主薄壳 · 解锁=P0-10
@@ -305,15 +317,15 @@ P2完成              → I-b-盐3(第三盐+离场契约指纹), offstageSettle
 
 ---
 
-## 快速参考：关键指标基线（HEAD=074b736）
+## 快速参考：关键指标基线（HEAD=aebd117·P0-8 Batch 4）
 
 | 指标 | 值 |
 |------|-----|
-| test | 3233（63 test files · +43 P0-8 Batch 3·m_p8tier3.test.ts） |
+| test | 3283（64 test files · +50 P0-8 Batch 4·m_p8tier4.test.ts） |
 | tsc | 28（CC环境30·含2预存于非改动文件） |
 | lint | 220 errors（baseline·勿新增） |
 | schemaKeys | 52 |
-| 指纹 | 84（fingerprintManifest 20条目·P0-8 Batch1/2/3不进指纹·切片预算/降级均不进） |
+| 指纹 | 84（fingerprintManifest BUNDLE20/PRESET10/SNAP5/EXCL49=84条目·AOHP選項id集进PRESET·切片组装不进指纹） |
 | REPLAY-01 | 24 |
 | C2 chaos | 17 |
 | 黄金向量 | 5c1d0233 / 63b3e729 / db10d5c7（逐位恒等·勿重生成·Option B確認済）|
