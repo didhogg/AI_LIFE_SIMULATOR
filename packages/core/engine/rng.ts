@@ -234,6 +234,8 @@ export function hashPresetFingerprint(fields: {
   引擎版本?: string;
   /** U3·F-c层1: 封段时Schema版本·版本变则分段指纹变·字段已在位·分段触发逻辑随P0-3/U3·当前所有preset该字段=undefined */
   Schema版本?: string;
+  /** P0-8-B4: AOHP 菜单选项稳定键集合·排序后进指纹·选项重排不破指纹（顺序无关·multiset） */
+  AOHP選項id集?: string[];
   /** 快照锁定组·开局锁定·随档快照；调用方从档内快照传入，绝不读 live 预设 */
   snapshot: {
     /** B1a·明文在册·直接纳入 */

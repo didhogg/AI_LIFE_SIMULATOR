@@ -54,7 +54,7 @@ export function assemblePrompt(state: RootState, opts: AssembleOptions): {
     pcKey, locName,
     povEntityKey, visibleSecrets,
     nearK, narrativeHistory, historyTicks, actionHistory,
-    balances, lorePredCtx,
+    balances, lorePredCtx, callTypeKey,
   } = opts;
 
   // ── 主角 ──────────────────────────────────────────────────────────────────────
@@ -113,7 +113,12 @@ export function assemblePrompt(state: RootState, opts: AssembleOptions): {
           .join('/')
       : '';
 
-    const npcLine = `- ${npc.姓名 ?? key}（${npc.称呼 ?? ''}）：${npc.背景 ?? ''}${attrStr ? `  [${attrStr}]` : ''}`;
+    // OCEAN 五轴（0-100·Anti-Labeling Directive 驱动·禁直接输出数值）
+    type OceanAxis = { 开放?: number; 尽责?: number; 外向?: number; 宜人?: number; 神经质?: number };
+    const ocean = (npc.性格五轴 as OceanAxis | undefined) ?? {};
+    const oceanStr = `O${ocean.开放 ?? 50}/C${ocean.尽责 ?? 50}/E${ocean.外向 ?? 50}/A${ocean.宜人 ?? 50}/N${ocean.神经质 ?? 50}`;
+
+    const npcLine = `- ${npc.姓名 ?? key}（${npc.称呼 ?? ''}）：${npc.背景 ?? ''}${attrStr ? `  [${attrStr}]` : ''}  OCEAN[${oceanStr}]`;
     npcLines.push(npcLine);
 
     // NPC 记忆（取重要度≥2·最近3条·只读·回写属模块6+P0-7认知结算）
@@ -206,6 +211,12 @@ export function assemblePrompt(state: RootState, opts: AssembleOptions): {
   const systemParts: string[] = [
     '你是一款中文武侠模拟游戏的叙事 AI。请用简洁的第三人称为下面这一拍生成一段叙事（50-80 字），',
     '描述当前场景氛围与主角动作，不要捏造不在场景中的人物或秘密。',
+    '',
+    // ── Anti-Labeling Directive（静态系统人格模板·不进切片指纹）─────────────────────
+    '## 人格表达铁律（Anti-Labeling Directive）',
+    '禁止在输出文本中使用抽象性格名词（善良/勇敢/阴险/忠诚/正直/冷酷/懦弱等）。',
+    '人物性格须通过当下动作细节、对话语气、生理反应、决策倾向呈现，不直接贴标签。',
+    '以 OCEAN(0-100) 数值和近期记忆为驱动依据；输出文本中不得出现数值或性格标签。',
     '',
     '## 主角',
     `姓名：${pcName}  称呼：${pc.称呼 ?? ''}`,

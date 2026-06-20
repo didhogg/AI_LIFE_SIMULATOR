@@ -36,6 +36,7 @@
     "./engine/motivationValidator": "./engine/motivationValidator.ts",
     "./engine/sliceBudget": "./engine/sliceBudget.ts",
     "./engine/softReject": "./engine/softReject.ts",
+    "./engine/aohp": "./engine/aohp.ts",
     "./prompt/callRegistry": "./prompt/callRegistry.ts",
     "./replay": "./replay/index.ts"
   },
