@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=c02ce1f（archive活常量fix） · 前=da45886（纵切Demo薄壳） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-21/archive-fix
+# code HEAD=f0baa77（P0-11探雷轮） · 前=c02ce1f（archive活常量fix） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-21/P0-11探雷轮
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -149,6 +149,15 @@
   - +14 tests（backfill幂等/双机恒等/二次no-op/全链端到端·双轨scan4条）
   - 行动卡侧 _来源包 保留 _ 前缀（computeDelta.ts 只读保护·改名独立批另拍板）
   - schemaKeys=52·指纹=84/18不变·REPLAY-01=24·C2=17·黄金向量逐位恒等·红线diff空
+- [x] P0-11 探雷轮 · web-debug 真 LLM 端到端出字 · commit=f0baa77 · test=3342→3364(+22)
+  - E0 InMemoryArchiveStore（进程内·不落盘·structuredClone·bumpReroll）
+  - E1 LLM adapter 隔离层（callNarrativeSafe·降级路径·不进指纹·R7-b）
+  - E2-E3 llmDemo.ts：3场景8拍·真 LLM 叙事出字（isFallback=0/8）·多拍历史累积
+    - 场景1（悦来客栈/林九）：基本叙事流+给钱5文+知情过滤
+    - 场景2（NPC情绪记忆连続）：NPC记忆/情绪字段跨拍注入验证
+    - 场景3（知情过滤边界）：secretRef拦截·NPC_WANG POV·$谜底不泄漏
+  - E4 探雷报告：docs/spec/bugs.md · B-E2-01(reconcileGate金额不匹配·major) · B-E2-02(tick不推进·observation)
+  - schemaKeys=52·指纹84·黄金向量5c1d0233/63b3e729/db10d5c7逐位恒等·红线diff空
 
 ---
 
