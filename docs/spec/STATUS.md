@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# HEAD=1a085ce | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-D-a-lore窗口
+# HEAD=657fa1a | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/CC-P0-3下游批窗口
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -151,7 +151,16 @@
 - [x] F-a（生产者侧）· content_hash自填充+热加载+AA6 fire · 完结于P7-5c·effectGate.ts（fillEffectPackHash/isEffectPackHashStale/computeEffectPackSetHash）
 - [ ] F-a（挂载侧）· RootSchema挂载（嵌mod注册表·拍板④已决·schemaKeys=52不变） · 解锁=P0-7梯队6 effect生产者+caller接线
 - [x] F-b · side_effects注册集进指纹(18th BUNDLE_MEMBER)+AA6断言 · 完结于P7-5c·fingerprintManifest.ts+rng.ts additive扩
-- [ ] F-c · U3指纹版本分段（与M6共用分段机·碰fingerprint） · 解锁=P0-3分段机器（rng.ts已授权·仅剩此锁）· 层1✅pre-wired(3322071·t3016·+5)：引擎版本/Schema版本进PRESET_FIELDS(7→9)+rng.ts optional签名+property test·层2待P0-3
+- [x] F-c · U3指纹版本分段（与M6共用分段机·碰fingerprint） · 层1 commit=3322071 · 层2 commit=657fa1a · test=3044(+19)
+  - 层1(3322071·t3016): 引擎版本/Schema版本进PRESET_FIELDS(7→9)+rng.ts optional签名+property test(pre-wired)
+  - 层2(657fa1a·t3044): engine/segment.ts 新建(纯函数·hashCanonical·rng.ts只读调用)
+    - computeSegmentHeadHash(引擎版本?,Schema版本?,难度系数组指纹?,前段哈希)
+    - openSegment: 新段 append·段序号连续·genesis前段哈希=''·exactOptionalPropertyTypes 兼容
+    - verifySegmentChain: 逐段核对前段哈希·断链→{valid:false,brokenAt,message}·调用方拒载+显式警示(D4)
+    - shouldOpenNewSegment: 任意维度变→true(genesis/引擎版本/Schema版本/难度系数组指纹·M6·C5)
+  - schema/dollar.ts: 存档头Schema 新增 版本段记录? optional array(additive-only·零迁移·观测史只搬运)
+  - fingerprint.property.test.ts: AA6 Gate-S 19条(S1确定性/S2成员变→指纹变5维度/S3链校验6种/S4触发条件6种)
+  - 指纹=118(+19·C梯队按设计变动)·REPLAY-01=24·C2=17·黄金向量逐位恒等·红线diff空·schemaKeys=52
 
 ### Phase G（registry populate 路径II）
 
@@ -184,8 +193,16 @@
 
 ### Phase L（deferred items）
 
-- [ ] L-13 · 记忆recency并入P0-3统一衰减累积器（0.995指数因子·L-1/L-6已✅） · 解锁=P0-3衰减引擎
-- [ ] L-14 · 历法权威表+时代错置校验数据源 · 解锁=P0-3时间核
+- [x] L-13 · 记忆recency并入P0-3统一衰减累积器（0.995指数因子·L-1/L-6已✅） · commit=bea1ae9 · test=3025(+9)
+  - engine/time.ts: decayStep(value,ratePerMinute,spanMin,recencyRate?) — 线性衰减+fixedPow recency·单一实现·禁第二实现
+  - engine/tick.ts Phase 7: 印象/意象内联 Math.max→decayStep·新增记忆(工作记忆+长期归档).权重 recency decay(MEMORY_RECENCY_RATE=0.995)
+  - time.test.ts: 9条 fixture(零速率/线性/下界/recency-only/组合/floor后recency/口径三处同输入恒等/确定性)
+  - 指纹=118·REPLAY-01=24·C2=17·黄金向量逐位恒等·红线diff空
+- [x] L-14 · 历法权威表+时代错置校验数据源 · commit=8f35f04 · test=3025(±0)
+  - schema/lore.ts: lore条目Schema 新增 时代名?/时代范围?{开始年,结束年?}/可用物品类别?/可用制度类别? (additive-only·零迁移)
+  - 消费分工：结构可判→P0-6钳制闸 / 语义判→P0-8(L-28)；时间换算唯一源铁律注释：时代错置校验必须查时间核不自算
+  - 表本体借 lore谓词集合路径进指纹(触发谓词_冻结后聚合·R7-b gate判定路径)
+  - 指纹=118·REPLAY-01=24·C2=17·黄金向量逐位恒等·红线diff空
 - [ ] L-16 · 叙事校验闸/二审/自反思走指令组边界接线 · 解锁=P0-8叙事校验闸
 - [ ] L-17 · 效果4类+房间不可挂属性白名单（L-9已✅） · 解锁=L-9 effect executor接线（P0-4/P0-7）
 - [ ] L-18 · 纠偏重写=模态内步骤·不新增模态栈深度 · 解锁=P0-8
@@ -232,7 +249,7 @@ executor接线          L-19(executor+任务schema)
 DSL text parser     → D-a(§1·已授权待实装), D-b(§1·已授权待实装),
 实装（已授权）        S-1(§1·已授权待实装), K-a(V3谓词求值侧·合并P0-7后做)
 
-P0-3分段机器        → F-c(U3指纹版本分段)
+P0-3分段机器        → F-c(U3指纹版本分段) ✅ 已触发·F-c 层2 完结(657fa1a)
 
 mod生态路径II       → G-b, G-c, G-d-registry, G-e, S6
 
