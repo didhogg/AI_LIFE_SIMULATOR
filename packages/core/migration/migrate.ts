@@ -239,12 +239,19 @@ function migrateSeed(raw: Record<string, unknown>, p2e: (n: number) => number, l
     era锚定: asStr(raw['era_label'] ?? raw['era锚定']),
     因果链id: asStr(raw['因果链id']),
     因果深度: asNum(raw['因果深度']),
-    来源: {
-      命名空间: asStr(asRec(raw['来源'])['命名空间']),
-      包id: asStr(asRec(raw['来源'])['包id']),
-      事件id: asStr(asRec(raw['来源'])['事件id']),
-      模块: asStr(asRec(raw['来源'])['模块']),
-    },
+    来源: (() => {
+      const src = asRec(raw['来源']);
+      const legacyPkg = asStr(src['包id']);
+      const canonPkg = asStr(src['来源包']); // D-3: read canonical field if present
+      const resolvedPkg = canonPkg !== '' ? canonPkg : legacyPkg; // fallback to 包id (≥1 version)
+      return {
+        命名空间: asStr(src['命名空间']),
+        包id: legacyPkg,                                            // preserved for backward compat
+        ...(resolvedPkg !== '' ? { 来源包: resolvedPkg } : {}),    // write canonical only when non-empty
+        事件id: asStr(src['事件id']),
+        模块: asStr(src['模块']),
+      };
+    })(),
   };
 }
 
@@ -1161,6 +1168,49 @@ export function backfillPhaseL1b(raw: Record<string, unknown>): Record<string, u
   return raw;
 }
 
+// ── D-3·种子来源包名归一（$隐藏记忆库.延时种子[*].来源.包id → 来源包·幂等·additive）──
+//
+// 旧档：来源.包id 非空 → 写 来源.来源包；包id 保留不删（读回退 ≥1 版本，D3c 守约）。
+// 幂等门：来源.来源包 已存在且非空 → no-op（不覆盖·不重写）。
+// 空串哨兵（''）跳过。sorted keys 保证重放恒等。
+// migration_version 仅在有实际写入时 bump（无 seed 或全已对齐 → 同引用 no-op）。
+export function backfillSeedSourcePkgName(raw: Record<string, unknown>): Record<string, unknown> {
+  const 隐库 = asRec(raw['$隐藏记忆库']);
+  const 延时种子Raw = 隐库['延时种子'];
+  if (延时种子Raw === null || 延时种子Raw === undefined || typeof 延时种子Raw !== 'object' || Array.isArray(延时种子Raw)) {
+    return raw; // no seeds container → no-op
+  }
+  const 延时种子 = 延时种子Raw as Record<string, unknown>;
+  const keys = Object.keys(延时种子).sort();
+  if (keys.length === 0) return raw;
+
+  let anyChanged = false;
+  const newSeeds: Record<string, unknown> = {};
+  for (const key of keys) {
+    const entry = asRec(延时种子[key]);
+    const src = asRec(entry['来源']);
+    // Idempotent guard: canonical field already present and non-empty → skip
+    if (typeof src['来源包'] === 'string' && src['来源包'] !== '') {
+      newSeeds[key] = entry;
+      continue;
+    }
+    const pkgId = asStr(src['包id']);
+    if (pkgId === '') {
+      newSeeds[key] = entry; // empty sentinel → skip
+      continue;
+    }
+    // Non-empty 包id, no canonical 来源包 → copy (additive; 包id preserved per D3c)
+    newSeeds[key] = { ...entry, 来源: { ...src, 来源包: pkgId } };
+    anyChanged = true;
+  }
+
+  if (!anyChanged) return raw; // same reference = complete no-op
+
+  const sys = asRec(raw['_系统']);
+  const newSys = { ...sys, migration_version: asNum(sys['migration_version']) + 1 };
+  return { ...raw, $隐藏记忆库: { ...隐库, 延时种子: newSeeds }, _系统: newSys };
+}
+
 // ── S3·写卡口（导入闸·fail-open·defense-in-depth）─────────────────────────────
 //
 // 检查 RootState 7 个动态字典区域（z.record<string,*>·外来键）的键名是否命中
@@ -1511,7 +1561,7 @@ export function checkPackIdAliases(state: RootState, log: MigLog[]): void {
     }
   }
 
-  // Scan $隐藏记忆库.延时种子[*].来源.包id
+  // Scan $隐藏记忆库.延时种子[*].来源（D-3双轨：来源包(新)优先，包id(旧)回退·避免双报）
   const 隐库 = state.$隐藏记忆库 as unknown as Record<string, unknown> | undefined;
   const 延时种子 = 隐库?.['延时种子'];
   if (延时种子 !== null && 延时种子 !== undefined && typeof 延时种子 === 'object' && !Array.isArray(延时种子)) {
@@ -1520,9 +1570,13 @@ export function checkPackIdAliases(state: RootState, log: MigLog[]): void {
       if (entry !== null && typeof entry === 'object' && !Array.isArray(entry)) {
         const 来源 = (entry as Record<string, unknown>)['来源'];
         if (来源 !== null && typeof 来源 === 'object' && !Array.isArray(来源)) {
-          const 包id = (来源 as Record<string, unknown>)['包id'];
-          if (typeof 包id === 'string' && 包id !== '') {
-            warnPkg(`$隐藏记忆库.延时种子.${key}.来源.包id`, 包id);
+          const srcRec = 来源 as Record<string, unknown>;
+          const canonPkg = typeof srcRec['来源包'] === 'string' ? srcRec['来源包'] : '';
+          const legacyPkg = typeof srcRec['包id'] === 'string' ? srcRec['包id'] : '';
+          if (canonPkg !== '') {
+            warnPkg(`$隐藏记忆库.延时种子.${key}.来源.来源包`, canonPkg);
+          } else if (legacyPkg !== '') {
+            warnPkg(`$隐藏记忆库.延时种子.${key}.来源.包id`, legacyPkg);
           }
         }
       }
@@ -1551,7 +1605,7 @@ export function migrate(input: unknown): MigrateResult {
   // buildV41Raw already emits new key names; applyPrefixRenames is a no-op here
   // but is exported for callers who load existing V4.1 saves with old key names.
   // Within-v4.1 migrations run here (after buildV41Raw v4.1 early-return path).
-  const rawMigrated = backfillPhaseL1b(backfill货币账户PerEntity(backfillPackId(migrateS1S1b(migrate内容分级位置(raw)))));
+  const rawMigrated = backfillPhaseL1b(backfillSeedSourcePkgName(backfill货币账户PerEntity(backfillPackId(migrateS1S1b(migrate内容分级位置(raw))))));
   let state: RootState = RootSchema.parse(normalizeRegistryKeyNames(rawMigrated)); // S3 读卡口
 
   // Community-gate self-heal: 内容分级 !== 'community' 时强制 允许玩家覆盖=false，不 throw

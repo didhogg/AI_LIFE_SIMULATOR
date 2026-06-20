@@ -18,6 +18,7 @@ import {
   checkPackIdAliases,
   type MigLog,
 } from '../migration/migrate.js';
+// Note: backfillSeedSourcePkgName tests live in migration.test.ts (follows backfillPackId pattern)
 import { RootSchema } from '../schema/index.js';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -1086,5 +1087,52 @@ describe('checkPackIdAliases — D-2 散落别名', () => {
     });
     const log: MigLog[] = [];
     expect(() => checkPackIdAliases(state, log)).not.toThrow();
+  });
+
+  // ── D-3双轨: 来源包（新）优先扫描·包id（旧）回退 ─────────────────────────────────
+
+  it('D-2/D-3双轨: 来源.来源包 非空·未注册 → warn·用来源包路径', () => {
+    const state = makeState({
+      受治理键空间注册表: { 键条目: [{ 规范键: 'known', 命名空间: 'mod包' as const }] },
+      $隐藏记忆库: { 延时种子: { s1: { 来源: { 包id: '', 来源包: 'ghost_mod' } } } },
+    });
+    const log: MigLog[] = [];
+    checkPackIdAliases(state, log);
+    expect(log).toHaveLength(1);
+    expect(log[0]!.level).toBe('warn');
+    expect(log[0]!.path).toBe('$隐藏记忆库.延时种子.s1.来源.来源包');
+    expect(log[0]!.msg).toContain('ghost_mod');
+  });
+
+  it('D-2/D-3双轨: 来源.来源包 已注册 → no warn', () => {
+    const state = makeState({
+      受治理键空间注册表: { 键条目: [{ 规范键: 'known', 命名空间: 'mod包' as const }] },
+      $隐藏记忆库: { 延时种子: { s1: { 来源: { 包id: '', 来源包: 'known' } } } },
+    });
+    const log: MigLog[] = [];
+    checkPackIdAliases(state, log);
+    expect(log).toHaveLength(0);
+  });
+
+  it('D-2/D-3双轨: 来源包+包id 均非空 → 优先用来源包路径·不双报', () => {
+    const state = makeState({
+      受治理键空间注册表: { 键条目: [{ 规范键: 'known', 命名空间: 'mod包' as const }] },
+      $隐藏记忆库: { 延时种子: { s1: { 来源: { 包id: 'ghost', 来源包: 'ghost' } } } },
+    });
+    const log: MigLog[] = [];
+    checkPackIdAliases(state, log);
+    expect(log).toHaveLength(1);                             // 不双报
+    expect(log[0]!.path).toBe('$隐藏记忆库.延时种子.s1.来源.来源包'); // 用新路径
+  });
+
+  it('D-2/D-3双轨: 来源包空·包id 非空 → 回退用包id路径（过渡期兼容）', () => {
+    const state = makeState({
+      受治理键空间注册表: { 键条目: [{ 规范键: 'known', 命名空间: 'mod包' as const }] },
+      $隐藏记忆库: { 延时种子: { s1: { 来源: { 包id: 'legacy_mod', 来源包: '' } } } },
+    });
+    const log: MigLog[] = [];
+    checkPackIdAliases(state, log);
+    expect(log).toHaveLength(1);
+    expect(log[0]!.path).toBe('$隐藏记忆库.延时种子.s1.来源.包id'); // 回退旧路径
   });
 });

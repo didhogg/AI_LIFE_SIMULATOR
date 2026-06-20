@@ -286,7 +286,8 @@ const 延时种子条目Schema = z.object({
   因果深度: z.number().int().min(0).default(0),
   来源: z.object({
     命名空间: z.string().default(''),
-    包id: z.string().default(''),
+    包id: z.string().default(''),        // legacy alias — kept ≥1 version (D-3 backfill)
+    来源包: z.string().optional(),        // D-3: canonical field (mirrors 键条目Schema.来源包)
     事件id: z.string().default(''),
     模块: z.string().default(''),
   }).default({}),

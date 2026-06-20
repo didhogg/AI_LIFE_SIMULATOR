@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { migrate, checkS3WriteGate, checkL3PersonGate, buildV41Raw, applyPrefixRenames, backfillPackId, migrateS1S1b, parseChineseDateToEpochMin, getTickMinutes, type MigLog } from '../migration/migrate.js';
+import { migrate, checkS3WriteGate, checkL3PersonGate, buildV41Raw, applyPrefixRenames, backfillPackId, backfillSeedSourcePkgName, migrateS1S1b, parseChineseDateToEpochMin, getTickMinutes, type MigLog } from '../migration/migrate.js';
 import { assertGovernedKeysNormalized } from '../interfaces/keyNormalize.js';
 import { mod墓碑原因枚举 } from '../schema/memory.js';
 import type { RootState } from '../schema/index.js';
@@ -1245,5 +1245,108 @@ describe('L3·人称二元组合法性（fail-open·导入闸·警示族）', ()
     const result = migrate(blankV31);
     const l3Errors = result.log.filter(e => e.level === 'error' && e.msg.includes('L3人称闸'));
     expect(l3Errors).toEqual([]);
+  });
+});
+
+// ── D-3: backfillSeedSourcePkgName（种子来源包名归一·幂等·additive）────────────────
+
+describe('backfillSeedSourcePkgName — D-3 种子侧归一', () => {
+  function makeRawWithSeeds(seeds: Record<string, unknown>, ver = 0): Record<string, unknown> {
+    return { $隐藏记忆库: { 延时种子: seeds }, _系统: { migration_version: ver } };
+  }
+
+  it('无 延时种子 容器 → 同引用 no-op', () => {
+    const raw = { $隐藏记忆库: {}, _系统: { migration_version: 0 } };
+    expect(backfillSeedSourcePkgName(raw)).toBe(raw);
+  });
+
+  it('空 延时种子 dict → 同引用 no-op', () => {
+    const raw = makeRawWithSeeds({});
+    expect(backfillSeedSourcePkgName(raw)).toBe(raw);
+  });
+
+  it('包id 为空串哨兵 → 跳过，no-op，version 不变', () => {
+    const raw = makeRawWithSeeds({ s1: { 来源: { 包id: '', 命名空间: '' } } }, 3);
+    const result = backfillSeedSourcePkgName(raw);
+    expect(result).toBe(raw);
+    expect(asNum(asRec(result['_系统'])['migration_version'])).toBe(3);
+  });
+
+  it('包id 非空·来源包 未设 → 写 来源包·包id 保留·version +1（旧档黄金样本场景）', () => {
+    const raw = makeRawWithSeeds({ s1: { 来源: { 包id: 'my_mod', 命名空间: '', 事件id: '', 模块: '' } } }, 5);
+    const result = backfillSeedSourcePkgName(raw);
+    expect(result).not.toBe(raw);
+    const src = asRec(asRec(asRec(asRec(result['$隐藏记忆库'])['延时种子'])['s1'])['来源']);
+    expect(src['来源包']).toBe('my_mod');   // 新字段写入
+    expect(src['包id']).toBe('my_mod');      // 旧字段保留
+    expect(asNum(asRec(result['_系统'])['migration_version'])).toBe(6); // +1
+  });
+
+  it('幂等：来源包 已存在且非空 → 同引用 no-op·version 不变', () => {
+    const raw = makeRawWithSeeds({ s1: { 来源: { 包id: 'my_mod', 来源包: 'my_mod' } } }, 6);
+    const result = backfillSeedSourcePkgName(raw);
+    expect(result).toBe(raw); // 同引用 = 完全 no-op
+    expect(asNum(asRec(result['_系统'])['migration_version'])).toBe(6);
+  });
+
+  it('二次迁移 no-op：迁移结果再跑一次 → 同引用', () => {
+    const raw = makeRawWithSeeds({ s1: { 来源: { 包id: 'mod_a' } } }, 2);
+    const once = backfillSeedSourcePkgName(raw);
+    const twice = backfillSeedSourcePkgName(once);
+    expect(twice).toBe(once); // 第二次 = 完全 no-op
+    expect(asNum(asRec(twice['_系统'])['migration_version'])).toBe(3); // only +1 total
+  });
+
+  it('双机迁移恒等：两次独立运行输出逐字节相同', () => {
+    const raw = makeRawWithSeeds({ s1: { 来源: { 包id: 'mod_a' } }, s2: { 来源: { 包id: 'mod_b' } } });
+    const r1 = backfillSeedSourcePkgName(raw);
+    const r2 = backfillSeedSourcePkgName(JSON.parse(JSON.stringify(raw)) as Record<string, unknown>);
+    expect(JSON.stringify(r1)).toBe(JSON.stringify(r2));
+  });
+
+  it('sorted 恒等：多 seed 按字典序处理·输出顺序稳定', () => {
+    const raw = makeRawWithSeeds({
+      z_seed: { 来源: { 包id: 'z_mod' } },
+      a_seed: { 来源: { 包id: 'a_mod' } },
+    });
+    const r1 = backfillSeedSourcePkgName(raw);
+    const r2 = backfillSeedSourcePkgName(JSON.parse(JSON.stringify(raw)) as Record<string, unknown>);
+    expect(JSON.stringify(r1)).toBe(JSON.stringify(r2));
+    // both seeds should have 来源包 filled
+    const seeds = asRec(asRec(r1['$隐藏记忆库'])['延时种子']);
+    expect(asRec(asRec(seeds['a_seed'])['来源'])['来源包']).toBe('a_mod');
+    expect(asRec(asRec(seeds['z_seed'])['来源'])['来源包']).toBe('z_mod');
+  });
+
+  it('混合：部分已迁移·部分未迁移 → 只补未迁移的种子·version +1', () => {
+    const raw = makeRawWithSeeds({
+      old_seed: { 来源: { 包id: 'old_mod' } },                     // needs backfill
+      new_seed: { 来源: { 包id: 'new_mod', 来源包: 'new_mod' } },  // already migrated
+    }, 1);
+    const result = backfillSeedSourcePkgName(raw);
+    expect(result).not.toBe(raw);
+    const seeds = asRec(asRec(result['$隐藏记忆库'])['延时种子']);
+    expect(asRec(asRec(seeds['old_seed'])['来源'])['来源包']).toBe('old_mod');
+    expect(asRec(asRec(seeds['new_seed'])['来源'])['来源包']).toBe('new_mod');
+    expect(asNum(asRec(result['_系统'])['migration_version'])).toBe(2);
+  });
+
+  it('migrate 全链：旧档含 包id → migrate 后 来源包 填充·包id 保留·黄金向量逐位恒等', () => {
+    // 构造含延时种子 包id 的旧格式档
+    const oldArchive = JSON.parse(JSON.stringify(blankV31)) as Record<string, unknown>;
+    (oldArchive['$隐藏记忆库'] as Record<string, unknown>) ??= {};
+    const hidden = oldArchive['$隐藏记忆库'] as Record<string, unknown>;
+    hidden['延时种子'] = { test_seed: { 来源: { 包id: 'test_pkg', 命名空间: '', 事件id: '', 模块: '' } } };
+    const result = migrate(oldArchive);
+    // 迁移后 来源包 应已填充
+    const seeds = (result.state.$隐藏记忆库 as unknown as Record<string, unknown>)?.['延时种子'] as Record<string, Record<string, unknown>>;
+    const srcAfter = seeds?.['test_seed']?.['来源'] as Record<string, unknown> | undefined;
+    expect(srcAfter?.['来源包']).toBe('test_pkg');
+    expect(srcAfter?.['包id']).toBe('test_pkg'); // 旧字段保留
+    // 二次 migrate 后 来源包 不变（幂等）
+    const result2 = migrate(result.state as unknown as Record<string, unknown>);
+    const seeds2 = (result2.state.$隐藏记忆库 as unknown as Record<string, unknown>)?.['延时种子'] as Record<string, Record<string, unknown>>;
+    const srcAfter2 = seeds2?.['test_seed']?.['来源'] as Record<string, unknown> | undefined;
+    expect(srcAfter2?.['来源包']).toBe('test_pkg');
   });
 });
