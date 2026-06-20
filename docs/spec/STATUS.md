@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=2fff133（P0-8 Batch 1） · STATUS回填=pending | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/P0-8-Batch1
+# code HEAD=25dd422（P0-8 Batch 2） · STATUS回填=pending | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/P0-8-Batch2
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -246,7 +246,14 @@
   - packages/core/package.json: 补 ./prompt/callRegistry export
   - hosts/slice/tests/m_p8tier1.test.ts（新·33 tests）: ①注册表完整·②近K历史·③动作序列·④lore谓词切片R7-b·⑤NPC记忆·⑥情绪栈·⑦编年史·⑧知情过滤前置闸·⑨live账本·⑩切片不进指纹·⑪双机一致性·⑫POV认知投影
   - 验收：schemaKeys=52·指纹=84/20不变·REPLAY-01=24·C2=17·黄金向量逐位恒等·红线diff空·test 3119→3152(+33全绿)
-- [ ] P0-8 Batch 2+ · 叙事校验闸+信念派生+知情过滤深化 · 解锁=P0-7
+- [x] P0-8 Batch 2 · 校验闸族（P–R–B信念派生+PANGeA叙事校验+WhatELSE动机校验+物理隔离出口） · commit=25dd422 · test=3190(+38)
+  - packages/core/engine/beliefDerive.ts（新）: P–R–B三元派生·R7-b双轨(gate→进指纹/narrative→不进指纹)·纯函数确定性
+  - packages/core/engine/narrativeValidator.ts（新）: PANGeA越权知情/凭空物品/在场矛盾/时序错乱·单次纠偏重试·失败软拒·玩家主权铁律·DEFAULT_RETRY_MODE=single_retry_soft_reject
+  - packages/core/engine/motivationValidator.ts（新）: WhatELSE情绪矛盾/记忆违背/信念动机缺失·依赖①信念态·物理隔离输出
+  - hosts/slice/engine/validationGate.ts（新）: 统一校验出口·内层见全局真值·外层outputFilteredSecrets POV过滤·禁后门·deriveBeliefFromState便捷函数
+  - packages/core/package.json: 补3条exports(beliefDerive/narrativeValidator/motivationValidator)
+  - hosts/slice/tests/m_p8tier2.test.ts（新·38 tests）: ①信念派生P–R–B·②PANGeA校验·③玩家主权·④WhatELSE动机·⑤见真相输出过滤物理隔离
+  - 验收：schemaKeys=52·指纹=84/20不变·REPLAY-01=24·C2=17·黄金向量逐位恒等·红线diff空·test 3152→3190(+38全绿)
 - [ ] P0-9 · 存档层G2原子性/U1迁移单元/U3版本分段 · 解锁=P0-7基础
 - [ ] P0-10 · 回归测试体系+DoD复验 · 解锁=P0-8+P0-9
 - [ ] P0-11 · 双宿主薄壳 · 解锁=P0-10
