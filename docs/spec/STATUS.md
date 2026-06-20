@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=aebd117（P0-8 Batch 4） · STATUS回填=pending | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-20/P0-8-Batch4
+# code HEAD=da45886（纵切Demo薄壳·P0-11前哨） · 前=aebd117（P0-8 Batch 4） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-21/纵切Demo
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -274,7 +274,7 @@
   - packages/core/tests/runProposalGate.test.ts: manifest总数 83→84
   - hosts/slice/tests/m_p8tier4.test.ts（新·47 tests）: ①语义键结构+同义归一+碰撞消歧+零误撞 ②稳定性+进指纹边界(顺序无关) ③菜单知情过滤(越权不生成+rollHint) ④Anti-Labeling+OCEAN+lint断言 ⑤NSFW defer P1确认
   - 验收：schemaKeys=52·指纹=84(BUNDLE20/PRESET10/SNAP5/EXCL49)·REPLAY-01=24·C2=17·黄金向量逐位恒等·red线diff空(gate/conservation/computeDelta/rng函数体零改)·test 3233→3283(+50全绿·64 files)
-- [x] 纵切 Demo 薄壳 · P0-11 前哨 · web-debug 单宿主端到端 · commit=pending · test=3342(+59)
+- [x] 纵切 Demo 薄壳 · P0-11 前哨 · web-debug 单宿主端到端 · commit=da45886 · test=3342(+59)
   - D0: world.ts TS2345 已清（M-a 批·RootSchema.parse 填满默认值）·schemaKeys=52·tsc 28（baseline）
   - D0: reconcileGate.ts TS2459 修复（TickProposal 改从 proposalSchema.js 导入·-1 error·无函数体改动）
   - D1: hosts/web-debug/demo.ts（新·CLI 端到端演示·无LLM·脚本化叙事·D1-D4全覆盖）
@@ -335,7 +335,7 @@ P2完成              → I-b-盐3(第三盐+离场契约指纹), offstageSettle
 
 ---
 
-## 快速参考：关键指标基线（HEAD=pending·纵切Demo薄壳）
+## 快速参考：关键指标基线（HEAD=da45886·纵切Demo薄壳）
 
 | 指标 | 值 |
 |------|-----|
