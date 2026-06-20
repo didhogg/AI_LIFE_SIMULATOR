@@ -401,6 +401,36 @@ export function computeTickSpan({ nowEpochMin, granularity, deterministicExpirie
   return truncatedBy !== undefined ? { spanMinutes, truncatedBy } : { spanMinutes };
 }
 
+// ── P7-6f · N-7 月结自然月边界 + 历法对齐拍自动续拍 ──────────────────────────────
+
+/**
+ * 判断拍跨度是否跨越自然月边界（月结触发判据）。
+ * prevEpochMin → nextEpochMin 区间内存在月首（1日00:00）则触发月结。
+ * 纯函数·禁 Date.now·禁 localeCompare。
+ */
+export function isNaturalMonthBoundary(prevEpochMin: number, nextEpochMin: number): boolean {
+  if (nextEpochMin <= prevEpochMin) return false;
+  const monthStart = nextMonthStart(prevEpochMin);
+  return monthStart > prevEpochMin && monthStart <= nextEpochMin;
+}
+
+/**
+ * 历法对齐拍自动续拍（对齐模式='历法对齐' 时使用）。
+ *
+ * 根据当前粒度计算下一个历法对齐续拍的纪元分钟（即 boundary = nextMonthStart / nextYearSameDay）。
+ * 固定跨度粒度（即时/日常）直接返回 nowEpochMin + 固定量。
+ * 同 computeTickSpan 口径，但不截断（调用方按需截断）。
+ */
+export function computeCalendarContinuation(
+  nowEpochMin: number,
+  granularity:  string,
+): number {
+  if (granularity === '即时') return nowEpochMin + 5;
+  if (granularity === '日常' || granularity === '日') return nowEpochMin + MINUTES_PER_DAY;
+  if (granularity === '发展' || granularity === '月') return nextMonthStart(nowEpochMin);
+  return nextYearSameDay(nowEpochMin); // 世代/年
+}
+
 // ── Derived display values ────────────────────────────────────────────────────
 
 const SEASON_NORTH: Readonly<Record<number, string>> = {

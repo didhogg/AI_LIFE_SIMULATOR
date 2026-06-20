@@ -32,6 +32,7 @@ export const SETTLEMENT_PHASES = [
   '关系触发',
   '衰减批',
   '涟漪传播',
+  '媒介拍末取材', // E4·6.55: 涟漪先落账后·媒介通道（书信/信使等）在拍末采样·然后进原子提交
   '原子提交',
 ] as const;
 
@@ -159,6 +160,13 @@ export function runTick(state: RootState, input: TickInput): TickResult {
   // Phase 8 · 涟漪传播 — 2-hop BFS × 衰减 × 知情过滤 × 取 max 防环
   runPhase('涟漪传播', () => {
     propagateRipple(s, nowEpochMin);
+  });
+
+  // Phase 8.5 · 媒介拍末取材 — E4·6.55: 涟漪先落账后·媒介通道拍末采样落账
+  // 纪律：涟漪传播（Phase 8）必须在媒介取材前完结，保证媒介读取已含涟漪结果。
+  runPhase('媒介拍末取材', () => {
+    // TODO(P0-7 E1/E2): 遍历媒介登记表·按 E1 读取落账 / E2 书信双宿主在途态 规格取材
+    // stub: 媒介通道在此时刻采样·待 E1/E2 consumer 就位后实装
   });
 
   // Phase 9 · 原子提交 — 守恒验证 + 时钟推进 + tick_log + 全量结算标记

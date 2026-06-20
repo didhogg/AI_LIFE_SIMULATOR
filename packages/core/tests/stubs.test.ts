@@ -43,8 +43,9 @@ describe('P0-1x Stub: CombatResolver（6.63·三段·未实装）', () => {
     expect(() => CombatResolver.init(['npc_a', 'npc_b'], '书房', 42)).toThrow('未实装');
   });
   it('step 签名抛出「未实装」', () => {
+    // P7-6e R3: 第三参已升级为 ExternalRoundEvent[]·行为（抛出「未实装」）不变
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect(() => CombatResolver.step({} as any, ['攻击'], ['事件1'])).toThrow('未实装');
+    expect(() => CombatResolver.step({} as any, ['攻击'], [] as any)).toThrow('未实装');
   });
   it('settle 签名抛出「未实装」', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -23,6 +23,11 @@
     "./engine/sovereigntyFloor": "./engine/sovereigntyFloor.ts",
     "./engine/covenantWrite": "./engine/covenantWrite.ts",
     "./engine/fingerprintManifest": "./engine/fingerprintManifest.ts",
+    "./engine/crossDomain": "./engine/crossDomain.ts",
+    "./engine/groupAnchor": "./engine/groupAnchor.ts",
+    "./engine/knowledgeWrite": "./engine/knowledgeWrite.ts",
+    "./engine/time": "./engine/time.ts",
+    "./interfaces/combatResolver": "./interfaces/combatResolver.ts",
     "./replay": "./replay/index.ts"
   },
   "dependencies": {
