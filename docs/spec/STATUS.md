@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=f6cd9e6（G1b3c-C1C2 浏览器入口调试壳全 6 tab） · 前=c40e800（G1b3b-C3） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审計签收 2026-06-19） | 更新=2026-06-22/G1b3c
+# code HEAD=4c09bb0（P-A-bug-01-C3 叙事·出字面板专项回归） · 前=5603c1e（P-A-bug-01-C1C2） · 前=f6cd9e6（G1b3c-C1C2） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审計签收 2026-06-19） | 更新=2026-06-22/P-A-bug-01
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -238,6 +238,25 @@
   - vite build smoke: 159 modules transformed · 0 errors · 466ms
   - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=84/20不变·schemaKeys=52不变
   - core 函数体零diff·lint/tsc 零新增错误·test 3533 全绿不减
+- [x] P-A-bug-01 · 叙事·出字面板（菜单 Tab 接入 runActionInDualMode + diff/narrative 并排） · C1C2=5603c1e · C3=4c09bb0 · test=3533→3551(+18)
+  - 问题: 菜单 Tab 点 permitted 选项只跑 runValidationChain+runTickWithDiff，无叙事出字
+  - C1C2(5603c1e): src/main.ts — import runActionInDualMode/ActionResult; S.lastNarrative/narrativeLoading 新增
+    - [data-run-option] 点击链路: 校验通过→ async runActionInDualMode(preTick, mode, forceFailure)
+    - demo 模式立即出字; llm 模式真 LLM or callNarrativeSafe 降级; 校验失败(passed=false)→lastNarrative=null→只显拒绝码
+    - renderNarrativePanel(): 模式 tag(demo scriptedNarrative / llmDemo 真 LLM) / isFallback badge / usedDefault badge / prose 原文
+    - renderMenuTab() 改 diff-narrative-grid 并排布局（左 State Diff / 右 叙事·出字）
+    - style.css: diff-narrative-grid/narrative-col/prose-box/mode-tag/fallback-badge 等新增样式
+  - C3(4c09bb0): m_g1b3c_narrative_panel.test.ts 18 tests
+    - T1 demo→narrative非空/isFallback=false/optionId一致
+    - T2 forceFailure→isFallback=true/usedDefault=true
+    - T3 scriptedNarrative 字面恒等（UI 不改写检验）
+    - T4 越权 optionId→usedDefault=true
+    - T5/T6 BAD_FORMAT/KNOWLEDGE_DENIED→passed=false·无叙事路径
+    - T7 叙事+state diff 并存·两轨独立（tickId 不渗漏进 prose）
+    - T8 指纹84/schemaKeys52 守恒
+  - vite build: 159 modules · 0 errors
+  - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=84/20不变·schemaKeys=52不变
+  - core 函数体零diff·lint≤220·tsc≤28
 
 ---
 
