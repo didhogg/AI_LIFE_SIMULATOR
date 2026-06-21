@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=0a95fd4（G1-C3 空间层回归测试） · 前=44339d8（G1a-C3） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-21/G1
+# code HEAD=03c5799（G1b-C2 关系图回归测试） · 前=510f1c7（G1b-C1） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-21/G1b
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -179,6 +179,17 @@
     - 向量1/5(empty/clear): 无强度断言 → 不变
   - C3(0a95fd4): m_g1_spatial.test.ts 空间层专项回归 10 tests（S1距离单调性·S2密度梯度·S3退化不变式·S4确定性·S5covert继承）
   - 退化路径验证：无地图(0x28=40)·单区域同区域子地点(0x28=40)·多区域1-hop同地(0x50=80)
+  - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=84/20不变·schemaKeys=52不变
+  - gate.ts/conservation.ts/computeDelta.ts/rng.ts/fixed.ts 函数体零diff·lint 0新增·tsc 0新增
+- [x] G1b · 关系图自动补全（装配期共址+组织分桶→候选成对→强度叠加→seeded抖动→度数裁剪→NPC.关系[] additive写入） · C1=510f1c7 · C2=03c5799 · test=3407→3426(+19)
+  - C1(510f1c7): packages/core/engine/relationGraph.ts/js — autoCompleteRelations(state,worldSeed,presetVersion)
+    - COLOC_BASE=30·ORG_BONUS=30·JITTER_MAX=10·REL_TRUST=100·MAX_RELATION_DEGREE=10
+    - 共址桶+组织桶分桶→正典pairKey(null-byte分隔)→候选成对→强度叠加→rngFor(装配:关系:pair,tick=0)→度数上限降序裁剪→additive写入NPC.关系[]
+    - 退化守卫: NPC<2 / 无共桶候选 → 零边·state 不变
+    - packages/core/package.json: 补 ./engine/relationGraph 导出
+    - hosts/slice/fixture/world.js: buildWorld() 末追 autoCompleteRelations(world, SAVE_SEED, 0)
+    - 共址仅边强度 max=40<50 → Phase6 score<50 不触发·既有黄金向量/指纹/schemaKeys 全恒等
+  - C2(03c5799): m_g1b_relations.test.ts 19 tests（①共址生成边·②组织强度>共址·③Phase6阈值交互·④确定性逐位恒等·⑤退化不变式·⑥度数上限）
   - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=84/20不变·schemaKeys=52不变
   - gate.ts/conservation.ts/computeDelta.ts/rng.ts/fixed.ts 函数体零diff·lint 0新增·tsc 0新增
 
