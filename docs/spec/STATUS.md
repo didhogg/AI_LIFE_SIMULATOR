@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=03c5799（G1b-C2 关系图回归测试） · 前=510f1c7（G1b-C1） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-21/G1b
+# code HEAD=G1b3a-C3（AOHP 调试控制台专项回归） · 前=d13a01b（G1b3a-C2） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-21/G1b3a
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -192,6 +192,22 @@
   - C2(03c5799): m_g1b_relations.test.ts 19 tests（①共址生成边·②组织强度>共址·③Phase6阈值交互·④确定性逐位恒等·⑤退化不变式·⑥度数上限）
   - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=84/20不变·schemaKeys=52不变
   - gate.ts/conservation.ts/computeDelta.ts/rng.ts/fixed.ts 函数体零diff·lint 0新增·tsc 0新增
+- [x] G1b3a · AOHP 调试控制台（web-debug 层·菜单回路接进·6 功能·零 core 改动） · C1=48fb8dd · C2=d13a01b · C3=（本提交） · test=3426→3467(+41)
+  - 功能1 inspectMenu: 过滤前后对比·KNOWLEDGE_DENIED 原因码·denied 条目 option_id
+  - 功能2 runValidationChain: 5步校验链（格式/菜单归属/知情过滤/effect闸/runTick）
+    逐步可视·BAD_FORMAT/NOT_IN_MENU/KNOWLEDGE_DENIED/GATE_REJECTED/GATE_SKIPPED
+  - 功能3 runTickWithDiff: structuredClone before/after·认知档案 ImpressChange·
+    Phase6 RelHit（score≥PHASE6_THRESHOLD=50）·货币 ResourceChange
+  - 功能4 TimeController: 固定seed重放·tickId=debug:{seed}:tick:{n}
+    step/jumpTo/replay确定性·getEventLog时间日志·同seed逐位恒等
+  - 功能5 runActionInDualMode: demo↔llm模式切换·forceFailure注入
+    scriptedNarrative·callNarrativeSafe兜底·LLM不可用→降级不崩
+  - 功能6 DEBUG_FIXTURES三规模（seed 100/200/300·严格隔离黄金seed=42）
+    小城3NPC·大陆6NPC（商会→Phase6可见）·整世界12NPC·2组织
+    地点数据正确存于地图.地点（全局Schema无此字段）
+  - m_g1b3a_debug_console.test.ts 41 tests（T1菜单/T2拒绝链/T3通过链/T4GATE_REJECTED/T5重放/T6失败注入/T7fixture确定性/T8diff结构/T9指纹守恒）
+  - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=84/20不变·schemaKeys=52不变
+  - core 函数体零diff·lint 新文件0新增错误·tsc 新文件0新增错误
 
 ---
 
