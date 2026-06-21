@@ -822,7 +822,10 @@ async function main(): Promise<void> {
   console.log('═'.repeat(62));
 }
 
-main().catch(e => {
-  console.error('[aohpDebugConsole2] 未捕获异常:', e);
-  process.exit(1);
-});
+// 仅在 Node.js 直接执行时运行（浏览器导入时 window 存在 → 跳过）
+if (typeof window === 'undefined') {
+  main().catch(e => {
+    console.error('[aohpDebugConsole2] 未捕获异常:', e);
+    process.exit(1);
+  });
+}
