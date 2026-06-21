@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=737726f（G1b3a-C3 AOHP 调试控制台专项回归） · 前=d13a01b（G1b3a-C2） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-21/G1b3a
+# code HEAD=c40e800（G1b3b-C3 调试控制台锦上添花批专项回归） · 前=746598b（G1b3b-C1C2） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-21/G1b3b
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -206,6 +206,20 @@
     小城3NPC·大陆6NPC（商会→Phase6可见）·整世界12NPC·2组织
     地点数据正确存于地图.地点（全局Schema无此字段）
   - m_g1b3a_debug_console.test.ts 41 tests（T1菜单/T2拒绝链/T3通过链/T4GATE_REJECTED/T5重放/T6失败注入/T7fixture确定性/T8diff结构/T9指纹守恒）
+  - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=84/20不变·schemaKeys=52不变
+  - core 函数体零diff·lint 新文件0新增错误·tsc 新文件0新增错误
+- [x] G1b3b · AOHP 调试控制台锦上添花批（POV切换/关系网图/快照回放·7功能·零core改动） · C1C2=746598b · C3=c40e800 · test=3467→3533(+66)
+  - 功能1 povInspect/comparePOVs: filterSecretsForPOV路径·existence-opaque·
+    onlyA/onlyB/both三分区·covert门控验证·认知档案投影
+  - 功能2 buildRelationGraph: state.NPC[*].关系[]→无向图节点/边·
+    score≥50高亮（isHighlighted）·组织聚簇cluster·不使用localeCompare（确定性六禁）
+  - 功能3 takeStateSnapshot: 关键字段快照（tick/NPC数/边数/认知/资源/涟漪候选目标数等）
+  - 功能4 buildIncrementalView: TickDiffResult[]→时间线聚合·复用G1b3a diff结构
+  - 功能5 ActionRecorder: 记录option_id序列+seed·replay()逐位恒等·exportSequence
+  - 功能6 SnapshotStore: 多命名快照·compare()结构化diff·changedFields字段级检出
+  - 功能7 buildPCPanel/buildStateTree/buildMapThumbnail: PC关键状态面板·
+    可折叠状态树·地图区域缩略图·LOD字段lodStatus=placeholder（待G7·明确灰显占位·不伪造）
+  - m_g1b3b_debug_console2.test.ts 66 tests（T1-T11全DoD覆盖）
   - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=84/20不变·schemaKeys=52不变
   - core 函数体零diff·lint 新文件0新增错误·tsc 新文件0新增错误
 
