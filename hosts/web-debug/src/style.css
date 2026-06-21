@@ -507,3 +507,91 @@ details[open] > summary { color: #58a6ff; }
   text-align: center;
   font-size: 12px;
 }
+
+/* ── 操纵主体切换（Feature A）────────────────────────────────────────────────── */
+
+.operator-banner {
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  margin-bottom: 8px;
+  font-family: monospace;
+}
+
+.operator-default  { background: #1a2f1a; color: #3fb950; border: 1px solid #3fb950; }
+.operator-switched { background: #3a2a1a; color: #d29922; border: 1px solid #d29922; }
+
+.operator-switch-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.operator-status {
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  margin-top: 4px;
+}
+
+/* ── 自由文本输入框（Feature B）─────────────────────────────────────────────── */
+
+.debug-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-family: monospace;
+  background: #21262d;
+  color: #8b949e;
+  border: 1px solid #30363d;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
+.free-text-result {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-top: 8px;
+}
+
+.free-text-header {
+  font-size: 12px;
+  font-family: monospace;
+  margin-bottom: 6px;
+}
+
+.map-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-family: monospace;
+  font-weight: 600;
+}
+
+.map-success { background: #1a2f1a; color: #3fb950; border: 1px solid #3fb950; }
+.map-rp      { background: #3a2a1a; color: #d29922; border: 1px solid #d29922; }
+
+.free-chain-fail {
+  padding: 5px 8px;
+  background: #1a0a0a;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  margin: 4px 0;
+}
+
+.free-diff {
+  padding: 5px 8px;
+  background: #0d1a0d;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  margin: 4px 0;
+}

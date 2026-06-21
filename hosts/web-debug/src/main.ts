@@ -44,6 +44,16 @@ import type { MenuFilterCandidate } from '../../slice/engine/menuFilter.js'
 type FixtureId = 'base' | '小城' | '大陆' | '整世界'
 type TabId = 'menu' | 'time' | 'graph' | 'pov' | 'snapshot' | 'tree'
 
+interface FreeTextResult {
+  input: string
+  matchedOptionId: string | null
+  matchType: 'exact' | 'display' | 'verb' | 'none'
+  isRpOnly: boolean
+  chain: ValidationChainResult | null
+  diff: TickDiffResult | null
+  narrative: ActionResult
+}
+
 // ── 应用全局状态 ──────────────────────────────────────────────────────────────
 
 /** 最大保存的 diff 条数（防内存膨胀） */
@@ -73,6 +83,10 @@ const S = {
   snapSelA: '',
   snapSelB: '',
   recActions: [] as string[],
+  operatorKey: PC as string,
+  freeText: '',
+  lastFreeTextResult: null as FreeTextResult | null,
+  freeTextLoading: false,
 }
 
 function initTime(): void {
@@ -104,14 +118,18 @@ function switchFixture(id: FixtureId): void {
     S.povA = npcKeys[0] ?? ''
     S.povB = npcKeys[1] ?? ''
   }
-  S.fixtureId      = id
-  S.snapshotStore  = new SnapshotStore()
-  S.diffs          = []
-  S.lastChain      = null
-  S.lastMenu       = null
-  S.recActions     = []
-  S.snapSelA       = ''
-  S.snapSelB       = ''
+  S.fixtureId          = id
+  S.snapshotStore      = new SnapshotStore()
+  S.diffs              = []
+  S.lastChain          = null
+  S.lastMenu           = null
+  S.lastNarrative      = null
+  S.recActions         = []
+  S.snapSelA           = ''
+  S.snapSelB           = ''
+  S.operatorKey        = S.pcKey
+  S.freeText           = ''
+  S.lastFreeTextResult = null
   initTime()
 }
 
@@ -146,7 +164,7 @@ function renderHeader(): string {
       </select>
     </label>
     <span class="fixture-info">
-      NPC:${npcCount} · 地点:${locCount} · 种子:${S.seed} · tick:${tickCount} · 观察者:${esc(S.pcKey)}
+      NPC:${npcCount} · 地点:${locCount} · 种子:${S.seed} · tick:${tickCount} · 观察者:${esc(S.pcKey)}${S.operatorKey !== S.pcKey ? ` · <span style="color:#d29922">操纵者:${esc(S.operatorKey)}</span>` : ''}
     </span>
   </div>
 </header>`
@@ -179,20 +197,22 @@ function renderTabBar(): string {
 // ── Tab: 菜单·校验 ───────────────────────────────────────────────────────────
 
 function renderMenuTab(): string {
-  const menuHtml  = renderMenuSection()
-  const chainHtml = renderChainSection()
+  const menuHtml     = renderMenuSection()
+  const chainHtml    = renderChainSection()
+  const freeTextHtml = renderFreeTextSection()
   const hasDiff = S.diffs.length > 0
   const hasNarrative = S.lastNarrative !== null || S.narrativeLoading
   const bottomHtml = (hasDiff || hasNarrative)
     ? `<div class="section"><h2>当拍结果：State Diff · 叙事·出字</h2><div class="diff-narrative-grid">${hasDiff ? renderLatestDiffPanel() : '<div class="diff-col"><span class="dim">（尚无拍记录）</span></div>'}${renderNarrativePanel()}</div></div>`
     : ''
-  return `<div class="tab-content">${menuHtml}${chainHtml}${bottomHtml}</div>`
+  return `<div class="tab-content">${menuHtml}${chainHtml}${freeTextHtml}${bottomHtml}</div>`
 }
 
 function renderMenuSection(): string {
   let inner = `
 <div class="section">
   <h2>菜单生成检视</h2>
+  ${renderOperatorBanner()}
   <div class="btn-group">
     <button class="btn btn-primary" id="btn-inspect-menu">检视当前菜单</button>
   </div>`
@@ -511,17 +531,114 @@ function renderGraphSection(graph: RelationGraph): string {
   return html
 }
 
+// ── 操纵主体标注 ──────────────────────────────────────────────────────────────
+
+function renderOperatorBanner(): string {
+  if (S.operatorKey === S.pcKey) {
+    return `<div class="operator-banner operator-default">操纵主体: <strong>${esc(S.operatorKey)}</strong>（默认 PC）</div>`
+  }
+  return `<div class="operator-banner operator-switched">⚠ 操纵主体已切换 → <strong>${esc(S.operatorKey)}</strong>（NPC 身份·原 PC ${esc(S.pcKey)}）</div>`
+}
+
+// ── 自由文本映射 ──────────────────────────────────────────────────────────────
+
+function tryMapToOptionId(
+  text: string,
+  menuWithIds: Array<{ option_id: string; displayText?: string }>,
+): { optionId: string | null; matchType: 'exact' | 'display' | 'verb' | 'none' } {
+  const t = text.trim()
+  if (!t) return { optionId: null, matchType: 'none' }
+  const exact = menuWithIds.find(o => o.option_id === t)
+  if (exact) return { optionId: exact.option_id, matchType: 'exact' }
+  for (const o of menuWithIds) {
+    const dt = o.displayText ?? ''
+    if (dt && dt.includes(t)) return { optionId: o.option_id, matchType: 'display' }
+  }
+  for (const o of menuWithIds) {
+    const dt = o.displayText ?? ''
+    if (dt.length >= 3 && t.includes(dt)) return { optionId: o.option_id, matchType: 'display' }
+  }
+  for (const o of menuWithIds) {
+    const verb = o.option_id.split(':')[0] ?? ''
+    if (verb && t.startsWith(verb)) return { optionId: o.option_id, matchType: 'verb' }
+  }
+  return { optionId: null, matchType: 'none' }
+}
+
+// ── 自由文本面板 ──────────────────────────────────────────────────────────────
+
+function renderFreeTextSection(): string {
+  let inner = `<div class="section">
+  <h2>自由文本输入框 <span class="debug-badge">debug 近似匹配·真词释留 G4</span></h2>
+  <div class="helper-text">输入自然语言描述，自动映射到最近 option_id；若映射失败则降级为纯叙事（不写账）。</div>
+  <div class="input-row">
+    <input type="text" id="free-text-input" class="text-input" placeholder="如：和王掌柜聊聊 / 向王掌柜问好" value="${esc(S.freeText)}"/>
+    <button class="btn btn-primary" id="btn-free-submit">提交</button>
+  </div>`
+  if (S.freeTextLoading) {
+    inner += `<div class="narrative-loading">⏳ 处理中…</div>`
+  } else if (S.lastFreeTextResult) {
+    inner += renderFreeTextResultHtml(S.lastFreeTextResult)
+  }
+  inner += `</div>`
+  return inner
+}
+
+function renderFreeTextResultHtml(r: FreeTextResult): string {
+  const mapBadgeClass = r.isRpOnly ? 'map-badge map-rp' : 'map-badge map-success'
+  const mapLabel = r.isRpOnly
+    ? '纯RP·未映射 → 不写账'
+    : `映射成功(${esc(r.matchType)}): ${esc(r.matchedOptionId ?? '')}`
+  let s = `<div class="free-text-result">`
+  s += `<div class="free-text-header">输入: <code>${esc(r.input)}</code> <span class="${mapBadgeClass}">${mapLabel}</span></div>`
+  if (!r.isRpOnly && r.chain) {
+    if (!r.chain.passed) {
+      s += `<div class="free-chain-fail"><span class="err">✗ 校验失败</span> 拒绝于「${esc(r.chain.rejectStep ?? '')}」 原因码: ${esc(r.chain.rejectCode ?? '')}</div>`
+    } else if (r.diff) {
+      s += `<div class="free-diff"><span class="ok">✓ 写账成功</span> tickId: <code class="dim">${esc(r.diff.tickId)}</code></div>`
+    }
+  }
+  if (r.isRpOnly) {
+    s += `<div class="dim" style="font-size:11px;margin-top:4px">纯RP模式：仅出字·不写账·不驱动 runTick</div>`
+  }
+  if (r.narrative && r.narrative.narrative) {
+    s += `<div class="narrative-meta" style="margin-top:8px"><span class="mode-tag mode-tag-demo">叙事·出字</span>`
+    if (r.narrative.isFallback) s += `<span class="fallback-badge fallback-on">isFallback=true</span>`
+    s += `</div>`
+    s += `<div class="prose-box">${esc(r.narrative.narrative)}</div>`
+  }
+  s += `</div>`
+  return s
+}
+
 // ── Tab: POV 视角 ─────────────────────────────────────────────────────────────
 
 function renderPOVTab(): string {
   const npcKeys = Object.keys(S.state.NPC)
   const selOpts = npcKeys.map(k => `<option value="${esc(k)}"${k === S.povA ? ' selected' : ''}>${esc(k)} · ${esc(S.state.NPC[k]!.姓名)}</option>`).join('')
   const selOptsB = npcKeys.map(k => `<option value="${esc(k)}"${k === S.povB ? ' selected' : ''}>${esc(k)} · ${esc(S.state.NPC[k]!.姓名)}</option>`).join('')
+  const operatorOpts = npcKeys.map(k => `<option value="${esc(k)}"${k === S.operatorKey ? ' selected' : ''}>${esc(k)} · ${esc(S.state.NPC[k]!.姓名)}</option>`).join('')
 
   const rA = S.povA && S.state.NPC[S.povA] ? povInspect(S.state, S.povA) : null
   const rB = S.povB && S.state.NPC[S.povB] ? povInspect(S.state, S.povB) : null
 
-  let html = `<div class="tab-content"><div class="section"><h2>NPC 视角（POV）切换</h2>`
+  const statusClass = S.operatorKey === S.pcKey ? 'operator-status operator-default' : 'operator-status operator-switched'
+  const statusText = S.operatorKey === S.pcKey
+    ? `当前操纵者: ${esc(S.pcKey)}（默认 PC · 菜单·校验·叙事均正常）`
+    : `⚠ 操纵者已切换为 ${esc(S.operatorKey)} · 菜单·校验·叙事以此身份执行 · 默认 PC=${esc(S.pcKey)}`
+
+  let html = `<div class="tab-content">`
+
+  html += `<div class="section"><h2>操纵主体切换</h2>
+  <div class="helper-text">切换后，菜单·校验·叙事·runTick 均以所选实体身份执行。只读对比（POV A/B）保持独立。</div>
+  <div class="operator-switch-row">
+    <label>操纵主体: <select id="pov-operator-sel">${operatorOpts}</select></label>
+    <button class="btn" id="btn-reset-operator">恢复默认 PC (${esc(S.pcKey)})</button>
+  </div>
+  <div class="${statusClass}">${statusText}</div>
+  </div>`
+
+  html += `<div class="section"><h2>NPC 视角（POV）切换（只读比对）</h2>`
 
   html += `<div class="input-row">
     <label>POV A: <select id="pov-a-sel">${selOpts}</select></label>
@@ -742,7 +859,7 @@ function attachEventListeners(): void {
 
   // 菜单检视
   document.getElementById('btn-inspect-menu')?.addEventListener('click', () => {
-    S.lastMenu = inspectMenu(S.state, S.pcKey, S.rawCandidates)
+    S.lastMenu = inspectMenu(S.state, S.operatorKey, S.rawCandidates)
     renderApp()
   })
 
@@ -753,7 +870,7 @@ function attachEventListeners(): void {
       S.validInput = optId
       S.lastNarrative = null
       S.narrativeLoading = false
-      S.lastChain = runValidationChain(optId, S.state, S.pcKey, S.rawCandidates)
+      S.lastChain = runValidationChain(optId, S.state, S.operatorKey, S.rawCandidates)
       if (S.lastChain.passed) {
         // 捕获 pre-tick 状态用于叙事组装（assemblePrompt 需要行动前的世界）
         const preTick = S.state
@@ -766,7 +883,7 @@ function attachEventListeners(): void {
         // 异步叙事生成（校验已通过·走合法路径）
         S.narrativeLoading = true
         renderApp()
-        runActionInDualMode(preTick, S.pcKey, optId, S.rawCandidates, S.llmMode, {
+        runActionInDualMode(preTick, S.operatorKey, optId, S.rawCandidates, S.llmMode, {
           forceFailure: S.forceFailure,
         }).then(result => {
           S.lastNarrative = result
@@ -797,7 +914,7 @@ function attachEventListeners(): void {
     const val = (document.getElementById('opt-input') as HTMLInputElement | null)?.value ?? ''
     S.validInput = val
     if (val) {
-      S.lastChain = runValidationChain(val, S.state, S.pcKey, S.rawCandidates)
+      S.lastChain = runValidationChain(val, S.state, S.operatorKey, S.rawCandidates)
       renderApp()
     }
   })
@@ -807,7 +924,7 @@ function attachEventListeners(): void {
     btn.addEventListener('click', () => {
       const optId = (btn as HTMLElement).dataset['quick']!
       S.validInput = optId
-      S.lastChain  = runValidationChain(optId, S.state, S.pcKey, S.rawCandidates)
+      S.lastChain  = runValidationChain(optId, S.state, S.operatorKey, S.rawCandidates)
       renderApp()
     })
   })
@@ -866,6 +983,18 @@ function attachEventListeners(): void {
   })
   document.getElementById('btn-pov-compare')?.addEventListener('click', () => renderApp())
 
+  // 操纵主体切换（Feature A）
+  document.getElementById('pov-operator-sel')?.addEventListener('change', e => {
+    S.operatorKey = (e.target as HTMLSelectElement).value
+    S.lastMenu = null; S.lastChain = null; S.lastNarrative = null; S.lastFreeTextResult = null
+    renderApp()
+  })
+  document.getElementById('btn-reset-operator')?.addEventListener('click', () => {
+    S.operatorKey = S.pcKey
+    S.lastMenu = null; S.lastChain = null; S.lastNarrative = null; S.lastFreeTextResult = null
+    renderApp()
+  })
+
   // 快照
   document.getElementById('btn-snap-save')?.addEventListener('click', () => {
     const label = (document.getElementById('snap-label') as HTMLInputElement | null)?.value ?? 'snap'
@@ -896,6 +1025,63 @@ function attachEventListeners(): void {
     const orig        = S.recorder.getCurrentState()
     const ok = JSON.stringify(replayState) === JSON.stringify(orig)
     alert(`重放完成 · 逐位恒等: ${ok ? '✅ YES' : '❌ NO'}`)
+  })
+
+  // 自由文本输入（Feature B）
+  document.getElementById('free-text-input')?.addEventListener('input', e => {
+    S.freeText = (e.target as HTMLInputElement).value
+  })
+
+  document.getElementById('btn-free-submit')?.addEventListener('click', () => {
+    const text = S.freeText.trim()
+    if (!text) return
+    S.lastFreeTextResult = null
+    S.freeTextLoading = true
+    renderApp()
+    const menu = S.lastMenu ?? inspectMenu(S.state, S.operatorKey, S.rawCandidates)
+    const { optionId, matchType } = tryMapToOptionId(text, menu.menuWithIds)
+    if (optionId) {
+      const chain = runValidationChain(optionId, S.state, S.operatorKey, S.rawCandidates)
+      if (chain.passed) {
+        const preTick = S.state
+        const tid = `debug:${S.seed}:free:${S.diffs.length}`
+        const diff = runTickWithDiff(preTick, tid)
+        S.diffs = [...S.diffs.slice(-(MAX_DIFFS - 1)), diff]
+        S.state = diff.afterState
+        S.recorder?.record(optionId)
+        S.recActions = [...S.recActions, optionId]
+        runActionInDualMode(preTick, S.operatorKey, optionId, S.rawCandidates, S.llmMode, {
+          forceFailure: S.forceFailure,
+        }).then(narrative => {
+          S.lastFreeTextResult = { input: text, matchedOptionId: optionId, matchType, isRpOnly: false, chain, diff, narrative }
+          S.freeTextLoading = false
+          renderApp()
+        }).catch(err => {
+          const narrative: ActionResult = { narrative: `[异常] ${err instanceof Error ? err.message : String(err)}`, isFallback: true, optionId, usedDefault: false }
+          S.lastFreeTextResult = { input: text, matchedOptionId: optionId, matchType, isRpOnly: false, chain, diff, narrative }
+          S.freeTextLoading = false
+          renderApp()
+        })
+      } else {
+        const narrative: ActionResult = { narrative: '', isFallback: false, optionId, usedDefault: false }
+        S.lastFreeTextResult = { input: text, matchedOptionId: optionId, matchType, isRpOnly: false, chain, diff: null, narrative }
+        S.freeTextLoading = false
+        renderApp()
+      }
+    } else {
+      const preTick = S.state
+      const rpOpts = S.llmMode === 'demo' ? { scriptedNarrative: text } : {}
+      runActionInDualMode(preTick, S.operatorKey, '__rp_only__', S.rawCandidates, S.llmMode, rpOpts).then(narrative => {
+        S.lastFreeTextResult = { input: text, matchedOptionId: null, matchType: 'none', isRpOnly: true, chain: null, diff: null, narrative }
+        S.freeTextLoading = false
+        renderApp()
+      }).catch(err => {
+        const narrative: ActionResult = { narrative: `[异常] ${err instanceof Error ? err.message : String(err)}`, isFallback: true, optionId: '__rp_only__', usedDefault: false }
+        S.lastFreeTextResult = { input: text, matchedOptionId: null, matchType: 'none', isRpOnly: true, chain: null, diff: null, narrative }
+        S.freeTextLoading = false
+        renderApp()
+      })
+    }
   })
 }
 
