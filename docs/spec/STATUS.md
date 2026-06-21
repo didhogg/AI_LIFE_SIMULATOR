@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=4c09bb0（P-A-bug-01-C3 叙事·出字面板专项回归） · 前=5603c1e（P-A-bug-01-C1C2） · 前=f6cd9e6（G1b3c-C1C2） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审計签收 2026-06-19） | 更新=2026-06-22/P-A-bug-01
+# code HEAD=191dcfd（P-A-enhance-C3 操纵主体切换+自由文本专项回归） · 前=fb994df（P-A-enhance-C1C2） · 前=4c09bb0（P-A-bug-01-C3） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审計签收 2026-06-19） | 更新=2026-06-22/P-A-enhance
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -257,6 +257,28 @@
   - vite build: 159 modules · 0 errors
   - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=84/20不变·schemaKeys=52不变
   - core 函数体零diff·lint≤220·tsc≤28
+- [x] P-A-enhance · 调试台增强批（操纵主体切换 + 自由文本 try-map） · C1C2=fb994df · C3=191dcfd · test=3551→3571(+20)
+  - Feature A · 操纵主体切换
+    - S.operatorKey 独立于 S.pcKey，fixture 切换时重置为 pcKey
+    - inspectMenu/runValidationChain/runActionInDualMode/runTickWithDiff 全部以 operatorKey 身份执行
+    - POV Tab 新增「操纵主体切换」section（selector + 重置按钮 + 状态标注）
+    - 切换时清空 lastMenu/lastChain/lastNarrative/lastFreeTextResult
+    - header 切换后显示操纵者警告色；菜单 section 顶部显示 operator banner
+    - renderOperatorBanner(): default(绿)/switched(橙) 双态
+  - Feature B · 自由文本输入框（debug 近似匹配·真词释留 G4）
+    - tryMapToOptionId: exact → displayText contains → verb prefix → none
+    - 匹配成功: runValidationChain → runTickWithDiff + runActionInDualMode（写账）
+    - 未匹配: 纯RP 路径·仅 runActionInDualMode(scriptedNarrative=text in demo)·不写账·不驱动 runTick
+    - 越权文本: chain 拒绝显原因码；__rp_only__ 作为伪 optionId usedDefault=true
+    - 结果面板: 映射类型 badge(success/rp) + 叙事 prose-box
+  - C3(191dcfd): m_g1b3c_enhancement.test.ts 20 tests
+    - TA1×4 操纵主体切换·inspectMenu/runValidationChain 以新身份计算·PC≠NPC_WANG 知情差异
+    - TB1-TB3×5 tryMapToOptionId exact/display/verb 匹配路径
+    - TB4×4 无匹配→纯RP·usedDefault=true·state 不写账
+    - TB5×2 越权文本→KNOWLEDGE_DENIED·纯RP 兜底叙事
+    - TC×5 指纹84/schemaKeys52 守恒
+  - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=84不变·schemaKeys=52不变
+  - core 函数体零diff·lint+0·tsc 无新增
 
 ---
 
