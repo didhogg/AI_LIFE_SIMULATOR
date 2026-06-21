@@ -139,16 +139,14 @@ describe('P0-7-T2 · ④ 涟漪引擎', () => {
     expect(wangImps[0]?.来源类型).toBe('一手观测');
   });
 
-  it('covert 事件 → 一跳在场者有印象·二跳无印象', () => {
+  it('covert 事件 → 全零印象（一跳/二跳均不落认知档案·走 fact 自带门）', () => {
     const s0 = makeWorld();
-    // 给 NPC_WANG 添加关系边（→ NPC_HONG，不在同地模拟场景暂借 LOC_KEY=同地实际·此时用 covert 限制）
     // 为演示 covert，让 NPC_HONG 移到另一地点
     (s0.NPC[NPC_HONG] as { 位置: string }).位置 = 'other_loc';
     s0.$涟漪候选 = {
       [PC]: [{ 标签: '秘密行动', 极性: '中', 强度: 70, 可见性: '隐秘', 来源拍号: 0 }],
     };
     // 在场: NPC_WANG（同地 LOC_KEY）；不在场: NPC_HONG（other_loc）
-    // WANG 有关系→HONG 但 covert 不应传播到 HONG
     const wangNpc = s0.NPC[NPC_WANG];
     if (wangNpc) {
       (wangNpc as { 关系: { 对象键: string; 类型: string; 强度: number; 极性: string; 信任: number; 深度: number }[] }).关系 = [
@@ -156,9 +154,9 @@ describe('P0-7-T2 · ④ 涟漪引擎', () => {
       ];
     }
     const { state: s1 } = runTick(s0, { tickId: 'ripple-covert', spanMinutes: 1440 });
-    // WANG 在场 → 有一跳印象
-    expect(s1.认知档案[NPC_WANG]?.[PC]?.印象.length ?? 0).toBeGreaterThan(0);
-    // HONG 不在场 + covert → 无印象（二跳被 covert 拦截）
+    // covert 走 fact 自带门 → 一跳在场者(WANG)零印象
+    expect(s1.认知档案[NPC_WANG]?.[PC]?.印象.length ?? 0).toBe(0);
+    // 二跳(HONG)同样零印象
     expect(s1.认知档案[NPC_HONG]?.[PC]?.印象.length ?? 0).toBe(0);
   });
 
