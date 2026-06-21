@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=c40e800（G1b3b-C3 调试控制台锦上添花批专项回归） · 前=746598b（G1b3b-C1C2） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-21/G1b3b
+# code HEAD=f6cd9e6（G1b3c-C1C2 浏览器入口调试壳全 6 tab） · 前=c40e800（G1b3b-C3） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审計签收 2026-06-19） | 更新=2026-06-22/G1b3c
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -222,6 +222,22 @@
   - m_g1b3b_debug_console2.test.ts 66 tests（T1-T11全DoD覆盖）
   - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=84/20不变·schemaKeys=52不变
   - core 函数体零diff·lint 新文件0新增错误·tsc 新文件0新增错误
+- [x] G1b3c · 浏览器入口最小调试壳（web-debug Vite 6-tab UI·零 core 改动） · C1C2=f6cd9e6 · test=3533(不变)
+  - hosts/web-debug/package.json: scripts dev/build/preview 接通
+  - hosts/web-debug/vite.config.ts: optimizeDeps.exclude @ai-life-sim/core + define process.env={}
+  - hosts/web-debug/index.html: 入口页
+  - hosts/web-debug/src/style.css: 暗色主题 ~280 行
+  - hosts/web-debug/src/main.ts: 6-tab 浏览器 UI（菜单/时间/关系图/POV/快照/状态树）
+    - 菜单 Tab: inspectMenu 显示 + 可点击选项 → runValidationChain + runTickWithDiff + 录制
+    - 时间 Tab: TimeController step/jump/replay + 时间线增量视图 + LLM/demo 切换
+    - 关系图 Tab: SVG 圆形布局（确定性·无 Math.random）·score≥50 高亮（橙色·2.5px）·≥50 节点测试绿
+    - POV Tab: 双视角切换 + comparePOVs diff 并排
+    - 快照 Tab: SnapshotStore 存取比对 + ActionRecorder 记录/回放
+    - 状态树 Tab: buildPCPanel + buildMapThumbnail（LOD 灰显占位）+ buildStateTree 可折叠 <details>
+  - aohpDebugConsole.ts / aohpDebugConsole2.ts: typeof window 守卫（Node.js 直运·浏览器跳过）
+  - vite build smoke: 159 modules transformed · 0 errors · 466ms
+  - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=84/20不变·schemaKeys=52不变
+  - core 函数体零diff·lint/tsc 零新增错误·test 3533 全绿不减
 
 ---
 
