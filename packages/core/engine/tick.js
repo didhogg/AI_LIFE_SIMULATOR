@@ -1,10 +1,12 @@
 import { assertConservation } from './conservation.js';
 import { getNetAsset } from './netAsset.js';
+import { decayStep } from './time.js';
 // ── 环形缓冲上限 ──────────────────────────────────────────────────────────────
 const TICK_LOG_MAX = 8;
 // ── 涟漪参数 ──────────────────────────────────────────────────────────────────
-const RIPPLE_DECAY = 0.5; // 二跳强度乘子（一跳强度 × 信任/100 × RIPPLE_DECAY）
-const RIPPLE_MIN = 1; // 低于此阈值不写入认知档案（防噪）
+const RIPPLE_DECAY         = 0.5; // 二跳强度乘子（一跳强度 × 信任/100 × RIPPLE_DECAY）
+const RIPPLE_MIN           = 1;   // 低于此阈值不写入认知档案（防噪）
+const REL_RIPPLE_THRESHOLD = 50;  // Phase 6 关系触发：|强度|×信任/100 达此阈值才发射
 // ── 结算序 ────────────────────────────────────────────────────────────────────
 export const SETTLEMENT_PHASES = [
     '日程结算',
@@ -15,6 +17,7 @@ export const SETTLEMENT_PHASES = [
     '关系触发',
     '衰减批',
     '涟漪传播',
+    '媒介拍末取材', // E4·6.55: 涟漪先落账后·媒介通道（书信/信使等）在拍末采样·然后进原子提交
     '原子提交',
 ];
 // ── 主入口 ────────────────────────────────────────────────────────────────────
@@ -71,7 +74,7 @@ export function runTick(state, input) {
             }
         }
     });
-    // Phase 3–6 · 四类触发扫描（stub — P0-7+）
+    // Phase 3–5 · 三类触发扫描（stub — P0-7+）
     runPhase('阈值触发', () => {
         // TODO(P0-7): scan threshold triggers
     });
@@ -81,36 +84,71 @@ export function runTick(state, input) {
     runPhase('标志触发', () => {
         // TODO(P0-7): scan flag triggers
     });
+    // Phase 6 · 关系触发 — G1a 发射端：|强度|×信任/100 ≥ REL_RIPPLE_THRESHOLD 的关系推候选涟漪
     runPhase('关系触发', () => {
-        // TODO(P0-7): scan relationship triggers
+        const tickNumber = s._tick?.拍计数 ?? 0;
+        for (const [, npc] of Object.entries(s.NPC)) {
+            for (const rel of npc.关系) {
+                if (!rel.对象键)
+                    continue;
+                const score = Math.abs(rel.强度) * (rel.信任 / 100);
+                if (score < REL_RIPPLE_THRESHOLD)
+                    continue;
+                emitRipple(s.$涟漪候选, rel.对象键, {
+                    标签: rel.类型 || '关系',
+                    极性: rel.极性 || '中',
+                    强度: Math.min(100, Math.round(score)),
+                    可见性: '公开',
+                    来源拍号: tickNumber,
+                });
+            }
+        }
     });
-    // Phase 7 · 衰减批 — 按 spanMin × 衰减速率 衰减印象与意象
+    // Phase 7 · 衰减批 — 三处共用 decayStep（印象/意象/记忆·L-13 统一累加器）
     runPhase('衰减批', () => {
-        // 认知档案印象衰减
+        // 认知档案印象衰减（decayStep 统一实现·禁第二实现）
         for (const observerRec of Object.values(s.认知档案)) {
             for (const targetRec of Object.values(observerRec)) {
                 for (const imp of targetRec.印象) {
                     if (imp.衰减速率 > 0) {
-                        imp.强度 = Math.max(0, imp.强度 - imp.衰减速率 * spanMin);
+                        imp.强度 = decayStep(imp.强度, imp.衰减速率, spanMin);
                     }
                 }
                 // 剔除衰减至 0 的条目
                 targetRec.印象 = targetRec.印象.filter(imp => imp.强度 > 0);
             }
         }
-        // NPC 公共意象衰减
+        // NPC 公共意象衰减（decayStep 统一实现）
         for (const npc of Object.values(s.NPC)) {
             for (const img of npc.意象) {
                 if (img.衰减速率 > 0) {
-                    img.强度 = Math.max(0, img.强度 - img.衰减速率 * spanMin);
+                    img.强度 = decayStep(img.强度, img.衰减速率, spanMin);
                 }
             }
             npc.意象 = npc.意象.filter(img => img.强度 > 0);
+        }
+        // L-13: 记忆召回权重 recency 衰减（0.995/拍·调用方传入·fixedPow 确定性·禁 Math.pow）
+        const MEMORY_RECENCY_RATE = 0.995;
+        for (const mem of s.工作记忆 ?? []) {
+            if (mem.权重 > 0) {
+                mem.权重 = decayStep(mem.权重, 0, 0, MEMORY_RECENCY_RATE);
+            }
+        }
+        for (const mem of s.长期归档 ?? []) {
+            if (mem.权重 > 0) {
+                mem.权重 = decayStep(mem.权重, 0, 0, MEMORY_RECENCY_RATE);
+            }
         }
     });
     // Phase 8 · 涟漪传播 — 2-hop BFS × 衰减 × 知情过滤 × 取 max 防环
     runPhase('涟漪传播', () => {
         propagateRipple(s, nowEpochMin);
+    });
+    // Phase 8.5 · 媒介拍末取材 — E4·6.55: 涟漪先落账后·媒介通道拍末采样落账
+    // 纪律：涟漪传播（Phase 8）必须在媒介取材前完结，保证媒介读取已含涟漪结果。
+    runPhase('媒介拍末取材', () => {
+        // TODO(P0-7 E1/E2): 遍历媒介登记表·按 E1 读取落账 / E2 书信双宿主在途态 规格取材
+        // stub: 媒介通道在此时刻采样·待 E1/E2 consumer 就位后实装
     });
     // Phase 9 · 原子提交 — 守恒验证 + 时钟推进 + tick_log + 全量结算标记
     runPhase('原子提交', () => {
@@ -143,12 +181,25 @@ export function runTick(state, input) {
     });
     return { state: s, settledPhases, matureSeeds };
 }
+// ── 涟漪发射工具（G1a·Phase 6 接线点 / 外部调用方接口） ────────────────────────
+/**
+ * 向 $涟漪候选 缓冲追加一条候选条目。
+ * Phase 6 (关系触发) 和外部调用方（server.ts 动作处理）均可通过此接口发射。
+ */
+export function emitRipple(pending, targetKey, entry) {
+    const bucket = pending[targetKey];
+    if (bucket) {
+        bucket.push(entry);
+    } else {
+        pending[targetKey] = [entry];
+    }
+}
 // ── 涟漪引擎 ──────────────────────────────────────────────────────────────────
 /**
  * 涟漪传播：读 $涟漪候选 → 写认知档案 → 清空 $涟漪候选
  *
  * 一手在场（目标 NPC 所在地点的其他 NPC）→ 沿 关系 边二跳×衰减×信任
- * covert（可见性='隐秘'）= 仅一跳在场者，二跳零印象
+ * covert（可见性='隐秘'）= 一跳/二跳均不落印象（走 fact 自带门·零印象）
  * 取 max：同 (observer, target, 标签) 已有印象则取强度较大值（防回路膨胀）
  */
 function propagateRipple(s, nowEpochMin) {
@@ -167,6 +218,8 @@ function propagateRipple(s, nowEpochMin) {
                     .map(([k]) => k)
                 : [];
             for (const obs1 of presentKeys) {
+                if (covert)
+                    continue; // covert 走 fact 自带门，一跳/二跳均不落印象
                 writeImpressionMax(s.认知档案, obs1, targetKey, {
                     标签: imp.标签,
                     极性: imp.极性,
@@ -176,8 +229,6 @@ function propagateRipple(s, nowEpochMin) {
                     衰减速率: 0,
                     来源类型: '一手观测',
                 });
-                if (covert)
-                    continue; // covert 事件：不向二跳传播
                 // 二跳：一跳观察者的 关系 连接（不在场）
                 const obs1Npc = npcs[obs1];
                 if (!obs1Npc)

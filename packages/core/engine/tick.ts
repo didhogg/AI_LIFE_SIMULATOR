@@ -19,8 +19,9 @@ import { decayStep } from './time.js';
 const TICK_LOG_MAX = 8;
 
 // ── 涟漪参数 ──────────────────────────────────────────────────────────────────
-const RIPPLE_DECAY = 0.5;      // 二跳强度乘子（一跳强度 × 信任/100 × RIPPLE_DECAY）
-const RIPPLE_MIN  = 1;         // 低于此阈值不写入认知档案（防噪）
+const RIPPLE_DECAY          = 0.5;  // 二跳强度乘子（一跳强度 × 信任/100 × RIPPLE_DECAY）
+const RIPPLE_MIN            = 1;    // 低于此阈值不写入认知档案（防噪）
+const REL_RIPPLE_THRESHOLD  = 50;   // Phase 6 关系触发：|强度|×信任/100 达此阈值才发射
 
 // ── 结算序 ────────────────────────────────────────────────────────────────────
 
@@ -119,7 +120,7 @@ export function runTick(state: RootState, input: TickInput): TickResult {
     }
   });
 
-  // Phase 3–6 · 四类触发扫描（stub — P0-7+）
+  // Phase 3–5 · 三类触发扫描（stub — P0-7+）
   runPhase('阈值触发', () => {
     // TODO(P0-7): scan threshold triggers
   });
@@ -129,8 +130,24 @@ export function runTick(state: RootState, input: TickInput): TickResult {
   runPhase('标志触发', () => {
     // TODO(P0-7): scan flag triggers
   });
+
+  // Phase 6 · 关系触发 — G1a 发射端：|强度|×信任/100 ≥ REL_RIPPLE_THRESHOLD 的关系推候选涟漪
   runPhase('关系触发', () => {
-    // TODO(P0-7): scan relationship triggers
+    const tickNumber = s._tick?.拍计数 ?? 0;
+    for (const [, npc] of Object.entries(s.NPC)) {
+      for (const rel of npc.关系) {
+        if (!rel.对象键) continue;
+        const score = Math.abs(rel.强度) * (rel.信任 / 100);
+        if (score < REL_RIPPLE_THRESHOLD) continue;
+        emitRipple(s.$涟漪候选, rel.对象键, {
+          标签:     rel.类型 || '关系',
+          极性:     rel.极性 || '中',
+          强度:     Math.min(100, Math.round(score)),
+          可见性:   '公开',
+          来源拍号: tickNumber,
+        });
+      }
+    }
   });
 
   // Phase 7 · 衰减批 — 三处共用 decayStep（印象/意象/记忆·L-13 统一累加器）
@@ -225,7 +242,7 @@ export function runTick(state: RootState, input: TickInput): TickResult {
  * 涟漪传播：读 $涟漪候选 → 写认知档案 → 清空 $涟漪候选
  *
  * 一手在场（目标 NPC 所在地点的其他 NPC）→ 沿 关系 边二跳×衰减×信任
- * covert（可见性='隐秘'）= 仅一跳在场者，二跳零印象
+ * covert（可见性='隐秘'）= 一跳/二跳均不落印象（走 fact 自带门·零印象）
  * 取 max：同 (observer, target, 标签) 已有印象则取强度较大值（防回路膨胀）
  */
 function propagateRipple(s: RootState, nowEpochMin: number): void {
@@ -247,6 +264,8 @@ function propagateRipple(s: RootState, nowEpochMin: number): void {
         : [];
 
       for (const obs1 of presentKeys) {
+        if (covert) continue; // covert 走 fact 自带门，一跳/二跳均不落印象
+
         writeImpressionMax(s.认知档案, obs1, targetKey, {
           标签:      imp.标签,
           极性:      imp.极性,
@@ -256,8 +275,6 @@ function propagateRipple(s: RootState, nowEpochMin: number): void {
           衰减速率:  0,
           来源类型:  '一手观测' as const,
         });
-
-        if (covert) continue; // covert 事件：不向二跳传播
 
         // 二跳：一跳观察者的 关系 连接（不在场）
         const obs1Npc = npcs[obs1];
@@ -283,6 +300,32 @@ function propagateRipple(s: RootState, nowEpochMin: number): void {
 
   // 清空已处理的涟漪候选
   s.$涟漪候选 = {};
+}
+
+// ── 涟漪发射工具（G1a·Phase 6 接线点 / 外部调用方接口） ────────────────────────
+
+/** $涟漪候选 条目形状（与 $涟漪候选Schema 元素对齐）*/
+type RippleEntry = {
+  标签: string; 极性: string; 强度: number;
+  可见性: string; 来源拍号: number;
+};
+
+/**
+ * 向 $涟漪候选 缓冲追加一条候选条目。
+ * Phase 6 (关系触发) 和外部调用方（server.ts 动作处理）均可通过此接口发射。
+ * 纯本地副作用：仅写传入的 pending 对象（runTick structuredClone 隔离）。
+ */
+export function emitRipple(
+  pending: RootState['$涟漪候选'],
+  targetKey: string,
+  entry: RippleEntry,
+): void {
+  const bucket = pending[targetKey];
+  if (bucket) {
+    bucket.push(entry);
+  } else {
+    pending[targetKey] = [entry];
+  }
 }
 
 // ── 印象写入（取 max·防环） ────────────────────────────────────────────────────
