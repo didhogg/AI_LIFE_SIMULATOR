@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=44339d8（G1a-C3 涟漪回归测试） · 前=b7dfd68（B-E2-01 patch） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-21/G1a
+# code HEAD=0a95fd4（G1-C3 空间层回归测试） · 前=44339d8（G1a-C3） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审计签收 2026-06-19） | 更新=2026-06-21/G1
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -170,6 +170,17 @@
   - F2: m_p11f1.test.ts 21条（F0宣言3·F1基本9·B-E2-01修复链5·指纹隔离4）全绿
   - llmDemo.ts 场景1拍2 补传 proposalConstraints·再跑 LLM 应 covered
   - schemaKeys=52·指纹84·黄金向量恒等·红线diff空·prompt不进指纹(R7-b)
+- [x] G1 · 涟漪空间层因子（区域图跳数 + 人口密度调制·propagateRipple 二跳接线） · C1=c5c114b · C2=bc30043 · C3=0a95fd4 · test=3397→3407(+10)
+  - C1(c5c114b): tick.ts/.js — fixedPow 导入·REGION_HOP_DECAY=0.7·POPULATION_DENSITY_FACTOR(5档)·locRegion(父节点链回溯)/buildRegionGraph(全量相邻边推导)/bfsRegionHops(数组下标BFS)/computeSpatialFactor(退化=1·跨区域=decay^n×密度)·propagateRipple 二跳 obs2Loc→sfactor 接线·TODO(G2)媒介维度占位
+  - C2(bc30043): m_p7tier2 5涟漪向量重定基确认（§十三-1一次性预算·全逐位恒等·无文件改动）
+    - 向量2(1-hop WANG): 80(0x50)→80(0x50) 恒等（1-hop 不入空间因子路径）
+    - 向量4(2-hop HONG): 40(0x28)→40(0x28) 恒等（buildWorld地図.地点={}→退化factor=1.0）
+    - 向量6(takemax 豪气): 70(0x46)→70(0x46) 恒等（takemax路径无空间因子）
+    - 向量1/5(empty/clear): 无强度断言 → 不变
+  - C3(0a95fd4): m_g1_spatial.test.ts 空间层专项回归 10 tests（S1距离单调性·S2密度梯度·S3退化不变式·S4确定性·S5covert继承）
+  - 退化路径验证：无地图(0x28=40)·单区域同区域子地点(0x28=40)·多区域1-hop同地(0x50=80)
+  - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=84/20不变·schemaKeys=52不变
+  - gate.ts/conservation.ts/computeDelta.ts/rng.ts/fixed.ts 函数体零diff·lint 0新增·tsc 0新增
 
 ---
 
