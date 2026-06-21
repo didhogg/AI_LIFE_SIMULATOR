@@ -14,6 +14,7 @@ import type { RootState } from '../schema/index.js';
 import { assertConservation } from './conservation.js';
 import { getNetAsset } from './netAsset.js';
 import { decayStep } from './time.js';
+import { fixedPow } from './math/fixed.js';
 
 // ── 环形缓冲上限 ──────────────────────────────────────────────────────────────
 const TICK_LOG_MAX = 8;
@@ -22,6 +23,19 @@ const TICK_LOG_MAX = 8;
 const RIPPLE_DECAY          = 0.5;  // 二跳强度乘子（一跳强度 × 信任/100 × RIPPLE_DECAY）
 const RIPPLE_MIN            = 1;    // 低于此阈值不写入认知档案（防噪）
 const REL_RIPPLE_THRESHOLD  = 50;   // Phase 6 关系触发：|强度|×信任/100 达此阈值才发射
+
+// ── 空间层参数（G1·区域图距离 + 人口密度调制） ──────────────────────────────────
+const REGION_HOP_DECAY    = 0.7;   // 跨区域每跳衰减乘子（确定性常量）
+const SPATIAL_FACTOR_MIN  = 0.1;   // 空间因子下界（防近零）
+const SPATIAL_FACTOR_MAX  = 1.5;   // 空间因子上界（密集区加成上限）
+// 人口规模字符串 → 密度调制系数（目标区越密 → 传播越广）
+const POPULATION_DENSITY_FACTOR: Record<string, number> = {
+  '超大型': 1.3,
+  '大型':   1.2,
+  '中型':   1.0,
+  '小型':   0.85,
+  '微型':   0.7,
+};
 
 // ── 结算序 ────────────────────────────────────────────────────────────────────
 
@@ -238,23 +252,113 @@ export function runTick(state: RootState, input: TickInput): TickResult {
 
 // ── 涟漪引擎 ──────────────────────────────────────────────────────────────────
 
+// ── 空间层辅助（G1·区域图跳数 + 人口密度调制） ────────────────────────────────
+
+type LocRecord = RootState['地图']['地点'];
+type RegionGraph = Map<string, Set<string>>;
+
+/** 给定地点键，沿父节点链（最多 16 层）找最近「区域级」祖先节点键；含自身。 */
+function locRegion(locKey: string, locs: LocRecord): string | undefined {
+  let cur = locKey;
+  for (let d = 0; d < 16; d++) {
+    const loc = locs[cur];
+    if (!loc) return undefined;
+    if (loc.类别 === '区域级') return cur;
+    if (!loc.父节点) return undefined;
+    cur = loc.父节点;
+  }
+  return undefined;
+}
+
+/**
+ * 从全量 地点.相邻 推导区域级无向邻接图。
+ * 若两个地点的相邻边两端解析到不同区域，则添加一条区域间边（双向）。
+ */
+function buildRegionGraph(locs: LocRecord): RegionGraph {
+  const graph: RegionGraph = new Map();
+  for (const [locKey, loc] of Object.entries(locs)) {
+    const src = locRegion(locKey, locs);
+    if (!src) continue;
+    if (!graph.has(src)) graph.set(src, new Set());
+    for (const adj of loc.相邻) {
+      if (!adj.目标 || adj.目标 === locKey) continue;
+      const dst = locRegion(adj.目标, locs);
+      if (!dst || dst === src) continue;
+      graph.get(src)!.add(dst);
+      if (!graph.has(dst)) graph.set(dst, new Set());
+      graph.get(dst)!.add(src);
+    }
+  }
+  return graph;
+}
+
+/** BFS 求区域图最短跳数；不可达返回 -1。使用数组下标代替 shift() 防 O(n²)。 */
+function bfsRegionHops(from: string, to: string, graph: RegionGraph): number {
+  if (from === to) return 0;
+  const visited = new Set<string>([from]);
+  const queue: [string, number][] = [[from, 0]];
+  let qi = 0;
+  while (qi < queue.length) {
+    const [cur, hops] = queue[qi++]!;
+    const neighbors = graph.get(cur);
+    if (!neighbors) continue;
+    for (const nxt of neighbors) {
+      if (nxt === to) return hops + 1;
+      if (!visited.has(nxt)) {
+        visited.add(nxt);
+        queue.push([nxt, hops + 1]);
+      }
+    }
+  }
+  return -1;
+}
+
+/**
+ * 计算二跳空间衰减因子：区域图跳数 × 人口密度调制（目标区域）。
+ *
+ * 退化条件（无图 / 无区域 / 同区域 / 不可达）均返回 1，完全保持 G1a 传播值。
+ * TODO(G2): 传播媒介维度（口耳/信件/布告/谣言网络）此处占位 ×1，G2 接线。
+ */
+function computeSpatialFactor(
+  targetRegion: string | undefined,
+  obs2Loc: string,
+  locs: LocRecord,
+  graph: RegionGraph | undefined,
+): number {
+  if (!targetRegion || !graph || !obs2Loc) return 1;
+  const obs2Region = locRegion(obs2Loc, locs);
+  if (!obs2Region || obs2Region === targetRegion) return 1;
+  const hops = bfsRegionHops(targetRegion, obs2Region, graph);
+  if (hops <= 0) return 1;
+  const hopFactor = fixedPow(REGION_HOP_DECAY, hops);
+  const density = POPULATION_DENSITY_FACTOR[locs[targetRegion]?.人口规模 ?? ''] ?? 1.0;
+  return Math.min(SPATIAL_FACTOR_MAX, Math.max(SPATIAL_FACTOR_MIN, hopFactor * density));
+}
+
 /**
  * 涟漪传播：读 $涟漪候选 → 写认知档案 → 清空 $涟漪候选
  *
- * 一手在场（目标 NPC 所在地点的其他 NPC）→ 沿 关系 边二跳×衰减×信任
+ * 一手在场（目标 NPC 所在地点的其他 NPC）→ 沿 关系 边二跳×衰减×信任×空间因子
  * covert（可见性='隐秘'）= 一跳/二跳均不落印象（走 fact 自带门·零印象）
  * 取 max：同 (observer, target, 标签) 已有印象则取强度较大值（防回路膨胀）
+ * 空间因子（G1）：同区域/无图退化=1；跨区域 = REGION_HOP_DECAY^hops × 密度调制
  */
 function propagateRipple(s: RootState, nowEpochMin: number): void {
   const pending = s.$涟漪候选;
   if (!pending || Object.keys(pending).length === 0) return;
 
   const npcs = s.NPC;
+  const locs = s.地图.地点;
+  const hasMap = Object.keys(locs).length > 0;
+  // 每次 propagateRipple 调用构建一次区域图（本拍内地图不变·复用安全）
+  const regionGraph = hasMap ? buildRegionGraph(locs) : undefined;
 
   for (const [targetKey, impressions] of Object.entries(pending)) {
     for (const imp of impressions) {
       const covert = imp.可见性 === '隐秘';
       const targetLoc = npcs[targetKey]?.位置 ?? '';
+      // 目标区域（供 computeSpatialFactor 二跳计算复用）
+      const targetRegion = hasMap && targetLoc ? locRegion(targetLoc, locs) : undefined;
 
       // 一跳：目标所在地点的在场 NPC（不含目标自身）
       const presentKeys = targetLoc
@@ -282,7 +386,9 @@ function propagateRipple(s: RootState, nowEpochMin: number): void {
         for (const rel of obs1Npc.关系) {
           const obs2 = rel.对象键;
           if (!obs2 || obs2 === targetKey || presentKeys.includes(obs2)) continue;
-          const strength2 = imp.强度 * RIPPLE_DECAY * (rel.信任 / 100);
+          const obs2Loc = npcs[obs2]?.位置 ?? '';
+          const sfactor = computeSpatialFactor(targetRegion, obs2Loc, locs, regionGraph);
+          const strength2 = imp.强度 * RIPPLE_DECAY * (rel.信任 / 100) * sfactor;
           if (strength2 < RIPPLE_MIN) continue;
           writeImpressionMax(s.认知档案, obs2, targetKey, {
             标签:      imp.标签,
