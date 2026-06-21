@@ -8,12 +8,14 @@ import {
   inspectMenu,
   runValidationChain,
   runTickWithDiff,
+  runActionInDualMode,
   TimeController,
   DEMO_RAW_CANDIDATES,
   PHASE6_THRESHOLD,
   type TickDiffResult,
   type ValidationChainResult,
   type MenuInspectResult,
+  type ActionResult,
 } from '../aohpDebugConsole.js'
 import {
   buildRelationGraph,
@@ -65,6 +67,8 @@ const S = {
   validInput: '',
   lastChain: null as ValidationChainResult | null,
   lastMenu: null as MenuInspectResult | null,
+  lastNarrative: null as ActionResult | null,
+  narrativeLoading: false,
   snapshotLabel: 'snap0',
   snapSelA: '',
   snapSelB: '',
@@ -177,8 +181,12 @@ function renderTabBar(): string {
 function renderMenuTab(): string {
   const menuHtml  = renderMenuSection()
   const chainHtml = renderChainSection()
-  const diffHtml  = S.diffs.length > 0 ? renderLatestDiffSection() : ''
-  return `<div class="tab-content">${menuHtml}${chainHtml}${diffHtml}</div>`
+  const hasDiff = S.diffs.length > 0
+  const hasNarrative = S.lastNarrative !== null || S.narrativeLoading
+  const bottomHtml = (hasDiff || hasNarrative)
+    ? `<div class="section"><h2>当拍结果：State Diff · 叙事·出字</h2><div class="diff-narrative-grid">${hasDiff ? renderLatestDiffPanel() : '<div class="diff-col"><span class="dim">（尚无拍记录）</span></div>'}${renderNarrativePanel()}</div></div>`
+    : ''
+  return `<div class="tab-content">${menuHtml}${chainHtml}${bottomHtml}</div>`
 }
 
 function renderMenuSection(): string {
@@ -272,13 +280,40 @@ function renderChainSection(): string {
   return inner
 }
 
-function renderLatestDiffSection(): string {
+function renderLatestDiffPanel(): string {
   const d = S.diffs[S.diffs.length - 1]!
-  return `
-<div class="section">
-  <h2>State Diff（第 ${S.diffs.length} 拍·最新）</h2>
-  <div class="result-box">${diffToHtml(d)}</div>
-</div>`
+  return `<div class="diff-col"><div class="panel-label">State Diff（第 ${S.diffs.length} 拍·最新）</div><div class="result-box">${diffToHtml(d)}</div></div>`
+}
+
+function renderNarrativePanel(): string {
+  const modeLabel = S.llmMode === 'llm' ? 'llmDemo 真 LLM' : 'demo scriptedNarrative'
+  const modeClass = S.llmMode === 'llm' ? 'mode-tag-llm' : 'mode-tag-demo'
+
+  let inner = `<div class="panel-label">叙事·出字</div>`
+  inner += `<div class="narrative-meta"><span class="mode-tag ${modeClass}">${esc(modeLabel)}</span>`
+  if (S.forceFailure) inner += `<span class="mode-tag mode-tag-warn">强制失败注入:开</span>`
+  inner += `</div>`
+
+  if (S.narrativeLoading) {
+    inner += `<div class="narrative-loading">⏳ 生成叙事中…</div>`
+  } else if (S.lastNarrative) {
+    const r = S.lastNarrative
+    const fallbackBadge = r.isFallback
+      ? `<span class="fallback-badge fallback-on">⚠ isFallback=true · LLM 降级·走默认 option</span>`
+      : `<span class="fallback-badge fallback-off">isFallback=false</span>`
+    const usedDefaultBadge = r.usedDefault
+      ? `<span class="fallback-badge fallback-on">usedDefault=true</span>`
+      : ''
+    inner += `<div class="narrative-badges">${fallbackBadge}${usedDefaultBadge}</div>`
+    inner += `<div class="narrative-option-id dim">option: ${esc(r.optionId)}</div>`
+    inner += `<div class="prose-box">${esc(r.narrative)}</div>`
+  } else if (S.lastChain && !S.lastChain.passed) {
+    inner += `<div class="narrative-rejected"><span class="err">✗ 校验失败 → 无叙事</span><br/><span class="dim">拒绝于「${esc(S.lastChain.rejectStep ?? '')}」 原因码: ${esc(S.lastChain.rejectCode ?? '')}</span></div>`
+  } else {
+    inner += `<div class="dim narrative-empty">（点击 permitted 选项后出字）</div>`
+  }
+
+  return `<div class="narrative-col">${inner}</div>`
 }
 
 function diffToHtml(d: TickDiffResult): string {
@@ -711,20 +746,44 @@ function attachEventListeners(): void {
     renderApp()
   })
 
-  // permitted 选项点击 → runTick
+  // permitted 选项点击 → runValidationChain → runTickWithDiff + runActionInDualMode
   document.querySelectorAll('[data-run-option]').forEach(btn => {
     btn.addEventListener('click', () => {
       const optId = (btn as HTMLElement).dataset['runOption']!
       S.validInput = optId
-      S.lastChain  = runValidationChain(optId, S.state, S.pcKey, S.rawCandidates)
+      S.lastNarrative = null
+      S.narrativeLoading = false
+      S.lastChain = runValidationChain(optId, S.state, S.pcKey, S.rawCandidates)
       if (S.lastChain.passed) {
+        // 捕获 pre-tick 状态用于叙事组装（assemblePrompt 需要行动前的世界）
+        const preTick = S.state
         const tid  = `debug:${S.seed}:tick:${S.state._tick?.拍计数 ?? S.diffs.length}`
-        const diff = runTickWithDiff(S.state, tid)
+        const diff = runTickWithDiff(preTick, tid)
         S.diffs = [...S.diffs.slice(-(MAX_DIFFS - 1)), diff]
         S.state = diff.afterState
-        // 记录到 recorder
         S.recorder?.record(optId)
         S.recActions = [...S.recActions, optId]
+        // 异步叙事生成（校验已通过·走合法路径）
+        S.narrativeLoading = true
+        renderApp()
+        runActionInDualMode(preTick, S.pcKey, optId, S.rawCandidates, S.llmMode, {
+          forceFailure: S.forceFailure,
+        }).then(result => {
+          S.lastNarrative = result
+          S.narrativeLoading = false
+          renderApp()
+        }).catch(err => {
+          console.error('[G1b3c] runActionInDualMode error:', err)
+          S.lastNarrative = {
+            narrative: `[叙事生成异常] ${err instanceof Error ? err.message : String(err)}`,
+            isFallback: true,
+            optionId: optId,
+            usedDefault: false,
+          }
+          S.narrativeLoading = false
+          renderApp()
+        })
+        return
       }
       renderApp()
     })

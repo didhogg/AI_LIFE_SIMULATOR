@@ -403,3 +403,107 @@ details[open] > summary { color: #58a6ff; }
 
 .attr-name { color: #8b949e; font-size: 10px; }
 .attr-val  { color: #58a6ff; font-size: 14px; font-weight: bold; font-family: monospace; }
+
+/* ── 叙事·出字 面板（diff-narrative 并排）────────────────────────────────── */
+
+.diff-narrative-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.diff-col,
+.narrative-col {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 10px 12px;
+  min-height: 120px;
+}
+
+.panel-label {
+  font-size: 12px;
+  color: #8b949e;
+  font-weight: 600;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #21262d;
+}
+
+.narrative-col { border-left: 3px solid #3a3a6e; }
+
+.narrative-meta {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.mode-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-family: monospace;
+  font-weight: 600;
+}
+
+.mode-tag-demo { background: #1a2f1a; color: #3fb950; border: 1px solid #3fb950; }
+.mode-tag-llm  { background: #1a1f3a; color: #58a6ff; border: 1px solid #58a6ff; }
+.mode-tag-warn { background: #3a2a1a; color: #d29922; border: 1px solid #d29922; }
+
+.narrative-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.fallback-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-family: monospace;
+}
+
+.fallback-on  { background: #3a1a1a; color: #f85149; border: 1px solid #f85149; }
+.fallback-off { background: #1a2f1a; color: #3fb950; border: 1px solid #3fb950; }
+
+.narrative-option-id { font-size: 11px; font-family: monospace; margin-bottom: 6px; }
+
+.prose-box {
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: #e6edf3;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 60px;
+}
+
+.narrative-loading {
+  color: #8b949e;
+  font-style: italic;
+  font-size: 12px;
+  padding: 20px 0;
+  text-align: center;
+}
+
+.narrative-rejected {
+  padding: 10px;
+  background: #1a0a0a;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.narrative-empty {
+  padding: 20px 0;
+  text-align: center;
+  font-size: 12px;
+}
