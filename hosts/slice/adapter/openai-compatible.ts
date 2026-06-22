@@ -23,7 +23,13 @@ export async function callNarrative(req: NarrativeRequest): Promise<NarrativeRes
   const baseURL  = process.env['DEEPSEEK_BASE_URL'] ?? 'https://api.deepseek.com';
   const modelId  = req.modelId ?? process.env['DEEPSEEK_MODEL'] ?? 'deepseek-chat';
 
-  const client = new OpenAI({ apiKey, baseURL });
+  // dangerouslyAllowBrowser: debug-only · 浏览器直连会把 API key 暴露在前端
+  // 禁止用于生产/多人宿主 · Node(slice)宿主 typeof window==='undefined' 不带此标志
+  const client = new OpenAI({
+    apiKey,
+    baseURL,
+    ...(typeof window !== 'undefined' ? { dangerouslyAllowBrowser: true } : {}),
+  });
 
   // 把马上要发出去的请求体先存常量，便于在唯一出口处原样打印（一处拦全部叙事调用）。
   const requestBody = {
