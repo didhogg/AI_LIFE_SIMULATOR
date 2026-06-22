@@ -776,6 +776,80 @@ export function buildEdgeDelta(
   return result;
 }
 
+// ── POV 五轴人格投影（Bug 2 · 调试面板专用·不渗入正常游玩路径）────────────────────────
+
+export interface PersonalityAxis {
+  /** 引擎存储的真相值（spoiler·仅供调试对照·绝不渗入正常 POV 渲染） */
+  true: number;
+  /** 认知层感知值 = clamp(真值 + bias, 0, 100) */
+  projected: number;
+  /** 偏差量（= 0 时投影值 = 真值） */
+  bias: number;
+}
+
+export interface PersonalityProjectionResult {
+  开放:   PersonalityAxis;
+  尽责:   PersonalityAxis;
+  外向:   PersonalityAxis;
+  宜人:   PersonalityAxis;
+  神经质: PersonalityAxis;
+  /** 本次计算使用的统一偏差量（= 0 → 五轴投影值逐位 = 真值） */
+  totalBias: number;
+}
+
+/**
+ * 计算 POV 实体的五轴人格投影（调试用·纯只读）。
+ *
+ * 投影值 = clamp(真值 + bias, 0, 100)
+ * bias   = round((relDepth×0.3 + disguise×0.5) × selfKnowledge/100)
+ *
+ * 典型情况（无自我认知条目·无伪装特质·无自身关系边）→ bias=0 → 投影=真值。
+ * 不改 state · 不调 runTick · 不进指纹。
+ */
+export function computePovPersonalityProjection(
+  state: RootState,
+  entityKey: string,
+): PersonalityProjectionResult {
+  const npc = state.NPC[entityKey];
+  if (!npc) throw new Error(`[computePovPersonalityProjection] '${entityKey}' not in NPC`);
+
+  const trueAxes = npc.性格五轴;
+
+  // 知情程度：认知档案[self][self].了解度（通常 0·NPC 一般不自我观察）
+  const archiveBySelf = state.认知档案?.[entityKey] ?? {};
+  const selfKnowledge = (archiveBySelf as Record<string, { 了解度: number }>)[entityKey]?.了解度 ?? 0;
+
+  // 伪装度：特质库中 类别=伪装/欺骗 的最大强度
+  const disguiseDegree = Object.values(npc.特质).reduce(
+    (mx, t) => (t.类别 === '伪装' || t.类别 === '欺骗') ? Math.max(mx, t.强度) : mx,
+    0,
+  );
+
+  // 关系深度：自身关系列表中对自身的边强度绝对值（通常不存在 → 0）
+  const selfRel = npc.关系.find(r => r.对象键 === entityKey);
+  const relDepth = selfRel ? Math.abs(selfRel.强度) : 0;
+
+  // bias = round((relDepth×0.3 + disguise×0.5) × selfKnowledge/100)
+  // 所有因子为 0 时 bias=0 → 投影=真值（测试覆盖此路径）
+  const bias = Math.round((relDepth * 0.3 + disguiseDegree * 0.5) * (selfKnowledge / 100));
+
+  const clamp = (v: number) => Math.max(0, Math.min(100, v));
+  const makeAxis = (v: number): PersonalityAxis => ({
+    true: v,
+    projected: clamp(v + bias),
+    bias,
+  });
+
+  return {
+    开放:   makeAxis(trueAxes.开放),
+    尽责:   makeAxis(trueAxes.尽责),
+    外向:   makeAxis(trueAxes.外向),
+    宜人:   makeAxis(trueAxes.宜人),
+    神经质: makeAxis(trueAxes.神经质),
+    totalBias: bias,
+  };
+}
+
 // ── A3: 详细角色面板（POV 过滤） ───────────────────────────────────────────────────
 
 export interface ActorPanel {

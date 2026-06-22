@@ -559,6 +559,49 @@ details[open] > summary { color: #58a6ff; }
   font-size: 12px;
 }
 
+/* ── POV 投影面板 · 两列并列（Bug 2 · Section 4-6）─────────────────────────────── */
+
+.pov-two-col-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  padding: 3px 0 4px;
+  border-bottom: 1px solid #21262d;
+  font-size: 10px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.pov-two-col-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  padding: 2px 0;
+  border-bottom: 1px solid #161b22;
+  font-family: monospace;
+  font-size: 11px;
+  align-items: baseline;
+}
+
+.pov-two-col-row:last-child { border-bottom: none; }
+
+/* 真值 (spoiler) 列：上帝视角真相，明确标注为 debug only */
+.pov-spoiler {
+  color: #8b949e;
+  background: #1a1a2e;
+  border: 1px dashed #3a3a5c;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-family: monospace;
+}
+
+.pov-spoiler-head {
+  color: #6e7681;
+  font-size: 10px;
+  font-style: italic;
+}
+
 /* ── 操纵主体切换（Feature A）────────────────────────────────────────────────── */
 
 .operator-banner {

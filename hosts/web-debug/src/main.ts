@@ -46,8 +46,10 @@ import {
   groupNodesByLocation,
   buildEdgeDelta,
   buildActorPanel,
+  computePovPersonalityProjection,
   type RelationGraph,
   type StateTreeNode,
+  type PersonalityProjectionResult,
 } from '../aohpDebugConsole2.js'
 import {
   getDebugFixture,
@@ -884,12 +886,23 @@ function renderPOVTab(): string {
   return html
 }
 
-/** 主 POV 投影面板（可见秘密 + 认知档案 + 关系投影） */
+/** 主 POV 投影面板（6 组字段·投影值 ⊥ 真值并列显示）
+ *
+ * 铁律：真值列仅在此调试面板显示为 spoiler，绝不渗入正常游玩的 POV 渲染路径。
+ * 不进 runTick · 不进指纹 · 纯只读 · 不改 operatorKey。
+ */
 function povProjectionHtml(r: ReturnType<typeof povInspect>, state: RootState, entityKey: string): string {
+  type NpcRaw = {
+    关系?: Array<{ 对象键: string; 类型: string; 强度: number; 信任: number }>;
+    物品?: Record<string, { 数量: number; 类别: string; 重要级别: string }>;
+    目标?: { 长期: string[]; 短期: string[] };
+  }
+  const npcRaw = state.NPC?.[entityKey] as NpcRaw | undefined
+
   let s = `<div class="pov-projection">`
 
-  // 可见秘密
-  s += `<div class="pov-proj-section"><span class="pov-proj-label">可见秘密</span>`
+  // ── Section 1: 可见秘密 ──────────────────────────────────────────────────────
+  s += `<div class="pov-proj-section"><span class="pov-proj-label">① 可见秘密</span>`
   s += `<span class="pov-proj-count">${r.visibleSecretIds.length} 条</span></div>`
   s += `<div class="result-box" style="font-size:11px">`
   if (r.visibleSecretIds.length === 0) {
@@ -905,8 +918,8 @@ function povProjectionHtml(r: ReturnType<typeof povInspect>, state: RootState, e
   s += `<span class="dim">隐藏(existence-opaque): ${r.hiddenSecretCount}</span>\n`
   s += `</div>`
 
-  // 认知档案投影
-  s += `<div class="pov-proj-section"><span class="pov-proj-label">认知档案投影</span>`
+  // ── Section 2: 认知档案投影 ──────────────────────────────────────────────────
+  s += `<div class="pov-proj-section"><span class="pov-proj-label">② 认知档案投影</span>`
   s += `<span class="pov-proj-count">${r.cognitiveTargetKeys.length} 目标</span></div>`
   s += `<div class="result-box" style="font-size:11px">`
   if (r.cognitiveTargetKeys.length === 0) {
@@ -918,9 +931,9 @@ function povProjectionHtml(r: ReturnType<typeof povInspect>, state: RootState, e
   }
   s += `</div>`
 
-  // 关系投影（直读 NPC 关系字段·只读·不进指纹）
-  const relations = (state.NPC?.[entityKey] as { 关系?: Array<{ 对象键: string; 类型: string; 强度: number; 信任: number }> } | undefined)?.关系 ?? []
-  s += `<div class="pov-proj-section"><span class="pov-proj-label">关系投影</span>`
+  // ── Section 3: 关系投影（直读 NPC 关系字段·只读·不进指纹）─────────────────
+  const relations = npcRaw?.关系 ?? []
+  s += `<div class="pov-proj-section"><span class="pov-proj-label">③ 关系投影</span>`
   s += `<span class="pov-proj-count">${relations.length} 条</span></div>`
   s += `<div class="result-box" style="font-size:11px">`
   if (relations.length === 0) {
@@ -929,6 +942,100 @@ function povProjectionHtml(r: ReturnType<typeof povInspect>, state: RootState, e
     for (const rel of relations) {
       const col = rel.强度 > 0 ? 'ok' : rel.强度 < 0 ? 'err' : 'dim'
       s += `→ <code>${esc(rel.对象键)}</code> [${esc(rel.类型)}] 强度=<span class="${col}">${rel.强度}</span> 信任=${rel.信任}\n`
+    }
+  }
+  s += `</div>`
+
+  // ── Section 4: 五轴人格投影（投影值 vs 真值并列·偏差项可见）────────────────
+  let pp: PersonalityProjectionResult | null = null
+  try { pp = computePovPersonalityProjection(state, entityKey) } catch { pp = null }
+
+  s += `<div class="pov-proj-section"><span class="pov-proj-label">④ 五轴人格投影</span>`
+  if (pp) {
+    const biasLabel = pp.totalBias === 0
+      ? `<span class="ok">偏差=0（投影=真值）</span>`
+      : `<span class="warn">偏差Δ${pp.totalBias >= 0 ? '+' : ''}${pp.totalBias}</span>`
+    s += `<span class="pov-proj-count">${biasLabel}</span>`
+  }
+  s += `</div>`
+  s += `<div class="result-box" style="font-size:11px">`
+  if (pp) {
+    s += `<div class="pov-two-col-header"><span class="dim">轴</span><span class="warn">投影值</span><span class="pov-spoiler-head">真值(spoiler)</span></div>`
+    const axes = ['开放', '尽责', '外向', '宜人', '神经质'] as const
+    for (const axis of axes) {
+      const axData = pp[axis]
+      const biasStr = axData.bias !== 0 ? ` <span class="warn">(Δ${axData.bias >= 0 ? '+' : ''}${axData.bias})</span>` : ''
+      s += `<div class="pov-two-col-row">`
+      s += `<span class="dim">${esc(axis)}</span>`
+      s += `<span class="${axData.bias !== 0 ? 'warn' : 'ok'}">${axData.projected}</span>${biasStr}`
+      s += `<span class="pov-spoiler">${axData.true}</span>`
+      s += `</div>\n`
+    }
+  } else {
+    s += `<span class="dim">（五轴数据不可用）</span>\n`
+  }
+  s += `</div>`
+
+  // ── Section 5: 已知物品（POV 视角所知·投影值=认知库持有量 vs 真值=实际持有）──
+  const items = Object.entries(npcRaw?.物品 ?? {})
+  s += `<div class="pov-proj-section"><span class="pov-proj-label">⑤ 已知物品</span>`
+  s += `<span class="pov-proj-count">${items.length} 件</span></div>`
+  s += `<div class="result-box" style="font-size:11px">`
+  if (items.length === 0) {
+    s += `<span class="dim">（无物品）</span>\n`
+  } else {
+    s += `<div class="pov-two-col-header"><span class="dim">物品键</span><span class="warn">投影(已知)</span><span class="pov-spoiler-head">真值(spoiler)</span></div>`
+    for (const [key, item] of items) {
+      s += `<div class="pov-two-col-row">`
+      s += `<code class="dim">${esc(key)}</code>`
+      s += `<span class="ok">×${item.数量} [${esc(item.类别)}]</span>`
+      s += `<span class="pov-spoiler">×${item.数量} [${esc(item.重要级别)}]</span>`
+      s += `</div>\n`
+    }
+  }
+  s += `</div>`
+
+  // ── Section 6: 已知目标（自身目标 + 认知对象·投影vs真值）────────────────────
+  const goals = npcRaw?.目标 ?? { 长期: [], 短期: [] }
+  const cogTargets = r.cognitiveTargetKeys
+  const totalGoals = (goals.长期?.length ?? 0) + (goals.短期?.length ?? 0)
+  s += `<div class="pov-proj-section"><span class="pov-proj-label">⑥ 已知目标</span>`
+  s += `<span class="pov-proj-count">${totalGoals} 目标 · ${cogTargets.length} 认知对象</span></div>`
+  s += `<div class="result-box" style="font-size:11px">`
+  if (totalGoals === 0 && cogTargets.length === 0) {
+    s += `<span class="dim">（无目标·无认知对象）</span>\n`
+  } else {
+    if ((goals.长期?.length ?? 0) > 0) {
+      s += `<div class="pov-two-col-header"><span class="dim">长期目标</span><span class="warn">投影</span><span class="pov-spoiler-head">真值(spoiler)</span></div>`
+      for (const g of goals.长期 ?? []) {
+        s += `<div class="pov-two-col-row">`
+        s += `<span class="dim">📌</span>`
+        s += `<span class="warn">${esc(g)}</span>`
+        s += `<span class="pov-spoiler">${esc(g)}</span>`
+        s += `</div>\n`
+      }
+    }
+    if ((goals.短期?.length ?? 0) > 0) {
+      s += `<div class="pov-two-col-header"><span class="dim">短期目标</span><span class="warn">投影</span><span class="pov-spoiler-head">真值(spoiler)</span></div>`
+      for (const g of goals.短期 ?? []) {
+        s += `<div class="pov-two-col-row">`
+        s += `<span class="dim">⚡</span>`
+        s += `<span class="warn">${esc(g)}</span>`
+        s += `<span class="pov-spoiler">${esc(g)}</span>`
+        s += `</div>\n`
+      }
+    }
+    if (cogTargets.length > 0) {
+      s += `<div class="pov-two-col-header" style="margin-top:6px"><span class="dim">认知对象</span><span class="warn">投影(了解度)</span><span class="pov-spoiler-head">真值(spoiler)</span></div>`
+      for (const tgt of cogTargets) {
+        const proj = r.cognitiveProjection[tgt]
+        const trueName = (state.NPC?.[tgt] as { 姓名?: string } | undefined)?.姓名 ?? tgt
+        s += `<div class="pov-two-col-row">`
+        s += `<code class="dim">${esc(tgt)}</code>`
+        s += `<span class="warn">了解度=${proj?.了解度 ?? 0} 印象×${proj?.impressionCount ?? 0}</span>`
+        s += `<span class="pov-spoiler">${esc(trueName)}</span>`
+        s += `</div>\n`
+      }
     }
   }
   s += `</div>`
@@ -1277,6 +1384,15 @@ function renderApp(): void {
 
   app.innerHTML = renderHeader() + renderTabBar() + tabContent
   attachEventListeners()
+
+  // Bug 1 fix: 明示的 value 同期（ブラウザのフォーム復元が selected 属性を上書きするのを防ぐ）
+  // app はすでに any 型で取得済みなので querySelector で再 document 呼び出しを回避する。
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const _app = app as any
+  const _povEntityEl = _app?.querySelector?.('#pov-entity-sel')
+  if (_povEntityEl) _povEntityEl.value = S.povEntityKey
+  const _operatorEl = _app?.querySelector?.('#pov-operator-sel')
+  if (_operatorEl) _operatorEl.value = S.operatorKey
 }
 
 // ── 事件绑定 ──────────────────────────────────────────────────────────────────

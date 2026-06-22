@@ -19,7 +19,11 @@ import {
 } from '@ai-life-sim/core/engine/fingerprintManifest';
 
 import { buildWorld, PC, NPC_WANG, NPC_HONG, SECRET_S1 } from '../fixture/world.js';
-import { povInspect, comparePOVs } from '../../web-debug/aohpDebugConsole2.js';
+import {
+  povInspect,
+  comparePOVs,
+  computePovPersonalityProjection,
+} from '../../web-debug/aohpDebugConsole2.js';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // T1. 切换 povEntityKey → 投影输出随之变化
@@ -197,6 +201,144 @@ describe('T5 comparePOVs diff 正确性', () => {
     comparePOVs(state, NPC_WANG, NPC_HONG);
     const after = JSON.stringify(state);
     expect(after).toBe(before);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// T7. 五轴人格投影（Bug 2 回归）
+// ──────────────────────────────────────────────────────────────────────────────
+describe('T7 五轴人格投影 computePovPersonalityProjection', () => {
+  it('返回全部 5 轴 + totalBias 字段', () => {
+    const state = buildWorld();
+    const result = computePovPersonalityProjection(state, NPC_WANG);
+    const AXES = ['开放', '尽责', '外向', '宜人', '神经质'] as const;
+    for (const axis of AXES) {
+      expect(result).toHaveProperty(axis);
+      const axData = result[axis];
+      expect(typeof axData.true).toBe('number');
+      expect(typeof axData.projected).toBe('number');
+      expect(typeof axData.bias).toBe('number');
+    }
+    expect(typeof result.totalBias).toBe('number');
+  });
+
+  it('projected = clamp(true + bias, 0, 100)（公式一致性）', () => {
+    const state = buildWorld();
+    const AXES = ['开放', '尽责', '外向', '宜人', '神经质'] as const;
+    for (const entity of [NPC_WANG, PC, NPC_HONG]) {
+      const result = computePovPersonalityProjection(state, entity);
+      for (const axis of AXES) {
+        const axData = result[axis];
+        const expected = Math.max(0, Math.min(100, axData.true + axData.bias));
+        expect(axData.projected).toBe(expected);
+      }
+    }
+  });
+
+  it('无自我认知条目·无伪装特质 → bias=0 → 投影值 = 真值', () => {
+    const state = buildWorld();
+    // buildWorld() NPC 无自我观察档案·无伪装特质·无自身关系边 → bias=0
+    const result = computePovPersonalityProjection(state, NPC_WANG);
+    expect(result.totalBias).toBe(0);
+    const AXES = ['开放', '尽责', '外向', '宜人', '神经质'] as const;
+    for (const axis of AXES) {
+      expect(result[axis].projected).toBe(result[axis].true);
+    }
+  });
+
+  it('computePovPersonalityProjection 纯只读·不改 state', () => {
+    const state = buildWorld();
+    const before = JSON.stringify(state);
+    computePovPersonalityProjection(state, NPC_WANG);
+    computePovPersonalityProjection(state, PC);
+    computePovPersonalityProjection(state, NPC_HONG);
+    expect(JSON.stringify(state)).toBe(before);
+  });
+
+  it('五轴 true 值与 state.NPC[entity].性格五轴 逐轴一致', () => {
+    const state = buildWorld();
+    const AXES = ['开放', '尽责', '外向', '宜人', '神经质'] as const;
+    for (const entity of [NPC_WANG, PC, NPC_HONG]) {
+      const result = computePovPersonalityProjection(state, entity);
+      const stateAxes = state.NPC[entity]?.性格五轴;
+      if (!stateAxes) continue;
+      for (const axis of AXES) {
+        expect(result[axis].true).toBe(stateAxes[axis]);
+      }
+    }
+  });
+
+  it('五轴 true 值在 0-100 范围内', () => {
+    const state = buildWorld();
+    const result = computePovPersonalityProjection(state, NPC_WANG);
+    const AXES = ['开放', '尽责', '外向', '宜人', '神经质'] as const;
+    for (const axis of AXES) {
+      expect(result[axis].true).toBeGreaterThanOrEqual(0);
+      expect(result[axis].true).toBeLessThanOrEqual(100);
+      expect(result[axis].projected).toBeGreaterThanOrEqual(0);
+      expect(result[axis].projected).toBeLessThanOrEqual(100);
+    }
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// T8. POV 投影面板 6 组字段 · operatorKey×povEntityKey 解耦（数据层）
+// ──────────────────────────────────────────────────────────────────────────────
+describe('T8 POV 投影 6 组字段 · operatorKey 解耦（数据层）', () => {
+  it('6 组数据源均可读取·无异常', () => {
+    const state = buildWorld();
+    // Section 1-3: povInspect 已由 T1-T6 覆盖
+    const r = povInspect(state, NPC_WANG);
+    expect(Array.isArray(r.visibleSecretIds)).toBe(true);  // ① 可见秘密
+    expect(typeof r.cognitiveProjection).toBe('object');   // ② 认知档案
+    // ③ 关系投影（直读 NPC.关系）
+    const npc = state.NPC[NPC_WANG];
+    expect(Array.isArray(npc?.关系)).toBe(true);
+    // ④ 五轴投影
+    const pp = computePovPersonalityProjection(state, NPC_WANG);
+    expect(typeof pp.totalBias).toBe('number');
+    // ⑤ 已知物品
+    expect(typeof npc?.物品).toBe('object');
+    // ⑥ 已知目标
+    expect(Array.isArray(npc?.目标?.长期)).toBe(true);
+    expect(Array.isArray(npc?.目标?.短期)).toBe(true);
+  });
+
+  it('切换 POV 不影响 computePovPersonalityProjection 对另一实体的结果', () => {
+    const state = buildWorld();
+    const pp1 = computePovPersonalityProjection(state, NPC_WANG);
+    povInspect(state, PC);    // 切换 POV
+    povInspect(state, NPC_HONG);
+    const pp2 = computePovPersonalityProjection(state, NPC_WANG);  // 结果应相同
+    expect(JSON.stringify(pp1)).toBe(JSON.stringify(pp2));
+  });
+
+  it('POV 操作（包括 6 组数据读取）不改变 state.世界.纪元分钟', () => {
+    const state = buildWorld();
+    const t0 = state.世界?.纪元分钟 ?? 0;
+    povInspect(state, NPC_WANG);
+    computePovPersonalityProjection(state, NPC_WANG);
+    computePovPersonalityProjection(state, PC);
+    comparePOVs(state, PC, NPC_WANG);
+    expect(state.世界?.纪元分钟 ?? 0).toBe(t0);
+  });
+
+  it('6 组 POV 数据读取后 state 仍通过 RootSchema 校验', () => {
+    const state = buildWorld();
+    povInspect(state, NPC_WANG);
+    computePovPersonalityProjection(state, NPC_WANG);
+    computePovPersonalityProjection(state, PC);
+    const result = RootSchema.safeParse(state);
+    expect(result.success).toBe(true);
+  });
+
+  it('指纹 84 在 6 组 POV 数据读取后守恒', () => {
+    const total =
+      FINGERPRINT_BUNDLE_MEMBERS.length +
+      FINGERPRINT_PRESET_FIELDS.length +
+      FINGERPRINT_SNAPSHOT_FIELDS.length +
+      FINGERPRINT_EXCLUDED_FIELDS.length;
+    expect(total).toBe(84);
   });
 });
 
