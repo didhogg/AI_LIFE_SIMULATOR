@@ -413,7 +413,7 @@ function renderTimeTab(): string {
   </div>
   <div class="dim" style="font-size:11px;margin-top:6px;">
     ${S.llmMode === 'llm'
-      ? '⚠ LLM 模式需 DEEPSEEK_API_KEY（浏览器无密钥→自动降级 isFallback=true）'
+      ? '⚠ LLM 模式需在 .env 配置 VITE_DEEPSEEK_API_KEY（配置后重启 npm run dev）'
       : '✓ demo 模式：脚本占位叙事，不调用 LLM，完全确定性'}
   </div>
 </div>`
