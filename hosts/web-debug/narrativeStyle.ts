@@ -22,16 +22,16 @@ export const PERSON_LABELS: Record<NarrativePerson, string> = {
 
 /** 文风 prompt 指令（追加到 systemPrompt · 不进指纹 · 不影响判定） */
 export const STYLE_INSTRUCTIONS: Record<NarrativeStyle, string> = {
-  guofeng: '文风：古风细腻，遣词雅致，善用意象与留白，如古典武侠笔调。',
-  baihua:  '文风：白话直叙，语言通俗流畅，如近现代白话小说笔调。',
-  jianjie: '文风：简洁电报体，每句不超12字，只陈述核心事件，不铺陈。',
+  guofeng: '文风：古风细腻，遣词雅致，善用意象与留白，如古典武侠笔调。首尾完整不少于100字',
+  baihua:  '文风：白话直叙，语言通俗流畅，如近现代白话小说笔调。首尾完整不少于100字',
+  jianjie: '文风：简洁电报体，每句不超12字，只陈述核心事件，不铺陈。首尾完整不少于100字',
 }
 
 /** 人称 prompt 指令（追加到 systemPrompt · 不进指纹） */
 export const PERSON_INSTRUCTIONS: Record<NarrativePerson, string> = {
   second: '人称：第二人称，用「你」称呼主角（例：你踏入茶馆，抬手招呼）。',
   first:  '人称：第一人称，用「我」称呼主角（例：我踏入茶馆，抬手招呼）。',
-  third:  '人称：第三人称，用主角姓名或他/她称呼（例：林九踏入茶馆，抬手招呼）。',
+  third:  '人称：第三人称，用主角姓名或他/她称呼（例：主角踏入茶馆，抬手招呼）。',
 }
 
 /** 未知人称值安全回落默认·不抛错 */
@@ -49,18 +49,25 @@ export function sanitizeStyle(v: string): NarrativeStyle {
 /**
  * 将人称 + 文风指令追加到 systemPrompt 末尾（纯渲染层·不进指纹）。
  * 对 state 完全只读；始终安全回落：未知值 → 默认值。
+ * pcName 可选：提供时注入真实主角姓名，防止 LLM 在多 NPC 场景下主客混淆。
  */
 export function applyPersonStyle(
   systemPrompt: string,
   person: NarrativePerson,
   style: NarrativeStyle,
+  pcName?: string,
 ): string {
   const p = sanitizePerson(person)
   const s = sanitizeStyle(style)
+  const name = pcName ?? '主角'
+  const personInstr =
+    p === 'second' ? `人称：第二人称，用「你」称呼主角「${name}」（例：你踏入茶馆，抬手招呼）。` :
+    p === 'first'  ? `人称：第一人称，用「我」称呼主角「${name}」（例：我踏入茶馆，抬手招呼）。` :
+                     `人称：第三人称，用「${name}」或他/她称呼主角（例：${name}踏入茶馆，抬手招呼）。`
   return (
     systemPrompt +
     '\n\n## 渲染参数（不进指纹·不进对话历史）\n' +
-    PERSON_INSTRUCTIONS[p] +
+    personInstr +
     '\n' +
     STYLE_INSTRUCTIONS[s]
   )

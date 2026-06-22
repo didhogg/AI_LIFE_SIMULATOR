@@ -611,7 +611,8 @@ export async function runActionInDualMode(
     locName,
     povEntityKey: pcKey,
   });
-  const systemPrompt = applyPersonStyle(rawSystemPrompt, person, style);
+  const pcName = (state.NPC?.[pcKey] as { 姓名?: string } | undefined)?.姓名 ?? pcKey;
+  const systemPrompt = applyPersonStyle(rawSystemPrompt, person, style, pcName);
   const llmResult = await callNarrativeSafe({ systemPrompt, userPrompt });
 
   if (llmResult.isFallback) {
