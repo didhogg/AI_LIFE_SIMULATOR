@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=c5a50b5（fix: vite.config 注入 VITE_DEEPSEEK_API_KEY·llmDemo 可出字） · 前=191dcfd（P-A-enhance-C3） · 前=fb994df（P-A-enhance-C1C2） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审計签收 2026-06-19） | 更新=2026-06-22/env-fix
+# code HEAD=0f406ea（fix: dangerouslyAllowBrowser → llmDemo 真实出字） · 前=c5a50b5（env-fix） · 前=191dcfd（P-A-enhance-C3） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审計签收 2026-06-19） | 更新=2026-06-22/env-fix-02
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -286,6 +286,12 @@
   - adapter(openai-compatible.js) 零改动
   - 新增 hosts/web-debug/.env.example（变量名 VITE_DEEPSEEK_API_KEY + 重启提示）
   - main.ts 降级文案同步更新·.gitignore 已正确收 .env（未曾进库）
+- [x] env-fix-02 · dangerouslyAllowBrowser gate → llmDemo 真实出字 · commit=0f406ea · test=3571(不变)
+  - 根因: OpenAI SDK 浏览器安全守卫默认禁浏览器直连·adapter 缺 dangerouslyAllowBrowser
+  - 修复: openai-compatible.js 构造 OpenAI client 时 typeof window !== 'undefined' → 带此标志
+  - Node(slice)宿主 window 不存在 → 行为不变·无副作用
+  - 验证: globalThis.window={} + 真实 key → isFallback=false · text='王掌柜，来壶碧螺春。'
+  - 注释明确: debug-only · P-C 正式宿主可改为 Vite dev 代理中转（key 不入前端）
 
 ---
 
