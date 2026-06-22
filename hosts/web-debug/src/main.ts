@@ -19,18 +19,18 @@ import {
 } from '../aohpDebugConsole.js'
 import {
   buildRelationGraph,
-  buildPCPanel,
   buildStateTree,
   buildMapThumbnail,
-  takeStateSnapshot,
   buildIncrementalView,
   povInspect,
   comparePOVs,
   ActionRecorder,
   SnapshotStore,
+  groupNodesByLocation,
+  buildEdgeDelta,
+  buildActorPanel,
   type RelationGraph,
   type StateTreeNode,
-  type StateSnapshot,
 } from '../aohpDebugConsole2.js'
 import {
   getDebugFixture,
@@ -69,6 +69,7 @@ const S = {
   recorder: null as ActionRecorder | null,
   snapshotStore: new SnapshotStore(),
   diffs: [] as TickDiffResult[],
+  prevGraph: null as RelationGraph | null,
   llmMode: 'demo' as 'demo' | 'llm',
   forceFailure: false,
   activeTab: 'menu' as TabId,
@@ -121,6 +122,7 @@ function switchFixture(id: FixtureId): void {
   S.fixtureId          = id
   S.snapshotStore      = new SnapshotStore()
   S.diffs              = []
+  S.prevGraph          = null
   S.lastChain          = null
   S.lastMenu           = null
   S.lastNarrative      = null
@@ -448,10 +450,10 @@ function renderTimeTab(): string {
 
 function renderGraphTab(): string {
   const graph = buildRelationGraph(S.state)
-  return `<div class="tab-content">${renderGraphSection(graph)}</div>`
+  return `<div class="tab-content">${renderGraphSection(graph, S.prevGraph)}</div>`
 }
 
-function renderGraphSection(graph: RelationGraph): string {
+function renderGraphSection(graph: RelationGraph, prevGraph: RelationGraph | null): string {
   const W = 620, H = 420
   const cx = W / 2, cy = H / 2
   const N  = graph.nodes.length
@@ -512,21 +514,67 @@ function renderGraphSection(graph: RelationGraph): string {
   </div>
   </div></div>`
 
-  // 节点·边明细表
-  html += `<div class="section"><h2>节点明细（${graph.nodes.length}）</h2><div class="result-box">`
-  for (const n of graph.nodes) {
-    const orgStr = n.orgKeys.length > 0 ? ` [org: ${esc(n.orgKeys.join(', '))}]` : ''
-    html += `  ${esc(n.key)} · ${esc(n.name)}${n.location ? ` @ ${esc(n.location)}` : ''}${orgStr}\n`
+  // A1: 节点明细按地点分组
+  const locGroups = groupNodesByLocation(S.state)
+  html += `<div class="section"><h2>节点明细 · 按地点分组（${graph.nodes.length} NPC / ${locGroups.length} 地点）</h2>`
+  if (locGroups.length === 0) {
+    html += `<div class="dim" style="padding:8px">（无 NPC 节点）</div>`
+  } else {
+    html += `<div class="loc-groups">`
+    for (const g of locGroups) {
+      html += `<div class="loc-group">`
+      html += `<div class="loc-group-header">📍 ${esc(g.location)} <span class="dim">×${g.nodes.length}</span></div>`
+      html += `<div class="loc-group-body">`
+      for (const n of g.nodes) {
+        const orgBadge = n.orgKeys.length > 0
+          ? `<span class="loc-node-org dim">[${n.orgKeys.map(esc).join(',')}]</span>`
+          : ''
+        const secretBadge = n.knownSecretCount > 0
+          ? `<span class="loc-secret-badge ok">秘×${n.knownSecretCount}</span>`
+          : ''
+        html += `<div class="loc-node-row"><span class="loc-node-name">${esc(n.name)}</span><code class="loc-node-key dim">${esc(n.key)}</code>${orgBadge}${secretBadge}</div>`
+      }
+      html += `</div></div>`
+    }
+    html += `</div>`
   }
-  html += `</div></div>`
+  html += `</div>`
 
-  html += `<div class="section"><h2>边明细（${graph.edges.length}）</h2><div class="result-box">`
-  for (const e of graph.edges) {
-    const hi = e.isHighlighted ? `<span class="ok">★ score=${e.score.toFixed(1)}</span>` : `<span class="dim">score=${e.score.toFixed(1)}</span>`
-    html += `  ${esc(e.from)} ─[${esc(e.type)} 强度=${e.strength}×信任${e.trust}/100]→ ${esc(e.to)} ${hi}\n`
+  // A2: 边明细可视化（强度进度条 + 跨拍增减高亮）
+  const edgeDeltaMap = prevGraph ? buildEdgeDelta(prevGraph.edges, graph.edges) : new Map<string, { strengthDelta: number; scoreDelta: number }>()
+  html += `<div class="section"><h2>边明细（${graph.edges.length}）</h2>`
+  if (graph.edges.length === 0) {
+    html += `<div class="dim" style="padding:8px">（无关系边）</div>`
+  } else {
+    html += `<div class="edge-list">`
+    for (const e of graph.edges) {
+      const absStr = Math.abs(e.strength)
+      const pct    = absStr  // strength max = 100
+      const barClass = absStr >= 50 ? 'edge-bar-high' : ''
+      const scoreStr = e.isHighlighted
+        ? `<span class="ok">★ score=${e.score.toFixed(1)}</span>`
+        : `<span class="dim">score=${e.score.toFixed(1)}</span>`
+      const ripple = absStr >= 50 ? `<span class="ripple-hint">涟漪可触发</span>` : ''
+      const pa = e.from < e.to ? e.from : e.to
+      const pb = e.from < e.to ? e.to   : e.from
+      const pk = `${pa}\x00${pb}`
+      const delta = edgeDeltaMap.get(pk)
+      let deltaHtml = ''
+      if (delta && delta.strengthDelta > 0)  deltaHtml = `<span class="delta-up">↑${delta.strengthDelta}</span>`
+      if (delta && delta.strengthDelta < 0)  deltaHtml = `<span class="delta-down">↓${Math.abs(delta.strengthDelta)}</span>`
+      html += `<div class="edge-row">
+  <span class="edge-endpoints">${esc(e.from)} ─[<span class="dim">${esc(e.type)}</span>]→ ${esc(e.to)}</span>
+  <div class="edge-strength-section">
+    <div class="edge-strength-wrap"><div class="edge-strength-bar ${barClass}" style="width:${pct}%"></div></div>
+    <span class="edge-strength-num${e.strength < 0 ? ' err' : ''}">${e.strength}</span>
+    ${ripple}${deltaHtml}
+  </div>
+  <span class="edge-meta dim">信任${e.trust}% ${scoreStr}</span>
+</div>`
+    }
+    html += `</div>`
   }
-  if (graph.edges.length === 0) html += `  <span class="dim">（无关系边）</span>`
-  html += `</div></div>`
+  html += `</div>`
 
   return html
 }
@@ -761,25 +809,19 @@ function renderTreeTab(): string {
 
   let html = `<div class="tab-content">`
 
-  // PC 面板
-  if (S.pcKey && S.state.NPC[S.pcKey]) {
+  // A3: 角色面板（随操纵主体更新·POV 过滤·字段全枚举）
+  if (S.operatorKey && S.state.NPC[S.operatorKey]) {
     try {
-      const panel = buildPCPanel(S.state, S.pcKey)
-      html += `<div class="section"><h2>主角面板 · ${esc(panel.name)} (${esc(panel.pcKey)})</h2>`
-      html += `<div class="stat-row"><span class="stat-label">位置</span><span class="stat-value">${esc(panel.location ?? '—')}</span></div>`
-      html += `<div class="stat-row"><span class="stat-label">HP</span><span class="stat-value">${panel.hp} / ${panel.hpMax}</span></div>`
-      html += `<div class="stat-row"><span class="stat-label">精力</span><span class="stat-value">${panel.energy} / ${panel.energyMax}</span></div>`
-      html += `<div class="stat-row"><span class="stat-label">货币</span><span class="stat-value">${Object.entries(panel.currencies).map(([c, a]) => `${a}${esc(c)}`).join('  ') || '—'}</span></div>`
-      html += `<div class="stat-row"><span class="stat-label">关系边</span><span class="stat-value">${panel.relationsCount}</span></div>`
-      html += `<div class="stat-row"><span class="stat-label">认知目标</span><span class="stat-value">${panel.cognitiveTargets}</span></div>`
-      html += `<div class="stat-row"><span class="stat-label">已知秘密</span><span class="stat-value ok">${panel.knownSecretIds.join(', ') || '无'}</span></div>`
-      html += `<div class="attr-grid">`
-      for (const [k, v] of Object.entries(panel.attributes)) {
-        html += `<div class="attr-cell"><div class="attr-name">${esc(k)}</div><div class="attr-val">${v}</div></div>`
+      const ap = buildActorPanel(S.state, S.operatorKey)
+      const isSwapped = S.operatorKey !== S.pcKey
+      html += `<div class="section"><h2>角色面板 · ${esc(ap.name)} (${esc(ap.entityKey)})</h2>`
+      if (isSwapped) {
+        html += `<div class="operator-banner operator-switched" style="margin-bottom:8px">⚠ 视角已切换 → ${esc(S.operatorKey)}（非默认 PC ${esc(S.pcKey)}）</div>`
       }
-      html += `</div></div>`
+      html += `<div class="actor-panel-wrap">${renderActorPanelHtml(ap)}</div>`
+      html += `</div>`
     } catch {
-      // pcKey not in this fixture
+      // operatorKey not in this fixture
     }
   }
 
@@ -808,6 +850,183 @@ function renderTreeTab(): string {
 
   html += `</div>`
   return html
+}
+
+// ── A3: 详细角色面板渲染（所有可显示字段 + POV 过滤） ─────────────────────────────
+
+function renderActorPanelHtml(panel: ReturnType<typeof buildActorPanel>): string {
+  let h = ''
+
+  // 身份头部
+  const aliveClass = panel.存活状态 === '在世' ? 'ok' : 'err'
+  h += `<div class="actor-id-block">`
+  h += `<span class="actor-name-big">${esc(panel.name)}</span>`
+  if (panel.称呼) h += ` <span class="dim">（${esc(panel.称呼)}）</span>`
+  h += ` <code class="dim">${esc(panel.entityKey)}</code>`
+  h += ` <span class="${aliveClass}">${esc(panel.存活状态)}</span>`
+  h += `</div>`
+
+  h += `<div class="actor-meta-row">`
+  h += `<span>${esc(panel.性别 || '—')} · ${esc(panel.种族)}</span>`
+  if (panel.位置) h += ` · 位置: <span class="warn">${esc(panel.位置)}</span>`
+  if (panel.称号) h += ` · 称号: <span class="ok">${esc(panel.称号)}</span>`
+  if (panel.头衔.length > 0) h += ` · 头衔: ${panel.头衔.map(t => `<span class="ok">${esc(t)}</span>`).join(' ')}`
+  if (panel.业力 !== 0) h += ` · 业力: <span class="${panel.业力 > 0 ? 'ok' : 'err'}">${panel.业力}</span>`
+  h += `</div>`
+
+  if (panel.背景) h += `<div class="actor-bg dim">${esc(panel.背景)}</div>`
+
+  // 数值面
+  h += `<div class="actor-section-h">数值</div>`
+  h += `<div class="attr-grid">`
+  for (const [k, v] of Object.entries(panel.attributes)) {
+    h += `<div class="attr-cell"><div class="attr-name">${esc(k)}</div><div class="attr-val">${v}</div></div>`
+  }
+  h += `</div>`
+  h += `<div class="actor-derived-row">`
+  h += `HP <b>${panel.派生.HP}</b>/${panel.派生.HP上限}`
+  h += ` · 精力 <b>${panel.派生.精力}</b>/${panel.派生.精力上限}`
+  h += ` · 颜值 ${panel.派生.颜值}`
+  h += ` · 行动点 ${panel.行动点.当前}/${panel.行动点.上限}`
+  h += `</div>`
+  if (panel.声誉.知名度 > 0 || panel.声誉.人望 !== 0) {
+    h += `<div class="actor-derived-row dim">声誉: 人望 ${panel.声誉.人望} · 知名度 ${panel.声誉.知名度}${panel.声誉.标签 ? ` [${esc(panel.声誉.标签)}]` : ''}</div>`
+  }
+
+  // 性格五轴进度条
+  h += `<div class="actor-section-h">性格五轴</div><div class="personality-grid">`
+  const axes = ['开放', '尽责', '外向', '宜人', '神经质'] as const
+  for (const axis of axes) {
+    const val = panel.性格五轴[axis]
+    h += `<div class="personality-row">`
+    h += `<span class="personality-label">${esc(axis)}</span>`
+    h += `<div class="personality-bar-wrap"><div class="personality-bar" style="width:${val}%"></div></div>`
+    h += `<span class="personality-val dim">${val}</span>`
+    h += `</div>`
+  }
+  h += `</div>`
+
+  // 货币
+  const ccyEntries = Object.entries(panel.currencies)
+  if (ccyEntries.length > 0) {
+    h += `<div class="actor-section-h">货币</div>`
+    h += `<div class="actor-inline-row">${ccyEntries.map(([c, a]) => `<span class="ok">${a}${esc(c)}</span>`).join(' · ')}</div>`
+  }
+
+  // 可见秘密（POV 过滤）
+  h += `<div class="actor-section-h">可见秘密（POV 过滤·${panel.可见秘密ID.length} 条）</div>`
+  h += panel.可见秘密ID.length > 0
+    ? `<div class="actor-inline-row">${panel.可见秘密ID.map(id => `<code class="ok">${esc(id)}</code>`).join(' ')}</div>`
+    : `<div class="dim actor-inline-row">（POV 无可见秘密）</div>`
+
+  // 关系
+  if (panel.关系.length > 0) {
+    h += `<details class="actor-details"><summary class="actor-section-h">关系（${panel.关系.length}）</summary><div class="actor-list">`
+    for (const r of panel.关系) {
+      const col = r.强度 > 0 ? 'ok' : r.强度 < 0 ? 'err' : 'dim'
+      const sc  = (Math.abs(r.强度) * r.信任 / 100).toFixed(1)
+      h += `<div class="actor-list-item">→ <code>${esc(r.对象键)}</code> [${esc(r.类型)}] 强度 <span class="${col}">${r.强度}</span> 信任 ${r.信任} score=${sc}</div>`
+    }
+    h += `</div></details>`
+  }
+
+  // 认知档案
+  if (panel.认知概览.length > 0) {
+    h += `<details class="actor-details"><summary class="actor-section-h">认知档案（观察者·${panel.认知概览.length} 目标）</summary><div class="actor-list">`
+    for (const c of panel.认知概览) {
+      h += `<div class="actor-list-item">→ <code>${esc(c.目标键)}</code> 了解度 <span class="warn">${c.了解度}</span> 印象×${c.印象数} <span class="dim">[${esc(c.姓名知识)}]</span></div>`
+    }
+    h += `</div></details>`
+  }
+
+  // 情绪栈
+  if (panel.情绪栈.length > 0) {
+    h += `<details class="actor-details"><summary class="actor-section-h">情绪栈（${panel.情绪栈.length}）</summary><div class="actor-list">`
+    for (const e of panel.情绪栈) {
+      const col = e.极性 === '正' ? 'ok' : e.极性 === '负' ? 'err' : 'warn'
+      h += `<div class="actor-list-item"><span class="${col}">${esc(e.情绪名)}</span> ${e.数值} <span class="dim">来源:${esc(e.来源)}</span></div>`
+    }
+    h += `</div></details>`
+  }
+
+  // 状态标签
+  if (panel.状态标签.length > 0) {
+    h += `<details class="actor-details"><summary class="actor-section-h">状态标签（${panel.状态标签.length}）</summary><div class="actor-list">`
+    for (const st of panel.状态标签) {
+      h += `<div class="actor-list-item"><code class="warn">${esc(st.key)}</code> <span class="dim">${esc(st.来源)}</span></div>`
+    }
+    h += `</div></details>`
+  }
+
+  // 特质
+  if (panel.特质.length > 0) {
+    h += `<details class="actor-details"><summary class="actor-section-h">特质（${panel.特质.length}）</summary><div class="actor-list">`
+    for (const tr of panel.特质) {
+      h += `<div class="actor-list-item"><code>${esc(tr.key)}</code> [${esc(tr.类别)}] 强度 ${tr.强度}</div>`
+    }
+    h += `</div></details>`
+  }
+
+  // 技能
+  if (panel.技能.length > 0) {
+    h += `<details class="actor-details"><summary class="actor-section-h">技能（${panel.技能.length}）</summary><div class="actor-list">`
+    for (const sk of panel.技能) {
+      h += `<div class="actor-list-item"><code>${esc(sk.key)}</code> Lv${sk.等级} 熟练 <span class="ok">${sk.熟练度}</span> [${esc(sk.类别)}]</div>`
+    }
+    h += `</div></details>`
+  }
+
+  // 信念
+  if (panel.信念.length > 0) {
+    h += `<details class="actor-details"><summary class="actor-section-h">信念（${panel.信念.length}）</summary><div class="actor-list">`
+    for (const b of panel.信念) {
+      h += `<div class="actor-list-item"><code>${esc(b.key)}</code> [${esc(b.类型)}] 虔诚 <span class="warn">${b.虔诚或认同}</span></div>`
+    }
+    h += `</div></details>`
+  }
+
+  // 物品
+  if (panel.物品.length > 0) {
+    h += `<details class="actor-details"><summary class="actor-section-h">物品（${panel.物品.length}）</summary><div class="actor-list">`
+    for (const it of panel.物品) {
+      h += `<div class="actor-list-item"><code>${esc(it.key)}</code> ×${it.数量} [${esc(it.类别)}/${esc(it.重要级别)}]</div>`
+    }
+    h += `</div></details>`
+  }
+
+  // 目标
+  if (panel.目标.长期.length > 0 || panel.目标.短期.length > 0) {
+    h += `<details class="actor-details"><summary class="actor-section-h">目标</summary><div class="actor-list">`
+    if (panel.目标.长期.length > 0) h += `<div class="actor-list-item"><span class="dim">长期:</span> ${panel.目标.长期.map(esc).join(' · ')}</div>`
+    if (panel.目标.短期.length > 0) h += `<div class="actor-list-item"><span class="dim">短期:</span> ${panel.目标.短期.map(esc).join(' · ')}</div>`
+    h += `</div></details>`
+  }
+
+  // 所属组织
+  if (panel.所属组织.length > 0) {
+    h += `<div class="actor-section-h">所属组织</div>`
+    h += `<div class="actor-inline-row">${panel.所属组织.map(o => `<code>${esc(o.组织键)}</code> [${esc(o.职务)}]`).join(' · ')}</div>`
+  }
+
+  // 记忆
+  if (panel.记忆.length > 0) {
+    h += `<details class="actor-details"><summary class="actor-section-h">记忆（${panel.记忆.length}）</summary><div class="actor-list">`
+    for (const m of panel.记忆) {
+      h += `<div class="actor-list-item"><span class="dim">重${m.重要度}${m.情绪色彩 ? ` [${esc(m.情绪色彩)}]` : ''}</span> ${esc(m.摘要)}</div>`
+    }
+    h += `</div></details>`
+  }
+
+  // 意象
+  if (panel.意象.length > 0) {
+    h += `<details class="actor-details"><summary class="actor-section-h">意象（${panel.意象.length}）</summary><div class="actor-list">`
+    for (const img of panel.意象) {
+      h += `<div class="actor-list-item"><span class="warn">${esc(img.标签)}</span> ${esc(img.情绪色彩)} 强度 ${img.强度}</div>`
+    }
+    h += `</div></details>`
+  }
+
+  return h
 }
 
 function renderTreeNode(node: StateTreeNode, depth = 0): string {
@@ -872,6 +1091,7 @@ function attachEventListeners(): void {
       S.narrativeLoading = false
       S.lastChain = runValidationChain(optId, S.state, S.operatorKey, S.rawCandidates)
       if (S.lastChain.passed) {
+        S.prevGraph = buildRelationGraph(S.state)
         // 捕获 pre-tick 状态用于叙事组装（assemblePrompt 需要行动前的世界）
         const preTick = S.state
         const tid  = `debug:${S.seed}:tick:${S.state._tick?.拍计数 ?? S.diffs.length}`
@@ -932,6 +1152,7 @@ function attachEventListeners(): void {
   // 时间控制
   document.getElementById('btn-step1')?.addEventListener('click', () => {
     if (!S.timeCtrl) return
+    S.prevGraph = buildRelationGraph(S.state)
     const diffs = S.timeCtrl.step(1)
     S.state = S.timeCtrl.getCurrentState()
     S.diffs = [...S.diffs.slice(-(MAX_DIFFS - diffs.length)), ...diffs]
@@ -940,6 +1161,7 @@ function attachEventListeners(): void {
 
   document.getElementById('btn-step5')?.addEventListener('click', () => {
     if (!S.timeCtrl) return
+    S.prevGraph = buildRelationGraph(S.state)
     const diffs = S.timeCtrl.step(5)
     S.state = S.timeCtrl.getCurrentState()
     S.diffs = [...S.diffs.slice(-(MAX_DIFFS - diffs.length)), ...diffs]
@@ -948,6 +1170,7 @@ function attachEventListeners(): void {
 
   document.getElementById('btn-stepn')?.addEventListener('click', () => {
     if (!S.timeCtrl) return
+    S.prevGraph = buildRelationGraph(S.state)
     const n = parseInt((document.getElementById('step-n') as HTMLInputElement | null)?.value ?? '1', 10)
     const diffs = S.timeCtrl.step(Math.max(1, Math.min(50, n)))
     S.state = S.timeCtrl.getCurrentState()
@@ -966,6 +1189,7 @@ function attachEventListeners(): void {
     if (!S.timeCtrl) return
     S.state = S.timeCtrl.replay()
     S.diffs = []
+    S.prevGraph = null
     renderApp()
   })
 
@@ -1043,6 +1267,7 @@ function attachEventListeners(): void {
     if (optionId) {
       const chain = runValidationChain(optionId, S.state, S.operatorKey, S.rawCandidates)
       if (chain.passed) {
+        S.prevGraph = buildRelationGraph(S.state)
         const preTick = S.state
         const tid = `debug:${S.seed}:free:${S.diffs.length}`
         const diff = runTickWithDiff(preTick, tid)

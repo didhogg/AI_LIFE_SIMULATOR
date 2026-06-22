@@ -690,6 +690,236 @@ export class SnapshotStore {
   }
 }
 
+// ── A1: 节点按地点分组 ──────────────────────────────────────────────────────────
+
+export interface LocGroupNode {
+  key: string;
+  name: string;
+  orgKeys: string[];
+  knownSecretCount: number;
+}
+
+export interface LocationGroup {
+  location: string;
+  nodes: LocGroupNode[];
+}
+
+/**
+ * 将所有 NPC 按 位置 分组；无位置归入「（无位置）」。
+ * 每节点含 orgKeys + 知情秘密数（供 A1 节点明细分组渲染）。
+ */
+export function groupNodesByLocation(state: RootState): LocationGroup[] {
+  const secrets = state.全局?.秘密库 ?? {};
+  const groups = new Map<string, LocationGroup>();
+
+  for (const [key, npc] of Object.entries(state.NPC)) {
+    const loc = npc.位置 || '（无位置）';
+    if (!groups.has(loc)) {
+      groups.set(loc, { location: loc, nodes: [] });
+    }
+    const orgKeys = npc.所属组织
+      .map(o => o.组织键)
+      .filter((k): k is string => !!k);
+    const knownSecretCount = Object.values(secrets).filter(
+      s => s.知情名单.some(e => e.对象 === key),
+    ).length;
+    groups.get(loc)!.nodes.push({ key, name: npc.姓名, orgKeys, knownSecretCount });
+  }
+
+  return [...groups.values()];
+}
+
+// ── A2: 边强度跨拍 delta ─────────────────────────────────────────────────────────
+
+export interface EdgeDelta {
+  strengthDelta: number;
+  scoreDelta: number;
+}
+
+/**
+ * 计算关系边跨拍强度增减 delta。
+ * pair key = ASCII 字典序小的端点在前（与 buildRelationGraph 保持一致）。
+ * 仅处理当前图中存在的边；prev 中消失的边忽略（显示层不处理消亡边）。
+ */
+export function buildEdgeDelta(
+  prevEdges: RelationEdge[],
+  currEdges: RelationEdge[],
+): Map<string, EdgeDelta> {
+  const prevMap = new Map<string, { strength: number; score: number }>();
+  for (const e of prevEdges) {
+    const a = e.from < e.to ? e.from : e.to;
+    const b = e.from < e.to ? e.to   : e.from;
+    prevMap.set(`${a}\x00${b}`, { strength: e.strength, score: e.score });
+  }
+
+  const result = new Map<string, EdgeDelta>();
+  for (const e of currEdges) {
+    const a = e.from < e.to ? e.from : e.to;
+    const b = e.from < e.to ? e.to   : e.from;
+    const pk = `${a}\x00${b}`;
+    const prev = prevMap.get(pk);
+    result.set(pk, {
+      strengthDelta: prev !== undefined ? e.strength - prev.strength : 0,
+      scoreDelta:    prev !== undefined ? e.score    - prev.score    : 0,
+    });
+  }
+
+  return result;
+}
+
+// ── A3: 详细角色面板（POV 过滤） ───────────────────────────────────────────────────
+
+export interface ActorPanel {
+  entityKey: string;
+  name: string;
+  称呼: string;
+  性别: string;
+  种族: string;
+  存活状态: string;
+  位置: string;
+  背景: string;
+  称号: string;
+  头衔: string[];
+  业力: number;
+  attributes: { 体质: number; 智慧: number; 感知: number; 魅力: number; 心理: number };
+  派生: { HP: number; HP上限: number; 精力: number; 精力上限: number; 颜值: number };
+  行动点: { 当前: number; 上限: number };
+  性格五轴: { 开放: number; 尽责: number; 外向: number; 宜人: number; 神经质: number };
+  声誉: { 人望: number; 知名度: number; 极性: string; 标签: string };
+  情绪栈: Array<{ 情绪名: string; 极性: string; 数值: number; 来源: string }>;
+  状态标签: Array<{ key: string; 来源: string }>;
+  特质: Array<{ key: string; 类别: string; 强度: number }>;
+  技能: Array<{ key: string; 熟练度: number; 等级: number; 类别: string }>;
+  关系: Array<{ 对象键: string; 类型: string; 强度: number; 信任: number; 极性: string }>;
+  所属组织: Array<{ 组织键: string; 职务: string }>;
+  信念: Array<{ key: string; 类型: string; 虔诚或认同: number }>;
+  currencies: Record<string, number>;
+  物品: Array<{ key: string; 数量: number; 类别: string; 重要级别: string }>;
+  目标: { 长期: string[]; 短期: string[] };
+  认知概览: Array<{ 目标键: string; 了解度: number; 印象数: number; 姓名知识: string }>;
+  可见秘密ID: string[];
+  记忆: Array<{ 摘要: string; 重要度: number; 情绪色彩: string }>;
+  意象: Array<{ 标签: string; 情绪色彩: string; 强度: number }>;
+}
+
+/**
+ * 构建详细角色面板 — 枚举 NPC schema 全部可显示字段。
+ * 以 entityKey 为 POV 过滤秘密（filterSecretsForPOV）。
+ * 只读；不调用 Date.now / Math.random。
+ */
+export function buildActorPanel(state: RootState, entityKey: string): ActorPanel {
+  const npc = state.NPC[entityKey];
+  if (!npc) throw new Error(`[buildActorPanel] '${entityKey}' 不在 state.NPC`);
+
+  const secrets = state.全局?.秘密库 ?? {};
+  const visibleSecrets = filterSecretsForPOV(secrets, entityKey);
+
+  const currencies: Record<string, number> = {};
+  const acct = state.货币系统?.账户?.[entityKey];
+  if (acct) {
+    for (const [ccy, amt] of Object.entries(acct.持有)) {
+      currencies[ccy] = amt;
+    }
+  }
+
+  const archiveByEntity = state.认知档案?.[entityKey] ?? {};
+  const 认知概览 = Object.entries(archiveByEntity).map(([tgt, entry]) => ({
+    目标键: tgt,
+    了解度: entry.了解度,
+    印象数: entry.印象.length,
+    姓名知识: entry.姓名知识,
+  }));
+
+  return {
+    entityKey,
+    name:     npc.姓名,
+    称呼:     npc.称呼,
+    性别:     npc.性别,
+    种族:     npc.种族,
+    存活状态: npc.存活状态,
+    位置:     npc.位置,
+    背景:     npc.背景,
+    称号:     npc.称号,
+    头衔:     [...npc.头衔],
+    业力:     npc.业力,
+    attributes: {
+      体质: npc.属性.体质,
+      智慧: npc.属性.智慧,
+      感知: npc.属性.感知,
+      魅力: npc.属性.魅力,
+      心理: npc.属性.心理,
+    },
+    派生: {
+      HP:       npc.派生.HP,
+      HP上限:   npc.派生.HP上限,
+      精力:     npc.派生.精力,
+      精力上限: npc.派生.精力上限,
+      颜值:     npc.派生.颜值,
+    },
+    行动点: { 当前: npc.行动点.当前, 上限: npc.行动点.上限 },
+    性格五轴: {
+      开放:   npc.性格五轴.开放,
+      尽责:   npc.性格五轴.尽责,
+      外向:   npc.性格五轴.外向,
+      宜人:   npc.性格五轴.宜人,
+      神经质: npc.性格五轴.神经质,
+    },
+    声誉: {
+      人望:   npc.声誉.人望,
+      知名度: npc.声誉.知名度,
+      极性:   npc.声誉.极性,
+      标签:   npc.声誉.标签,
+    },
+    情绪栈: npc.情绪栈.map(e => ({
+      情绪名: e.情绪名,
+      极性:   e.极性,
+      数值:   e.数值,
+      来源:   e.来源,
+    })),
+    状态标签: Object.entries(npc.状态标签).map(([key, v]) => ({ key, 来源: v.来源 })),
+    特质: Object.entries(npc.特质).map(([key, v]) => ({ key, 类别: v.类别, 强度: v.强度 })),
+    技能: Object.entries(npc.技能).map(([key, v]) => ({
+      key,
+      熟练度: v.熟练度,
+      等级:   v.等级,
+      类别:   v.类别,
+    })),
+    关系: npc.关系.map(r => ({
+      对象键: r.对象键,
+      类型:   r.类型,
+      强度:   r.强度,
+      信任:   r.信任,
+      极性:   r.极性,
+    })),
+    所属组织: npc.所属组织.map(o => ({ 组织键: o.组织键, 职务: o.职务 })),
+    信念: Object.entries(npc.信念).map(([key, v]) => ({
+      key,
+      类型:       v.类型,
+      虔诚或认同: v.虔诚或认同,
+    })),
+    currencies,
+    物品: Object.entries(npc.物品).map(([key, v]) => ({
+      key,
+      数量:     v.数量,
+      类别:     v.类别,
+      重要级别: v.重要级别,
+    })),
+    目标: { 长期: [...npc.目标.长期], 短期: [...npc.目标.短期] },
+    认知概览,
+    可见秘密ID: Object.keys(visibleSecrets),
+    记忆: npc.记忆.map(m => ({
+      摘要:     m.摘要,
+      重要度:   m.重要度,
+      情绪色彩: m.情绪色彩,
+    })),
+    意象: npc.意象.map(i => ({
+      标签:     i.标签,
+      情绪色彩: i.情绪色彩,
+      强度:     i.强度,
+    })),
+  };
+}
+
 // ── console 输出工具（供 main 演示） ──────────────────────────────────────────────
 
 function hr2(title: string): void {

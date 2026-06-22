@@ -595,3 +595,245 @@ details[open] > summary { color: #58a6ff; }
   font-family: monospace;
   margin: 4px 0;
 }
+
+/* ── A1: 节点按地点分组 ─────────────────────────────────────────────────────── */
+
+.loc-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.loc-group {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  min-width: 200px;
+  flex: 1;
+}
+
+.loc-group-header {
+  background: #1c2a3a;
+  color: #58a6ff;
+  font-size: 11px;
+  font-family: monospace;
+  padding: 5px 10px;
+  border-radius: 5px 5px 0 0;
+  border-bottom: 1px solid #30363d;
+  font-weight: 600;
+}
+
+.loc-group-body { padding: 6px 8px; }
+
+.loc-node-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 2px;
+  border-bottom: 1px solid #21262d;
+  font-size: 11px;
+}
+
+.loc-node-row:last-child { border-bottom: none; }
+
+.loc-node-name { color: #c9d1d9; font-weight: 500; }
+
+.loc-node-key {
+  font-family: monospace;
+  font-size: 10px;
+  color: #6e7681;
+}
+
+.loc-node-org { font-size: 10px; }
+
+.loc-secret-badge {
+  font-size: 10px;
+  font-family: monospace;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: #1a2f1a;
+  border: 1px solid #3fb950;
+}
+
+/* ── A2: 边强度进度条 + 跨拍增减 ─────────────────────────────────────────────── */
+
+.edge-list { display: flex; flex-direction: column; gap: 6px; }
+
+.edge-row {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.edge-endpoints {
+  display: block;
+  color: #8b949e;
+  margin-bottom: 4px;
+}
+
+.edge-strength-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.edge-strength-wrap {
+  width: 100px;
+  height: 8px;
+  background: #21262d;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.edge-strength-bar {
+  height: 100%;
+  background: #3a4050;
+  border-radius: 4px;
+  transition: width 0.2s;
+}
+
+.edge-strength-bar.edge-bar-high {
+  background: linear-gradient(90deg, #ff6b35, #ff9d6e);
+}
+
+.edge-strength-num { color: #c9d1d9; min-width: 28px; text-align: right; }
+
+.ripple-hint {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  background: #3a1a0a;
+  color: #ff9d6e;
+  border: 1px solid #ff6b35;
+}
+
+.delta-up   { color: #3fb950; font-weight: bold; }
+.delta-down { color: #f85149; font-weight: bold; }
+
+.edge-meta { font-size: 10px; }
+
+/* ── A3: 详细角色面板 ───────────────────────────────────────────────────────── */
+
+.actor-panel-wrap {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+
+.actor-id-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.actor-name-big {
+  font-size: 15px;
+  color: #e6edf3;
+  font-weight: 600;
+}
+
+.actor-meta-row {
+  font-size: 11px;
+  color: #8b949e;
+  margin-bottom: 6px;
+  font-family: monospace;
+}
+
+.actor-bg {
+  font-size: 11px;
+  line-height: 1.6;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  background: #161b22;
+  border-radius: 4px;
+  border-left: 2px solid #30363d;
+}
+
+.actor-section-h {
+  font-size: 11px;
+  color: #58a6ff;
+  font-weight: 600;
+  margin: 10px 0 5px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid #21262d;
+  cursor: pointer;
+  list-style: none;
+}
+
+.actor-derived-row {
+  font-size: 11px;
+  font-family: monospace;
+  color: #8b949e;
+  margin: 4px 0;
+}
+
+.actor-derived-row b { color: #c9d1d9; }
+
+.personality-grid { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; }
+
+.personality-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.personality-label {
+  width: 42px;
+  font-size: 11px;
+  color: #8b949e;
+  font-family: monospace;
+  flex-shrink: 0;
+}
+
+.personality-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: #21262d;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.personality-bar {
+  height: 100%;
+  background: #2d6bcf;
+  border-radius: 3px;
+}
+
+.personality-val { width: 28px; font-size: 10px; text-align: right; }
+
+.actor-inline-row {
+  font-size: 11px;
+  font-family: monospace;
+  margin: 4px 0 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.actor-details { margin: 4px 0; }
+
+.actor-details > summary { padding: 3px 0; }
+
+.actor-list {
+  margin-left: 12px;
+  border-left: 1px solid #21262d;
+  padding-left: 8px;
+  margin-top: 4px;
+}
+
+.actor-list-item {
+  font-size: 11px;
+  font-family: monospace;
+  padding: 2px 4px;
+  color: #8b949e;
+  line-height: 1.6;
+}
