@@ -112,6 +112,7 @@ const S = {
   tickSpanCustomUnit: 'day' as SpanUnit,
   autoPlaySpeed: null as null | 0.5 | 1 | 2 | 4,
   autoPlayTimer: null as ReturnType<typeof setInterval> | null,
+  povEntityKey: PC as string,
 }
 
 function initTime(): void {
@@ -194,6 +195,7 @@ function switchFixture(id: FixtureId): void {
   S.lastFreeTextResult = null
   S.narrativePerson    = PERSON_DEFAULT
   S.narrativeStyle     = STYLE_DEFAULT
+  S.povEntityKey       = S.pcKey
   stopAutoPlay()
   initTime()
 }
@@ -790,50 +792,65 @@ function renderFreeTextResultHtml(r: FreeTextResult): string {
 }
 
 // ── Tab: POV 视角 ─────────────────────────────────────────────────────────────
+//
+// Bug P-A-bug-03 修复：
+//   旧设计把「操纵主体」selector 放在 POV tab 顶部，用户误将其当作 POV selector
+//   切换后投影面板读的是 S.povA/povB 而非 operatorKey，导致"没刷新"的视觉 bug。
+//   修复：引入独立 S.povEntityKey → 单一主选择器驱动投影面板，operatorKey 移至底部并标注
+//   与 operatorKey 完全解耦：切 POV 不动 operatorKey、不跑 runTick、不写 state。
 
 function renderPOVTab(): string {
   const npcKeys = Object.keys(S.state.NPC)
-  const selOpts = npcKeys.map(k => `<option value="${esc(k)}"${k === S.povA ? ' selected' : ''}>${esc(k)} · ${esc(S.state.NPC[k]!.姓名)}</option>`).join('')
-  const selOptsB = npcKeys.map(k => `<option value="${esc(k)}"${k === S.povB ? ' selected' : ''}>${esc(k)} · ${esc(S.state.NPC[k]!.姓名)}</option>`).join('')
-  const operatorOpts = npcKeys.map(k => `<option value="${esc(k)}"${k === S.operatorKey ? ' selected' : ''}>${esc(k)} · ${esc(S.state.NPC[k]!.姓名)}</option>`).join('')
+  const npcOpts = (sel: string) => npcKeys.map(k =>
+    `<option value="${esc(k)}"${k === sel ? ' selected' : ''}>${esc(k)} · ${esc(S.state.NPC[k]!.姓名)}</option>`
+  ).join('')
 
+  // 主 POV 实体（单一真相源·驱动投影面板）
+  const povKey = S.povEntityKey && S.state.NPC[S.povEntityKey] ? S.povEntityKey : (npcKeys[0] ?? '')
+  const rPov   = povKey ? povInspect(S.state, povKey) : null
+
+  // 并排比对（二级功能·独立 A/B 选择器）
   const rA = S.povA && S.state.NPC[S.povA] ? povInspect(S.state, S.povA) : null
   const rB = S.povB && S.state.NPC[S.povB] ? povInspect(S.state, S.povB) : null
 
-  const statusClass = S.operatorKey === S.pcKey ? 'operator-status operator-default' : 'operator-status operator-switched'
-  const statusText = S.operatorKey === S.pcKey
-    ? `当前操纵者: ${esc(S.pcKey)}（默认 PC · 菜单·校验·叙事均正常）`
-    : `⚠ 操纵者已切换为 ${esc(S.operatorKey)} · 菜单·校验·叙事以此身份执行 · 默认 PC=${esc(S.pcKey)}`
-
   let html = `<div class="tab-content">`
 
-  html += `<div class="section"><h2>操纵主体切换</h2>
-  <div class="helper-text">切换后，菜单·校验·叙事·runTick 均以所选实体身份执行。只读对比（POV A/B）保持独立。</div>
-  <div class="operator-switch-row">
-    <label>操纵主体: <select id="pov-operator-sel">${operatorOpts}</select></label>
-    <button class="btn" id="btn-reset-operator">恢复默认 PC (${esc(S.pcKey)})</button>
+  // ── 1. 当前 POV 视角（主选择器）──────────────────────────────────────────────
+  html += `
+<div class="section">
+  <h2>当前 POV 视角 <span class="debug-badge">不进指纹·纯只读·不运行 runTick·不改 operatorKey</span></h2>
+  <div class="pov-primary-row">
+    <label>当前 POV:
+      <select id="pov-entity-sel">${npcOpts(povKey)}</select>
+    </label>
+    <span class="pov-entity-badge dim">${esc(povKey)}</span>
+  </div>`
+
+  if (rPov) {
+    html += povProjectionHtml(rPov, S.state, povKey)
+  } else {
+    html += `<div class="dim" style="padding:8px">（无有效 NPC 节点）</div>`
+  }
+
+  html += `</div>`
+
+  // ── 2. 并排 POV 比对（二级·独立 A/B）────────────────────────────────────────
+  html += `
+<div class="section">
+  <h2>POV 并排比对（二级·只读）</h2>
+  <div class="input-row">
+    <label>POV A: <select id="pov-a-sel">${npcOpts(S.povA)}</select></label>
+    <label>POV B: <select id="pov-b-sel">${npcOpts(S.povB)}</select></label>
+    <button class="btn btn-primary" id="btn-pov-compare">更新比对</button>
   </div>
-  <div class="${statusClass}">${statusText}</div>
+  <div class="pov-grid">
+    <div class="pov-col"><h3>POV A: ${esc(S.povA)}</h3>${rA ? povHtml(rA) : '<span class="dim">—</span>'}</div>
+    <div class="pov-col"><h3>POV B: ${esc(S.povB)}</h3>${rB ? povHtml(rB) : '<span class="dim">—</span>'}</div>
   </div>`
-
-  html += `<div class="section"><h2>NPC 视角（POV）切换（只读比对）</h2>`
-
-  html += `<div class="input-row">
-    <label>POV A: <select id="pov-a-sel">${selOpts}</select></label>
-    <label>POV B: <select id="pov-b-sel">${selOptsB}</select></label>
-    <button class="btn btn-primary" id="btn-pov-compare">并排比对</button>
-  </div>`
-
-  html += `<div class="pov-grid">`
-
-  html += `<div class="pov-col"><h3>POV A: ${esc(S.povA)}</h3>${rA ? povHtml(rA) : '<span class="dim">—</span>'}</div>`
-  html += `<div class="pov-col"><h3>POV B: ${esc(S.povB)}</h3>${rB ? povHtml(rB) : '<span class="dim">—</span>'}</div>`
-
-  html += `</div>` // pov-grid
 
   if (rA && rB) {
     const cmp = comparePOVs(S.state, S.povA, S.povB)
-    html += `<div class="pov-diff"><h3>并排 diff A(${esc(S.povA)}) / B(${esc(S.povB)}):</h3>`
+    html += `<div class="pov-diff"><h3>diff A(${esc(S.povA)}) vs B(${esc(S.povB)}):</h3>`
     html += `<div class="result-box">`
     html += `只有 A 可见秘密: <span class="ok">${cmp.onlyA.join(', ') || '（无）'}</span>\n`
     html += `只有 B 可见秘密: <span class="ok">${cmp.onlyB.join(', ') || '（无）'}</span>\n`
@@ -843,8 +860,81 @@ function renderPOVTab(): string {
     html += `</div></div>`
   }
 
-  html += `</div></div>` // section + tab-content
+  html += `</div>`
+
+  // ── 3. 操纵主体切换（三级·标注为"写账"·不影响 POV 投影）─────────────────────
+  const operatorOpts = npcOpts(S.operatorKey)
+  const statusClass = S.operatorKey === S.pcKey ? 'operator-status operator-default' : 'operator-status operator-switched'
+  const statusText = S.operatorKey === S.pcKey
+    ? `当前操纵者: ${esc(S.pcKey)}（默认 PC · 菜单·校验·叙事均正常）`
+    : `⚠ 操纵者已切换为 ${esc(S.operatorKey)} · 菜单·校验·叙事以此身份执行 · 默认 PC=${esc(S.pcKey)}`
+
+  html += `
+<div class="section">
+  <h2>操纵主体切换 <span class="debug-badge operator-warn-badge">⚠ 写账·runTick·与上方 POV 独立</span></h2>
+  <div class="helper-text">切换后，菜单·校验·叙事·runTick 均以所选实体身份执行。<strong>上方 POV 投影面板不受影响。</strong></div>
+  <div class="operator-switch-row">
+    <label>操纵主体: <select id="pov-operator-sel">${operatorOpts}</select></label>
+    <button class="btn" id="btn-reset-operator">恢复默认 PC (${esc(S.pcKey)})</button>
+  </div>
+  <div class="${statusClass}">${statusText}</div>
+</div>`
+
+  html += `</div>` // tab-content
   return html
+}
+
+/** 主 POV 投影面板（可见秘密 + 认知档案 + 关系投影） */
+function povProjectionHtml(r: ReturnType<typeof povInspect>, state: RootState, entityKey: string): string {
+  let s = `<div class="pov-projection">`
+
+  // 可见秘密
+  s += `<div class="pov-proj-section"><span class="pov-proj-label">可见秘密</span>`
+  s += `<span class="pov-proj-count">${r.visibleSecretIds.length} 条</span></div>`
+  s += `<div class="result-box" style="font-size:11px">`
+  if (r.visibleSecretIds.length === 0) {
+    s += `<span class="dim">（无可见秘密·existence-opaque）</span>\n`
+  } else {
+    for (const id of r.visibleSecretIds) {
+      const sec = r.visibleSecrets[id]
+      s += `<span class="ok">${esc(id)}</span>`
+      if (sec) s += ` 母题=${esc(sec.母题 ?? '—')} 严重度=${sec.严重度 ?? '—'} 暴露度=${sec.暴露度 ?? '—'}`
+      s += `\n`
+    }
+  }
+  s += `<span class="dim">隐藏(existence-opaque): ${r.hiddenSecretCount}</span>\n`
+  s += `</div>`
+
+  // 认知档案投影
+  s += `<div class="pov-proj-section"><span class="pov-proj-label">认知档案投影</span>`
+  s += `<span class="pov-proj-count">${r.cognitiveTargetKeys.length} 目标</span></div>`
+  s += `<div class="result-box" style="font-size:11px">`
+  if (r.cognitiveTargetKeys.length === 0) {
+    s += `<span class="dim">（无认知条目）</span>\n`
+  } else {
+    for (const [tgt, proj] of Object.entries(r.cognitiveProjection)) {
+      s += `→ <code>${esc(tgt)}</code> 了解度=<span class="warn">${proj.了解度}</span> 印象×${proj.impressionCount}\n`
+    }
+  }
+  s += `</div>`
+
+  // 关系投影（直读 NPC 关系字段·只读·不进指纹）
+  const relations = (state.NPC?.[entityKey] as { 关系?: Array<{ 对象键: string; 类型: string; 强度: number; 信任: number }> } | undefined)?.关系 ?? []
+  s += `<div class="pov-proj-section"><span class="pov-proj-label">关系投影</span>`
+  s += `<span class="pov-proj-count">${relations.length} 条</span></div>`
+  s += `<div class="result-box" style="font-size:11px">`
+  if (relations.length === 0) {
+    s += `<span class="dim">（无关系数据）</span>\n`
+  } else {
+    for (const rel of relations) {
+      const col = rel.强度 > 0 ? 'ok' : rel.强度 < 0 ? 'err' : 'dim'
+      s += `→ <code>${esc(rel.对象键)}</code> [${esc(rel.类型)}] 强度=<span class="${col}">${rel.强度}</span> 信任=${rel.信任}\n`
+    }
+  }
+  s += `</div>`
+
+  s += `</div>` // pov-projection
+  return s
 }
 
 function povHtml(r: ReturnType<typeof povInspect>): string {
@@ -1385,7 +1475,13 @@ function attachEventListeners(): void {
     renderApp()
   })
 
-  // POV 选择
+  // 当前 POV 主选择器（写 povEntityKey·不触 operatorKey·不跑 runTick）
+  document.getElementById('pov-entity-sel')?.addEventListener('change', e => {
+    S.povEntityKey = (e.target as HTMLSelectElement).value
+    renderApp()
+  })
+
+  // POV 并排比对（二级·A/B）
   document.getElementById('pov-a-sel')?.addEventListener('change', e => {
     S.povA = (e.target as HTMLSelectElement).value; renderApp()
   })
