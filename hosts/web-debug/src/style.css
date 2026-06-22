@@ -449,9 +449,10 @@ details[open] > summary { color: #58a6ff; }
   font-weight: 600;
 }
 
-.mode-tag-demo { background: #1a2f1a; color: #3fb950; border: 1px solid #3fb950; }
-.mode-tag-llm  { background: #1a1f3a; color: #58a6ff; border: 1px solid #58a6ff; }
-.mode-tag-warn { background: #3a2a1a; color: #d29922; border: 1px solid #d29922; }
+.mode-tag-demo   { background: #1a2f1a; color: #3fb950; border: 1px solid #3fb950; }
+.mode-tag-llm    { background: #1a1f3a; color: #58a6ff; border: 1px solid #58a6ff; }
+.mode-tag-warn   { background: #3a2a1a; color: #d29922; border: 1px solid #d29922; }
+.mode-tag-render { background: #1f1a3a; color: #a78bfa; border: 1px solid #6d28d9; }
 
 .narrative-badges {
   display: flex;
@@ -836,4 +837,32 @@ details[open] > summary { color: #58a6ff; }
   padding: 2px 4px;
   color: #8b949e;
   line-height: 1.6;
+}
+
+/* ── 叙事渲染参数（人称 + 文风）─────────────────────────────────────────────── */
+
+.render-param-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 8px 0 4px;
+}
+
+.render-param-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #8b949e;
+  font-size: 12px;
+}
+
+.render-param-row select {
+  background: #161b22;
+  border: 1px solid #30363d;
+  color: #c9d1d9;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
 }

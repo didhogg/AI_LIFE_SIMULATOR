@@ -31,6 +31,16 @@ import {
   LOC_NAME, SECRET_S1, SAVE_SEED,
 } from '../slice/fixture/world.js';
 import { assemblePrompt } from '../slice/assemble.js';
+import {
+  applyPersonStyle,
+  buildScriptedNarrative,
+  PERSON_DEFAULT,
+  STYLE_DEFAULT,
+  type NarrativePerson,
+  type NarrativeStyle,
+} from './narrativeStyle.js';
+
+export type { NarrativePerson, NarrativeStyle };
 
 // ── 公共类型（导出供测试） ────────────────────────────────────────────────────────
 
@@ -491,6 +501,8 @@ export async function runActionInDualMode(
     forceFailure?: boolean;
     scriptedNarrative?: string;
     locName?: string;
+    narrativePerson?: NarrativePerson;
+    narrativeStyle?: NarrativeStyle;
   } = {},
 ): Promise<ActionResult> {
   const filterResult = filterMenuCandidates(rawCandidates, state, pcKey);
@@ -503,10 +515,14 @@ export async function runActionInDualMode(
     ? (buildMenuOptionIds([filterResult.permitted[0]!])[0]?.option_id ?? optionId)
     : optionId;
 
+  const person = opts.narrativePerson ?? PERSON_DEFAULT;
+  const style  = opts.narrativeStyle  ?? STYLE_DEFAULT;
+
   // demo 模式 or 强制失败注入 → 走脚本叙事，不调用 LLM
   if (mode === 'demo' || opts.forceFailure) {
+    const pcName   = (state.NPC?.[pcKey] as { 姓名?: string } | undefined)?.姓名 ?? pcKey;
     const narrative = opts.scriptedNarrative
-      ?? `（脚本叙事占位·option='${defaultOptionId}'）`;
+      ?? buildScriptedNarrative(person, style, pcName, defaultOptionId);
     const usedDefault = !permittedIds.has(optionId) || !!opts.forceFailure;
     return {
       narrative,
@@ -516,13 +532,14 @@ export async function runActionInDualMode(
     };
   }
 
-  // LLM 模式 → 真实调用 callNarrativeSafe
+  // LLM 模式 → 真实调用 callNarrativeSafe（注入人称 + 文风指令）
   const locName = opts.locName ?? LOC_NAME;
-  const { systemPrompt, userPrompt } = assemblePrompt(state, {
+  const { systemPrompt: rawSystemPrompt, userPrompt } = assemblePrompt(state, {
     pcKey,
     locName,
     povEntityKey: pcKey,
   });
+  const systemPrompt = applyPersonStyle(rawSystemPrompt, person, style);
   const llmResult = await callNarrativeSafe({ systemPrompt, userPrompt });
 
   if (llmResult.isFallback) {

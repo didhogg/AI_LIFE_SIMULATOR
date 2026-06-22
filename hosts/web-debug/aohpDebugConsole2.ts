@@ -437,6 +437,8 @@ export interface StateSnapshot {
   totalCognitiveImpressions: number;
   /** 货币账户快照 entity → { currency → amount } */
   currencyAccounts: Record<string, Record<string, number>>;
+  /** $meta 渲染参数（不进指纹·不进存档·叙事回放用） */
+  $metaRenderParams?: { narrativePerson: string; narrativeStyle: string };
 }
 
 /**
@@ -629,9 +631,16 @@ export class SnapshotStore {
     this.snapshots = new Map();
   }
 
-  /** 保存 state 快照（覆盖同名快照） */
-  save(label: string, state: RootState): StateSnapshot {
+  /** 保存 state 快照（覆盖同名快照）；renderParams 为可选 $meta 渲染参数，不进指纹 */
+  save(
+    label: string,
+    state: RootState,
+    renderParams?: { narrativePerson: string; narrativeStyle: string },
+  ): StateSnapshot {
     const snap = takeStateSnapshot(state, label);
+    if (renderParams !== undefined) {
+      snap.$metaRenderParams = renderParams;
+    }
     this.snapshots.set(label, snap);
     return snap;
   }
@@ -659,7 +668,7 @@ export class SnapshotStore {
     if (!b) throw new Error(`[SnapshotStore] 快照 '${labelB}' 不存在`);
 
     const changedFields: SnapshotFieldDiff[] = [];
-    const skipFields = new Set<string>(['label', 'worldTime']);
+    const skipFields = new Set<string>(['label', 'worldTime', '$metaRenderParams']);
     for (const field of Object.keys(a) as (keyof StateSnapshot)[]) {
       if (skipFields.has(field)) continue;
       const va = a[field];

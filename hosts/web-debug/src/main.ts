@@ -16,7 +16,18 @@ import {
   type ValidationChainResult,
   type MenuInspectResult,
   type ActionResult,
+  type NarrativePerson,
+  type NarrativeStyle,
 } from '../aohpDebugConsole.js'
+import {
+  PERSON_DEFAULT,
+  STYLE_DEFAULT,
+  STYLE_LABELS,
+  PERSON_LABELS,
+  sanitizePerson,
+  sanitizeStyle,
+  buildScriptedNarrative,
+} from '../narrativeStyle.js'
 import {
   buildRelationGraph,
   buildStateTree,
@@ -88,6 +99,8 @@ const S = {
   freeText: '',
   lastFreeTextResult: null as FreeTextResult | null,
   freeTextLoading: false,
+  narrativePerson: PERSON_DEFAULT as NarrativePerson,
+  narrativeStyle: STYLE_DEFAULT as NarrativeStyle,
 }
 
 function initTime(): void {
@@ -132,6 +145,8 @@ function switchFixture(id: FixtureId): void {
   S.operatorKey        = S.pcKey
   S.freeText           = ''
   S.lastFreeTextResult = null
+  S.narrativePerson    = PERSON_DEFAULT
+  S.narrativeStyle     = STYLE_DEFAULT
   initTime()
 }
 
@@ -314,6 +329,7 @@ function renderNarrativePanel(): string {
   let inner = `<div class="panel-label">叙事·出字</div>`
   inner += `<div class="narrative-meta"><span class="mode-tag ${modeClass}">${esc(modeLabel)}</span>`
   if (S.forceFailure) inner += `<span class="mode-tag mode-tag-warn">强制失败注入:开</span>`
+  inner += `<span class="mode-tag mode-tag-render">${esc(PERSON_LABELS[S.narrativePerson])} · ${esc(STYLE_LABELS[S.narrativeStyle])}</span>`
   inner += `</div>`
 
   if (S.narrativeLoading) {
@@ -417,6 +433,29 @@ function renderTimeTab(): string {
     ${S.llmMode === 'llm'
       ? '⚠ LLM 模式需在 .env 配置 VITE_DEEPSEEK_API_KEY（配置后重启 npm run dev）'
       : '✓ demo 模式：脚本占位叙事，不调用 LLM，完全确定性'}
+  </div>
+</div>`
+
+  // 叙事渲染参数（人称 + 文风）
+  html += `
+<div class="section">
+  <h2>叙事渲染参数 <span class="debug-badge">不进指纹·纯渲染层</span></h2>
+  <div class="render-param-row">
+    <label>人称:
+      <select id="narrative-person-sel">
+        ${(Object.keys(PERSON_LABELS) as NarrativePerson[]).map(p =>
+          `<option value="${esc(p)}"${p === S.narrativePerson ? ' selected' : ''}>${esc(PERSON_LABELS[p])}</option>`
+        ).join('')}
+      </select>
+    </label>
+    <label>文风:
+      <select id="narrative-style-sel">
+        ${(Object.keys(STYLE_LABELS) as NarrativeStyle[]).map(s =>
+          `<option value="${esc(s)}"${s === S.narrativeStyle ? ' selected' : ''}>${esc(STYLE_LABELS[s])}</option>`
+        ).join('')}
+      </select>
+    </label>
+    <span class="dim" style="font-size:11px">切换后下次叙事生效（demo 模式立即重渲染）</span>
   </div>
 </div>`
 
@@ -1105,6 +1144,8 @@ function attachEventListeners(): void {
         renderApp()
         runActionInDualMode(preTick, S.operatorKey, optId, S.rawCandidates, S.llmMode, {
           forceFailure: S.forceFailure,
+          narrativePerson: S.narrativePerson,
+          narrativeStyle: S.narrativeStyle,
         }).then(result => {
           S.lastNarrative = result
           S.narrativeLoading = false
@@ -1198,6 +1239,32 @@ function attachEventListeners(): void {
   document.getElementById('btn-llm-real')?.addEventListener('click', () => { S.llmMode = 'llm';  renderApp() })
   document.getElementById('btn-force-fail')?.addEventListener('click', () => { S.forceFailure = !S.forceFailure; renderApp() })
 
+  // 叙事渲染参数（人称 + 文风）
+  document.getElementById('narrative-person-sel')?.addEventListener('change', e => {
+    S.narrativePerson = sanitizePerson((e.target as HTMLSelectElement).value)
+    // demo 模式：立即重生成脚本叙事（无 LLM 调用·确定性）
+    if (S.llmMode === 'demo' && S.lastNarrative) {
+      const pcName = (S.state.NPC?.[S.operatorKey] as { 姓名?: string } | undefined)?.姓名 ?? S.operatorKey
+      S.lastNarrative = {
+        ...S.lastNarrative,
+        narrative: buildScriptedNarrative(S.narrativePerson, S.narrativeStyle, pcName, S.lastNarrative.optionId),
+      }
+    }
+    renderApp()
+  })
+  document.getElementById('narrative-style-sel')?.addEventListener('change', e => {
+    S.narrativeStyle = sanitizeStyle((e.target as HTMLSelectElement).value)
+    // demo 模式：立即重生成脚本叙事
+    if (S.llmMode === 'demo' && S.lastNarrative) {
+      const pcName = (S.state.NPC?.[S.operatorKey] as { 姓名?: string } | undefined)?.姓名 ?? S.operatorKey
+      S.lastNarrative = {
+        ...S.lastNarrative,
+        narrative: buildScriptedNarrative(S.narrativePerson, S.narrativeStyle, pcName, S.lastNarrative.optionId),
+      }
+    }
+    renderApp()
+  })
+
   // POV 选择
   document.getElementById('pov-a-sel')?.addEventListener('change', e => {
     S.povA = (e.target as HTMLSelectElement).value; renderApp()
@@ -1223,7 +1290,10 @@ function attachEventListeners(): void {
   document.getElementById('btn-snap-save')?.addEventListener('click', () => {
     const label = (document.getElementById('snap-label') as HTMLInputElement | null)?.value ?? 'snap'
     S.snapshotLabel = label
-    S.snapshotStore.save(label, S.state)
+    S.snapshotStore.save(label, S.state, {
+      narrativePerson: S.narrativePerson,
+      narrativeStyle: S.narrativeStyle,
+    })
     renderApp()
   })
 
@@ -1277,6 +1347,8 @@ function attachEventListeners(): void {
         S.recActions = [...S.recActions, optionId]
         runActionInDualMode(preTick, S.operatorKey, optionId, S.rawCandidates, S.llmMode, {
           forceFailure: S.forceFailure,
+          narrativePerson: S.narrativePerson,
+          narrativeStyle: S.narrativeStyle,
         }).then(narrative => {
           S.lastFreeTextResult = { input: text, matchedOptionId: optionId, matchType, isRpOnly: false, chain, diff, narrative }
           S.freeTextLoading = false
@@ -1295,7 +1367,9 @@ function attachEventListeners(): void {
       }
     } else {
       const preTick = S.state
-      const rpOpts = S.llmMode === 'demo' ? { scriptedNarrative: text } : {}
+      const rpOpts = S.llmMode === 'demo'
+        ? { scriptedNarrative: text, narrativePerson: S.narrativePerson, narrativeStyle: S.narrativeStyle }
+        : { narrativePerson: S.narrativePerson, narrativeStyle: S.narrativeStyle }
       runActionInDualMode(preTick, S.operatorKey, '__rp_only__', S.rawCandidates, S.llmMode, rpOpts).then(narrative => {
         S.lastFreeTextResult = { input: text, matchedOptionId: null, matchType: 'none', isRpOnly: true, chain: null, diff: null, narrative }
         S.freeTextLoading = false
