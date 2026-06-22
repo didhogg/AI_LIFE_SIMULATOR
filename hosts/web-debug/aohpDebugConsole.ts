@@ -19,6 +19,12 @@ import type { RootState } from '@ai-life-sim/core';
 import { runTick } from '@ai-life-sim/core/engine/tick';
 import { buildMenuOptionIds } from '@ai-life-sim/core/engine/aohp';
 import type { MenuOptionWithId } from '@ai-life-sim/core/engine/aohp';
+import {
+  computeTickSpan,
+  MINUTES_PER_DAY,
+  MINUTES_PER_MONTH,
+  MINUTES_PER_YEAR,
+} from '@ai-life-sim/core/engine/time';
 
 import { filterMenuCandidates } from '../slice/engine/menuFilter.js';
 import type { MenuFilterCandidate, MenuFilterResult } from '../slice/engine/menuFilter.js';
@@ -41,6 +47,71 @@ import {
 } from './narrativeStyle.js';
 
 export type { NarrativePerson, NarrativeStyle };
+export { MINUTES_PER_DAY, MINUTES_PER_MONTH, MINUTES_PER_YEAR };
+
+// ── 时间调控：每拍跨度 / 流速 ────────────────────────────────────────────────────
+
+export type SpanPreset = '1min' | '1hr' | '1day' | '1week' | '1month' | '1year' | 'custom';
+export type SpanUnit   = 'min' | 'hr' | 'day' | 'week' | 'month' | 'year';
+
+export const SPAN_PRESET_LABELS: Record<SpanPreset, string> = {
+  '1min':   '1分钟',
+  '1hr':    '1小时',
+  '1day':   '1天',
+  '1week':  '1周',
+  '1month': '1月',
+  '1year':  '1年',
+  'custom': '自定义',
+};
+
+export const UNIT_LABELS: Record<SpanUnit, string> = {
+  'min':   '分钟',
+  'hr':    '小时',
+  'day':   '天',
+  'week':  '周',
+  'month': '月',
+  'year':  '年',
+};
+
+const UNIT_MINUTES: Record<SpanUnit, number> = {
+  'min':   1,
+  'hr':    60,
+  'day':   MINUTES_PER_DAY,
+  'week':  7 * MINUTES_PER_DAY,
+  'month': MINUTES_PER_MONTH,
+  'year':  MINUTES_PER_YEAR,
+};
+
+/**
+ * 将 UI 旋钮设置解析为每拍跨度（纪元分钟）。
+ * 月/年 preset 走 computeTickSpan 历法对齐；其余 preset 固定值；custom 直接换算。
+ */
+export function resolveSpanMinutes(
+  nowEpochMin: number,
+  preset: SpanPreset,
+  customQty: number,
+  customUnit: SpanUnit,
+): number {
+  switch (preset) {
+    case '1min':   return 1;
+    case '1hr':    return 60;
+    case '1day':   return MINUTES_PER_DAY;
+    case '1week':  return 7 * MINUTES_PER_DAY;
+    case '1month': return computeTickSpan({ nowEpochMin, granularity: '发展', deterministicExpiries: [] }).spanMinutes;
+    case '1year':  return computeTickSpan({ nowEpochMin, granularity: '世代', deterministicExpiries: [] }).spanMinutes;
+    case 'custom': return Math.max(1, Math.round(customQty * (UNIT_MINUTES[customUnit] ?? 1)));
+  }
+}
+
+/** 将纪元分钟数归一化为可读字符串（供 UI 实时预览） */
+export function formatSpanDisplay(spanMin: number): string {
+  if (spanMin < 60)               return `${spanMin}分钟`;
+  if (spanMin < MINUTES_PER_DAY)  return `${+(spanMin / 60).toFixed(1)}小时`;
+  if (spanMin < 7 * MINUTES_PER_DAY) return `${+(spanMin / MINUTES_PER_DAY).toFixed(1)}天`;
+  if (spanMin < MINUTES_PER_MONTH)   return `${+(spanMin / (7 * MINUTES_PER_DAY)).toFixed(1)}周`;
+  if (spanMin < MINUTES_PER_YEAR)    return `${+(spanMin / MINUTES_PER_MONTH).toFixed(1)}月`;
+  return `${+(spanMin / MINUTES_PER_YEAR).toFixed(2)}年`;
+}
 
 // ── 公共类型（导出供测试） ────────────────────────────────────────────────────────
 
@@ -325,9 +396,10 @@ export function runValidationChain(
  *   （即 Phase6「关系触发」阶段会发射涟漪候选的边）。
  * 认知档案变更 = 新增或强度增加的印象条目（涟漪传播 Phase8 写回的可见结果）。
  */
-export function runTickWithDiff(state: RootState, tickId: string): TickDiffResult {
+export function runTickWithDiff(state: RootState, tickId: string, spanMinutes?: number): TickDiffResult {
   const before = structuredClone(state) as RootState;
-  const result = runTick(structuredClone(state) as RootState, { tickId });
+  const tickInput = spanMinutes !== undefined ? { tickId, spanMinutes } : { tickId };
+  const result = runTick(structuredClone(state) as RootState, tickInput);
   const after = result.state;
 
   // 认知档案 diff（新增 + 强度增加）
@@ -441,11 +513,11 @@ export class TimeController {
   }
 
   /** 单步/跳 N 拍，返回每拍 diff */
-  step(n: number = 1): TickDiffResult[] {
+  step(n: number = 1, spanMinutes?: number): TickDiffResult[] {
     const diffs: TickDiffResult[] = [];
     for (let i = 0; i < n; i++) {
       const tickId = `debug:${this.seed}:tick:${this._tickCount}`;
-      const diff = runTickWithDiff(this.currentState, tickId);
+      const diff = runTickWithDiff(this.currentState, tickId, spanMinutes);
       this.currentState = diff.afterState;
       this._tickCount = this.currentState._tick?.拍计数 ?? this._tickCount + 1;
       this._eventLog.push({

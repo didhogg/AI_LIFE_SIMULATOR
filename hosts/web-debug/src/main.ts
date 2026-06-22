@@ -12,12 +12,18 @@ import {
   TimeController,
   DEMO_RAW_CANDIDATES,
   PHASE6_THRESHOLD,
+  resolveSpanMinutes,
+  formatSpanDisplay,
+  SPAN_PRESET_LABELS,
+  UNIT_LABELS,
   type TickDiffResult,
   type ValidationChainResult,
   type MenuInspectResult,
   type ActionResult,
   type NarrativePerson,
   type NarrativeStyle,
+  type SpanPreset,
+  type SpanUnit,
 } from '../aohpDebugConsole.js'
 import {
   PERSON_DEFAULT,
@@ -101,11 +107,52 @@ const S = {
   freeTextLoading: false,
   narrativePerson: PERSON_DEFAULT as NarrativePerson,
   narrativeStyle: STYLE_DEFAULT as NarrativeStyle,
+  tickSpanPreset: '1day' as SpanPreset,
+  tickSpanCustomQty: 1 as number,
+  tickSpanCustomUnit: 'day' as SpanUnit,
+  autoPlaySpeed: null as null | 0.5 | 1 | 2 | 4,
+  autoPlayTimer: null as ReturnType<typeof setInterval> | null,
 }
 
 function initTime(): void {
   S.timeCtrl = new TimeController(S.seed, S.state)
   S.recorder  = new ActionRecorder(S.seed, S.state)
+}
+
+// ── 时间调控：跨度 / 流速辅助 ────────────────────────────────────────────────────
+
+function currentSpanMinutes(): number {
+  return resolveSpanMinutes(
+    S.state.世界?.纪元分钟 ?? 0,
+    S.tickSpanPreset,
+    S.tickSpanCustomQty,
+    S.tickSpanCustomUnit,
+  )
+}
+
+const AUTO_PLAY_SPEEDS = [0.5, 1, 2, 4] as const
+
+function startAutoPlay(speed: 0.5 | 1 | 2 | 4): void {
+  stopAutoPlay()
+  S.autoPlaySpeed = speed
+  const intervalMs = Math.round(1000 / speed)
+  S.autoPlayTimer = setInterval(() => {
+    if (!S.timeCtrl) return
+    const span = currentSpanMinutes()
+    S.prevGraph = buildRelationGraph(S.state)
+    const diffs = S.timeCtrl.step(1, span)
+    S.state = S.timeCtrl.getCurrentState()
+    S.diffs = [...S.diffs.slice(-(MAX_DIFFS - diffs.length)), ...diffs]
+    renderApp()
+  }, intervalMs)
+}
+
+function stopAutoPlay(): void {
+  if (S.autoPlayTimer !== null) {
+    clearInterval(S.autoPlayTimer)
+    S.autoPlayTimer = null
+  }
+  S.autoPlaySpeed = null
 }
 
 // ── Fixture 切换 ──────────────────────────────────────────────────────────────
@@ -147,6 +194,7 @@ function switchFixture(id: FixtureId): void {
   S.lastFreeTextResult = null
   S.narrativePerson    = PERSON_DEFAULT
   S.narrativeStyle     = STYLE_DEFAULT
+  stopAutoPlay()
   initTime()
 }
 
@@ -397,6 +445,49 @@ function renderTimeTab(): string {
 
   let html = `<div class="tab-content">`
 
+  // 旋钮①：每拍跨度
+  const spanMin = currentSpanMinutes()
+  const spanDisplay = formatSpanDisplay(spanMin)
+  const customUnitOpts = (Object.keys(UNIT_LABELS) as SpanUnit[]).map(u =>
+    `<option value="${esc(u)}"${u === S.tickSpanCustomUnit ? ' selected' : ''}>${esc(UNIT_LABELS[u])}</option>`
+  ).join('')
+  html += `
+<div class="section">
+  <h2>旋钮① 每拍跨度 <span class="debug-badge">不进指纹·走 computeTickSpan</span></h2>
+  <div class="span-knob">
+    <div class="btn-group">
+      ${(Object.entries(SPAN_PRESET_LABELS) as [SpanPreset, string][]).map(([p, label]) =>
+        `<button class="btn${S.tickSpanPreset === p ? ' btn-action' : ''}" id="span-preset-${esc(p)}">${esc(label)}</button>`
+      ).join('')}
+    </div>
+    ${S.tickSpanPreset === 'custom' ? `
+    <div class="span-custom-row">
+      <input type="number" id="span-custom-qty" value="${S.tickSpanCustomQty}" min="0.01" step="0.5" style="width:75px"/>
+      <select id="span-custom-unit">${customUnitOpts}</select>
+    </div>` : ''}
+    <div class="span-result-display">= <strong>${esc(spanDisplay)}</strong>（${spanMin} 纪元分钟/拍）</div>
+  </div>
+</div>`
+
+  // 旋钮②：流速（AUTO 播放）
+  html += `
+<div class="section">
+  <h2>旋钮② 流速（AUTO 播放） <span class="debug-badge">纯前端·不进指纹</span></h2>
+  <div class="speed-knob">
+    <div class="btn-group">
+      <button class="btn${S.autoPlaySpeed === null ? ' btn-action' : ''}" id="btn-speed-stop">■ 停止</button>
+      ${AUTO_PLAY_SPEEDS.map(s =>
+        `<button class="btn${S.autoPlaySpeed === s ? ' btn-action' : ''}" id="btn-speed-${String(s).replace('.', '_')}">×${s}</button>`
+      ).join('')}
+    </div>
+    <div class="speed-status dim">
+      ${S.autoPlaySpeed !== null
+        ? `▶ ×${S.autoPlaySpeed} · 每 ${Math.round(1000 / S.autoPlaySpeed)}ms 自动推进一拍 · $流速.速度档=${S.autoPlaySpeed}`
+        : '（已停止·点 ×N 开始 AUTO 播放）'}
+    </div>
+  </div>
+</div>`
+
   // 时间控制面板
   html += `
 <div class="section">
@@ -404,7 +495,7 @@ function renderTimeTab(): string {
   <div class="time-controls">
     <span class="tick-display">拍 ${tickCount}</span>
     <span class="dim">${esc(worldTime)}</span>
-    <button class="btn btn-action" id="btn-step1">单步 +1</button>
+    <button class="btn btn-action" id="btn-step1">下一拍 +1</button>
     <button class="btn" id="btn-step5">跳 +5 拍</button>
     <label>跳 N 拍:
       <input type="number" id="step-n" value="3" min="1" max="50" style="width:55px"/>
@@ -1190,11 +1281,37 @@ function attachEventListeners(): void {
     })
   })
 
+  // 旋钮① 每拍跨度 preset 按钮
+  ;(Object.keys(SPAN_PRESET_LABELS) as SpanPreset[]).forEach(preset => {
+    document.getElementById(`span-preset-${preset}`)?.addEventListener('click', () => {
+      S.tickSpanPreset = preset
+      renderApp()
+    })
+  })
+  // 自定义跨度数量 / 单位
+  document.getElementById('span-custom-qty')?.addEventListener('change', e => {
+    const v = parseFloat((e.target as HTMLInputElement).value)
+    if (!isNaN(v) && v > 0) S.tickSpanCustomQty = v
+    renderApp()
+  })
+  document.getElementById('span-custom-unit')?.addEventListener('change', e => {
+    S.tickSpanCustomUnit = (e.target as HTMLSelectElement).value as SpanUnit
+    renderApp()
+  })
+
+  // 旋钮② 流速按钮
+  document.getElementById('btn-speed-stop')?.addEventListener('click', () => { stopAutoPlay(); renderApp() })
+  AUTO_PLAY_SPEEDS.forEach(s => {
+    const btnId = `btn-speed-${String(s).replace('.', '_')}`
+    document.getElementById(btnId)?.addEventListener('click', () => { startAutoPlay(s); renderApp() })
+  })
+
   // 时间控制
   document.getElementById('btn-step1')?.addEventListener('click', () => {
     if (!S.timeCtrl) return
+    const span = currentSpanMinutes()
     S.prevGraph = buildRelationGraph(S.state)
-    const diffs = S.timeCtrl.step(1)
+    const diffs = S.timeCtrl.step(1, span)
     S.state = S.timeCtrl.getCurrentState()
     S.diffs = [...S.diffs.slice(-(MAX_DIFFS - diffs.length)), ...diffs]
     renderApp()
@@ -1202,8 +1319,9 @@ function attachEventListeners(): void {
 
   document.getElementById('btn-step5')?.addEventListener('click', () => {
     if (!S.timeCtrl) return
+    const span = currentSpanMinutes()
     S.prevGraph = buildRelationGraph(S.state)
-    const diffs = S.timeCtrl.step(5)
+    const diffs = S.timeCtrl.step(5, span)
     S.state = S.timeCtrl.getCurrentState()
     S.diffs = [...S.diffs.slice(-(MAX_DIFFS - diffs.length)), ...diffs]
     renderApp()
@@ -1211,9 +1329,10 @@ function attachEventListeners(): void {
 
   document.getElementById('btn-stepn')?.addEventListener('click', () => {
     if (!S.timeCtrl) return
+    const span = currentSpanMinutes()
     S.prevGraph = buildRelationGraph(S.state)
     const n = parseInt((document.getElementById('step-n') as HTMLInputElement | null)?.value ?? '1', 10)
-    const diffs = S.timeCtrl.step(Math.max(1, Math.min(50, n)))
+    const diffs = S.timeCtrl.step(Math.max(1, Math.min(50, n)), span)
     S.state = S.timeCtrl.getCurrentState()
     S.diffs = [...S.diffs.slice(-(MAX_DIFFS - diffs.length)), ...diffs]
     renderApp()
@@ -1228,6 +1347,7 @@ function attachEventListeners(): void {
 
   document.getElementById('btn-replay')?.addEventListener('click', () => {
     if (!S.timeCtrl) return
+    stopAutoPlay()
     S.state = S.timeCtrl.replay()
     S.diffs = []
     S.prevGraph = null
