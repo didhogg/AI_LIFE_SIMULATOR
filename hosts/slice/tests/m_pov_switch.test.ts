@@ -282,9 +282,9 @@ describe('T7 五轴人格投影 computePovPersonalityProjection', () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
-// T8. POV 投影面板 6 组字段 · operatorKey×povEntityKey 解耦（数据层）
+// T8. POV 投影面板 6 组字段 · 数据层纯只读（UI 层 operatorKey = povEntityKey 恒等）
 // ──────────────────────────────────────────────────────────────────────────────
-describe('T8 POV 投影 6 组字段 · operatorKey 解耦（数据层）', () => {
+describe('T8 POV 投影 6 组字段 · 数据层纯只读', () => {
   it('6 组数据源均可读取·无异常', () => {
     const state = buildWorld();
     // Section 1-3: povInspect 已由 T1-T6 覆盖

@@ -793,13 +793,12 @@ function renderFreeTextResultHtml(r: FreeTextResult): string {
   return s
 }
 
-// ── Tab: POV 视角 ─────────────────────────────────────────────────────────────
+// ── Tab: POV 视角 / 操纵主体 ────────────────────────────────────────────────────
 //
-// Bug P-A-bug-03 修复：
-//   旧设计把「操纵主体」selector 放在 POV tab 顶部，用户误将其当作 POV selector
-//   切换后投影面板读的是 S.povA/povB 而非 operatorKey，导致"没刷新"的视觉 bug。
-//   修复：引入独立 S.povEntityKey → 单一主选择器驱动投影面板，operatorKey 移至底部并标注
-//   与 operatorKey 完全解耦：切 POV 不动 operatorKey、不跑 runTick、不写 state。
+// 设计原则：切换 POV = 切换操纵主体。
+//   pov-entity-sel 同时驱动 S.povEntityKey 和 S.operatorKey，二者恒等。
+//   菜单·校验·叙事·runTick 均以当前所选实体身份执行。
+//   选谁的 POV 就是在操纵谁，无独立「操纵主体」选择器。
 
 function renderPOVTab(): string {
   const npcKeys = Object.keys(S.state.NPC)
@@ -807,25 +806,31 @@ function renderPOVTab(): string {
     `<option value="${esc(k)}"${k === sel ? ' selected' : ''}>${esc(k)} · ${esc(S.state.NPC[k]!.姓名)}</option>`
   ).join('')
 
-  // 主 POV 实体（单一真相源·驱动投影面板）
+  // 主实体：POV = 操纵主体（单一真相源·两字段恒等）
   const povKey = S.povEntityKey && S.state.NPC[S.povEntityKey] ? S.povEntityKey : (npcKeys[0] ?? '')
   const rPov   = povKey ? povInspect(S.state, povKey) : null
 
-  // 并排比对（二级功能·独立 A/B 选择器）
+  // 并排比对（二级功能·独立 A/B 选择器·只读）
   const rA = S.povA && S.state.NPC[S.povA] ? povInspect(S.state, S.povA) : null
   const rB = S.povB && S.state.NPC[S.povB] ? povInspect(S.state, S.povB) : null
 
+  const isNonPC = povKey !== S.pcKey
+  const statusBadge = isNonPC
+    ? `<span class="operator-status operator-switched">⚠ 非默认 PC · 菜单·叙事以 ${esc(povKey)} 身份执行</span>`
+    : `<span class="operator-status operator-default">${esc(S.pcKey)}（默认 PC）</span>`
+
   let html = `<div class="tab-content">`
 
-  // ── 1. 当前 POV 视角（主选择器）──────────────────────────────────────────────
+  // ── 1. 当前 POV / 操纵主体（主选择器）────────────────────────────────────────
   html += `
 <div class="section">
-  <h2>当前 POV 视角 <span class="debug-badge">不进指纹·纯只读·不运行 runTick·不改 operatorKey</span></h2>
+  <h2>POV · 操纵主体 <span class="debug-badge">选谁就操纵谁 · 不跑 runTick</span></h2>
   <div class="pov-primary-row">
-    <label>当前 POV:
+    <label>当前实体:
       <select id="pov-entity-sel">${npcOpts(povKey)}</select>
     </label>
-    <span class="pov-entity-badge dim">${esc(povKey)}</span>
+    <button class="btn" id="btn-reset-operator">重置为 PC (${esc(S.pcKey)})</button>
+    ${statusBadge}
   </div>`
 
   if (rPov) {
@@ -836,7 +841,7 @@ function renderPOVTab(): string {
 
   html += `</div>`
 
-  // ── 2. 并排 POV 比对（二级·独立 A/B）────────────────────────────────────────
+  // ── 2. 并排 POV 比对（二级·只读）─────────────────────────────────────────────
   html += `
 <div class="section">
   <h2>POV 并排比对（二级·只读）</h2>
@@ -863,24 +868,6 @@ function renderPOVTab(): string {
   }
 
   html += `</div>`
-
-  // ── 3. 操纵主体切换（三级·标注为"写账"·不影响 POV 投影）─────────────────────
-  const operatorOpts = npcOpts(S.operatorKey)
-  const statusClass = S.operatorKey === S.pcKey ? 'operator-status operator-default' : 'operator-status operator-switched'
-  const statusText = S.operatorKey === S.pcKey
-    ? `当前操纵者: ${esc(S.pcKey)}（默认 PC · 菜单·校验·叙事均正常）`
-    : `⚠ 操纵者已切换为 ${esc(S.operatorKey)} · 菜单·校验·叙事以此身份执行 · 默认 PC=${esc(S.pcKey)}`
-
-  html += `
-<div class="section">
-  <h2>操纵主体切换 <span class="debug-badge operator-warn-badge">⚠ 写账·runTick·与上方 POV 独立</span></h2>
-  <div class="helper-text">切换后，菜单·校验·叙事·runTick 均以所选实体身份执行。<strong>上方 POV 投影面板不受影响。</strong></div>
-  <div class="operator-switch-row">
-    <label>操纵主体: <select id="pov-operator-sel">${operatorOpts}</select></label>
-    <button class="btn" id="btn-reset-operator">恢复默认 PC (${esc(S.pcKey)})</button>
-  </div>
-  <div class="${statusClass}">${statusText}</div>
-</div>`
 
   html += `</div>` // tab-content
   return html
@@ -1385,14 +1372,12 @@ function renderApp(): void {
   app.innerHTML = renderHeader() + renderTabBar() + tabContent
   attachEventListeners()
 
-  // Bug 1 fix: 明示的 value 同期（ブラウザのフォーム復元が selected 属性を上書きするのを防ぐ）
-  // app はすでに any 型で取得済みなので querySelector で再 document 呼び出しを回避する。
+  // S.povEntityKey と S.operatorKey は常に同値のため pov-entity-sel の value 同期のみ行う。
+  // (ブラウザのフォーム復元による selected 属性上書き防止)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const _app = app as any
   const _povEntityEl = _app?.querySelector?.('#pov-entity-sel')
   if (_povEntityEl) _povEntityEl.value = S.povEntityKey
-  const _operatorEl = _app?.querySelector?.('#pov-operator-sel')
-  if (_operatorEl) _operatorEl.value = S.operatorKey
 }
 
 // ── 事件绑定 ──────────────────────────────────────────────────────────────────
@@ -1591,13 +1576,23 @@ function attachEventListeners(): void {
     renderApp()
   })
 
-  // 当前 POV 主选择器（写 povEntityKey·不触 operatorKey·不跑 runTick）
+  // POV / 操纵主体切换（pov-entity-sel = 操纵主体切换·povEntityKey 与 operatorKey 恒等同步）
   document.getElementById('pov-entity-sel')?.addEventListener('change', e => {
-    S.povEntityKey = (e.target as HTMLSelectElement).value
+    const val = (e.target as HTMLSelectElement).value
+    S.povEntityKey = val
+    S.operatorKey  = val   // POV切换 = 操纵主体切换
+    S.lastMenu = null; S.lastChain = null; S.lastNarrative = null; S.lastFreeTextResult = null
+    renderApp()
+  })
+  // 重置为默认 PC（povEntityKey 与 operatorKey 同时归位）
+  document.getElementById('btn-reset-operator')?.addEventListener('click', () => {
+    S.povEntityKey = S.pcKey
+    S.operatorKey  = S.pcKey
+    S.lastMenu = null; S.lastChain = null; S.lastNarrative = null; S.lastFreeTextResult = null
     renderApp()
   })
 
-  // POV 并排比对（二级·A/B）
+  // POV 并排比对（二级·A/B·只读）
   document.getElementById('pov-a-sel')?.addEventListener('change', e => {
     S.povA = (e.target as HTMLSelectElement).value; renderApp()
   })
@@ -1605,18 +1600,6 @@ function attachEventListeners(): void {
     S.povB = (e.target as HTMLSelectElement).value; renderApp()
   })
   document.getElementById('btn-pov-compare')?.addEventListener('click', () => renderApp())
-
-  // 操纵主体切换（Feature A）
-  document.getElementById('pov-operator-sel')?.addEventListener('change', e => {
-    S.operatorKey = (e.target as HTMLSelectElement).value
-    S.lastMenu = null; S.lastChain = null; S.lastNarrative = null; S.lastFreeTextResult = null
-    renderApp()
-  })
-  document.getElementById('btn-reset-operator')?.addEventListener('click', () => {
-    S.operatorKey = S.pcKey
-    S.lastMenu = null; S.lastChain = null; S.lastNarrative = null; S.lastFreeTextResult = null
-    renderApp()
-  })
 
   // 快照
   document.getElementById('btn-snap-save')?.addEventListener('click', () => {
