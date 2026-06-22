@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=191dcfd（P-A-enhance-C3 操纵主体切换+自由文本专项回归） · 前=fb994df（P-A-enhance-C1C2） · 前=4c09bb0（P-A-bug-01-C3） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审計签收 2026-06-19） | 更新=2026-06-22/P-A-enhance
+# code HEAD=c5a50b5（fix: vite.config 注入 VITE_DEEPSEEK_API_KEY·llmDemo 可出字） · 前=191dcfd（P-A-enhance-C3） · 前=fb994df（P-A-enhance-C1C2） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审計签收 2026-06-19） | 更新=2026-06-22/env-fix
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -279,6 +279,13 @@
     - TC×5 指纹84/schemaKeys52 守恒
   - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=84不变·schemaKeys=52不变
   - core 函数体零diff·lint+0·tsc 无新增
+- [x] env-fix · vite.config 注入 VITE_DEEPSEEK_API_KEY → browser llmDemo 可出字 · commit=c5a50b5 · test=3571(不变)
+  - 根因: vite.config 'process.env':'{}' → browser 端 process.env 恒空 → DEEPSEEK_API_KEY 读不到 → isFallback=true
+  - 修复: defineConfig 函数形 + loadEnv → VITE_DEEPSEEK_API_KEY 注入为 process.env.DEEPSEEK_API_KEY
+  - 未设 VITE_ 变量用 undefined（JSON.stringify 省略）→ adapter ?? 默认值生效
+  - adapter(openai-compatible.js) 零改动
+  - 新增 hosts/web-debug/.env.example（变量名 VITE_DEEPSEEK_API_KEY + 重启提示）
+  - main.ts 降级文案同步更新·.gitignore 已正确收 .env（未曾进库）
 
 ---
 
