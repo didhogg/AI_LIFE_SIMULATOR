@@ -161,11 +161,12 @@ function stopAutoPlay(): void {
 // ── Fixture 切换 ──────────────────────────────────────────────────────────────
 
 function switchFixture(id: FixtureId): void {
+  // fixtureId を先に確定させ buildCandidatesForOperator が正しく参照できるようにする
+  S.fixtureId          = id
   if (id === 'base') {
     S.state           = buildWorld()
     S.pcKey           = PC
     S.seed            = SAVE_SEED
-    S.rawCandidates   = DEMO_RAW_CANDIDATES as MenuFilterCandidate[]
     S.povA            = PC
     S.povB            = NPC_WANG
   } else {
@@ -174,15 +175,9 @@ function switchFixture(id: FixtureId): void {
     S.seed            = f.seed
     const npcKeys     = Object.keys(S.state.NPC)
     S.pcKey           = npcKeys[0] ?? 'unknown'
-    S.rawCandidates   = npcKeys.slice(1).map(k => ({
-      verb: '对话',
-      targetEntityId: k,
-      displayText: `与${S.state.NPC[k]!.姓名}对话`,
-    }))
     S.povA = npcKeys[0] ?? ''
     S.povB = npcKeys[1] ?? ''
   }
-  S.fixtureId          = id
   S.snapshotStore      = new SnapshotStore()
   S.diffs              = []
   S.prevGraph          = null
@@ -193,11 +188,13 @@ function switchFixture(id: FixtureId): void {
   S.snapSelA           = ''
   S.snapSelB           = ''
   S.operatorKey        = S.pcKey
+  S.povEntityKey       = S.pcKey
+  // operatorKey 確定後に候補を再構築（NPC 自身を候補から除外・在場者のみ対象）
+  S.rawCandidates      = buildCandidatesForOperator(S.pcKey)
   S.freeText           = ''
   S.lastFreeTextResult = null
   S.narrativePerson    = PERSON_DEFAULT
   S.narrativeStyle     = STYLE_DEFAULT
-  S.povEntityKey       = S.pcKey
   stopAutoPlay()
   initTime()
 }
@@ -247,6 +244,27 @@ function fixtureLabel(id: FixtureId): string {
     '整世界': '整世界·五域图 (seed=300, 12 NPC)',
   }
   return map[id]
+}
+
+/**
+ * operator が変わるたびに呼ぶ候補再構築ヘルパー。
+ * - base fixture + operatorKey = pcKey → DEMO_RAW_CANDIDATES（元の PC 用候補をそのまま）
+ * - それ以外 → operator の在場地点にいる他 NPC との 対話 候補を動的生成
+ *   （自分自身は候補に入らない · 在場でない NPC は除外）
+ */
+function buildCandidatesForOperator(operatorKey: string): MenuFilterCandidate[] {
+  if (S.fixtureId === 'base' && operatorKey === S.pcKey) {
+    return DEMO_RAW_CANDIDATES as MenuFilterCandidate[]
+  }
+  type WithLocation = { 位置?: string; 姓名?: string }
+  const opLoc = (S.state.NPC[operatorKey] as WithLocation | undefined)?.位置 ?? ''
+  return Object.entries(S.state.NPC)
+    .filter(([k, npc]) => k !== operatorKey && (npc as WithLocation).位置 === opLoc)
+    .map(([k, npc]) => ({
+      verb: '对话',
+      targetEntityId: k,
+      displayText: `与${(npc as WithLocation).姓名 ?? k}对话`,
+    }))
 }
 
 function renderTabBar(): string {
@@ -1576,18 +1594,21 @@ function attachEventListeners(): void {
     renderApp()
   })
 
-  // POV / 操纵主体切换（pov-entity-sel = 操纵主体切换·povEntityKey 与 operatorKey 恒等同步）
+  // POV / 操纵主体切换（pov-entity-sel = 操纵主体切换·povEntityKey と operatorKey を恒等同期）
+  // 切換時に rawCandidates を再構築：NPC 自身を候補から除外し在場 NPC との対話を生成
   document.getElementById('pov-entity-sel')?.addEventListener('change', e => {
     const val = (e.target as HTMLSelectElement).value
-    S.povEntityKey = val
-    S.operatorKey  = val   // POV切换 = 操纵主体切换
+    S.povEntityKey  = val
+    S.operatorKey   = val
+    S.rawCandidates = buildCandidatesForOperator(val)
     S.lastMenu = null; S.lastChain = null; S.lastNarrative = null; S.lastFreeTextResult = null
     renderApp()
   })
-  // 重置为默认 PC（povEntityKey 与 operatorKey 同时归位）
+  // 重置为默认 PC（povEntityKey / operatorKey / rawCandidates 同時歸位）
   document.getElementById('btn-reset-operator')?.addEventListener('click', () => {
-    S.povEntityKey = S.pcKey
-    S.operatorKey  = S.pcKey
+    S.povEntityKey  = S.pcKey
+    S.operatorKey   = S.pcKey
+    S.rawCandidates = buildCandidatesForOperator(S.pcKey)
     S.lastMenu = null; S.lastChain = null; S.lastNarrative = null; S.lastFreeTextResult = null
     renderApp()
   })
