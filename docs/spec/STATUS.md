@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=0f406ea（fix: dangerouslyAllowBrowser → llmDemo 真实出字） · 前=c5a50b5（env-fix） · 前=191dcfd（P-A-enhance-C3） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审計签收 2026-06-19） | 更新=2026-06-22/env-fix-02
+# code HEAD=21537c3（feat: 叙事渲染层·人称+文风库） · 前=c186fd4（A批UI改进）· 前=0f406ea（env-fix-02） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审計签收 2026-06-19） | 更新=2026-06-22/narrative-style
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -292,6 +292,25 @@
   - Node(slice)宿主 window 不存在 → 行为不变·无副作用
   - 验证: globalThis.window={} + 真实 key → isFallback=false · text='王掌柜，来壶碧螺春。'
   - 注释明确: debug-only · P-C 正式宿主可改为 Vite dev 代理中转（key 不入前端）
+- [x] A批 · 调试台 UI 改进（节点地点分组 / 边进度条 / 角色面板详化） · commit=c186fd4 · test=3571→3594(+23)
+  - A1 groupNodesByLocation: 关系网节点明细按地点框式分组（org归属+秘密标注）
+  - A2 buildEdgeDelta: 边强度进度条(0-100·≥50橙色高亮涟漪可触发) + 跨拍↑↓ delta
+  - A3 buildActorPanel: 角色面板全字段枚举（情绪/认知/关系/秘密/特质/技能/信念/物品/目标/记忆/意象）
+    · 随 operatorKey 切换实时重渲染 · filterSecretsForPOV POV 过滤
+  - aohpDebugConsole2 新导出：groupNodesByLocation / buildEdgeDelta / buildActorPanel + interfaces
+  - m_a_ui_improve.test.ts 23 tests（A1×4 / A2×5 / A3×8 / 恒等门×6）
+  - core 零 diff · 指纹=84/20不变 · schemaKeys=52不变 · 黄金向量逐位恒等
+- [x] 叙事渲染层 · 人称参数 + 轻量文风库（P-A 尾插） · commit=21537c3 · test=3594→3621(+27)
+  - narrativeStyle.ts(新): NarrativePerson(second/first/third) · NarrativeStyle(guofeng/baihua/jianjie)
+    · applyPersonStyle(systemPrompt,person,style) → LLM 注入（不进指纹）
+    · buildScriptedNarrative(person,style,pcName,optionId) → 9模板 demo 确定性叙事
+    · sanitizePerson / sanitizeStyle 安全回落默认·未知值不抛错
+  - runActionInDualMode opts 扩 narrativePerson + narrativeStyle：demo 按模板/LLM 注入 prompt
+  - SnapshotStore.save 加可选 renderParams → $metaRenderParams 元数据（compare 自动跳过）
+  - UI: 时间控制 Tab 新增「叙事渲染参数」区（人称+文风 selector）· demo 模式切换立即重渲染
+    · 叙事面板加渲染参数徽章 · 快照保存携带渲染参数
+  - m_narrative_style.test.ts 27 tests（T1切换文风全恒等×4 / T2切换人称全恒等×4 / T3 3×3笛卡尔积×6 / T4 $meta重放×5 / T5未知值回落×8）
+  - core 零 diff · 指纹=84/20不变 · schemaKeys=52不变 · 黄金向量逐位恒等 · lint ≤220 · tsc 不变
 
 ---
 
