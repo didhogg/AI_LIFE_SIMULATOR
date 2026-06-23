@@ -106,10 +106,10 @@ const 项目档Schema = z.object({
 // ══════════════════════════════════════════
 // 组织实体主 schema
 // ══════════════════════════════════════════
-const 组织实体条目Schema = z.object({
+export const 组织实体条目Schema = z.object({
     // ── 身份骨架 ──
     父组织: z.string().optional(), // 递归嵌套；空=顶层独立实体
-    类型: z.string().default(''), // 开放串：政权/商会/宗门/家族/帮派…
+    类型: z.string().default(''), // 开放串：政权/商会/宗门/家族/帮派…（枚举源自 preset·不硬编）
     行业: z.string().default(''),
     状态: z.string().default(''),
     占股: z.number().min(0).max(100).default(0),
@@ -164,6 +164,11 @@ const 组织实体条目Schema = z.object({
     项目档: 项目档Schema.optional(),
     // ── 占位形态?（6.33/6.52·唯一实改点·提及即占位）────────────────────────────────
     占位形态: 组织占位形态Schema.optional(),
+    // ── §九 节点解析扩展（C2-2 additive seam）────────────────────────────────────
+    // 别名键?：此组织的其他可接受键名（§八③ 别名归一去重·resolveOrgNodes 统一处理）
+    别名键: z.array(z.string()).optional(),
+    // 成员选择器?：显式成员集合描述（open string，实体引用键 or 选择器表达式）
+    成员选择器: z.string().optional(),
 });
 export const 组织实体Schema = z.record(z.string(), 组织实体条目Schema).default({});
 // ══════════════════════════════════════════
@@ -180,3 +185,16 @@ z.object({
     // C2-0 additive seam: typed org edge (三类组织边·C2-2 seeding 时写入)
     边类型: z.enum(['隶属', '层级', '外交']).optional(),
 })).default({});
+// ── §九 OrgNode — 关系图一等节点视图（C2-2·全可选·不进 BUNDLE 指纹）────────────
+// "同 NpcSchema 级·全可选字段"：组织键 / 名称 / 类型 / 上级组织键? / 成员选择器?
+// 挂 RootSchema 排外路径（组织实体条目 ⊂ 组织实体·不在 FINGERPRINT_BUNDLE_MEMBERS）
+export const OrgNodeSchema = z.object({
+    组织键: z.string().optional(), // 反向引用自身在 record 中的键
+    名称: z.string().optional(), // 显示名
+    类型: z.string().optional(), // 枚举源自 preset·不硬编
+    上级组织键: z.string().optional(), // ≡ 父组织
+    成员选择器: z.string().optional(), // 显式成员选择器表达式
+    别名键: z.array(z.string()).optional(), // §八③ 别名去重
+    占位形态: 组织占位形态Schema.optional(), // §八① 潜在节点标记·有此字段=幽灵节点
+    状态: z.string().optional(), // '已解散' → 停中继（§九）
+});

@@ -37,7 +37,9 @@
     "./engine/sliceBudget": "./engine/sliceBudget.ts",
     "./engine/softReject": "./engine/softReject.ts",
     "./engine/aohp": "./engine/aohp.ts",
+    "./engine/aohpExecutor": "./engine/aohpExecutor.ts",
     "./engine/relationGraph": "./engine/relationGraph.ts",
+    "./engine/orgGraph": "./engine/orgGraph.ts",
     "./prompt/callRegistry": "./prompt/callRegistry.ts",
     "./replay": "./replay/index.ts"
   },

@@ -58,6 +58,10 @@ export function autoCompleteRelations(
     if (npc.存活状态 === '已故') continue; // §八-②
     for (const m of npc.所属组织) {
       if (!m.组织键) continue;
+      // §九: 幽灵节点（占位形态=有）→ 不进传播/不计票；已解散 → 停中继
+      const org = state.组织实体[m.组织键];
+      if (org?.占位形态) continue;         // 潜在节点：§九 悬空防护
+      if (org?.状态 === '已解散') continue; // 已解散：§九 停中继（隶属边保留在 组织关系网）
       const b = orgBuckets.get(m.组织键) ?? [];
       orgBuckets.set(m.组织键, b);
       b.push(key);

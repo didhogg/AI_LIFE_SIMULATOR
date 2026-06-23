@@ -13,10 +13,17 @@
 import { RootSchema, SINK_ENTITY_KEY } from "@ai-life-sim/core";
 import { getNetAsset } from "@ai-life-sim/core/engine/netAsset";
 import { autoCompleteRelations } from "@ai-life-sim/core/engine/relationGraph";
+import { resolveOrgNodes } from "@ai-life-sim/core/engine/orgGraph";
 // ── 实体键（稳定结构键）─────────────────────────────────────────────────────────
 export const PC = "pc_linjiu";
 export const NPC_WANG = "npc_wang";
 export const NPC_HONG = "npc_hong";
+// ── §九 组织实体键（C2-2 · 三类边 + 幽灵/别名/已解散防护边界）────────────────────
+export const ORG_QINGHEBANG = "org_qinghebang"; // 清河帮（顶层·外交对等端）
+export const ORG_SHUIYUNHUI = "org_shuiyunhui"; // 水运会（清河帮子级·层级边）
+export const ORG_JIFU = "org_jifu"; // 机福帮（已解散·外交边保留）
+export const ORG_GHOST = "org_ghost"; // §八①：悬空引用→幽灵节点（不进传播）
+export const ORG_ALIAS_WATER = "org_water_guild"; // §八③：水运会别名（resolveOrgNodes 归一）
 // 地点：实体键(LOC_KEY) 与 显示名(LOC_NAME) 分离。
 // server.ts 用 LOC_NAME 作 assemblePrompt 的 locName；NPC.位置 用 LOC_KEY 做在场判定。
 export const LOC_KEY = "loc_yuelai_inn";
@@ -89,6 +96,8 @@ const 秘密库 = {
 // ── 世界构造（每次返回全新对象·RootSchema.parse 填满所有默认字段·消除 TS 类型债）──
 // 机敏/身份(string)/与主角关系 不在 core NPC schema 中·Zod strip 后运行时无影响。
 // C2-1: autoCompleteRelations 在 parse 之后运行·生成共址/共组织双向边（G1b）。
+// C2-2: resolveOrgNodes 在 parse 之后、autoCompleteRelations 之前运行（§九节点解析）。
+//        组织实体/关系网 additive-only·不改 PC/NPC_WANG/NPC_HONG 字段·m_p7tier2 恒等。
 export function buildWorld() {
     const raw = RootSchema.parse({
         全局: {
@@ -112,6 +121,60 @@ export function buildWorld() {
                 [SINK_ENTITY_KEY]: { 持有: { [CURRENCY]: 0 } },
             },
         },
+        // ── §九 组织实体层（C2-2 additive·不影响 PC/WANG/HONG 的 NPC 关系图）───────────────
+        // 三棵组织节点：清河帮（顶层）> 水运会（层级子级）+ 机福帮（已解散·外交边保留）
+        // 每节点 {组织键, 名称, 类型, 上级组织键?, 别名键?, 状态}
+        组织实体: {
+            [ORG_QINGHEBANG]: {
+                类型: "帮派",
+                状态: "活跃",
+            },
+            [ORG_SHUIYUNHUI]: {
+                类型: "商会",
+                状态: "活跃",
+                父组织: ORG_QINGHEBANG,
+                // §八③ 别名：org_water_guild 将被 resolveOrgNodes 归一为 org_shuiyunhui
+                别名键: [ORG_ALIAS_WATER],
+            },
+            [ORG_JIFU]: {
+                类型: "帮派",
+                状态: "已解散", // §九 已解散：停中继（隶属边在组织关系网中保留）
+            },
+            // ORG_GHOST 未在此声明 → 成为悬空引用 → resolveOrgNodes 创建幽灵节点（§八①）
+        },
+        // ── 组织关系网（三类边填充·C2-0 留位 边类型? 字段）────────────────────────────────
+        // 边 ID 格式：`{A}:{边类型}:{B}`（正典无向·A 字典序 ≤ B）
+        组织关系网: {
+            // ① 层级边：水运会（子级）层级隶属清河帮（母级）
+            "e_shuiyun:层级:qing": {
+                A组织: ORG_SHUIYUNHUI,
+                B组织: ORG_QINGHEBANG,
+                关系: "层级隶属",
+                关系值: 60,
+                约定引用键: "",
+                边类型: "层级",
+            },
+            // ② 外交边：清河帮 ↔ 机福帮（已解散·边保留）
+            "e_qing:外交:jifu": {
+                A组织: ORG_QINGHEBANG,
+                B组织: ORG_JIFU,
+                关系: "曾经同盟",
+                关系值: -20,
+                约定引用键: "",
+                边类型: "外交",
+            },
+            // ③ 隶属边：清河帮 ↔ 幽灵组织（悬空引用·§八① → 幽灵节点）
+            "e_qing:隶属:ghost": {
+                A组织: ORG_QINGHEBANG,
+                B组织: ORG_GHOST,
+                关系: "上级控制",
+                关系值: 50,
+                约定引用键: "",
+                边类型: "隶属",
+            },
+        },
     });
-    return autoCompleteRelations(raw, SAVE_SEED, 0);
+    // §九 节点解析：别名归一 + 悬空→幽灵节点（顺序：parse → resolveOrgNodes → autoCompleteRelations）
+    const resolved = resolveOrgNodes(raw);
+    return autoCompleteRelations(resolved, SAVE_SEED, 0);
 }
