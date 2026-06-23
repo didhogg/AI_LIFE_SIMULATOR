@@ -274,11 +274,13 @@ const 婚姻条目Schema = z.object({
 
 const 关系条目Schema = z.object({
   对象键: z.string().default(''),
-  类型: z.string().default(''), // 开放串
+  类型: z.string().default(''), // 开放串（人类可读关系名）
   强度: z.number().min(-100).max(100).default(0),
   极性: z.string().default(''),
   信任: z.number().min(0).max(100).default(0),
   深度: z.number().min(0).max(100).default(0),
+  // C2-0 additive seam: typed edge classification (引擎结构化分类·⊥ 人读 类型 字段)
+  边类型: z.enum(['强', '弱', '桥接', '在场临时弱']).optional(),
 });
 
 const 所属组织条目Schema = z.object({
@@ -504,6 +506,17 @@ export const NpcSchema = z.object({
   既往记忆种子: z.array(既往记忆种子条目Schema).optional(), // 有界·来源=导入预设
   开场白: z.array(z.string()).optional(),                  // 素材包数组
   占位解析槽: 占位解析槽Schema.optional(),               // user/char→实体键
+
+  // ── C2-0 additive seam: 幕后行动种子 (offstage behavior seeds·G7 前置·零运行占位) ──
+  // 引擎只读；G7 offstageSettler 据此驱动幕后演化（报仇/告发/逃离/结盟/趋附/探查/流转潜伏）。
+  _幕后行动种子: z.array(z.object({
+    类型: z.enum(['报仇', '告发', '逃离', '结盟', '趋附', '探查', '流转潜伏']),
+    触发条件: z.string().optional(),       // DSL v1 谓词串（G7 接线·P0 占位）
+    优先级: z.number().int().min(0).default(0),
+    后果种子: z.string().optional(),       // consequenceSeed 引用键（G7 接线）
+  })).optional(),
+  _幕后冷却: z.record(z.string(), z.number().int()).optional(), // 行动键→冷却到期纪元分钟
+  _幕后发生区域: z.string().optional(),                        // 区域键（与预设 PR-0 共用命名）
 
   // ── 焦点 / 子嗣型扩展位 ──
   复活点: z.number().int().min(0).default(0), // B类计数；0 = 无复活次数

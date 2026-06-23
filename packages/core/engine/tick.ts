@@ -495,10 +495,18 @@ function propagateRipple(s: RootState, nowEpochMin: number): void {
 
 // ── 涟漪发射工具（G1a·Phase 6 接线点 / 外部调用方接口） ────────────────────────
 
-/** $涟漪候选 条目形状（与 $涟漪候选Schema 元素对齐）*/
+/** $涟漪候选 条目形状（与 $涟漪候选Schema 元素对齐·C2-0 additive 同步） */
 type RippleEntry = {
   标签: string; 极性: string; 强度: number;
   可见性: string; 来源拍号: number;
+  // C2-0 additive seam (factFragment v2)
+  来源世界域?: string;
+  有锚布尔?: boolean;
+  factFragment?: {
+    主体: string; 维度: string; Δ方向: number;
+    客体?: string; 场景?: string; 量级: number;
+    narrativeFrame?: string;
+  };
 };
 
 /**

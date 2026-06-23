@@ -23,6 +23,18 @@ export const $涟漪候选Schema = z.record(
     强度: z.number().min(0).max(100).default(0),
     可见性: z.string().default(''),
     来源拍号: z.number().int().min(0).default(0),
+    // C2-0 additive seam: factFragment v2 载荷 (T1/T9·进指纹·factFragment化)
+    来源世界域: z.string().optional(),      // 事件发生的世界域键
+    有锚布尔: z.boolean().optional(),       // 无锚=false → 造谣 factFragment（v2 新闻先于物化）
+    factFragment: z.object({
+      主体: z.string().default(''),         // 事件主体实体键
+      维度: z.string().default(''),         // 变化维度（生命/财富/声誉/关系/位置…）
+      Δ方向: z.number().default(0),         // 方向量 (±1 或 ±量级，正=提升·负=下降)
+      客体: z.string().optional(),          // 事件客体（关系类事件填对象键）
+      场景: z.string().optional(),          // 发生场景键（地点键）
+      量级: z.number().default(0),          // 事件量级 [0–100]
+      narrativeFrame: z.string().optional(), // 可争叙事框架串（进指纹·可被信息战覆写）
+    }).optional(),
   })),
 ).default({});
 

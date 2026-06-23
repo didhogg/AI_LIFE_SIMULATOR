@@ -44,6 +44,13 @@ export const SystemSchema = z.object({
       延时分量: z.record(z.string(), z.number().int().min(0).max(1)).default({}),
     }),
   ).default({}),
+  // C2-0 additive seam: 编年史 入册 (engine-written·AI可读·forward-only序号·M3_FORWARD_ONLY对齐)
+  // 知情门判定「成为公共知识」的事件在此入册；assemblePrompt 读最近 5 条作背景。
+  _编年史: z.array(z.object({
+    序号: z.number().int().min(0),          // forward-only (M3_FORWARD_ONLY 已预守护 编年史.序号)
+    标题: z.string().default(''),
+    结果摘要行: z.string().default(''),
+  })).optional(),
   功能开关表: z.object({
     认知迷雾: z.boolean().default(true),
     上帝视角: z.boolean().default(false),

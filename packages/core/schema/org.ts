@@ -210,6 +210,8 @@ export const 组织关系网Schema = z.record(
     关系: z.string().default(''),           // 开放串：盟友/宗藩/贸易/敌对…
     关系值: z.number().min(-100).max(100).default(0),
     约定引用键: z.string().default(''),     // 约定库键（E5·条约一等公民化）
+    // C2-0 additive seam: typed org edge (三类组织边·C2-2 seeding 时写入)
+    边类型: z.enum(['隶属', '层级', '外交']).optional(),
   }),
 ).default({});
 
