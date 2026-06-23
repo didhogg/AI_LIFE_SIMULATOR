@@ -88,9 +88,9 @@ const 秘密库 = {
 };
 // ── 世界构造（每次返回全新对象·RootSchema.parse 填满所有默认字段·消除 TS 类型债）──
 // 机敏/身份(string)/与主角关系 不在 core NPC schema 中·Zod strip 后运行时无影响。
-// G1b: autoCompleteRelations 在 parse 后装配期补全 NPC 关系图（共址/组织边·seeded 确定性）
+// C2-1: autoCompleteRelations 在 parse 之后运行·生成共址/共组织双向边（G1b）。
 export function buildWorld() {
-    const world = RootSchema.parse({
+    const raw = RootSchema.parse({
         全局: {
             地点: {
                 [LOC_KEY]: { 名称: LOC_NAME, 描述: "清河镇运河边第一家落脚处，往来客商多、消息杂。" },
@@ -113,5 +113,5 @@ export function buildWorld() {
             },
         },
     });
-    return autoCompleteRelations(world, SAVE_SEED, 0);
+    return autoCompleteRelations(raw, SAVE_SEED, 0);
 }

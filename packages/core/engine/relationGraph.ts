@@ -45,6 +45,7 @@ export function autoCompleteRelations(
   // ── 1. 共址桶（按位置键分组）──
   const locBuckets = new Map<string, string[]>();
   for (const [key, npc] of npcEntries) {
+    if (npc.存活状态 === '已故') continue; // §八-②: 死者不中继·既有边由调用方保留
     if (!npc.位置) continue;
     const b = locBuckets.get(npc.位置) ?? [];
     locBuckets.set(npc.位置, b);
@@ -54,6 +55,7 @@ export function autoCompleteRelations(
   // ── 2. 组织桶（按组织键分组·同 NPC 可属多个组织）──
   const orgBuckets = new Map<string, string[]>();
   for (const [key, npc] of npcEntries) {
+    if (npc.存活状态 === '已故') continue; // §八-②
     for (const m of npc.所属组织) {
       if (!m.组织键) continue;
       const b = orgBuckets.get(m.组织键) ?? [];

@@ -14,6 +14,7 @@
 import { RootSchema, SINK_ENTITY_KEY } from "@ai-life-sim/core";
 import type { 秘密库条目Type, RootState } from "@ai-life-sim/core";
 import { getNetAsset } from "@ai-life-sim/core/engine/netAsset";
+import { autoCompleteRelations } from "@ai-life-sim/core/engine/relationGraph";
 
 // ── 实体键（稳定结构键）─────────────────────────────────────────────────────────
 export const PC = "pc_linjiu";
@@ -98,8 +99,9 @@ const 秘密库: Record<string, 秘密库条目Type> = {
 
 // ── 世界构造（每次返回全新对象·RootSchema.parse 填满所有默认字段·消除 TS 类型债）──
 // 机敏/身份(string)/与主角关系 不在 core NPC schema 中·Zod strip 后运行时无影响。
+// C2-1: autoCompleteRelations 在 parse 之后运行·生成共址/共组织双向边（G1b）。
 export function buildWorld(): RootState {
-	return RootSchema.parse({
+	const raw = RootSchema.parse({
 		全局: {
 			地点: {
 				[LOC_KEY]: { 名称: LOC_NAME, 描述: "清河镇运河边第一家落脚处，往来客商多、消息杂。" },
@@ -122,4 +124,5 @@ export function buildWorld(): RootState {
 			},
 		},
 	});
+	return autoCompleteRelations(raw, SAVE_SEED, 0);
 }
