@@ -3,6 +3,8 @@ import { getNetAsset } from './netAsset.js';
 import { decayStep } from './time.js';
 import { fixedPow } from './math/fixed.js';
 import { runProposalGate } from './proposal/index.js';
+import { deriveVerbDelta } from './proposal/verbDelta.js';
+import { executeActionOption } from './aohpExecutor.js';
 // ── 环形缓冲上限 ──────────────────────────────────────────────────────────────
 const TICK_LOG_MAX = 8;
 // ── 涟漪参数 ──────────────────────────────────────────────────────────────────
@@ -123,14 +125,34 @@ export function runTick(state, input) {
             }
         }
     });
-    // Phase 提案落账 · additive 注入入口 — injectedEnvelope → 五道闸 → 落账守恒
+    // Phase 提案落账 · additive 注入入口 — 两路合一 → 五道闸 → 落账守恒
     // 纪律：严禁旁路任何闸·零 RNG·零 Date.now·不改 gate/conservation/computeDelta 函数体。
+    // 路径优先级：optionSetInput(player_option) > injectedEnvelope(player_freetext)
     // s 替换后 phaseMap 同步重绑，保证后续 runPhase 标记写入新状态。
     {
         const INJECT_PHASE = '提案落账';
         if (!phaseMap[INJECT_PHASE]) {
-            if (input.injectedEnvelope !== undefined) {
-                const gateResult = runProposalGate(input.injectedEnvelope, s, input.injectedSeatId ?? '__aohp__', input.injected授权源 ?? '玩家确认', input.injectedPacks);
+            // 确定本拍有效 envelope
+            let effectiveEnvelope;
+            if (input.optionSetInput !== undefined) {
+                // player_option 路径：runTick 内调 executeActionOption → 得 envelope(provenance='player_option')
+                const execResult = executeActionOption(input.optionSetInput);
+                if (execResult.matched && !execResult.downgrade && execResult.envelope) {
+                    effectiveEnvelope = execResult.envelope;
+                }
+                // downgrade → effectiveEnvelope 保持 undefined，跳过五道闸·不写账
+            }
+            else if (input.injectedEnvelope !== undefined) {
+                // player_freetext 路径（既有行为）
+                effectiveEnvelope = input.injectedEnvelope;
+            }
+            if (effectiveEnvelope !== undefined) {
+                const seatId = input.injectedSeatId ?? '__aohp__';
+                // 若 host 未提供 injectedPacks，从 envelope 内部派生 K5 Δ（verb→Δ 路由）
+                const packs = input.injectedPacks !== undefined
+                    ? input.injectedPacks
+                    : deriveVerbDelta(effectiveEnvelope, s, seatId);
+                const gateResult = runProposalGate(effectiveEnvelope, s, seatId, input.injected授权源 ?? '玩家确认', packs);
                 proposalGateResult = gateResult;
                 if (gateResult.ok) {
                     // gateResult.state = structuredClone(s) + K5 deltas applied.

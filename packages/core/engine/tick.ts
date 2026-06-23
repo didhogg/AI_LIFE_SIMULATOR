@@ -18,7 +18,9 @@ import { fixedPow } from './math/fixed.js';
 import { runProposalGate } from './proposal/index.js';
 import type { ProposalGateResult } from './proposal/index.js';
 import type { K5DeltaEntry } from '../interfaces/interventionMerge.js';
-import type { 指令信封Type } from '../schema/proposal.js';
+import type { 指令信封Type, ActionOptionType } from '../schema/proposal.js';
+import { deriveVerbDelta } from './proposal/verbDelta.js';
+import { executeActionOption } from './aohpExecutor.js';
 
 // ── 环形缓冲上限 ──────────────────────────────────────────────────────────────
 const TICK_LOG_MAX = 8;
@@ -77,6 +79,15 @@ export interface TickInput {
   injectedSeatId?: string;
   /** 授权源标注（Gate⑤ 审计日志）；须在 VALID_OVERWRITE_AUTH_SOURCES 内；缺省 '玩家确认' */
   injected授权源?: string;
+  // ── additive: option-set 选择路径（阶段1·player_option provenance）─────────────
+  /** 本拍权威 option-set + 玩家所选 option_id；runTick 内调 executeActionOption 构信封后走全闸。
+   *  与 injectedEnvelope 互斥：两者同时存在时 optionSetInput 优先（player_option 路径更受控）。*/
+  optionSetInput?: {
+    chosenOptionId: string;
+    optionSet: ActionOptionType[];
+    chosenTarget?: string;
+    chosenValue?: number;
+  };
 }
 
 export interface TickResult {
@@ -183,19 +194,40 @@ export function runTick(state: RootState, input: TickInput): TickResult {
     }
   });
 
-  // Phase 提案落账 · additive 注入入口 — injectedEnvelope → 五道闸 → 落账守恒
+  // Phase 提案落账 · additive 注入入口 — 两路合一 → 五道闸 → 落账守恒
   // 纪律：严禁旁路任何闸·零 RNG·零 Date.now·不改 gate/conservation/computeDelta 函数体。
+  // 路径优先级：optionSetInput(player_option) > injectedEnvelope(player_freetext)
   // s 替换后 phaseMap 同步重绑，保证后续 runPhase 标记写入新状态。
   {
     const INJECT_PHASE = '提案落账' as SettlementPhase;
     if (!phaseMap[INJECT_PHASE]) {
-      if (input.injectedEnvelope !== undefined) {
+      // 确定本拍有效 envelope
+      let effectiveEnvelope: 指令信封Type | undefined;
+
+      if (input.optionSetInput !== undefined) {
+        // player_option 路径：runTick 内调 executeActionOption → 得 envelope(provenance='player_option')
+        const execResult = executeActionOption(input.optionSetInput);
+        if (execResult.matched && !execResult.downgrade && execResult.envelope) {
+          effectiveEnvelope = execResult.envelope;
+        }
+        // downgrade → effectiveEnvelope 保持 undefined，跳过五道闸·不写账
+      } else if (input.injectedEnvelope !== undefined) {
+        // player_freetext 路径（既有行为）
+        effectiveEnvelope = input.injectedEnvelope;
+      }
+
+      if (effectiveEnvelope !== undefined) {
+        const seatId = input.injectedSeatId ?? '__aohp__';
+        // 若 host 未提供 injectedPacks，从 envelope 内部派生 K5 Δ（verb→Δ 路由）
+        const packs = input.injectedPacks !== undefined
+          ? input.injectedPacks
+          : deriveVerbDelta(effectiveEnvelope, s, seatId);
         const gateResult = runProposalGate(
-          input.injectedEnvelope,
+          effectiveEnvelope,
           s,
-          input.injectedSeatId ?? '__aohp__',
+          seatId,
           input.injected授权源 ?? '玩家确认',
-          input.injectedPacks,
+          packs,
         );
         proposalGateResult = gateResult;
         if (gateResult.ok) {

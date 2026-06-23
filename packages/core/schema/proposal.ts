@@ -23,10 +23,16 @@ export const 提案单Schema = z.array(提案单条目Schema).default([]);
 
 // ── P0-1·指令信封（txn_id：组级原子事务 ID·可空零迁移）─────────────────────────
 // txn_id: 同一信封内的多条提案单条目视为原子组；缺省=非组级事务（单条提案）
+//
+// provenance 判别位（阶段1·additive·transient·不进 RootSchema·schemaKeys 仍 52）：
+//   player_option  — 来自 AOHP option-set（executeActionOption 路径·本轮走全闸+守恒）
+//   player_freetext — 来自 LLM 自由文本（既有 injectedEnvelope 路径）
+//   system_cheat   — 系统/管理员命令（Gate③ $ 前缀·阶段6 实装·本轮仅留判别位）
 export const 指令信封Schema = z.object({
   txn_id:     z.string().optional(), // 组级原子事务 ID·缺省=非组级
   提案血统:   z.string().optional(), // Z3·6.68·发起方血统键引用·可空·瞬时非存档
   转域续命授权: z.boolean().optional(), // L-15·瞬时授权令牌·仅转域续命边构造时置 true·不落存档
+  provenance: z.enum(['player_option', 'player_freetext', 'system_cheat']).optional(),
   提案:       提案单条目Schema,
 }).strip();
 
