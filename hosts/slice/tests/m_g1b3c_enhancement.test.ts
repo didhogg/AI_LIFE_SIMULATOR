@@ -230,8 +230,8 @@ describe('TC 指纹84 / schemaKeys52 守恒', () => {
     expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(20);
   });
 
-  it('PRESET_FIELDS = 10', () => {
-    expect(FINGERPRINT_PRESET_FIELDS.length).toBe(10);
+  it('PRESET_FIELDS = 11', () => {
+    expect(FINGERPRINT_PRESET_FIELDS.length).toBe(11);
   });
 
   it('SNAPSHOT_FIELDS = 5', () => {

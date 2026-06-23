@@ -248,15 +248,15 @@ describe('A3 buildActorPanel — 详细角色面板', () => {
 // 恒等门 — 指纹84 / schemaKeys52
 // ──────────────────────────────────────────────────────────────────────────────
 
-describe('恒等门 — 指纹84 / schemaKeys52 守恒', () => {
-  it('指纹字段总数恒等 84', () => {
+describe('恒等门 — 指纹85 / schemaKeys52 守恒', () => {
+  it('指纹字段总数恒等 85', () => {
     const allKeys = new Set([
       ...FINGERPRINT_BUNDLE_MEMBERS,
       ...FINGERPRINT_PRESET_FIELDS,
       ...FINGERPRINT_SNAPSHOT_FIELDS,
       ...FINGERPRINT_EXCLUDED_FIELDS,
     ]);
-    expect(allKeys.size).toBe(84);
+    expect(allKeys.size).toBe(85);
   });
 
   it('RootSchema 顶层 keyCount 仍为 52', () => {

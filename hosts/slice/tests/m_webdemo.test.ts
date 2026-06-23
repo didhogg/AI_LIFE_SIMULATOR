@@ -143,7 +143,8 @@ describe('D1 prompt-dump — 近K历史/live账本/NPC态/lore', () => {
       pcKey: PC, locName: LOC_NAME, povEntityKey: PC,
       narrativeHistory: history,
     });
-    expect(userPrompt).toContain('近期叙事');
+    // assemble.ts 改版：section 标头由「近期叙事」改为「更早剧情」/「上一拍」
+    expect(userPrompt).toContain('更早剧情');
     expect(userPrompt).toContain('林九入住悦来客栈');
   });
 
@@ -492,13 +493,13 @@ describe('D3 NSFW 物理隔离', () => {
     expect(expectedResult).toBe(false);
   });
 
-  it('指纹 manifest 总条目 = 84（demo 代码不进指纹）', () => {
+  it('指纹 manifest 总条目 = 85（demo 代码不进指纹）', () => {
     const total =
       FINGERPRINT_BUNDLE_MEMBERS.length +
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(84);
+    expect(total).toBe(85);
   });
 
   it('schemaKeys=52 不变（demo 不新增 schema 字段·指纹守恒）', () => {

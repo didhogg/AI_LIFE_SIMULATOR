@@ -424,13 +424,13 @@ describe('T8 runTickWithDiff — state diff 结构正确', () => {
 // T9. 指纹84 / schemaKeys52 守恒（不新增字段）
 // ──────────────────────────────────────────────────────────────────────────────
 describe('T9 指纹守恒 — 84条/schemaKeys=52', () => {
-  it('指纹 manifest 总条目 = 84', () => {
+  it('指纹 manifest 总条目 = 85', () => {
     const total =
       FINGERPRINT_BUNDLE_MEMBERS.length +
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(84);
+    expect(total).toBe(85);
   });
 
   it('schemaKeys = 52（调试控制台/fixture 不新增 schema 顶层键）', () => {

@@ -612,13 +612,13 @@ describe('T10 SnapshotStore — 快照保存/比对/diff', () => {
 // T11. 指纹84 / schemaKeys52 守恒
 // ──────────────────────────────────────────────────────────────────────────────
 describe('T11 指纹守恒 — 84条/schemaKeys=52（锦上添花批不新增）', () => {
-  it('指纹 manifest 总条目 = 84', () => {
+  it('指纹 manifest 总条目 = 85', () => {
     const total =
       FINGERPRINT_BUNDLE_MEMBERS.length +
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(84);
+    expect(total).toBe(85);
   });
 
   it('schemaKeys = 52（G1b3b 不新增 schema 顶层键）', () => {

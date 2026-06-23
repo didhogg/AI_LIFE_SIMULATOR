@@ -332,27 +332,27 @@ describe('T8 POV 投影 6 组字段 · 数据层纯只读', () => {
     expect(result.success).toBe(true);
   });
 
-  it('指纹 84 在 6 组 POV 数据读取后守恒', () => {
+  it('指纹 85 在 6 组 POV 数据读取后守恒', () => {
     const total =
       FINGERPRINT_BUNDLE_MEMBERS.length +
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(84);
+    expect(total).toBe(85);
   });
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
-// T6. 指纹 84 / schemaKeys 52 在 POV 操作后守恒
+// T6. 指纹 85 / schemaKeys 52 在 POV 操作后守恒
 // ──────────────────────────────────────────────────────────────────────────────
-describe('T6 指纹 84 / schemaKeys 52 守恒（POV 不进指纹）', () => {
-  it('指纹字段总数 = 84（POV 操作不改变 manifest）', () => {
+describe('T6 指纹 85 / schemaKeys 52 守恒（POV 不进指纹）', () => {
+  it('指纹字段总数 = 85（POV 操作不改变 manifest）', () => {
     const total =
       FINGERPRINT_BUNDLE_MEMBERS.length +
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(84);
+    expect(total).toBe(85);
   });
 
   it('schemaKeys = 52', () => {

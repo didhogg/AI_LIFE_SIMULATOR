@@ -450,9 +450,9 @@ describe('⊕-4 e2e-1 · happy path：全链 ①→⑤ 含多包 add+clamp+audit
         // ④ assertConservation: single account npc_wang, net = Σ持有 = 220
         const accts = (r.state.货币系统['账户']);
         expect(() => assertConservation(accts, 220, (acct) => Object.values(acct.持有).reduce((s, v) => s + v, 0))).not.toThrow();
-        // ⑤ fingerprint manifest frozen: 20+10+5+49=84 entries (P0-8-B4 +1: AOHP選項id集·PRESET_FIELDS 9→10)
+        // ⑤ fingerprint manifest frozen: 20+11+5+49=85 entries (阶段1 +1: 动词选项集哈希·PRESET_FIELDS 10→11)
         expect(FINGERPRINT_BUNDLE_MEMBERS.length + FINGERPRINT_PRESET_FIELDS.length +
-            FINGERPRINT_SNAPSHOT_FIELDS.length + FINGERPRINT_EXCLUDED_FIELDS.length).toBe(84);
+            FINGERPRINT_SNAPSHOT_FIELDS.length + FINGERPRINT_EXCLUDED_FIELDS.length).toBe(85);
     });
 });
 describe('⊕-4 e2e-2 · fail-closed Gate② → 全状态 deepEqual（零写）', () => {

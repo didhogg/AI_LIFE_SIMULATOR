@@ -442,6 +442,26 @@ export const 换角许可Schema = z.object({
 }).strip();
 
 // ══════════════════════════════════════════
+// 动词选项条目（AOHP preset 侧声明·无 option_id·由引擎派生）
+// 口径：对应 ActionOptionSchema 去掉 option_id（该字段由 buildOptionId 确定性派生）
+// 约束：≤99 条（受 rngFor [0,99] 精度·partialShuffleSample 无偏样本约束）
+// ══════════════════════════════════════════
+
+export const 动词选项条目Schema = z.object({
+  verb:           z.string().default(''),           // 动词（来自 动词Id枚举·运行时校验）
+  target_choices: z.array(z.string()).default([]),  // 目标实体键候选（一或多）
+  tool_name:      z.string().default(''),           // 调用工具名（open string）
+  params:         z.record(z.string(), z.unknown()).default({}), // 参数 map
+  salient_args:   z.string().optional(),            // 显著参数文本·用于 option_id 派生
+  value_slot:     z.string().optional(),            // 绑定的数值槽键
+  min:            z.number().optional(),            // 数值槽最小值
+  max:            z.number().optional(),            // 数值槽最大值
+  display_text:   z.string().optional(),            // 显示标签（不纳入 option_id·纯展示）
+}).strip();
+
+export type 动词选项条目Type = z.infer<typeof 动词选项条目Schema>;
+
+// ══════════════════════════════════════════
 // 玩法预设根（顶层）
 // ══════════════════════════════════════════
 
@@ -535,6 +555,14 @@ export const 玩法预设Schema = z.object({
     激活上限: z.number().min(0).max(100).optional(),
     沉默下限: z.number().min(0).max(100).optional(),
   }).optional(),
+
+  // ── 动词选项集（AOHP·mod 作者经动词表声明的确定性候选选项集）──────────────────
+  // 进 PRESET 指纹（hashCanonical(动词选项集) → hashPresetFingerprint 的 动词选项集哈希）
+  // 菜单生成时：取此集合，走 seeded rngFor 子集采样 → 派生 option_id → 权威 option_id 集
+  // LLM 只能在权威集内回 option_id；越界 option_id → executeActionOption 降级纯叙事不写账
+  // option_id 派生规则（buildOptionId）：verb:targetEntityId[:salient_args]
+  // 最多 99 条（受 rngFor [0,99] 精度约束·菜单不应超此数量）
+  动词选项集: z.array(动词选项条目Schema).max(99).optional(),
 });
 
 export type 玩法预设Type = z.infer<typeof 玩法预设Schema>;

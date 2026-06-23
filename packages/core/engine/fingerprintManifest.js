@@ -42,6 +42,7 @@ export const FINGERPRINT_PRESET_FIELDS = [
     'Schema版本', // U3·F-c层1·封段时Schema版本·版本变则分段指纹变·字段已在位·分段触发逻辑随P0-3/U3·当前所有preset该字段=undefined
     // TODO(P0-6): 6.62 纪元包集版本 — era package version fingerprint placeholder
     'AOHP選項id集', // P0-8-B4·菜单选项稳定键集合·排序后进指纹·选项重排不破指纹（顺序无关·multiset）
+    '动词选项集哈希', // 阶段1·mod 作者声明的确定性候选选项集整包哈希·hashCanonical(玩法预设.动词选项集)·改集合即改判定面
 ];
 // ── 快照锁定组（开局锁定·随档快照）──────────────────────────────────────────────
 /** 快照锁定组 — 开局锁定·随档快照；调用方从档内快照传入，绝不读 live 预设。 */
