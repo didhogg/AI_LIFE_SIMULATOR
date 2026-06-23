@@ -72,8 +72,8 @@ describe('P0-7-T2 · ② 幂等（已结算 tickId 第二次调用不变）', ()
 // ── ③ 结算序 ──────────────────────────────────────────────────────────────────
 
 describe('P0-7-T2 · ③ 结算序显式', () => {
-  it('SETTLEMENT_PHASES 包含预期阶段（含 P7-6b 媒介拍末取材 = 10 个）', () => {
-    expect(SETTLEMENT_PHASES).toHaveLength(10);
+  it('SETTLEMENT_PHASES 包含预期阶段（含 P7-6b 媒介拍末取材 + 提案落账 = 11 个）', () => {
+    expect(SETTLEMENT_PHASES).toHaveLength(11);
   });
 
   it('第一次 runTick 结算全部阶段（含 P7-6b 新增媒介拍末取材）', () => {

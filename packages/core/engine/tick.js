@@ -2,6 +2,7 @@ import { assertConservation } from './conservation.js';
 import { getNetAsset } from './netAsset.js';
 import { decayStep } from './time.js';
 import { fixedPow } from './math/fixed.js';
+import { runProposalGate } from './proposal/index.js';
 // ── 环形缓冲上限 ──────────────────────────────────────────────────────────────
 const TICK_LOG_MAX = 8;
 // ── 涟漪参数 ──────────────────────────────────────────────────────────────────
@@ -28,6 +29,7 @@ export const SETTLEMENT_PHASES = [
     '日期触发',
     '标志触发',
     '关系触发',
+    '提案落账', // additive: injected AOHP envelope → five-gate pipeline → 落账守恒
     '衰减批',
     '涟漪传播',
     '媒介拍末取材', // E4·6.55: 涟漪先落账后·媒介通道（书信/信使等）在拍末采样·然后进原子提交
@@ -40,7 +42,8 @@ export const SETTLEMENT_PHASES = [
  */
 export function runTick(state, input) {
     // [1] 入口深拷 — 全部操作在 s 上进行，不回写 state
-    const s = structuredClone(state);
+    // let: 提案落账 阶段注入成功时 s 替换为 runProposalGate 产出的新状态
+    let s = structuredClone(state);
     // [3] 幂等检查 — tickId 已全量结算则直接返回
     if (s._系统.已结算标记[input.tickId]?.即时分量 === 1) {
         return { state: s, settledPhases: [], matureSeeds: [] };
@@ -48,17 +51,20 @@ export function runTick(state, input) {
     const spanMin = input.spanMinutes ?? (s.世界?._本拍跨度 ?? 43200);
     const nowEpochMin = s.世界?.纪元分钟 ?? 0;
     // 拍前 Σ净值快照（原子提交守恒基线）
-    const 账户 = s.货币系统?.账户;
-    const preNetAsset = 账户 && Object.keys(账户).length > 0
-        ? Object.values(账户).reduce((sum, acct) => sum + getNetAsset(acct), 0)
+    // 使用原始 state 账户计算（不随 s 替换漂移·注入落账后 Phase9 用 s.货币系统?.账户 校验）
+    const preAccounts = state.货币系统?.账户;
+    const preNetAsset = preAccounts && Object.keys(preAccounts).length > 0
+        ? Object.values(preAccounts).reduce((sum, acct) => sum + getNetAsset(acct), 0)
         : null;
     const settledPhases = [];
     const matureSeeds = [];
+    let proposalGateResult;
     // 确保 marker 条目存在
     if (!s._系统.已结算标记[input.tickId]) {
         s._系统.已结算标记[input.tickId] = { 即时分量: 0, 延时分量: {} };
     }
-    const phaseMap = s._系统.已结算标记[input.tickId].延时分量;
+    // let: 注入成功后 phaseMap 随 s 切换，确保后续 runPhase 标记写入新状态
+    let phaseMap = s._系统.已结算标记[input.tickId].延时分量;
     /** 分量幂等包装：分量已结算则跳过；否则执行 fn 后标记 */
     function runPhase(phase, fn) {
         if (phaseMap[phase] === 1)
@@ -117,6 +123,26 @@ export function runTick(state, input) {
             }
         }
     });
+    // Phase 提案落账 · additive 注入入口 — injectedEnvelope → 五道闸 → 落账守恒
+    // 纪律：严禁旁路任何闸·零 RNG·零 Date.now·不改 gate/conservation/computeDelta 函数体。
+    // s 替换后 phaseMap 同步重绑，保证后续 runPhase 标记写入新状态。
+    {
+        const INJECT_PHASE = '提案落账';
+        if (!phaseMap[INJECT_PHASE]) {
+            if (input.injectedEnvelope !== undefined) {
+                const gateResult = runProposalGate(input.injectedEnvelope, s, input.injectedSeatId ?? '__aohp__', input.injected授权源 ?? '玩家确认', input.injectedPacks);
+                proposalGateResult = gateResult;
+                if (gateResult.ok) {
+                    // gateResult.state = structuredClone(s) + K5 deltas applied.
+                    // Rebind s and phaseMap so subsequent runPhase calls target the new state.
+                    s = gateResult.state;
+                    phaseMap = s._系统.已结算标记[input.tickId].延时分量;
+                }
+            }
+            phaseMap[INJECT_PHASE] = 1;
+            settledPhases.push(INJECT_PHASE);
+        }
+    }
     // Phase 7 · 衰减批 — 三处共用 decayStep（印象/意象/记忆·L-13 统一累加器）
     runPhase('衰减批', () => {
         // 认知档案印象衰减（decayStep 统一实现·禁第二实现）
@@ -165,9 +191,11 @@ export function runTick(state, input) {
     });
     // Phase 9 · 原子提交 — 守恒验证 + 时钟推进 + tick_log + 全量结算标记
     runPhase('原子提交', () => {
-        // 守恒断言（对 stub 阶段无账面变动的 MVP 同样有效；为后续有实体阶段兜底）
-        if (账户 && preNetAsset !== null) {
-            assertConservation(账户, preNetAsset, getNetAsset);
+        // 守恒断言：使用当前 s.货币系统?.账户（注入落账后账面可能已变动）
+        // preNetAsset 从原始 state 账户计算·注入前后净值之和须恒等（SINK 平衡）
+        const postAccounts = s.货币系统?.账户;
+        if (postAccounts && preNetAsset !== null) {
+            assertConservation(postAccounts, preNetAsset, getNetAsset);
         }
         // 世界时钟推进（纪元分钟·全局时刻轴）
         if (s.世界) {
@@ -192,7 +220,12 @@ export function runTick(state, input) {
         // 全量结算标记（幂等门控·下次同 tickId 直接返回）
         s._系统.已结算标记[input.tickId].即时分量 = 1;
     });
-    return { state: s, settledPhases, matureSeeds };
+    return {
+        state: s,
+        settledPhases,
+        matureSeeds,
+        ...(proposalGateResult !== undefined ? { proposalGateResult } : {}),
+    };
 }
 /** 给定地点键，沿父节点链（最多 16 层）找最近「区域级」祖先节点键；含自身。 */
 function locRegion(locKey, locs) {
