@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=674283c（feat: C2-4 · 死亡感知发射）· 前=9a09c29（C2-3 C）· 前=458c6db（C2-3 A+B）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/C2-4
+# code HEAD=d0fa62a（feat: C2-5 · 感知消费收尾）· 前=674283c（C2-4）· 前=9a09c29（C2-3 C）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/C2-5
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -333,6 +333,14 @@
   - G0 重定基: 0条（现有 fixture 退化 1.0·无向量漂移·新场景系数仅对「非中」地点生效）
   - tsc 0 新增错误·黄金向量逐位恒等·指纹=85不变·schemaKeys=52不变·lint 0新增·3819/3819
 - [x] C2-4 · 死亡拦截感知发射（生命维度）—— 发射层收尾 · commit=674283c · test=3823→3830(+7)
+- [x] C2-5 · 感知消费收尾（情绪栈回写 + _编年史入册） · commit=d0fa62a · test=3830→3851(+21)
+  - tick.ts: SETTLEMENT_PHASES 12→14（感知情绪化 + 编年史入册 两新阶段·C2-5）
+  - tick.ts: CHRONICLE_PUBLIC_THRESHOLD=50 · EMOTION_DIMENSION_MAP{生命→震惊/悲恸/1.0·关系→信任感/警惕/0.5} · INDIRECT_APPRAISAL_FACTOR=fixedExp(-ln2)≈0.5（确定性）
+  - tick.ts: applyAppraisal() — 扫认知档案本拍新印象(获知时间===nowEpochMin)·含factFragment→NPC.情绪栈Δ（维度/Δ方向派生情绪名+极性·取max防回路膨胀·二手转述INDIRECT_APPRAISAL_FACTOR淡化）
+  - tick.ts: appendToChronicle() — 公共factFragment(来源类型=一手观测+量级≥50)→全局._编年史（去重key=${主体}:${维度}·序号单调递增·知情门=covert已被propagateRipple过滤天然零命中）
+  - m_p7tier2.test.ts: SETTLEMENT_PHASES 计数 12→14（描述文字同步）
+  - m_c25_appraisal.test.ts（新·21 tests）: FA-1 关系负/正→警惕/信任感·取max防膨胀 / FA-2 死亡→悲恸·死者不自传 / FA-3 schema合法 / FA-4 公共入册·序号单调·低量级不入 / FA-5 covert不入编年史（知情门） / FA-6 assemblePrompt读最近5条 / FA-7 守恒·50拍schema / FA-8 SETTLEMENT_PHASES=14
+  - schemaKeys=52不变·指纹=85不变·黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等（buildWorld标准50拍无死亡+Phase6未触发→两新阶段no-op→0漂移）·tsc 0新增·3851/3851全绿
   - tick.ts: 新增 SETTLEMENT_PHASE '死亡感知发射'（提案落账→衰减批之间·11→12 个阶段）
   - tick.ts: priorDeadSet 快照（原始 state·防跨拍重复发射·存活状态==='已故'）
   - tick.ts: runPhase('死亡感知发射') — 扫描本拍新亡 actor → emitRipple factFragment{维度:'生命', Δ方向:-1, 量级:100}；标签=死因||'死亡'（上下文派生·禁写死）；极性='中'（中立事实性事件）；全 actor 同路径（PC + NPC）
