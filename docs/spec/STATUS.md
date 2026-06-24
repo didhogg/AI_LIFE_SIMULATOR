@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=796aed3（test: C2-T · 涟漪基线锁死）· 前=28f7edb（STATUS/C2-5）· 前=d0fa62a（C2-5）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/C2-T
+# code HEAD=0dc3336（feat: C2-6 · PR-0 预设 schema additive 留位）· 前=796aed3（C2-T）· 前=62fccf8（docs/C2-T）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/C2-6
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -363,6 +363,20 @@
     - SK-4 标准50拍no-op·含关系的50拍双宿主恒等
   - soak 300×8 全绿·黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=85/20不变·schemaKeys=52不变·tsc 0新增
   - tick.ts: 新增 SETTLEMENT_PHASE '死亡感知发射'（提案落账→衰减批之间·11→12 个阶段）
+- [x] C2-6 · PR-0 预设 schema additive 留位（涟漪同批·无重定基） · commit=0dc3336 · test=3879→3896(+17·89 files)
+  - additive-only: 0 RNG / 0 propagateRipple 改动 / 0 重定基 / schemaKeys=52 / manifest=85 / 黄金向量逐位恒等
+  - preset.ts/js: 玩法预设Schema +6 optional 字段
+    - 父预设 / 创建时预设版本 / 派生标记 / 默认模板（预设元数据·不进指纹）
+    - 经济生成规则（G2 SEIR/Bass 种子接线点·留位空跑）
+    - 社会熵默认值（G2 Bass 均值场传播系数基准值·留位空跑）
+  - map.ts/js: 地点条目Schema +4 optional 字段（与 NpcSchema._幕后发生区域 共用地点键空间·防二次对齐）
+    - 区域映射（涟漪传播聚合路由·G2 接线）
+    - 区域人口 / 人口密度 / 区域资源紧张度（G2 传播系数因子·留位空跑）
+  - secret.ts/js: 全局Schema + _factFragment种子库 optional record（v2 真相实体层·T1 留位）
+    - factFragment种子条目：主体/维度/Δ方向/客体?/场景?/量级/narrativeFrame?
+    - v2 扩展：访问阈值(default=0·T2)/ 来源世界域(T9) / 有锚布尔(default=true·T6 造谣标记) / 粗节点引用(T11)
+  - m_c26_schema_pr0.test.ts（新·17 tests·PR0-1~6）：新字段空跑断言+manifest/schemaKeys守恒+canonicalize 双宿主逐位恒等
+  - 阶段 2（P-A）已全完结·进 P-B G2 首项（全动力学 + schema 冻结）
   - tick.ts: priorDeadSet 快照（原始 state·防跨拍重复发射·存活状态==='已故'）
   - tick.ts: runPhase('死亡感知发射') — 扫描本拍新亡 actor → emitRipple factFragment{维度:'生命', Δ方向:-1, 量级:100}；标签=死因||'死亡'（上下文派生·禁写死）；极性='中'（中立事实性事件）；全 actor 同路径（PC + NPC）
   - tick.ts: propagateRipple obs1 死者防护 guard — `if (npcs[obs1]?.存活状态 === '已故') continue` → 已故 actor 停中继且不接收印象
