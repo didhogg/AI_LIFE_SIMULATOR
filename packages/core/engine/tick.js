@@ -365,7 +365,7 @@ export function runTick(state, input) {
     };
 }
 /** 给定地点键，沿父节点链（最多 16 层）找最近「区域级」祖先节点键；含自身。 */
-function locRegion(locKey, locs) {
+export function locRegion(locKey, locs) {
     let cur = locKey;
     for (let d = 0; d < 16; d++) {
         const loc = locs[cur];
@@ -383,7 +383,7 @@ function locRegion(locKey, locs) {
  * 从全量 地点.相邻 推导区域级无向邻接图。
  * 若两个地点的相邻边两端解析到不同区域，则添加一条区域间边（双向）。
  */
-function buildRegionGraph(locs) {
+export function buildRegionGraph(locs) {
     const graph = new Map();
     for (const [locKey, loc] of Object.entries(locs)) {
         const src = locRegion(locKey, locs);
@@ -406,7 +406,7 @@ function buildRegionGraph(locs) {
     return graph;
 }
 /** BFS 求区域图最短跳数；不可达返回 -1。使用数组下标代替 shift() 防 O(n²)。 */
-function bfsRegionHops(from, to, graph) {
+export function bfsRegionHops(from, to, graph) {
     if (from === to)
         return 0;
     const visited = new Set([from]);

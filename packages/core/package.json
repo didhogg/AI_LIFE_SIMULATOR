@@ -43,6 +43,7 @@
     "./engine/presetSwap": "./engine/presetSwap.ts",
     "./engine/segment": "./engine/segment.ts",
     "./engine/lodEngine": "./engine/lodEngine.ts",
+    "./engine/lodScheduler": "./engine/lodScheduler.ts",
     "./engine/economyEngine": "./engine/economyEngine.ts",
     "./prompt/callRegistry": "./prompt/callRegistry.ts",
     "./replay": "./replay/index.ts"

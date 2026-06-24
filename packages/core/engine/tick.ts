@@ -477,11 +477,11 @@ export function runTick(state: RootState, input: TickInput): TickResult {
 
 // ── 空间层辅助（G1·区域图跳数 + 人口密度调制） ────────────────────────────────
 
-type LocRecord = RootState['地图']['地点'];
-type RegionGraph = Map<string, Set<string>>;
+export type LocRecord = RootState['地图']['地点'];
+export type RegionGraph = Map<string, Set<string>>;
 
 /** 给定地点键，沿父节点链（最多 16 层）找最近「区域级」祖先节点键；含自身。 */
-function locRegion(locKey: string, locs: LocRecord): string | undefined {
+export function locRegion(locKey: string, locs: LocRecord): string | undefined {
   let cur = locKey;
   for (let d = 0; d < 16; d++) {
     const loc = locs[cur];
@@ -497,7 +497,7 @@ function locRegion(locKey: string, locs: LocRecord): string | undefined {
  * 从全量 地点.相邻 推导区域级无向邻接图。
  * 若两个地点的相邻边两端解析到不同区域，则添加一条区域间边（双向）。
  */
-function buildRegionGraph(locs: LocRecord): RegionGraph {
+export function buildRegionGraph(locs: LocRecord): RegionGraph {
   const graph: RegionGraph = new Map();
   for (const [locKey, loc] of Object.entries(locs)) {
     const src = locRegion(locKey, locs);
@@ -516,7 +516,7 @@ function buildRegionGraph(locs: LocRecord): RegionGraph {
 }
 
 /** BFS 求区域图最短跳数；不可达返回 -1。使用数组下标代替 shift() 防 O(n²)。 */
-function bfsRegionHops(from: string, to: string, graph: RegionGraph): number {
+export function bfsRegionHops(from: string, to: string, graph: RegionGraph): number {
   if (from === to) return 0;
   const visited = new Set<string>([from]);
   const queue: [string, number][] = [[from, 0]];

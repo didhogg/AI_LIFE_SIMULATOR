@@ -496,6 +496,7 @@ export const 玩法预设Schema = z.object({
     创建时预设版本: z.string().optional(), // 预设包创建时的规格版本（元数据·不进指纹）
     派生标记: z.boolean().optional(), // true = 由父预设 additive 派生
     默认模板: z.boolean().optional(), // true = 世界装配时优先选用此预设
+    LOD保温窗口: z.number().int().min(0).optional(), // PR-4 · 区域 LOD 保温窗口（拍数·缺省=引擎常量 LOD_WARM_WINDOW_DEFAULT·不进指纹）
     经济生成规则: z.object({
         品类基线: z.record(z.string(), z.number()).optional(), // 品类→基线价格（覆盖 区域物价.基准价）
         资源紧张度权重: z.number().min(0).max(1).optional(), // [0,1]·资源紧张度信号权重
