@@ -60,6 +60,7 @@ export const SETTLEMENT_PHASES = [
   '标志触发',
   '关系触发',
   '提案落账', // additive: injected AOHP envelope → five-gate pipeline → 落账守恒
+  '死亡感知发射', // C2-4: 提案落账后扫描新亡 actor → emitRipple → Phase 8 传播
   '衰减批',
   '涟漪传播',
   '媒介拍末取材', // E4·6.55: 涟漪先落账后·媒介通道（书信/信使等）在拍末采样·然后进原子提交
@@ -122,6 +123,13 @@ export function runTick(state: RootState, input: TickInput): TickResult {
 
   const spanMin     = input.spanMinutes ?? (s.世界?._本拍跨度 ?? 43200);
   const nowEpochMin = s.世界?.纪元分钟 ?? 0;
+
+  // C2-4 拍前已故集合（原始 state 快照·防跨拍重复发射死亡涟漪）
+  const priorDeadSet = new Set<string>(
+    Object.entries(state.NPC)
+      .filter(([, npc]) => npc.存活状态 === '已故')
+      .map(([k]) => k),
+  );
 
   // 拍前 Σ净值快照（原子提交守恒基线）
   // 使用原始 state 账户计算（不随 s 替换漂移·注入落账后 Phase9 用 s.货币系统?.账户 校验）
@@ -258,6 +266,32 @@ export function runTick(state: RootState, input: TickInput): TickResult {
       settledPhases.push(INJECT_PHASE);
     }
   }
+
+  // Phase 死亡感知发射 · C2-4: 扫描本拍新亡 actor → 向同地点在场目击者发射「生命」维度涟漪
+  // 全 actor：PC 与 NPC 同路径；死者本身不入中继（propagateRipple 死者防护 obs1 guard）
+  runPhase('死亡感知发射', () => {
+    const tickNumber = s._tick?.拍计数 ?? 0;
+    for (const [actorKey, npc] of Object.entries(s.NPC)) {
+      if (npc.存活状态 !== '已故') continue;
+      if (priorDeadSet.has(actorKey)) continue; // 拍前即已故·跳过（防重复发射）
+      const deadLoc = npc.位置 ?? '';
+      emitRipple(s.$涟漪候选, actorKey, {
+        标签:     npc.死因 || '死亡',  // 上下文派生：死因未登记退化 '死亡'（禁写死）
+        极性:     '中',                // 中立事实性事件
+        强度:     100,
+        可见性:   '公开',
+        来源拍号: tickNumber,
+        有锚布尔: true,
+        factFragment: {
+          主体:  actorKey,
+          维度:  '生命',
+          Δ方向: -1,
+          量级:  100,
+          ...(deadLoc ? { 场景: deadLoc } : {}),
+        },
+      });
+    }
+  });
 
   // Phase 7 · 衰减批 — 三处共用 decayStep（印象/意象/记忆·L-13 统一累加器）
   runPhase('衰减批', () => {
@@ -475,6 +509,7 @@ function propagateRipple(s: RootState, nowEpochMin: number): void {
 
       for (const obs1 of presentKeys) {
         if (covert) continue; // covert 走 fact 自带门，一跳/二跳均不落印象
+        if (npcs[obs1]?.存活状态 === '已故') continue; // 死者防护：已故 actor 停中继且不接收印象
 
         writeImpressionMax(s.认知档案, obs1, targetKey, {
           标签:      imp.标签,

@@ -11,7 +11,7 @@ const TICK_LOG_MAX = 8;
 const RIPPLE_DECAY = 0.5; // 二跳强度乘子（一跳强度 × 信任/100 × RIPPLE_DECAY）
 const RIPPLE_MIN = 1; // 低于此阈值不写入认知档案（防噪）
 const REL_RIPPLE_THRESHOLD = 50; // Phase 6 关系触发：|强度|×信任/100 达此阈值才发射
-// ── 空间层参数（G1·区域图距离 + 人口密度调制） ──────────────────────────────────
+// ── 空间层参数（G1·区域图距离 + 人口密度调制 + 场景传播系数） ─────────────────────
 const REGION_HOP_DECAY = 0.7; // 跨区域每跳衰减乘子（确定性常量）
 const SPATIAL_FACTOR_MIN = 0.1; // 空间因子下界（防近零）
 const SPATIAL_FACTOR_MAX = 1.5; // 空间因子上界（密集区加成上限）
@@ -23,6 +23,13 @@ const POPULATION_DENSITY_FACTOR = {
     '小型': 0.85,
     '微型': 0.7,
 };
+// G1 场景传播系数（广场↑ / 密室↓）：目标所在地点的社交开放度 → 二跳强度乘子
+// 仅二跳生效（一跳=同地·社交开放度对在场目击者无衰减·因子恒 1）
+const SCENE_PROPAGATION_COEFF = {
+    '高': 1.3, // 广场效应：高社交开放度→事件可见度放大→二跳传播增强
+    '中': 1.0, // 默认：中等社交开放度→因子恒 1（退化不变式）
+    '低': 0.7, // 密室效应：低社交开放度→事件私密性→二跳传播衰减
+};
 // ── 结算序 ────────────────────────────────────────────────────────────────────
 export const SETTLEMENT_PHASES = [
     '日程结算',
@@ -32,6 +39,7 @@ export const SETTLEMENT_PHASES = [
     '标志触发',
     '关系触发',
     '提案落账', // additive: injected AOHP envelope → five-gate pipeline → 落账守恒
+    '死亡感知发射', // C2-4: 提案落账后扫描新亡 actor → emitRipple → Phase 8 传播
     '衰减批',
     '涟漪传播',
     '媒介拍末取材', // E4·6.55: 涟漪先落账后·媒介通道（书信/信使等）在拍末采样·然后进原子提交
@@ -52,6 +60,10 @@ export function runTick(state, input) {
     }
     const spanMin = input.spanMinutes ?? (s.世界?._本拍跨度 ?? 43200);
     const nowEpochMin = s.世界?.纪元分钟 ?? 0;
+    // C2-4 拍前已故集合（原始 state 快照·防跨拍重复发射死亡涟漪）
+    const priorDeadSet = new Set(Object.entries(state.NPC)
+        .filter(([, npc]) => npc.存活状态 === '已故')
+        .map(([k]) => k));
     // 拍前 Σ净值快照（原子提交守恒基线）
     // 使用原始 state 账户计算（不随 s 替换漂移·注入落账后 Phase9 用 s.货币系统?.账户 校验）
     const preAccounts = state.货币系统?.账户;
@@ -106,21 +118,31 @@ export function runTick(state, input) {
         // TODO(P0-7): scan flag triggers
     });
     // Phase 6 · 关系触发 — G1a 发射端：|强度|×信任/100 ≥ REL_RIPPLE_THRESHOLD 的关系推候选涟漪
+    // C2-3: 全体 actor 均可发射（不仅 PC）；emit factFragment 载荷（有锚·关系维度）
     runPhase('关系触发', () => {
         const tickNumber = s._tick?.拍计数 ?? 0;
-        for (const [, npc] of Object.entries(s.NPC)) {
+        for (const [npcKey, npc] of Object.entries(s.NPC)) {
             for (const rel of npc.关系) {
                 if (!rel.对象键)
                     continue;
                 const score = Math.abs(rel.强度) * (rel.信任 / 100);
                 if (score < REL_RIPPLE_THRESHOLD)
                     continue;
+                const 量级 = Math.min(100, Math.round(score));
                 emitRipple(s.$涟漪候选, rel.对象键, {
                     标签: rel.类型 || '关系',
                     极性: rel.极性 || '中',
-                    强度: Math.min(100, Math.round(score)),
+                    强度: 量级,
                     可见性: '公开',
                     来源拍号: tickNumber,
+                    有锚布尔: true,
+                    factFragment: {
+                        主体: npcKey,
+                        维度: '关系',
+                        Δ方向: rel.极性 === '负' ? -1 : 1,
+                        客体: rel.对象键,
+                        量级,
+                    },
                 });
             }
         }
@@ -165,6 +187,33 @@ export function runTick(state, input) {
             settledPhases.push(INJECT_PHASE);
         }
     }
+    // Phase 死亡感知发射 · C2-4: 扫描本拍新亡 actor → 向同地点在场目击者发射「生命」维度涟漪
+    // 全 actor：PC 与 NPC 同路径；死者本身不入中继（propagateRipple 死者防护 obs1 guard）
+    runPhase('死亡感知发射', () => {
+        const tickNumber = s._tick?.拍计数 ?? 0;
+        for (const [actorKey, npc] of Object.entries(s.NPC)) {
+            if (npc.存活状态 !== '已故')
+                continue;
+            if (priorDeadSet.has(actorKey))
+                continue; // 拍前即已故·跳过（防重复发射）
+            const deadLoc = npc.位置 ?? '';
+            emitRipple(s.$涟漪候选, actorKey, {
+                标签: npc.死因 || '死亡', // 上下文派生：死因未登记退化 '死亡'（禁写死）
+                极性: '中', // 中立事实性事件
+                强度: 100,
+                可见性: '公开',
+                来源拍号: tickNumber,
+                有锚布尔: true,
+                factFragment: {
+                    主体: actorKey,
+                    维度: '生命',
+                    Δ方向: -1,
+                    量级: 100,
+                    ...(deadLoc ? { 场景: deadLoc } : {}),
+                },
+            });
+        }
+    });
     // Phase 7 · 衰减批 — 三处共用 decayStep（印象/意象/记忆·L-13 统一累加器）
     runPhase('衰减批', () => {
         // 认知档案印象衰减（decayStep 统一实现·禁第二实现）
@@ -335,10 +384,11 @@ function computeSpatialFactor(targetRegion, obs2Loc, locs, graph) {
 /**
  * 涟漪传播：读 $涟漪候选 → 写认知档案 → 清空 $涟漪候选
  *
- * 一手在场（目标 NPC 所在地点的其他 NPC）→ 沿 关系 边二跳×衰减×信任×空间因子
+ * 一手在场（目标 NPC 所在地点的其他 NPC）→ 沿 关系 边二跳×衰减×信任×空间因子×场景系数
  * covert（可见性='隐秘'）= 一跳/二跳均不落印象（走 fact 自带门·零印象）
- * 取 max：同 (observer, target, 标签) 已有印象则取强度较大值（防回路膨胀）
+ * 取 max：同 (observer, target, 标签, 极性) 已有印象则取强度较大值（防回路膨胀）
  * 空间因子（G1）：同区域/无图退化=1；跨区域 = REGION_HOP_DECAY^hops × 密度调制
+ * 场景传播系数（G1·二跳）：目标地点 社交开放度 高→1.3 / 中→1.0 / 低→0.7
  */
 function propagateRipple(s, nowEpochMin) {
     const pending = s.$涟漪候选;
@@ -355,6 +405,9 @@ function propagateRipple(s, nowEpochMin) {
             const targetLoc = npcs[targetKey]?.位置 ?? '';
             // 目标区域（供 computeSpatialFactor 二跳计算复用）
             const targetRegion = hasMap && targetLoc ? locRegion(targetLoc, locs) : undefined;
+            // 场景传播系数（G1·二跳·目标地点社交开放度·无图/无地点退化=1.0）
+            const targetLocEntry = hasMap && targetLoc ? locs[targetLoc] : undefined;
+            const sceneCoeff = SCENE_PROPAGATION_COEFF[targetLocEntry?.社交开放度 ?? '中'] ?? 1.0;
             // 一跳：目标所在地点的在场 NPC（不含目标自身）
             const presentKeys = targetLoc
                 ? Object.entries(npcs)
@@ -364,6 +417,8 @@ function propagateRipple(s, nowEpochMin) {
             for (const obs1 of presentKeys) {
                 if (covert)
                     continue; // covert 走 fact 自带门，一跳/二跳均不落印象
+                if (npcs[obs1]?.存活状态 === '已故')
+                    continue; // 死者防护：已故 actor 停中继且不接收印象
                 writeImpressionMax(s.认知档案, obs1, targetKey, {
                     标签: imp.标签,
                     极性: imp.极性,
@@ -372,8 +427,9 @@ function propagateRipple(s, nowEpochMin) {
                     获知时间: nowEpochMin,
                     衰减速率: 0,
                     来源类型: '一手观测',
+                    ...(imp.factFragment !== undefined ? { factFragment: imp.factFragment } : {}),
                 });
-                // 二跳：一跳观察者的 关系 连接（不在场）
+                // 二跳：一跳观察者的 关系 连接（不在场）；场景系数 × 空间因子 × 衰减 × 信任
                 const obs1Npc = npcs[obs1];
                 if (!obs1Npc)
                     continue;
@@ -383,7 +439,7 @@ function propagateRipple(s, nowEpochMin) {
                         continue;
                     const obs2Loc = npcs[obs2]?.位置 ?? '';
                     const sfactor = computeSpatialFactor(targetRegion, obs2Loc, locs, regionGraph);
-                    const strength2 = imp.强度 * RIPPLE_DECAY * (rel.信任 / 100) * sfactor;
+                    const strength2 = imp.强度 * RIPPLE_DECAY * (rel.信任 / 100) * sfactor * sceneCoeff;
                     if (strength2 < RIPPLE_MIN)
                         continue;
                     writeImpressionMax(s.认知档案, obs2, targetKey, {
@@ -394,6 +450,7 @@ function propagateRipple(s, nowEpochMin) {
                         获知时间: nowEpochMin,
                         衰减速率: 0,
                         来源类型: '二手转述',
+                        ...(imp.factFragment !== undefined ? { factFragment: imp.factFragment } : {}),
                     });
                 }
             }
@@ -425,11 +482,13 @@ function writeImpressionMax(认知, observerKey, targetKey, entry) {
     const 印象 = 认知[observerKey][targetKey].印象;
     const existing = 印象.find(i => i.标签 === entry.标签 && i.极性 === entry.极性);
     if (existing) {
-        // 取 max 防循环膨胀
+        // 取 max 防循环膨胀；更新 factFragment（若有）
         if (entry.强度 > existing.强度) {
             existing.强度 = entry.强度;
             existing.来源 = entry.来源;
             existing.获知时间 = entry.获知时间;
+            if (entry.factFragment !== undefined)
+                existing.factFragment = entry.factFragment;
         }
     }
     else {
