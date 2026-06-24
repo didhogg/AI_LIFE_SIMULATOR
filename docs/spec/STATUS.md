@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=509de9d（feat: G2-3 官方信道完善·矫诏门+SEIR冲突吸收+层级延迟+机测固化）· 前=d5f4456（feat: G2-2 传播信道+系数接线）· 前=941bd47（test: G2-1·rebase）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/G2-3
+# code HEAD=c920f5b（feat: PR-1 预设切换原语 swapPreset+unloadPreset）· 前=509de9d（feat: G2-3 官方信道完善·矫诏门+SEIR冲突吸收+层级延迟+机测固化）· 前=d5f4456（feat: G2-2 传播信道+系数接线）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/PR-1
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -377,6 +377,28 @@
   - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·manifest=85·schemaKeys=52·tsc 0新增错误·lint 0新增
   - 本轮排除（G2-2/G2-3）：官方信道传播·层级延迟·媒体广播开关·资源紧张度接线·schema 冻结·Phase 4 PR
   - additive-only: 0 RNG / 0 propagateRipple 改动 / 0 重定基 / schemaKeys=52 / manifest=85 / 黄金向量逐位恒等
+- [x] PR-1 · 预设切换原语 swapPreset + unloadPreset · commit=c920f5b · test=3943→3960(+18)
+  - packages/core/engine/presetSwap.ts（新）：swapPreset / unloadPreset / WORLD_OWNED_STATE_KEYS
+    - P1-1 swapPreset：①Zod parse → ②退化守卫 → ③卸旧命名空间 → ④难度指纹 hashCanonical → ⑤shouldOpenNewSegment+openSegment（F-c·禁第二实现）→ ⑥verifySegmentChain 断链=D4警示不throw → ⑦additive surgical patch
+    - P1-2 段链：复用 segment.ts F-c·openedNewSegment+chainValid 逐段哈希链校验
+    - P1-3 状态隔离：WORLD_OWNED_STATE_KEYS 常量（NPC/货币/记忆等11键）·来源包过滤（受治理键空间注册表）
+    - P1-4 unloadPreset：幂等（未挂载→no-op）·dangling fail-closed（lore side_effects/cascade_on_change/解除通道引用→throw）
+  - hosts/slice/tests/m_pr1_preset_swap.test.ts（新·18 tests·F1~F6）
+    - F1 determinism（同inputs两次→state深度相等·seeded可复现）
+    - F2 段链（首次swap→len=1·A→B→len=2·三次→len=3段序号连续·难度指纹变→新段）
+    - F3 隔离（旧preset私有namespace条目卸载·WORLD_OWNED_STATE_KEYS不变·system条目保留）
+    - F4 detach（清空世界域引用·清registry·幂等reference equality·side_effects dangling throw·cascade_on_change throw）
+    - F5 退化守卫（同presetId+版本+难度→openedNewSegment=false·state逐位不变）
+    - F6 300拍 soak（100×A+swap+100×B+swap+100×A·assertConservation Σ净值=230 不throw·chainValid=true·segs≥2·纪元分钟=432000）
+  - packages/core/package.json：新增2条exports（./engine/presetSwap · ./engine/segment）
+  - 守恒表：
+    - m_p7tier2 35/35 向量 0 重定基 ✅
+    - soak 300×8 全绿（node hosts/slice/scripts/soak.js --seed 12345 --runs 300）✅
+    - BUNDLE=21 · manifest=86(fingerprintManifest.ts 含单引号行数=86) 守恒 ✅
+    - 红线 diff=0（rng.ts·gate.ts·conservation.ts·computeDelta.ts·fixed.ts·fnv1a32·canonicalize 函数体零 diff）✅
+    - schemaKeys=52 · 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等 ✅
+    - tsc core=12→12 · slice=23→23（0新增错误）✅
+
 - [x] G2-3 · 官方信道完善（矫诏门+SEIR冲突吸收+层级延迟）+ 阶段3 schema 冻结 + G2 机测固化 · commit=509de9d · test=3929→3943(+14·91 files)
   - S1 层级延迟: buildOrgChildGraph(BFS·层级/隶属边)·bfsOrgHierarchyDepths·rollBound=100/(depth+1)·seeded rngFor·默认 fixture 无层级边→orgChildGraph.size===0→子组织循环完全跳过→0 重定基
   - S2 矫诏真伪门: dollar.ts $涟漪候选Schema 加 矫诏:z.boolean().optional()·FAKE_EDICT_CREDIBILITY_FACTOR=0.5·来源标注'组织传达(矫诏):orgKey'·未声明/false=退回旧行为（零迁移·additive-only）
