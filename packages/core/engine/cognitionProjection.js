@@ -1,0 +1,142 @@
+// packages/core/engine/cognitionProjection.ts
+// PR-5 · access 场 / 认知投影接缝（认知投影层 ⊥ 真相实体层）
+//
+// P5-1  projectCognition          — 纯函数·只读·零指纹·零写
+// P5-2  co-location 临时高导通    — 同场 +COLOCATION_BOOST·读时计算·不落状态
+// P5-3  covert gate               — 跨域 access=0·访问阈值门·existence-opaque
+// P5-4  声望导通乘子              — 声誉.人望 → conductance 调制·闭式·确定性
+// P5-5  buildInvestigationDelta   — investigation 归约为 了解度 K5 delta（走五道闸）
+// P5-6  diffProjection            — 低→高 access 重投影 diff 浮现
+//
+// 六禁：禁 Date.now/new Date/Math.random/localeCompare/裸 JSON.stringify/NFC
+// 零指纹：投影读不影响任何判定·不进 hashJudgmentBundle（R7-b 并列）
+// 红线：gate.ts/rng.ts/conservation.ts/computeDelta.ts/fixed.ts/propagateRipple 函数体零 diff
+import { isCrossDomainAccess } from './lodScheduler.js';
+// ── 常量 ──────────────────────────────────────────────────────────────────────
+/** P5-2: 同场（co-location）临时高导通加成 */
+const COLOCATION_BOOST = 30;
+/** P5-4: 声望乘子分母（人望[-100,100] / PRESTIGE_SCALE = ±0.5 offset） */
+const PRESTIGE_SCALE = 200;
+/** P5-1: 投影最低强度阈值（低于此不出现在 baseline 切片） */
+const ACCESS_MIN = 1;
+/**
+ * 认知投影：给定 (观察者, scope) → 返回该 actor 当前有权感知的事实切片。
+ *
+ * 纯函数·只读·零写·零指纹（R7-b 并列·不影响判定面）。
+ * 退化：无观察者认知档案 → 空投影 { baseline: {} }。
+ */
+export function projectCognition(state, observerKey, scope = {}) {
+    const observerDomain = _activeDomainId(state);
+    const minStr = scope.minStrength ?? ACCESS_MIN;
+    const observerArchive = state.认知档案?.[observerKey];
+    if (!observerArchive) {
+        return { observerKey, baseline: {}, observerDomain };
+    }
+    const observerLoc = state.NPC[observerKey]?.位置 ?? '';
+    const rawTargetKeys = Object.keys(observerArchive);
+    const targetKeys = scope.targetKeys && scope.targetKeys.length > 0
+        ? scope.targetKeys.filter(k => observerArchive[k] !== undefined)
+        : rawTargetKeys;
+    const baseline = {};
+    for (const targetKey of targetKeys) {
+        const cogEntry = observerArchive[targetKey];
+        if (!cogEntry)
+            continue;
+        // P5-2: co-location 导通加成（读时计算·不落状态）
+        const targetLoc = state.NPC[targetKey]?.位置 ?? '';
+        const coLocated = !!observerLoc && !!targetLoc && observerLoc === targetLoc;
+        // P5-4: 声望乘子（目标 声誉.人望 ∈ [-100,100] → 乘子 ∈ [0.5,1.5]）
+        const prestige = state.NPC[targetKey]?.声誉?.人望 ?? 0;
+        const prestigeMul = 1.0 + prestige / PRESTIGE_SCALE;
+        // Base conductance 仅统计同域印象（跨域印象不贡献 access·existence-opaque）
+        const sameDomainImps = cogEntry.印象.filter(imp => {
+            if (imp.factFragment?.来源世界域 && observerDomain) {
+                return !isCrossDomainAccess(imp.factFragment.来源世界域, observerDomain);
+            }
+            return true;
+        });
+        const maxImpStr = sameDomainImps.reduce((m, i) => Math.max(m, i.强度), 0);
+        const baseStrength = Math.max(maxImpStr, cogEntry.了解度);
+        const boostedStr = coLocated
+            ? Math.min(100, baseStrength + COLOCATION_BOOST)
+            : baseStrength;
+        const access = Math.max(0, Math.min(100, Math.round(boostedStr * prestigeMul)));
+        // P5-3b: 访问阈值门
+        const seedLib = state.全局?._factFragment种子库 ?? {};
+        const blockedDims = new Set();
+        for (const seed of Object.values(seedLib)) {
+            if (!seed)
+                continue;
+            if (seed.主体 === targetKey && seed.访问阈值 > access) {
+                blockedDims.add(`${seed.主体}:${seed.维度}`);
+            }
+        }
+        // 过滤印象
+        const filtered = [];
+        for (const imp of cogEntry.印象) {
+            if (imp.强度 < minStr)
+                continue;
+            if (scope.dimensions && scope.dimensions.length > 0) {
+                const dim = imp.factFragment?.维度 ?? '';
+                if (!scope.dimensions.includes(dim))
+                    continue;
+            }
+            if (imp.factFragment?.来源世界域 && observerDomain) {
+                if (isCrossDomainAccess(imp.factFragment.来源世界域, observerDomain))
+                    continue;
+            }
+            if (imp.factFragment) {
+                const dimKey = `${imp.factFragment.主体}:${imp.factFragment.维度}`;
+                if (blockedDims.has(dimKey))
+                    continue;
+            }
+            filtered.push({
+                标签: imp.标签,
+                极性: imp.极性,
+                强度: imp.强度,
+                ...(imp.来源类型 !== undefined ? { 来源类型: imp.来源类型 } : {}),
+                ...(imp.factFragment !== undefined ? { factFragment: imp.factFragment } : {}),
+            });
+        }
+        if (filtered.length === 0 && !coLocated && access === 0)
+            continue;
+        baseline[targetKey] = { impressions: filtered, access, coLocated };
+    }
+    return { observerKey, baseline, observerDomain };
+}
+/**
+ * 「调查/搜索」归约为 K5 delta：花预算强化认知档案中 了解度 字段。
+ *
+ * 返回调用方可传入 runProposalGate 的路径 delta 列表（走五道闸·进指纹）。
+ * 此函数仅构造 delta；不执行五道闸·不写 state·不进指纹。
+ * 与 projectCognition（只读·不进指纹）两轨严格分离。
+ */
+export function buildInvestigationDelta(observerKey, targetKey, boostAmount) {
+    const clamped = Math.min(30, Math.max(1, Math.round(boostAmount)));
+    return [{
+            path: `认知档案.${observerKey}.${targetKey}.了解度`,
+            op: 'add',
+            value: clamped,
+        }];
+}
+/**
+ * 低 access → 高 access 重投影 diff（确定性浮现·同输入逐位恒等）。
+ */
+export function diffProjection(low, high) {
+    const lowKeys = new Set(Object.keys(low.baseline));
+    const highKeys = new Set(Object.keys(high.baseline));
+    const sort = (arr) => arr.sort();
+    return {
+        newlyVisible: sort([...highKeys].filter(k => !lowKeys.has(k))),
+        lostVisible: sort([...lowKeys].filter(k => !highKeys.has(k))),
+        unchanged: sort([...lowKeys].filter(k => highKeys.has(k))),
+    };
+}
+/** 当前活跃世界域 ID（首个 封存状态=false 的域；无域时返回空串） */
+function _activeDomainId(state) {
+    for (const [domainId, domain] of Object.entries(state.世界域)) {
+        if (domain && !domain.封存状态)
+            return domainId;
+    }
+    return '';
+}
