@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=d5f4456（feat: G2-2 传播信道+系数接线）· 前=941bd47（test: G2-1·rebase）· 前=910d1e7（feat: G2-1 propagateRipple 全动力学）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/G2-2
+# code HEAD=509de9d（feat: G2-3 官方信道完善·矫诏门+SEIR冲突吸收+层级延迟+机测固化）· 前=d5f4456（feat: G2-2 传播信道+系数接线）· 前=941bd47（test: G2-1·rebase）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/G2-3
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -377,6 +377,13 @@
   - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·manifest=85·schemaKeys=52·tsc 0新增错误·lint 0新增
   - 本轮排除（G2-2/G2-3）：官方信道传播·层级延迟·媒体广播开关·资源紧张度接线·schema 冻结·Phase 4 PR
   - additive-only: 0 RNG / 0 propagateRipple 改动 / 0 重定基 / schemaKeys=52 / manifest=85 / 黄金向量逐位恒等
+- [x] G2-3 · 官方信道完善（矫诏门+SEIR冲突吸收+层级延迟）+ 阶段3 schema 冻结 + G2 机测固化 · commit=509de9d · test=3929→3943(+14·91 files)
+  - S1 层级延迟: buildOrgChildGraph(BFS·层级/隶属边)·bfsOrgHierarchyDepths·rollBound=100/(depth+1)·seeded rngFor·默认 fixture 无层级边→orgChildGraph.size===0→子组织循环完全跳过→0 重定基
+  - S2 矫诏真伪门: dollar.ts $涟漪候选Schema 加 矫诏:z.boolean().optional()·FAKE_EDICT_CREDIBILITY_FACTOR=0.5·来源标注'组织传达(矫诏):orgKey'·未声明/false=退回旧行为（零迁移·additive-only）
+  - S3 SEIR 冲突吸收: computeConflictAbsorption(archive,obsKey,targetKey,imp)·SEIR_CONFLICT_ABSORPTION_THRESHOLD=30·FACTOR=0.5·矫诏=true+对立真印象≥30→额外×0.5（×0.25总）·矫诏≠true→factor=1.0（不触发）
+  - S4 阶段3 schema 冻结: schemaKeys=52✓·BUNDLE=21✓·新增内层字段 dollar.ts.矫诏(additive·not top-level)·无新 manifest 成员
+  - S5 机测固化: E9-E15(14 tests·31/31全绿)：E9无层级边向后兼容·E10 depth=1 seed=42→roll=14<50到达/seed=99→roll=66≥50延迟·E11 seeded确定性·E12 backward compat·E13 矫诏=true折半+标注·E14 冲突吸收有R态+边界(强度29<30不触发)·E15 无R态对比
+  - m_p7tier2 35/35 向量 0 重定基·全套 3942/3943(pre-existing 1 m_webdemo)·tsc 0 新增错误·黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·gate.ts/rng.ts/conservation.ts/computeDelta.ts/fixed.ts 函数体零 diff
 - [x] G2-2 · 传播信道 + 系数接线（媒体开关/官方信道/资源系数/Bass外部点火） · commit=d5f4456 · test=3911→3929(+18·91 files)
   - 媒体传播面（进指纹·BUNDLE 20→21·manifest 85→86）：preset.ts 媒介登记条目 加 是否传播?/传播系数?；rng.ts hashJudgmentBundle 加 媒介传播面? 参数；fingerprintManifest.ts BUNDLE_MEMBERS +1
   - Bass 外部点火（TickInput.bassP/bassQ → pExt/bassQ）：bassFactor() 改传参（替换 BASS_P=0.0 stub）；pExt > 0 → 全体孤立 NPC seeded RNG 点火（rngFor 四元盐）
