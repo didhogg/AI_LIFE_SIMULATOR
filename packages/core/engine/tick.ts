@@ -14,7 +14,7 @@ import type { RootState } from '../schema/index.js';
 import { assertConservation } from './conservation.js';
 import { getNetAsset } from './netAsset.js';
 import { decayStep } from './time.js';
-import { fixedPow } from './math/fixed.js';
+import { fixedPow, fixedExp } from './math/fixed.js';
 import { runProposalGate } from './proposal/index.js';
 import type { ProposalGateResult } from './proposal/index.js';
 import type { K5DeltaEntry } from '../interfaces/interventionMerge.js';
@@ -29,6 +29,22 @@ const TICK_LOG_MAX = 8;
 const RIPPLE_DECAY          = 0.5;  // 二跳强度乘子（一跳强度 × 信任/100 × RIPPLE_DECAY）
 const RIPPLE_MIN            = 1;    // 低于此阈值不写入认知档案（防噪）
 const REL_RIPPLE_THRESHOLD  = 50;   // Phase 6 关系触发：|强度|×信任/100 达此阈值才发射
+
+// ── C2-5 感知消费参数 ──────────────────────────────────────────────────────────
+/** 编年史公共知识阈值：factFragment.量级 ≥ 此值且有一手观测者才入 _编年史 */
+const CHRONICLE_PUBLIC_THRESHOLD = 50;
+
+/** 情绪维度映射表（由 factFragment.维度+Δ方向派生·禁写死标签名） */
+const EMOTION_DIMENSION_MAP: Record<string, { pos: string; neg: string; coeff: number }> = {
+  '生命': { pos: '震惊',  neg: '悲恸',  coeff: 1.0 },
+  '关系': { pos: '信任感', neg: '警惕', coeff: 0.5 },
+};
+
+/** 二手转述淡化系数（fixedExp(-ln2)≈0.5·确定性·no Math.exp） */
+const INDIRECT_APPRAISAL_FACTOR = fixedExp(-0.6931471805599453);
+
+/** 未知维度默认情绪强度系数 */
+const UNKNOWN_DIM_COEFF = 0.3;
 
 // ── 空间层参数（G1·区域图距离 + 人口密度调制 + 场景传播系数） ─────────────────────
 const REGION_HOP_DECAY    = 0.7;   // 跨区域每跳衰减乘子（确定性常量）
@@ -63,6 +79,8 @@ export const SETTLEMENT_PHASES = [
   '死亡感知发射', // C2-4: 提案落账后扫描新亡 actor → emitRipple → Phase 8 传播
   '衰减批',
   '涟漪传播',
+  '感知情绪化', // C2-5: 认知档案本拍新 factFragment → NPC.情绪栈 appraisal
+  '编年史入册', // C2-5: 公共 factFragment（≥1 一手观测·量级≥阈值）→ 全局._编年史
   '媒介拍末取材', // E4·6.55: 涟漪先落账后·媒介通道（书信/信使等）在拍末采样·然后进原子提交
   '原子提交',
 ] as const;
@@ -335,6 +353,18 @@ export function runTick(state: RootState, input: TickInput): TickResult {
     propagateRipple(s, nowEpochMin);
   });
 
+  // Phase 感知情绪化 · C2-5: 扫认知档案本拍新印象 → 含 factFragment 的条目映射为情绪栈 Δ
+  // 维度/Δ方向派生情绪名·取 max 防回路·二手转述 INDIRECT_APPRAISAL_FACTOR 淡化（确定性）
+  runPhase('感知情绪化', () => {
+    applyAppraisal(s, nowEpochMin);
+  });
+
+  // Phase 编年史入册 · C2-5: 公共知识 factFragment（≥1 一手观测·量级≥阈值）→ 全局._编年史
+  // covert 事件 propagateRipple 已滤（无一手观测→自然零命中·知情门天然生效）
+  runPhase('编年史入册', () => {
+    appendToChronicle(s, nowEpochMin);
+  });
+
   // Phase 8.5 · 媒介拍末取材 — E4·6.55: 涟漪先落账后·媒介通道拍末采样落账
   // 纪律：涟漪传播（Phase 8）必须在媒介取材前完结，保证媒介读取已含涟漪结果。
   runPhase('媒介拍末取材', () => {
@@ -598,6 +628,126 @@ type ImpressionEntry = {
     narrativeFrame?: string | undefined;
   };
 };
+
+// ── C2-5 感知消费引擎 ──────────────────────────────────────────────────────────
+
+/**
+ * 情绪栈回写（appraisal）：扫认知档案本拍新印象（获知时间===nowEpochMin·含 factFragment）
+ * → 按维度/Δ方向派生情绪名 → 写 NPC.情绪栈（取 max·防回路膨胀）。
+ * 二手转述 INDIRECT_APPRAISAL_FACTOR 淡化（fixedExp(-ln2)≈0.5·确定性·no Math.exp）。
+ */
+function applyAppraisal(s: RootState, nowEpochMin: number): void {
+  for (const [observerKey, targetMap] of Object.entries(s.认知档案)) {
+    const npc = s.NPC[observerKey];
+    if (!npc) continue;
+
+    for (const cogEntry of Object.values(targetMap)) {
+      for (const imp of cogEntry.印象) {
+        if (!imp.factFragment) continue;
+        if (imp.获知时间 !== nowEpochMin) continue;
+
+        const ff = imp.factFragment;
+        const dimEntry = EMOTION_DIMENSION_MAP[ff.维度];
+        const dimCoeff = dimEntry?.coeff ?? UNKNOWN_DIM_COEFF;
+        // 情绪名/极性由 factFragment.维度+Δ方向派生（禁写死标签名）
+        const emotionName = dimEntry
+          ? (ff.Δ方向 >= 0 ? dimEntry.pos : dimEntry.neg)
+          : imp.标签;
+        const polarity = dimEntry
+          ? (ff.Δ方向 >= 0 ? '正' : '负')
+          : imp.极性;
+
+        // 淡化：二手转述走 INDIRECT_APPRAISAL_FACTOR（fixedExp 确定性口径）
+        const directFactor = imp.来源类型 === '一手观测' ? 1.0 : INDIRECT_APPRAISAL_FACTOR;
+        const intensity = Math.min(100, Math.round(ff.量级 * dimCoeff * directFactor));
+        if (intensity <= 0) continue;
+
+        // 取 max 防回路膨胀（同情绪名已有条目→仅在强度更高时更新）
+        const existing = npc.情绪栈.find(e => e.情绪名 === emotionName);
+        if (existing) {
+          if (intensity > existing.数值) {
+            existing.数值 = intensity;
+            existing.来源 = imp.来源;
+          }
+        } else {
+          npc.情绪栈.push({
+            情绪名: emotionName,
+            极性: polarity,
+            数值: intensity,
+            影响: [],
+            到期: 0,
+            来源: imp.来源,
+            可叠加: false,
+          });
+        }
+      }
+    }
+  }
+}
+
+/**
+ * 编年史入册：扫认知档案本拍新印象中公共 factFragment
+ * （来源类型='一手观测' + 量级≥CHRONICLE_PUBLIC_THRESHOLD）→ 去重后追加 全局._编年史。
+ * covert 事件 propagateRipple 已过滤（无一手观测→天然零命中·知情门自动生效）。
+ * 序号单调递增（M3_FORWARD_ONLY 守卫·引擎直写 _ 前缀字段·不走 computeDelta）。
+ */
+function appendToChronicle(s: RootState, nowEpochMin: number): void {
+  const 编年史 = s.全局?._编年史;
+  if (!编年史) return;
+
+  // 公共事件去重：key=`${主体}:${维度}`（同拍同 actor 同维度合并一条）
+  type EvData = {
+    主体: string; 维度: string; Δ方向: number; 量级: number;
+    客体?: string; 场景?: string;
+  };
+  const publicEvents = new Map<string, EvData>();
+
+  for (const targetMap of Object.values(s.认知档案)) {
+    for (const cogEntry of Object.values(targetMap)) {
+      for (const imp of cogEntry.印象) {
+        if (!imp.factFragment) continue;
+        if (imp.获知时间 !== nowEpochMin) continue;
+        if (imp.来源类型 !== '一手观测') continue;
+        const ff = imp.factFragment;
+        if (ff.量级 < CHRONICLE_PUBLIC_THRESHOLD) continue;
+
+        const evKey = `${ff.主体}:${ff.维度}`;
+        if (!publicEvents.has(evKey)) {
+          publicEvents.set(evKey, {
+            主体: ff.主体, 维度: ff.维度, Δ方向: ff.Δ方向,
+            量级: ff.量级,
+            ...(ff.客体 !== undefined ? { 客体: ff.客体 } : {}),
+            ...(ff.场景 !== undefined ? { 场景: ff.场景 } : {}),
+          });
+        }
+      }
+    }
+  }
+
+  if (publicEvents.size === 0) return;
+
+  let seqMax = 编年史.length > 0
+    ? 编年史.reduce((m, e) => Math.max(m, e.序号), 0)
+    : 0;
+
+  for (const ev of publicEvents.values()) {
+    const dir = ev.Δ方向 < 0 ? '降' : '升';
+    const 标题 = ev.客体
+      ? `${ev.主体}→${ev.客体}·${ev.维度}${dir}`
+      : `${ev.主体}·${ev.维度}${dir}`;
+    const 结果摘要行 = ev.客体
+      ? `${ev.主体} 与 ${ev.客体} 发生${ev.维度}维度事件·量级${ev.量级}`
+      : `${ev.主体} 发生${ev.维度}维度事件·量级${ev.量级}`;
+    编年史.push({
+      序号: ++seqMax,
+      时间: nowEpochMin,
+      标题,
+      结果摘要行,
+      关联实体键: ev.客体 ? [ev.主体, ev.客体] : [ev.主体],
+      重要等级: '重要',
+    });
+  }
+}
 
 function writeImpressionMax(
   认知: RootState['认知档案'],
