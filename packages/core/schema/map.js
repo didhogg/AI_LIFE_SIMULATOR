@@ -114,6 +114,7 @@ const 区域物价Schema = z.record(z.string(), // 区域 ID
 z.record(z.string(), z.object({
     基准价: z.number().default(0),
     供需: z.number().min(-100).max(100).default(0),
+    候选基线: z.number().optional(), // P3-4 漂移候选（派生候选·不写回预设·仅 economyEngine.applyDriftCandidate 写入）
 }))).default({});
 // ══════════════════════════════════════════
 // 地图（顶层键）

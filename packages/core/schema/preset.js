@@ -496,6 +496,12 @@ export const 玩法预设Schema = z.object({
     创建时预设版本: z.string().optional(), // 预设包创建时的规格版本（元数据·不进指纹）
     派生标记: z.boolean().optional(), // true = 由父预设 additive 派生
     默认模板: z.boolean().optional(), // true = 世界装配时优先选用此预设
-    经济生成规则: z.record(z.string(), z.unknown()).optional(), // G2 SEIR/Bass 经济种子生成规则接线点
+    经济生成规则: z.object({
+        品类基线: z.record(z.string(), z.number()).optional(), // 品类→基线价格（覆盖 区域物价.基准价）
+        资源紧张度权重: z.number().min(0).max(1).optional(), // [0,1]·资源紧张度信号权重
+        供需权重: z.number().min(0).max(1).optional(), // [0,1]·供需信号权重
+        战时修正权重: z.number().min(0).max(1).optional(), // [0,1]·战时激活权重
+        衰减率: z.number().min(0).max(1).optional(), // [0,1]·修正系数每拍衰减率（闭式·禁逐拍累积）
+    }).optional(),
     社会熵默认值: z.number().min(0).max(1).optional(), // G2 Bass 均值场社会熵基准值（传播系数输入）
 });
