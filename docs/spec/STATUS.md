@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=21537c3（feat: 叙事渲染层·人称+文风库） · 前=c186fd4（A批UI改进）· 前=0f406ea（env-fix-02） | 焊死状态=已正式焊死 @ a7c3f69（Notion 审計签收 2026-06-19） | 更新=2026-06-22/narrative-style
+# code HEAD=9a09c29（feat: C2-3 C · 场景传播系数）· 前=458c6db（C2-3 A+B）· 前=842b03d（C2-2）| 焊死状态=已正式焊死 @ a7c3f69（Notion 审計签收 2026-06-19） | 更新=2026-06-24/C2-3
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -311,6 +311,27 @@
     · 叙事面板加渲染参数徽章 · 快照保存携带渲染参数
   - m_narrative_style.test.ts 27 tests（T1切换文风全恒等×4 / T2切换人称全恒等×4 / T3 3×3笛卡尔积×6 / T4 $meta重放×5 / T5未知值回落×8）
   - core 零 diff · 指纹=84/20不变 · schemaKeys=52不变 · 黄金向量逐位恒等 · lint ≤220 · tsc 不变
+- [x] C2-0 ~ C2-2 · 预设 v2 接线 + 组织实体层§九（additive·zero RNG·2026-06-22~23）
+  - C2-0(bac3b50): dollar.ts/$涟漪候选Schema factFragment v2 留位 + 印象层 来源世界域/有锚布尔 seam
+  - C2-1(b63e6ad): 关系图自动补全接线·死者防护边界·autoCompleteRelations G1b 死者跳过修正（4 G1b failures cleared）
+  - C2-2(842b03d): 组织实体层§九（resolveOrgNodes 别名归一/幽灵节点/已解散停中继·26 G2 tests green）
+  - 指纹=85(BUNDLE20/PRESET11/SNAP5/EXCL49)·schemaKeys=52·黄金向量逐位恒等·test≈3819·tsc=28
+- [x] C2-3 A+B · 印象 factFragment 载荷迁移 + Phase6 感知发射端复活 · commit=458c6db · test=3819(不变)
+  - actor.ts: 印象条目Schema 新增 factFragment? {主体/维度/Δ方向/客体?/场景?/量级/narrativeFrame?}（additive·optional·进认知档案指纹·T1）
+  - tick.ts: ImpressionEntry 类型同步增 factFragment? 字段
+  - tick.ts: writeImpressionMax 取 max 时同步 factFragment（若有）
+  - tick.ts: propagateRipple 一跳/二跳 writeImpressionMax 调用透传 factFragment
+  - Phase6 loop [, npc] → [npcKey, npc]（取主体实体键·全体 actor 发射·非仅 PC）
+  - emitRipple 新增 有锚布尔:true + factFragment{主体:npcKey,维度:'关系',Δ方向,客体,量级}
+  - 机器测试: Kill-WANG→HONG认知档案含 factFragment{主体:'npc_wang',维度:'关系',Δ方向:1} + 来源类型:'一手观测'
+  - schemaKeys=52·指纹=85不变·黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·tsc 0 新增错误·3819/3819
+- [x] C2-3 C · 场景传播系数上移 G1（propagateRipple 函数体） · commit=9a09c29 · test=3819(不变)
+  - tick.ts: SCENE_PROPAGATION_COEFF{高:1.3, 中:1.0, 低:0.7}（基于地点 社交开放度）
+  - propagateRipple 二跳 strength2 乘 sceneCoeff（一跳恒 1·S5 不变式）
+  - 无图/无地点/社交开放度='中' → sceneCoeff=1.0（退化不变式·现有所有测试值逐位不变）
+  - 机器测试: 密室(社交开放度=低) 二跳=28(80×0.5×0.7)·广场(高) 二跳=52(80×0.5×1.3)
+  - G0 重定基: 0条（现有 fixture 退化 1.0·无向量漂移·新场景系数仅对「非中」地点生效）
+  - tsc 0 新增错误·黄金向量逐位恒等·指纹=85不变·schemaKeys=52不变·lint 0新增·3819/3819
 
 ---
 
@@ -678,15 +699,15 @@ P2完成              → I-b-盐3(第三盐+离场契约指纹), offstageSettle
 
 ---
 
-## 快速参考：关键指标基线（HEAD=c02ce1f·archive活常量fix）
+## 快速参考：关键指标基线（HEAD=9a09c29·C2-3 C·2026-06-24）
 
 | 指标 | 值 |
 |------|-----|
-| test | 3342（65 test files · +59 纵切Demo·m_webdemo.test.ts） |
-| tsc | 28（reconcileGate TS2459已修·baseline） |
+| test | 3819（84 test files） |
+| tsc | 28（core baseline·actor.ts/tick.ts 0 新增） |
 | lint | 220 errors（baseline·勿新增） |
 | schemaKeys | 52 |
-| 指纹 | 84（fingerprintManifest BUNDLE20/PRESET10/SNAP5/EXCL49=84条目·demo不进指纹） |
+| 指纹 | 85（fingerprintManifest BUNDLE20/PRESET11/SNAP5/EXCL49=85条目·C2-2 动词选项集哈希 PRESET10→11） |
 | REPLAY-01 | 24 |
 | C2 chaos | 17 |
 | 黄金向量 | 5c1d0233 / 63b3e729 / db10d5c7（逐位恒等·勿重生成·Option B確認済）|
