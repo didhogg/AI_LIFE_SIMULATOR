@@ -176,19 +176,29 @@ export function runTick(state: RootState, input: TickInput): TickResult {
   });
 
   // Phase 6 · 关系触发 — G1a 发射端：|强度|×信任/100 ≥ REL_RIPPLE_THRESHOLD 的关系推候选涟漪
+  // C2-3: 全体 actor 均可发射（不仅 PC）；emit factFragment 载荷（有锚·关系维度）
   runPhase('关系触发', () => {
     const tickNumber = s._tick?.拍计数 ?? 0;
-    for (const [, npc] of Object.entries(s.NPC)) {
+    for (const [npcKey, npc] of Object.entries(s.NPC)) {
       for (const rel of npc.关系) {
         if (!rel.对象键) continue;
         const score = Math.abs(rel.强度) * (rel.信任 / 100);
         if (score < REL_RIPPLE_THRESHOLD) continue;
+        const 量级 = Math.min(100, Math.round(score));
         emitRipple(s.$涟漪候选, rel.对象键, {
           标签:     rel.类型 || '关系',
           极性:     rel.极性 || '中',
-          强度:     Math.min(100, Math.round(score)),
+          强度:     量级,
           可见性:   '公开',
           来源拍号: tickNumber,
+          有锚布尔: true,
+          factFragment: {
+            主体:   npcKey,
+            维度:   '关系',
+            Δ方向:  rel.极性 === '负' ? -1 : 1,
+            客体:   rel.对象键,
+            量级,
+          },
         });
       }
     }
@@ -463,6 +473,7 @@ function propagateRipple(s: RootState, nowEpochMin: number): void {
           获知时间:  nowEpochMin,
           衰减速率:  0,
           来源类型:  '一手观测' as const,
+          ...(imp.factFragment !== undefined ? { factFragment: imp.factFragment } : {}),
         });
 
         // 二跳：一跳观察者的 关系 连接（不在场）
@@ -483,6 +494,7 @@ function propagateRipple(s: RootState, nowEpochMin: number): void {
             获知时间:  nowEpochMin,
             衰减速率:  0,
             来源类型:  '二手转述' as const,
+            ...(imp.factFragment !== undefined ? { factFragment: imp.factFragment } : {}),
           });
         }
       }
@@ -533,6 +545,12 @@ type ImpressionEntry = {
   标签: string; 极性: string; 强度: number;
   来源: string; 获知时间: number; 衰减速率: number;
   来源类型: '一手观测' | '二手转述' | '玩家陈述';
+  // C2-3 factFragment 载荷（additive·optional·T1 认知投影层接线）
+  factFragment?: {
+    主体: string; 维度: string; Δ方向: number;
+    客体?: string | undefined; 场景?: string | undefined; 量级: number;
+    narrativeFrame?: string | undefined;
+  };
 };
 
 function writeImpressionMax(
@@ -548,11 +566,12 @@ function writeImpressionMax(
   const 印象 = 认知[observerKey]![targetKey]!.印象;
   const existing = 印象.find(i => i.标签 === entry.标签 && i.极性 === entry.极性);
   if (existing) {
-    // 取 max 防循环膨胀
+    // 取 max 防循环膨胀；更新 factFragment（若有）
     if (entry.强度 > existing.强度) {
       existing.强度    = entry.强度;
       existing.来源    = entry.来源;
       existing.获知时间 = entry.获知时间;
+      if (entry.factFragment !== undefined) existing.factFragment = entry.factFragment;
     }
   } else {
     印象.push(entry);
