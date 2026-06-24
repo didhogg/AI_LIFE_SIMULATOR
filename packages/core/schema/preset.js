@@ -487,4 +487,12 @@ export const 玩法预设Schema = z.object({
     // option_id 派生规则（buildOptionId）：verb:targetEntityId[:salient_args]
     // 最多 99 条（受 rngFor [0,99] 精度约束·菜单不应超此数量）
     动词选项集: z.array(动词选项条目Schema).max(99).optional(),
+    // ── PR-0 · 预设元数据 v2 留位（additive·空跑·消费留 G2 / PR-1~5）────────────────
+    // 不进任何 fingerprint 数组（非判定面·留位·G2 接线后按需升格）
+    父预设: z.string().optional(), // 父预设 ID（预设继承/派生体系·PR-1 消费）
+    创建时预设版本: z.string().optional(), // 预设包创建时的规格版本（元数据·不进指纹）
+    派生标记: z.boolean().optional(), // true = 由父预设 additive 派生
+    默认模板: z.boolean().optional(), // true = 世界装配时优先选用此预设
+    经济生成规则: z.record(z.string(), z.unknown()).optional(), // G2 SEIR/Bass 经济种子生成规则接线点
+    社会熵默认值: z.number().min(0).max(1).optional(), // G2 Bass 均值场社会熵基准值（传播系数输入）
 });

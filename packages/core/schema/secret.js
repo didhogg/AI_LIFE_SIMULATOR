@@ -168,6 +168,28 @@ const 覆写日志条目Schema = z.object({
     提案单引用: z.string().optional(), // Z3·可空·6.68
 });
 // ══════════════════════════════════════════
+// v2 真相实体层（PR-0 · T1 留位·G2/PR-1 接线）
+// ══════════════════════════════════════════
+// factFragment 种子条目：真相层显式化（T1）核心载体
+// 键 = factFragment 唯一标识（命名规约 G2 接线时确定·当前留 string 键·空跑）
+// AI 只读（_前缀）；进指纹排除（留位阶段不影响判定面）
+const factFragment种子条目Schema = z.object({
+    // ── 核心 factFragment 字段（与 $涟漪候选/印象条目 口径对齐）──
+    主体: z.string().default(''), // 事件主体实体键
+    维度: z.string().default(''), // 变化维度（关系/生命/财富/声誉…）
+    Δ方向: z.number().default(0), // 方向量（+1=提升·-1=下降·量级内）
+    客体: z.string().optional(), // 关系类事件的对象实体键
+    场景: z.string().optional(), // 发生场景键（地点键）
+    量级: z.number().default(0), // 事件量级 [0-100]
+    narrativeFrame: z.string().optional(), // 可争叙事框架（T8 信息战覆写入口）
+    // ── v2 真相实体层扩展（T1/T9/T6 留位）──
+    访问阈值: z.number().min(0).max(100).default(0), // access 场须达此阈值才可读（T2 接线）
+    来源世界域: z.string().optional(), // 事件发生的世界域键（T9 跨域验证·cross-domain access=0）
+    有锚布尔: z.boolean().default(true), // false = 无锚 = 造谣 factFragment（T6 新闻先于物化）
+    // ── 社会 LOD 粗节点引用（T11 留位·G7/cohort 接线）──
+    粗节点引用: z.string().optional(), // cohort 粗节点键（flyweight 原型·G7/T11 接线时填写）
+});
+// ══════════════════════════════════════════
 // 全局层（顶层键 全局）
 // ══════════════════════════════════════════
 export const 全局Schema = z.object({
@@ -178,4 +200,7 @@ export const 全局Schema = z.object({
     _覆写日志: z.array(覆写日志条目Schema).default([]),
     _作弊标记: z.boolean().default(false), // 本周目不可逆
     _编年史: z.array(编年史条目Schema).default([]), // append-only 既成事实记录
+    // ── PR-0 · v2 真相实体层留位（additive·optional·空跑·G2/PR-1 接线后消费）──────────
+    // AI 只读（_ 前缀）；暴露度→派生化、知情程度→保留独立存储（命门一 2026-06-21 已锁）
+    _factFragment种子库: z.record(z.string(), factFragment种子条目Schema).optional(),
 });
