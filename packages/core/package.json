@@ -40,6 +40,8 @@
     "./engine/aohpExecutor": "./engine/aohpExecutor.ts",
     "./engine/relationGraph": "./engine/relationGraph.ts",
     "./engine/orgGraph": "./engine/orgGraph.ts",
+    "./engine/presetSwap": "./engine/presetSwap.ts",
+    "./engine/segment": "./engine/segment.ts",
     "./prompt/callRegistry": "./prompt/callRegistry.ts",
     "./replay": "./replay/index.ts"
   },
