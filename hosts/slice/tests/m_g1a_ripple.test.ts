@@ -2,12 +2,14 @@
 //
 // DoD:
 //   V1 emitRipple 工具 — 追加到 $涟漪候选 缓冲
-//   V2 Phase 6 关系触发 — |强度|×信任/100 ≥ 50 的关系推涟漪候选
+//   V2 Phase 6 关系触发 — |强度|×信任/100 ≥ 50 的关系推涟漢候选
 //   V3 A→B→C 两跳衰减断言（emitRipple → propagateRipple → 认知档案）
 //   V4 covert 零印象断言（隐秘事件不落认知档案）
 //   V5 Phase 6 + 传播端到端（关系触发自动推候选 → 传播）
+//   V6 C2-3 专项回归（factFragment 载荷·全体发射主体键·守恒·密室<广场）
 import { describe, it, expect } from 'vitest';
 import { runTick, emitRipple } from '@ai-life-sim/core/engine/tick';
+import { RootSchema } from '@ai-life-sim/core';
 import { buildWorld, PC, NPC_WANG, NPC_HONG, LOC_KEY } from '../fixture/world.js';
 
 function makeWorld() { return buildWorld(); }
@@ -200,5 +202,97 @@ describe('G1a-V5 · Phase 6 关系发射 + 传播端到端', () => {
     expect(hongAboutPC.length).toBeGreaterThan(0);
     expect(hongAboutPC[0]?.来源类型).toBe('一手观测');
     expect(hongAboutPC[0]?.标签).toBe('老友'); // 关系类型作为标签
+  });
+});
+
+// ── V6 · C2-3 专项回归 ───────────────────────────────────────────────────────
+// C2-3 引入四条不变式，每条锁一个断言：
+//   FF-1 factFragment 载荷经一跳传播到认知档案（来源类型='一手观测'·维度/Δ方向逐位恒等）
+//   FF-2 Phase6 全体 actor 发射（factFragment.主体 = 发射者 NPC 键·非硬编 PC）
+//   FF-3 RippleParcel 守恒（$涟漪候选 → propagateRipple 处理后清空为 {}）
+//   FF-4 密室 < 广场（二跳强度·高社交开放度 > 低社交开放度·仅二跳·一跳恒 1）
+
+describe('G1a-V6 · C2-3 factFragment + 场景系数专项回归', () => {
+  it('FF-1 手注 factFragment{维度:生命,Δ方向:-1} → 一跳观察者认知档案含该载荷', () => {
+    const s0 = makeWorld();
+    // 手动注入：模拟死亡事件 factFragment（真实死亡发射路径 = C2-4 任务·此处验证传播链）
+    s0.$涟漪候选[PC] = [{
+      标签: '伤亡', 极性: '中', 强度: 80, 可见性: '公开', 来源拍号: 0,
+      有锚布尔: true,
+      factFragment: { 主体: 'npc_enemy', 维度: '生命', Δ方向: -1, 量级: 80 },
+    }];
+    const { state: s1 } = runTick(s0, { tickId: 'ff1', spanMinutes: 1440 });
+    const wangAboutPC = s1.认知档案[NPC_WANG]?.[PC]?.印象 ?? [];
+    expect(wangAboutPC.length).toBeGreaterThan(0);
+    const ff = wangAboutPC[0]?.factFragment;
+    expect(ff?.维度).toBe('生命');
+    expect(ff?.Δ方向).toBe(-1);
+    expect(ff?.主体).toBe('npc_enemy');
+    expect(wangAboutPC[0]?.来源类型).toBe('一手观测'); // 一跳·非极性判断·只传客观事实
+  });
+
+  it('FF-2 Phase6 全体 actor 发射·factFragment.主体 = 发射者 NPC 键（非硬编 PC）', () => {
+    const s0 = makeWorld();
+    const wang = s0.NPC[NPC_WANG];
+    if (wang) {
+      (wang as { 关系: { 对象键: string; 类型: string; 强度: number; 极性: string; 信任: number; 深度: number }[] }).关系 = [
+        { 对象键: PC, 类型: '旧友', 强度: 90, 极性: '正', 信任: 100, 深度: 70 },
+      ];
+    }
+    // Phase6：WANG→PC score=90≥50 → 发射 $涟漪候选[PC]，主体 = NPC_WANG
+    const { state: s1 } = runTick(s0, { tickId: 'ff2', spanMinutes: 1440 });
+    const hongAboutPC = s1.认知档案[NPC_HONG]?.[PC]?.印象 ?? [];
+    expect(hongAboutPC.length).toBeGreaterThan(0);
+    const ff = hongAboutPC[0]?.factFragment;
+    expect(ff?.主体).toBe(NPC_WANG);   // 发射者是 WANG，不是 PC
+    expect(ff?.维度).toBe('关系');      // Phase6 关系触发 → 关系维度（上下文派生·非写死）
+  });
+
+  it('FF-3 RippleParcel 守恒：$涟漪候选 经 propagateRipple 后清空为 {}', () => {
+    const s0 = makeWorld();
+    emitRipple(s0.$涟漪候选, PC,       { 标签: 'A', 极性: '中', 强度: 60, 可见性: '公开', 来源拍号: 0 });
+    emitRipple(s0.$涟漪候选, NPC_WANG, { 标签: 'B', 极性: '中', 强度: 50, 可见性: '公开', 来源拍号: 0 });
+    expect(Object.keys(s0.$涟漪候选).length).toBe(2); // 传播前非空
+    const { state: s1 } = runTick(s0, { tickId: 'ff3', spanMinutes: 1440 });
+    expect(Object.keys(s1.$涟漪候选 ?? {}).length).toBe(0); // 传播后清空
+  });
+
+  it('FF-4 密室 < 广场：二跳强度在高社交开放度地点 > 低社交开放度地点', () => {
+    // 构造两个对称世界：仅 LOC_KEY.社交开放度 不同
+    // PC 在 LOC_KEY（target）· WANG 在 LOC_KEY（一跳）· HONG 在 loc_other（二跳）
+    // WANG 关系列表包含 HONG（信任 100）→ 二跳触发
+    // 二跳公式：strength × 0.5 × (trust/100) × sfactor × sceneCoeff
+    //   sfactor = 1.0（无区域图）·sceneCoeff = 高:1.3 / 低:0.7
+    //   → 广场=80×0.5×1.0×1.3=52·密室=80×0.5×1.0×0.7=28
+    const makeSceneWorld = (openness: string) => {
+      const s = RootSchema.parse({
+        地图: { 地点: {
+          [LOC_KEY]:   { 社交开放度: openness },
+          'loc_other': {},
+        }},
+        NPC: {
+          [PC]:       { 姓名: '林九',   位置: LOC_KEY },
+          [NPC_WANG]: { 姓名: '王掌柜', 位置: LOC_KEY },
+          [NPC_HONG]: { 姓名: '红姨',   位置: 'loc_other' },
+        },
+      });
+      const wang = s.NPC[NPC_WANG];
+      if (wang) wang.关系 = [{ 对象键: NPC_HONG, 类型: '相识', 强度: 40, 极性: '中', 信任: 100, 深度: 20 }];
+      s.$涟漪候选[PC] = [{ 标签: '声誉', 极性: '中', 强度: 80, 可见性: '公开', 来源拍号: 0 }];
+      return s;
+    };
+
+    const { state: s广 } = runTick(makeSceneWorld('高'), { tickId: 'ff4-hi', spanMinutes: 1 });
+    const { state: s密 } = runTick(makeSceneWorld('低'), { tickId: 'ff4-lo', spanMinutes: 1 });
+
+    const hi2 = s广.认知档案[NPC_HONG]?.[PC]?.印象[0]?.强度 ?? 0;
+    const lo2 = s密.认知档案[NPC_HONG]?.[PC]?.印象[0]?.强度 ?? 0;
+    expect(hi2).toBeGreaterThan(lo2);  // 广场 > 密室（方向性断言）
+    expect(hi2).toBeCloseTo(52, 0);    // 80×0.5×1.0×1.3=52（数值锁）
+    expect(lo2).toBeCloseTo(28, 0);    // 80×0.5×1.0×0.7=28（数值锁）
+    // 一跳不受场景系数影响（S5 不变式）
+    const hi1 = s广.认知档案[NPC_WANG]?.[PC]?.印象[0]?.强度 ?? 0;
+    const lo1 = s密.认知档案[NPC_WANG]?.[PC]?.印象[0]?.强度 ?? 0;
+    expect(hi1).toBe(lo1); // 一跳恒等·场景系数不影响
   });
 });
