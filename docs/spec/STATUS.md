@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=6d5080e（feat: PR-4 LOD调度器P15-P21+穿越契约T5）· 前=af7b7b2（docs: PR-3回填）· 前=d6a376e（feat: PR-3 动态修正层+经济派生）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-25/PR-4
+# code HEAD=0710758（feat: PR-5 access场/认知投影接缝）· 前=6d5080e（feat: PR-4 LOD调度器P15-P21+穿越契约T5）· 前=af7b7b2（docs: PR-3回填）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-25/PR-5
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -471,6 +471,36 @@
     · tsc core=12(0新增)·schemaKeys=52·BUNDLE=21·manifest=86·黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等
     · 红线 diff=0（gate/rng/conservation/computeDelta/fixed/propagateRipple 函数体零 diff）
   - 明确排除：认知投影·记忆卡导出·换角 POV·信息战·UI 库·切换策略闸（PR-5/5b/5c/7）·soak 自适应调速（T7）
+- [x] PR-5 · access 场 / 认知投影接缝（认知投影层 ⊥ 真相实体层） · commit=0710758 · test=4063→4102(+39)
+  - P5-0 schema核查：访问阈值(secret.ts 213)/来源世界域(secret.ts 214)/声誉.人望(actor.ts 261)/了解度(actor.ts 598)·全在位·零新增schemaKey·守 52/BUNDLE 21/manifest 86
+  - P5-1 packages/core/engine/cognitionProjection.ts（新建）: projectCognition(state,observerKey,scope) → CognitionProjection
+    · 纯函数·只读·零写·零指纹（R7-b并列·不进 hashJudgmentBundle·不影响判定面）
+    · 退化：无观察者认知档案 → 空投影 { baseline:{} }·scope.targetKeys/dimensions/minStrength 过滤
+  - P5-2 co-location 临时高导通: 同场 +COLOCATION_BOOST(30)·读时计算·不落状态
+    · coLocated=true 标志；co-location 不影响 access 上限（capped at 100）
+  - P5-3 covert gate（两层·existence-opaque）:
+    · a. 跨域 gate: impression.factFragment.来源世界域 ≠ activeDomainId → 该印象从 filtered 移除
+      且不贡献 baseStrength（跨域 access=0·目标不出现）
+    · b. 访问阈值: _factFragment种子库.访问阈值 > access → 对应主体:维度 印象过滤
+  - P5-4 声望导通乘子: 声誉.人望[-100,100] → 乘子[0.5,1.5]·闭式·确定性·access=round(boosted×mul)
+  - P5-5 buildInvestigationDelta(observerKey,targetKey,boostAmount): 了解度 K5 delta
+    · 返回 [{path:'认知档案.{obs}.{tgt}.了解度', op:'add', value:clamp(1,30)}]·走五道闸（调用方）
+    · 两轨严格分离：投影读（不进指纹）⊥ 调查写（进指纹·走五道闸）
+    · 了解度 = investigation 累积量·下次 projectCognition access 升
+  - P5-6 diffProjection(low,high): 重投影 diff（newlyVisible/lostVisible/unchanged）·确定性·同输入逐位恒等
+  - hosts/slice/tests/m_pr5_access.test.ts（新建·39 tests·G1~G7 全绿）
+    · G1 基础投影(8): 空档案退化·scope过滤·东德表里不一(G1-4 官民两scope·同fact投影不同)
+    · G2 co-location 高导通(5): 同场boost确认·异场对比·一年80国回访(G2-5 跨区后返回恒等)
+    · G3 covert gate(5): 穿越平行世界(G3-2 跨域access=0)·访问阈值门·单域模式不触发gate
+    · G4 声望乘子(4): 人望0/100/-100→access精确值·capped at 100
+    · G5 investigation delta(5): 路径格式·clamp[1,30]·零写验证·了解度提升→access升
+    · G6 重投影 diff(4): newlyVisible确定性·相同投影→空diff·逐位恒等
+    · G7 soak·守恒(7): 双宿主恒等·三fixture种子·零写事实层·退化全可见·schemaKeys=52·BUNDLE=21·守恒不破
+  - 守恒表：test 4063→4102(+39)·m_p7tier2 35/35 向量 0 重定基·soak --seed 12345 --runs 1 全绿
+    · tsc core=12(0新增)·schemaKeys=52·BUNDLE=21·manifest=86·黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等
+    · 红线 diff=0（gate/rng/conservation/computeDelta/fixed/propagateRipple 函数体零 diff）
+  - 明确排除（不在PR-5）: 导出/mod生态/编辑器/审计链路·认知层种子注入/记忆卡(PR-5b)·UI库/模块绑定(PR-5c)
+    · 媒介UI(PR-5e)·切换体验闸(PR-7)·社会粒度cohort LOD(阶段8)
 
 - [x] G2-3 · 官方信道完善（矫诏门+SEIR冲突吸收+层级延迟）+ 阶段3 schema 冻结 + G2 机测固化 · commit=509de9d · test=3929→3943(+14·91 files)
   - S1 层级延迟: buildOrgChildGraph(BFS·层级/隶属边)·bfsOrgHierarchyDepths·rollBound=100/(depth+1)·seeded rngFor·默认 fixture 无层级边→orgChildGraph.size===0→子组织循环完全跳过→0 重定基
