@@ -38,10 +38,17 @@ type LocSpec = {
   人口规模?: string;
 };
 
+type OrgEdgeSpec = {
+  A组织: string;
+  B组织: string;
+  边类型: '隶属' | '层级' | '外交';
+};
+
 function makeState(opts: {
   seed?: number;
   npcs?: Record<string, NpcSpec>;
   locs?: Record<string, LocSpec>;
+  orgEdges?: Record<string, OrgEdgeSpec>;  // G2-3 S1: 组织关系网 层级/隶属 边
 } = {}) {
   const npcEntries = Object.entries(opts.npcs ?? {}).map(([k, v]) => [k, {
     姓名: k,
@@ -62,10 +69,18 @@ function makeState(opts: {
     人口规模: v.人口规模,
   }]);
 
+  const orgEdgeEntries = Object.entries(opts.orgEdges ?? {}).map(([k, v]) => [k, {
+    A组织: v.A组织,
+    B组织: v.B组织,
+    关系: '',
+    边类型: v.边类型,
+  }]);
+
   return RootSchema.parse({
     $存档种子: opts.seed ?? 42,
     NPC: Object.fromEntries(npcEntries),
     地图: locEntries.length > 0 ? { 地点: Object.fromEntries(locEntries) } : undefined,
+    组织关系网: orgEdgeEntries.length > 0 ? Object.fromEntries(orgEdgeEntries) : undefined,
   });
 }
 
@@ -514,6 +529,326 @@ describe('G2-2 E7 · seeded 确定性', () => {
       .toBe(r2.认知档案['far1']?.['src']?.印象[0]?.强度);
     expect(r1.认知档案['far2']?.['src']?.印象[0]?.强度)
       .toBe(r2.认知档案['far2']?.['src']?.印象[0]?.强度);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// G2-3 S1 · 层级延迟（官方信道子组织扩散 · 沿 层级/隶属 边）
+// ──────────────────────────────────────────────────────────────────────────────
+
+// ── E9 · 无层级边时子组织扩散完全跳过（出厂行为不变·0 重定基基线）─────────────────
+
+describe('G2-3 E9 · 层级延迟：无 层级/隶属 边时行为与 G2-2 完全一致', () => {
+  it('无 组织关系网 层级边 → 直属成员仍同拍收到（depth=0 确定性）', () => {
+    const s0 = makeState({
+      npcs: {
+        src: { 位置: 'loc_a' },
+        obs1: { 位置: 'loc_a', 所属组织: [{ 组织键: 'orgA' }] },
+        memA: { 位置: 'loc_b', 所属组织: [{ 组织键: 'orgA' }], 忠诚: { orgA: { $真实值: 100, 伪装度: 0 } } },
+      },
+      // orgEdges 不设（无 层级 边）→ orgChildGraph 为空
+    });
+    emitRipple(s0.$涟漪候选, 'src', { 标签: '声誉', 极性: '正', 强度: 80, 可见性: '公开', 来源拍号: 0 });
+    const { state: s1 } = runTick(s0, { tickId: 'e9-nohier', spanMinutes: 1440 });
+    // 直属成员 memA 同拍收到（depth=0·不受层级延迟影响）
+    const memImp = s1.认知档案['memA']?.['src']?.印象.find(i => i.极性 === '正');
+    expect(memImp).toBeDefined();
+    expect(memImp?.强度).toBeCloseTo(80 * HOP_DECAY * 1.0, 5);
+  });
+
+  it('无层级边 → 不存在子组织 NPC 接收路径（只有直属成员·N 不在 orgA → 不收）', () => {
+    const s0 = makeState({
+      npcs: {
+        src:  { 位置: 'loc_a' },
+        obs1: { 位置: 'loc_a', 所属组织: [{ 组织键: 'orgA' }] },
+        memA: { 位置: 'loc_b', 所属组织: [{ 组织键: 'orgA' }], 忠诚: { orgA: { $真实值: 100, 伪装度: 0 } } },
+        outsider: { 位置: 'loc_c', 所属组织: [{ 组织键: 'orgB' }] },
+      },
+    });
+    emitRipple(s0.$涟漪候选, 'src', { 标签: '声誉', 极性: '正', 强度: 80, 可见性: '公开', 来源拍号: 0 });
+    const { state: s1 } = runTick(s0, { tickId: 'e9-outsider', spanMinutes: 1440 });
+    // outsider（orgB·非 orgA 成员·无层级边）→ 不收
+    const outsiderImp = s1.认知档案['outsider']?.['src']?.印象.length ?? 0;
+    expect(outsiderImp).toBe(0);
+  });
+});
+
+// ── E10 · 层级延迟：depth=1 子组织成员按 seed 确定性延迟 ──────────────────────────
+
+describe('G2-3 E10 · 层级延迟：子组织成员按深度确定性延迟', () => {
+  // 搭建：orgParent → 层级 → orgChild
+  //   obs1 在 orgParent（在场）
+  //   memParent 在 orgParent（depth=0·确定性到达）
+  //   memChild  在 orgChild（depth=1·P=50%·seeded）
+  function makeHierState(seed: number) {
+    return makeState({
+      seed,
+      npcs: {
+        src:       { 位置: 'loc_a' },
+        obs1:      { 位置: 'loc_a', 所属组织: [{ 组织键: 'orgParent' }] },
+        memParent: { 位置: 'loc_b', 所属组织: [{ 组织键: 'orgParent' }], 忠诚: { orgParent: { $真实值: 100, 伪装度: 0 } } },
+        memChild:  { 位置: 'loc_c', 所属组织: [{ 组织键: 'orgChild'  }], 忠诚: { orgParent: { $真实值: 100, 伪装度: 0 } } },
+      },
+      orgEdges: {
+        'edge_hier': { A组织: 'orgChild', B组织: 'orgParent', 边类型: '层级' },
+      },
+    });
+  }
+
+  it('memParent（depth=0）任何 seed 下同拍确定性到达', () => {
+    // depth=0 → rollBound=100 → 始终通过（不消耗 RNG·确定性）
+    for (const seed of [42, 99, 12345]) {
+      const s0 = makeHierState(seed);
+      emitRipple(s0.$涟漪候选, 'src', { 标签: '声誉', 极性: '正', 强度: 80, 可见性: '公开', 来源拍号: 0 });
+      const { state: s1 } = runTick(s0, { tickId: `e10-parent-${seed}`, spanMinutes: 1440 });
+      const parentImp = s1.认知档案['memParent']?.['src']?.印象.find(i => i.极性 === '正');
+      expect(parentImp).toBeDefined();
+      expect(parentImp?.强度).toBeCloseTo(80 * HOP_DECAY, 5);
+    }
+  });
+
+  it('memChild（depth=1）seed=42 → roll=14<50 → 同拍到达', () => {
+    // rngFor(42,0,'涟漪:org:delay:memChild:src:声誉:orgParent',0,0)=14 < 50 → 到达
+    const s0 = makeHierState(42);
+    emitRipple(s0.$涟漪候选, 'src', { 标签: '声誉', 极性: '正', 强度: 80, 可见性: '公开', 来源拍号: 0 });
+    const { state: s1 } = runTick(s0, { tickId: 'e10-child-arrive', spanMinutes: 1440 });
+    const childImp = s1.认知档案['memChild']?.['src']?.印象.find(i => i.极性 === '正');
+    expect(childImp).toBeDefined();
+    expect(childImp?.强度).toBeCloseTo(80 * HOP_DECAY, 5);
+  });
+
+  it('memChild（depth=1）seed=99 → roll=66≥50 → 本拍未到达（延迟效果）', () => {
+    // rngFor(99,0,'涟漪:org:delay:memChild:src:声誉:orgParent',0,0)=66 ≥ 50 → 延迟
+    const s0 = makeHierState(99);
+    emitRipple(s0.$涟漪候选, 'src', { 标签: '声誉', 极性: '正', 强度: 80, 可见性: '公开', 来源拍号: 0 });
+    const { state: s1 } = runTick(s0, { tickId: 'e10-child-delay', spanMinutes: 1440 });
+    const childImp = s1.认知档案['memChild']?.['src']?.印象.find(i => i.极性 === '正');
+    expect(childImp).toBeUndefined(); // 本拍未到达
+  });
+});
+
+// ── E11 · 层级延迟 seeded 确定性 ──────────────────────────────────────────────────
+
+describe('G2-3 E11 · 层级延迟 seeded 确定性（同 seed 双跑逐位恒等）', () => {
+  it('同 seed 双跑：memChild 到达/未到达结果完全相同', () => {
+    function runWithSeed(seed: number, tickId: string) {
+      const s0 = makeState({
+        seed,
+        npcs: {
+          src:      { 位置: 'loc_a' },
+          obs1:     { 位置: 'loc_a', 所属组织: [{ 组织键: 'orgP' }] },
+          memChild: { 位置: 'loc_c', 所属组织: [{ 组织键: 'orgC' }], 忠诚: { orgP: { $真实值: 100, 伪装度: 0 } } },
+        },
+        orgEdges: { 'e': { A组织: 'orgC', B组织: 'orgP', 边类型: '层级' } },
+      });
+      emitRipple(s0.$涟漪候选, 'src', { 标签: '声誉', 极性: '正', 强度: 80, 可见性: '公开', 来源拍号: 0 });
+      const { state } = runTick(s0, { tickId, spanMinutes: 1440 });
+      return state.认知档案['memChild']?.['src']?.印象.find(i => i.极性 === '正')?.强度 ?? null;
+    }
+    const r1 = runWithSeed(42, 'e11-run1');
+    const r2 = runWithSeed(42, 'e11-run2');
+    expect(r1).toBe(r2); // 同 seed 逐位恒等（不论到达还是未到达）
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// G2-3 S2 · 矫诏真伪门（官方信道消息真/伪门控）
+// ──────────────────────────────────────────────────────────────────────────────
+
+const ORG_MSG_BASE = 80;  // 基准涟漪强度
+// 预期组织信道送达强度（全因子为 1 时）
+const FULL_ORG_STRENGTH = ORG_MSG_BASE * ORG_CHANNEL_DECAY * 1.0; // loyalty=100·resource=1
+
+// ── E12 · 矫诏门：未声明 = 旧行为（backward compat）───────────────────────────────
+
+describe('G2-3 E12 · 矫诏门：未声明 矫诏 = 退回旧行为（backward compat）', () => {
+  it('不设 矫诏 字段 → 组织成员收到完整 orgStrength（无折扣）', () => {
+    const s0 = makeState({
+      npcs: {
+        src:  { 位置: 'loc_a' },
+        obs1: { 位置: 'loc_a', 所属组织: [{ 组织键: 'orgX' }] },
+        mem:  { 位置: 'loc_b', 所属组织: [{ 组织键: 'orgX' }], 忠诚: { orgX: { $真实值: 100, 伪装度: 0 } } },
+      },
+    });
+    // 不设 矫诏 → 向后兼容
+    emitRipple(s0.$涟漪候选, 'src', { 标签: '声誉', 极性: '正', 强度: ORG_MSG_BASE, 可见性: '公开', 来源拍号: 0 });
+    const { state: s1 } = runTick(s0, { tickId: 'e12-nofield', spanMinutes: 1440 });
+    const imp = s1.认知档案['mem']?.['src']?.印象.find(i => i.极性 === '正');
+    expect(imp).toBeDefined();
+    expect(imp?.强度).toBeCloseTo(FULL_ORG_STRENGTH, 5); // 无折扣
+    expect(imp?.来源).toBe('组织传达:orgX'); // 来源标注不含（矫诏）
+  });
+
+  it('矫诏=false → 与未声明行为一致（旧行为·完整强度）', () => {
+    const s0 = makeState({
+      npcs: {
+        src:  { 位置: 'loc_a' },
+        obs1: { 位置: 'loc_a', 所属组织: [{ 组织键: 'orgY' }] },
+        mem:  { 位置: 'loc_b', 所属组织: [{ 组织键: 'orgY' }], 忠诚: { orgY: { $真实值: 100, 伪装度: 0 } } },
+      },
+    });
+    emitRipple(s0.$涟漪候选, 'src', { 标签: '声誉', 极性: '正', 强度: ORG_MSG_BASE, 可见性: '公开', 来源拍号: 0, 矫诏: false });
+    const { state: s1 } = runTick(s0, { tickId: 'e12-false', spanMinutes: 1440 });
+    const imp = s1.认知档案['mem']?.['src']?.印象.find(i => i.极性 === '正');
+    expect(imp?.强度).toBeCloseTo(FULL_ORG_STRENGTH, 5);
+    expect(imp?.来源).toBe('组织传达:orgY');
+  });
+});
+
+// ── E13 · 矫诏门：矫诏=true → 官方信道强度折半 + 来源标注 (矫诏)──────────────────
+
+describe('G2-3 E13 · 矫诏门：矫诏=true → 强度折半·来源标注（矫诏）', () => {
+  const FAKE_FACTOR = 0.5;
+
+  it('矫诏=true → 组织成员收到 FULL_ORG_STRENGTH × 0.5', () => {
+    const s0 = makeState({
+      npcs: {
+        src:  { 位置: 'loc_a' },
+        obs1: { 位置: 'loc_a', 所属组织: [{ 组织键: 'orgZ' }] },
+        mem:  { 位置: 'loc_b', 所属组织: [{ 组织键: 'orgZ' }], 忠诚: { orgZ: { $真实值: 100, 伪装度: 0 } } },
+      },
+    });
+    emitRipple(s0.$涟漪候选, 'src', { 标签: '声誉', 极性: '正', 强度: ORG_MSG_BASE, 可见性: '公开', 来源拍号: 0, 矫诏: true });
+    const { state: s1 } = runTick(s0, { tickId: 'e13-fake', spanMinutes: 1440 });
+    const imp = s1.认知档案['mem']?.['src']?.印象.find(i => i.极性 === '正');
+    expect(imp).toBeDefined();
+    expect(imp?.强度).toBeCloseTo(FULL_ORG_STRENGTH * FAKE_FACTOR, 5); // × 0.5
+    expect(imp?.来源).toBe('组织传达(矫诏):orgZ'); // 伪诏标注
+  });
+
+  it('矫诏=true vs 矫诏未声明：强度差异精确为 2× (50% 折扣)', () => {
+    function makeAndRun(fake: boolean | undefined, tickId: string) {
+      const s0 = makeState({
+        npcs: {
+          src:  { 位置: 'loc_a' },
+          obs1: { 位置: 'loc_a', 所属组织: [{ 组织键: 'orgCmp' }] },
+          mem:  { 位置: 'loc_b', 所属组织: [{ 组织键: 'orgCmp' }], 忠诚: { orgCmp: { $真实值: 100, 伪装度: 0 } } },
+        },
+      });
+      emitRipple(s0.$涟漪候选, 'src', {
+        标签: '声誉', 极性: '正', 强度: ORG_MSG_BASE, 可见性: '公开', 来源拍号: 0,
+        ...(fake !== undefined ? { 矫诏: fake } : {}),
+      });
+      const { state } = runTick(s0, { tickId, spanMinutes: 1440 });
+      return state.认知档案['mem']?.['src']?.印象.find(i => i.极性 === '正')?.强度 ?? 0;
+    }
+    const realStr = makeAndRun(undefined, 'e13-cmp-real');
+    const fakeStr = makeAndRun(true,      'e13-cmp-fake');
+    expect(fakeStr).toBeCloseTo(realStr * FAKE_FACTOR, 5);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// G2-3 S3 · SEIR 冲突吸收（矫诏消息 + R态接收者）
+// ──────────────────────────────────────────────────────────────────────────────
+
+const CONFLICT_THRESHOLD = 30;  // SEIR_CONFLICT_ABSORPTION_THRESHOLD
+const CONFLICT_FACTOR    = 0.5; // SEIR_CONFLICT_ABSORPTION_FACTOR
+const FAKE_EDICT_FACTOR  = 0.5; // FAKE_EDICT_CREDIBILITY_FACTOR
+
+// ── E14 · 冲突吸收：矫诏=true + 对立真印象(R态) → 进一步折半 ─────────────────────
+
+describe('G2-3 E14 · 冲突吸收：矫诏=true + 对立真印象(R态) → 进一步 × CONFLICT_FACTOR', () => {
+  it('mem 已有 声誉/正/40（R态·≥阈值30）→ 矫诏「声誉/负」收到 × FAKE × CONFLICT', () => {
+    const s0 = makeState({
+      npcs: {
+        src:  { 位置: 'loc_a' },
+        obs1: { 位置: 'loc_a', 所属组织: [{ 组织键: 'orgR' }] },
+        mem:  { 位置: 'loc_b', 所属组织: [{ 组织键: 'orgR' }], 忠诚: { orgR: { $真实值: 100, 伪装度: 0 } } },
+      },
+    });
+    // 预植「对立真印象」（R态：已相信声誉是正面的）
+    s0.认知档案['mem'] = {
+      src: {
+        了解度: 0, 误差表: {}, 时效: 0, 姓名知识: '已知姓名',
+        印象: [{ 标签: '声誉', 极性: '正', 强度: 40, 来源: '目击', 获知时间: 0, 衰减速率: 0, 来源类型: '一手观测' }],
+      },
+    };
+    // 矫诏伪诏：声誉/负
+    emitRipple(s0.$涟漪候选, 'src', { 标签: '声誉', 极性: '负', 强度: ORG_MSG_BASE, 可见性: '公开', 来源拍号: 0, 矫诏: true });
+    const { state: s1 } = runTick(s0, { tickId: 'e14-conflict', spanMinutes: 1440 });
+
+    // 声誉/负（新写入）的强度 = BASE × HOP_DECAY × loyalty × fake × conflict
+    const negImp = s1.认知档案['mem']?.['src']?.印象.find(i => i.极性 === '负');
+    expect(negImp).toBeDefined();
+    const expected = ORG_MSG_BASE * ORG_CHANNEL_DECAY * 1.0 * FAKE_EDICT_FACTOR * CONFLICT_FACTOR;
+    expect(negImp?.强度).toBeCloseTo(expected, 5); // × 0.5 × 0.5 = × 0.25
+
+    // 原「真」印象（声誉/正/40）仍完整（未被覆盖·不同极性键）
+    const posImp = s1.认知档案['mem']?.['src']?.印象.find(i => i.极性 === '正');
+    expect(posImp?.强度).toBe(40);
+  });
+
+  it('R态阈值边界：对立印象强度=29（< 30）→ 不触发冲突吸收', () => {
+    const s0 = makeState({
+      npcs: {
+        src:  { 位置: 'loc_a' },
+        obs1: { 位置: 'loc_a', 所属组织: [{ 组织键: 'orgBound' }] },
+        mem:  { 位置: 'loc_b', 所属组织: [{ 组织键: 'orgBound' }], 忠诚: { orgBound: { $真实值: 100, 伪装度: 0 } } },
+      },
+    });
+    s0.认知档案['mem'] = {
+      src: {
+        了解度: 0, 误差表: {}, 时效: 0, 姓名知识: '已知姓名',
+        印象: [{ 标签: '声誉', 极性: '正', 强度: 29, 来源: '目击', 获知时间: 0, 衰减速率: 0, 来源类型: '一手观测' }],
+      },
+    };
+    emitRipple(s0.$涟漪候选, 'src', { 标签: '声誉', 极性: '负', 强度: ORG_MSG_BASE, 可见性: '公开', 来源拍号: 0, 矫诏: true });
+    const { state: s1 } = runTick(s0, { tickId: 'e14-boundary', spanMinutes: 1440 });
+
+    const negImp = s1.认知档案['mem']?.['src']?.印象.find(i => i.极性 === '负');
+    // 强度=29 < CONFLICT_THRESHOLD(30) → 不触发冲突吸收 → 仅 FAKE_FACTOR
+    const expectedNoAbsorption = ORG_MSG_BASE * ORG_CHANNEL_DECAY * 1.0 * FAKE_EDICT_FACTOR;
+    expect(negImp?.强度).toBeCloseTo(expectedNoAbsorption, 5);
+  });
+});
+
+// ── E15 · 冲突吸收：矫诏=true + 无对立印象 → 只矫诏折半 ──────────────────────────
+
+describe('G2-3 E15 · 冲突吸收：矫诏=true + 无对立印象 → 只 FAKE_EDICT_FACTOR 折半', () => {
+  it('无对立真印象 → conflictFactor=1.0（仅 FAKE 折半）', () => {
+    const s0 = makeState({
+      npcs: {
+        src:  { 位置: 'loc_a' },
+        obs1: { 位置: 'loc_a', 所属组织: [{ 组织键: 'orgNR' }] },
+        mem:  { 位置: 'loc_b', 所属组织: [{ 组织键: 'orgNR' }], 忠诚: { orgNR: { $真实值: 100, 伪装度: 0 } } },
+      },
+    });
+    // 不预植对立印象（无 R态）
+    emitRipple(s0.$涟漪候选, 'src', { 标签: '声誉', 极性: '负', 强度: ORG_MSG_BASE, 可见性: '公开', 来源拍号: 0, 矫诏: true });
+    const { state: s1 } = runTick(s0, { tickId: 'e15-noR', spanMinutes: 1440 });
+    const negImp = s1.认知档案['mem']?.['src']?.印象.find(i => i.极性 === '负');
+    expect(negImp).toBeDefined();
+    // 仅 FAKE 折半，无冲突因子
+    const expected = ORG_MSG_BASE * ORG_CHANNEL_DECAY * 1.0 * FAKE_EDICT_FACTOR;
+    expect(negImp?.强度).toBeCloseTo(expected, 5);
+  });
+
+  it('E14 vs E15 强度对比：有R态 < 无R态（冲突吸收生效验证）', () => {
+    function runConflict(hasRState: boolean, tickId: string) {
+      const s0 = makeState({
+        npcs: {
+          src:  { 位置: 'loc_a' },
+          obs1: { 位置: 'loc_a', 所属组织: [{ 组织键: 'orgCmpR' }] },
+          mem:  { 位置: 'loc_b', 所属组织: [{ 组织键: 'orgCmpR' }], 忠诚: { orgCmpR: { $真实值: 100, 伪装度: 0 } } },
+        },
+      });
+      if (hasRState) {
+        s0.认知档案['mem'] = {
+          src: {
+            了解度: 0, 误差表: {}, 时效: 0, 姓名知识: '已知姓名',
+            印象: [{ 标签: '声誉', 极性: '正', 强度: CONFLICT_THRESHOLD + 5, 来源: '目击', 获知时间: 0, 衰减速率: 0, 来源类型: '一手观测' }],
+          },
+        };
+      }
+      emitRipple(s0.$涟漪候选, 'src', { 标签: '声誉', 极性: '负', 强度: ORG_MSG_BASE, 可见性: '公开', 来源拍号: 0, 矫诏: true });
+      const { state } = runTick(s0, { tickId, spanMinutes: 1440 });
+      return state.认知档案['mem']?.['src']?.印象.find(i => i.极性 === '负')?.强度 ?? 0;
+    }
+    const withR    = runConflict(true,  'e15-cmpR-withR');
+    const withoutR = runConflict(false, 'e15-cmpR-noR');
+    expect(withR).toBeLessThan(withoutR); // R态 → 冲突吸收 → 更弱
+    expect(withR).toBeCloseTo(withoutR * CONFLICT_FACTOR, 5); // 精确 × 0.5
   });
 });
 

@@ -101,6 +101,16 @@ const RESOURCE_SUPPRESSION_MAX = 0.5;
 /** 组织信道广播衰减（与 HOP_DECAY 同量纲·每次组织中继再乘一次） */
 const ORG_CHANNEL_DECAY = HOP_DECAY; // 0.5 — 组织信道中继强度折半
 
+// ── G2-3 S2 矫诏真伪门参数 ────────────────────────────────────────────────────
+/** 矫诏消息（伪诏）官方信道可信度折半系数（G2-3 S2·硬编·非 preset 可配） */
+const FAKE_EDICT_CREDIBILITY_FACTOR = 0.5;
+
+// ── G2-3 S3 SEIR 冲突吸收参数 ─────────────────────────────────────────────────
+/** 接收者已有对立真印象的强度阈值（≥此值视为 SEIR R态·已免疫） */
+const SEIR_CONFLICT_ABSORPTION_THRESHOLD = 30;
+/** 矫诏消息遭遇 R态 接收者时的冲突吸收衰减系数 */
+const SEIR_CONFLICT_ABSORPTION_FACTOR = 0.5;
+
 // ── 结算序 ────────────────────────────────────────────────────────────────────
 
 export const SETTLEMENT_PHASES = [
@@ -627,6 +637,69 @@ function getOrgMemberKeys(
   return result;
 }
 
+// ── G2-3 S1 组织层级辅助（层级延迟·子组织扩散） ───────────────────────────────────
+
+/**
+ * G2-3 S1: 从 组织关系网 的 层级/隶属 边构建父→子有向图。
+ * A组织 = 下级（子）；B组织 = 上级（父）。
+ * 默认 fixture 无此类边 → 空图 → S1 路径完全跳过 → 0 重定基。
+ */
+function buildOrgChildGraph(orgNet: RootState['组织关系网']): Map<string, Set<string>> {
+  const children = new Map<string, Set<string>>();
+  for (const edge of Object.values(orgNet)) {
+    if (edge.边类型 !== '层级' && edge.边类型 !== '隶属') continue;
+    const parent = edge.B组织;
+    const child = edge.A组织;
+    if (!parent || !child || parent === child) continue;
+    if (!children.has(parent)) children.set(parent, new Set());
+    children.get(parent)!.add(child);
+  }
+  return children;
+}
+
+/**
+ * G2-3 S1: BFS 求从 rootOrg 出发可达的所有子组织及层级深度（depth=0 = rootOrg 自身）。
+ * 有环时以首次到达深度为准（无重访·确定性）。
+ */
+function bfsOrgHierarchyDepths(rootOrg: string, childGraph: Map<string, Set<string>>): Map<string, number> {
+  const depths = new Map<string, number>([[rootOrg, 0]]);
+  if (!childGraph.has(rootOrg)) return depths; // fast path: 无子组织
+  const queue: [string, number][] = [[rootOrg, 0]];
+  let qi = 0;
+  while (qi < queue.length) {
+    const [cur, d] = queue[qi++]!;
+    for (const child of (childGraph.get(cur) ?? [])) {
+      if (!depths.has(child)) {
+        depths.set(child, d + 1);
+        queue.push([child, d + 1]);
+      }
+    }
+  }
+  return depths;
+}
+
+/**
+ * G2-3 S3: SEIR 冲突吸收因子。
+ * 矫诏=true 消息到达已有「对立真印象」（极性反转·强度≥阈值）的接收者时进一步衰减。
+ * 对应 SEIR R态（已免疫·Recovered）对反向信息的天然阻抗。
+ * 非矫诏消息直接返回 1.0（零影响·向后兼容·仅矫诏路径消费）。
+ */
+function computeConflictAbsorption(
+  archive: RootState['认知档案'],
+  obsKey: string,
+  targetKey: string,
+  imp: { 矫诏?: boolean | undefined; 标签: string; 极性: string },
+): number {
+  if (imp.矫诏 !== true) return 1.0;
+  const oppositePolarity = imp.极性 === '正' ? '负' : imp.极性 === '负' ? '正' : '';
+  if (!oppositePolarity) return 1.0;
+  const existingImps = archive[obsKey]?.[targetKey]?.印象 ?? [];
+  const hasStrongOpposing = existingImps.some(
+    e => e.标签 === imp.标签 && e.极性 === oppositePolarity && e.强度 >= SEIR_CONFLICT_ABSORPTION_THRESHOLD,
+  );
+  return hasStrongOpposing ? SEIR_CONFLICT_ABSORPTION_FACTOR : 1.0;
+}
+
 /**
  * 涟漪传播（G2-2 全动力学）：读 $涟漪候选 → 写认知档案 → 清空 $涟漪候选
  *
@@ -659,6 +732,9 @@ function propagateRipple(
   const locs = s.地图.地点;
   const hasMap = Object.keys(locs).length > 0;
   const regionGraph = hasMap ? buildRegionGraph(locs) : undefined;
+
+  // G2-3 S1: 组织层级图（一次性构建·default fixture 无 层级/隶属 边 → 空图 → S1 路径跳过）
+  const orgChildGraph = buildOrgChildGraph(s.组织关系网);
 
   // Global round index for IC channel disambiguation (one shared counter per propagateRipple call)
   let icRound = 0;
@@ -802,9 +878,13 @@ function propagateRipple(
       // ── 跳 3：组织信道（G2-2·官方信道·沿 所属组织 广播·忠诚度调制）─────────
       // 跳1观测者所属的每个组织 → 组织内其他成员均收到广播（同拍交付·确定性）。
       // 传播力 ⊥ 真实性（内容可信度/narrativeFrame 在叙事层·此处仅传播强度）。
-      // TODO(G2-3): 层级延迟（层级/隶属边跳数 × hop delay）；当前无延迟。
+      // G2-3 S2: 矫诏=true → FAKE_EDICT_CREDIBILITY_FACTOR 折半·来源标注 (矫诏)。
+      // G2-3 S3: 矫诏=true + 接收者已有对立真印象(R态) → 额外 SEIR_CONFLICT_ABSORPTION_FACTOR。
+      // G2-3 S1: 层级延迟 → 子组织成员按深度概率性接收（orgChildGraph.size=0 完全跳过·0重定基）。
       const presentSet = new Set(presentKeys);
       const orgCovered = new Set<string>(); // 组织信道已写入键（防重）
+      const fakeEdict = imp.矫诏 === true; // G2-3 S2
+      const fakeFactor = fakeEdict ? FAKE_EDICT_CREDIBILITY_FACTOR : 1.0;
       for (const obs1 of presentKeys) {
         if (npcs[obs1]?.存活状态 === '已故') continue;
         const obs1Npc = npcs[obs1];
@@ -816,19 +896,60 @@ function propagateRipple(
           for (const memKey of members) {
             // 忠诚度调制（$真实值 [0-100]；缺省 50）
             const loyalty = npcs[memKey]?.忠诚[orgKey]?.$真实值 ?? 50;
-            const orgStrength = imp.强度 * ORG_CHANNEL_DECAY * (loyalty / 100) * resourceFactor;
+            // G2-3 S3: 冲突吸收（非矫诏消息直接 1.0·零影响·向后兼容）
+            const conflictFactor = computeConflictAbsorption(s.认知档案, memKey, targetKey, imp);
+            const orgStrength = imp.强度 * ORG_CHANNEL_DECAY * (loyalty / 100) * resourceFactor * fakeFactor * conflictFactor;
             if (orgStrength < RIPPLE_MIN) continue;
             writeImpressionMax(s.认知档案, memKey, targetKey, {
               标签:     imp.标签,
               极性:     imp.极性,
               强度:     orgStrength,
-              来源:     `组织传达:${orgKey}`,
+              来源:     fakeEdict ? `组织传达(矫诏):${orgKey}` : `组织传达:${orgKey}`,
               获知时间: nowEpochMin,
               衰减速率: 0,
               来源类型: '二手转述' as const,
               ...(imp.factFragment !== undefined ? { factFragment: imp.factFragment } : {}),
             });
             orgCovered.add(memKey);
+          }
+          // ── G2-3 S1: 层级延迟 — 子组织成员按深度概率性接收 ─────────────────
+          // 仅在有 层级/隶属 边时激活（orgChildGraph.size=0 完全跳过·default fixture→0重定基）。
+          // P(receive_this_tick) = 100/(depth+1)：depth=1→50%·depth=2→33%·depth=3→25%。
+          // seeded RNG（通道键含 subOrgKey 区分）·icRound 仅在此分支递增。
+          if (orgChildGraph.size > 0) {
+            const subOrgDepths = bfsOrgHierarchyDepths(orgKey, orgChildGraph);
+            for (const [subOrgKey, depth] of subOrgDepths) {
+              if (depth === 0) continue; // depth=0 = 直属成员，已在上方处理
+              const subExclude = new Set([...presentSet, targetKey, ...hop2Covered, ...orgCovered]);
+              const subMembers = getOrgMemberKeys(npcs, subOrgKey, subExclude);
+              for (const subMemKey of subMembers) {
+                // 确定性延迟检定（seeded·P = 100/(depth+1)）
+                const rollBound = 100 / (depth + 1);
+                const roll = rngFor(
+                  seed, nowTick,
+                  `涟漪:org:delay:${subMemKey}:${targetKey}:${imp.标签}:${orgKey}`,
+                  rerollSalt, icRound++,
+                );
+                if (roll >= rollBound) continue; // 本拍未到达
+                const subLoyalty = npcs[subMemKey]?.忠诚[orgKey]?.$真实值 ?? 50;
+                const subConflictFactor = computeConflictAbsorption(s.认知档案, subMemKey, targetKey, imp);
+                const subOrgStrength = imp.强度 * ORG_CHANNEL_DECAY * (subLoyalty / 100) * resourceFactor * fakeFactor * subConflictFactor;
+                if (subOrgStrength < RIPPLE_MIN) continue;
+                writeImpressionMax(s.认知档案, subMemKey, targetKey, {
+                  标签:     imp.标签,
+                  极性:     imp.极性,
+                  强度:     subOrgStrength,
+                  来源:     fakeEdict
+                    ? `组织层级传达(矫诏):${orgKey}→${subOrgKey}`
+                    : `组织层级传达:${orgKey}→${subOrgKey}`,
+                  获知时间: nowEpochMin,
+                  衰减速率: 0,
+                  来源类型: '二手转述' as const,
+                  ...(imp.factFragment !== undefined ? { factFragment: imp.factFragment } : {}),
+                });
+                orgCovered.add(subMemKey);
+              }
+            }
           }
         }
       }
@@ -873,10 +994,11 @@ function propagateRipple(
 
 // ── 涟漪发射工具（G1a·Phase 6 接线点 / 外部调用方接口） ────────────────────────
 
-/** $涟漪候选 条目形状（与 $涟漪候选Schema 元素对齐·C2-0 additive 同步） */
+/** $涟漪候选 条目形状（与 $涟漪候选Schema 元素对齐·C2-0/G2-3 additive 同步） */
 type RippleEntry = {
   标签: string; 极性: string; 强度: number;
   可见性: string; 来源拍号: number;
+  矫诏?: boolean;         // G2-3 S2: 伪诏标志（true=官方信道走伪路径·未声明=退回旧行为）
   // C2-0 additive seam (factFragment v2)
   来源世界域?: string;
   有锚布尔?: boolean;

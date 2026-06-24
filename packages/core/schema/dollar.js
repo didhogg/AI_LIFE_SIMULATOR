@@ -18,6 +18,7 @@ z.array(z.object({
     强度: z.number().min(0).max(100).default(0),
     可见性: z.string().default(''),
     来源拍号: z.number().int().min(0).default(0),
+    矫诏: z.boolean().optional(), // G2-3 S2: 伪诏标志（true=官方信道走伪路径·未声明=退回旧行为·零迁移）
     // C2-0 additive seam: factFragment v2 载荷 (T1/T9·进指纹·factFragment化)
     来源世界域: z.string().optional(), // 事件发生的世界域键
     有锚布尔: z.boolean().optional(), // 无锚=false → 造谣 factFragment（v2 新闻先于物化）
