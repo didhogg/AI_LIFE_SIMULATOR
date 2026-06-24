@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=9a09c29（feat: C2-3 C · 场景传播系数）· 前=458c6db（C2-3 A+B）· 前=842b03d（C2-2）| 焊死状态=已正式焊死 @ a7c3f69（Notion 审計签收 2026-06-19） | 更新=2026-06-24/C2-3
+# code HEAD=674283c（feat: C2-4 · 死亡感知发射）· 前=9a09c29（C2-3 C）· 前=458c6db（C2-3 A+B）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/C2-4
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -332,6 +332,15 @@
   - 机器测试: 密室(社交开放度=低) 二跳=28(80×0.5×0.7)·广场(高) 二跳=52(80×0.5×1.3)
   - G0 重定基: 0条（现有 fixture 退化 1.0·无向量漂移·新场景系数仅对「非中」地点生效）
   - tsc 0 新增错误·黄金向量逐位恒等·指纹=85不变·schemaKeys=52不变·lint 0新增·3819/3819
+- [x] C2-4 · 死亡拦截感知发射（生命维度）—— 发射层收尾 · commit=674283c · test=3823→3830(+7)
+  - tick.ts: 新增 SETTLEMENT_PHASE '死亡感知发射'（提案落账→衰减批之间·11→12 个阶段）
+  - tick.ts: priorDeadSet 快照（原始 state·防跨拍重复发射·存活状态==='已故'）
+  - tick.ts: runPhase('死亡感知发射') — 扫描本拍新亡 actor → emitRipple factFragment{维度:'生命', Δ方向:-1, 量级:100}；标签=死因||'死亡'（上下文派生·禁写死）；极性='中'（中立事实性事件）；全 actor 同路径（PC + NPC）
+  - tick.ts: propagateRipple obs1 死者防护 guard — `if (npcs[obs1]?.存活状态 === '已故') continue` → 已故 actor 停中继且不接收印象
+  - m_c24_death_ripple.test.ts（新·7 tests）: FD-1 NPC死亡→目击者生命维度印象 / FD-2 PC死亡同路径 / FD-3 死者不自传 / FD-4 $涟漪候选清空守恒 / FD-5 跨拍不重复发射 / FD-6 死者停中继
+  - m_p7tier2.test.ts: SETTLEMENT_PHASES 计数更新 11→12
+  - m_p7tier2 涟漪 5 条黄金向量: 0 漂移（buildWorld fixture 零死亡）
+  - schemaKeys=52不变·指纹=85不变·黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·3830/3830全绿
 
 ---
 
