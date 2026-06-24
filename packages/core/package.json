@@ -42,6 +42,7 @@
     "./engine/orgGraph": "./engine/orgGraph.ts",
     "./engine/presetSwap": "./engine/presetSwap.ts",
     "./engine/segment": "./engine/segment.ts",
+    "./engine/lodEngine": "./engine/lodEngine.ts",
     "./prompt/callRegistry": "./prompt/callRegistry.ts",
     "./replay": "./replay/index.ts"
   },

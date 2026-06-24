@@ -13,8 +13,8 @@ const RIPPLE_DECAY = 0.5; // 二跳强度乘子（一跳强度 × 信任/100 × 
 const RIPPLE_MIN = 1; // 低于此阈值不写入认知档案（防噪）
 const REL_RIPPLE_THRESHOLD = 50; // Phase 6 关系触发：|强度|×信任/100 达此阈值才发射
 // ── C2-5 感知消费参数 ──────────────────────────────────────────────────────────
-/** 编年史公共知识阈值：factFragment.量级 ≥ 此值且有一手观测者才入 _编年史 */
-const CHRONICLE_PUBLIC_THRESHOLD = 50;
+/** 编年史公共知识阈值：factFragment.量级 ≥ 此值且有一手观测者才入 _编年史。exported for lodEngine. */
+export const CHRONICLE_PUBLIC_THRESHOLD = 50;
 /** 情绪维度映射表（由 factFragment.维度+Δ方向派生·禁写死标签名） */
 const EMOTION_DIMENSION_MAP = {
     '生命': { pos: '震惊', neg: '悲恸', coeff: 1.0 },
@@ -982,7 +982,7 @@ function appendToChronicle(s, nowEpochMin) {
         });
     }
 }
-function writeImpressionMax(认知, observerKey, targetKey, entry) {
+export function writeImpressionMax(认知, observerKey, targetKey, entry) {
     if (!认知[observerKey])
         认知[observerKey] = {};
     if (!认知[observerKey][targetKey]) {
