@@ -27,6 +27,7 @@ export const FINGERPRINT_BUNDLE_MEMBERS = [
     '受控接口能力集注册集', // D-a-lore: active mod lore条目.能力集[].类型 集合·R6/R10判定面·类比F-b side_effects注册集·不与side_effects重叠
     // TODO(P0-7): 方式×速度换算表 — 家在 P0-7 速度模型，届时加入签名 + 补断言
     // TODO(P0-7): H7量纲表全量 — 家在 P0-7 量纲系统，届时加入签名 + 补断言
+    '媒介传播面', // G2-2: 媒介登记表{是否传播,传播系数}投影·判定面·进 hashJudgmentBundle
 ];
 // ── 预设整包组（顶层·从不快照）──────────────────────────────────────────────────
 /** 预设整包组 — 传入 hashPresetFingerprint() 的预设侧字段（均为调用方预计算后传入）。 */

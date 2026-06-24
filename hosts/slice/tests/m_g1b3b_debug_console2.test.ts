@@ -618,7 +618,7 @@ describe('T11 指纹守恒 — 84条/schemaKeys=52（锦上添花批不新增）
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(85);
+    expect(total).toBe(86);
   });
 
   it('schemaKeys = 52（G1b3b 不新增 schema 顶层键）', () => {

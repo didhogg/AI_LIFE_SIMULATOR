@@ -124,6 +124,7 @@ function fingerprintOf(ctx) {
         ...(ctx['side_effects注册集'] !== undefined ? { side_effects注册集: ctx['side_effects注册集'] } : {}),
         ...(ctx['lore谓词集合'] !== undefined ? { lore谓词集合: ctx['lore谓词集合'] } : {}),
         ...(ctx['受控接口能力集注册集'] !== undefined ? { 受控接口能力集注册集: ctx['受控接口能力集注册集'] } : {}),
+        ...(ctx['媒介传播面'] !== undefined ? { 媒介传播面: ctx['媒介传播面'] } : {}),
     });
     return hashPresetFingerprint({
         判定面整包: bundleHash,
@@ -169,6 +170,7 @@ const BUNDLE_MUTATIONS = {
     side_effects注册集: ['combat:击杀回复', 'trade:商路利润'], // F-b·P7-5c
     lore谓词集合: { 'cuisine:川菜': '场景.地域 == 四川', 'dialect:苏州话': '角色.出身地 == 苏州 or 场景.地域 == 苏州' }, // D-a-lore
     受控接口能力集注册集: ['code', 'roll_dice', 'trigger'], // D-a-lore·R6 a/c/d
+    媒介传播面: { 日报: { 是否传播: true, 传播系数: 0.8 } }, // G2-2·传播配置投影
 };
 const _checkBundle = true;
 void _checkBundle;

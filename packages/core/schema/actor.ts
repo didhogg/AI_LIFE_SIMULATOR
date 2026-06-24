@@ -587,6 +587,8 @@ const 印象条目Schema = z.object({
     场景: z.string().optional(),           // 发生场景键（地点键）
     量级: z.number().default(0),           // 事件量级 [0-100]
     narrativeFrame: z.string().optional(), // 可争叙事框架（进指纹·可被信息战覆写）
+    有锚布尔: z.boolean().optional(),      // G2-2: false=无锚=造谣 factFragment（T1/T6·与 secret.ts 口径对齐）
+    来源世界域: z.string().optional(),     // G2-2: 事件发生的世界域键（T9 跨域验证）
   }).optional(),
 });
 

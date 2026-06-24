@@ -508,6 +508,18 @@ const 印象条目Schema = z.object({
     }).optional(),
     // L-22 · 信息来源渠道分类（enum·optional·零迁移·⊥「来源」字段自由串）
     来源类型: z.enum(['一手观测', '二手转述', '玩家陈述']).optional(),
+    // C2-3 · factFragment v2 载荷（additive·optional·进认知档案指纹·T1 认知投影层接线）
+    factFragment: z.object({
+        主体: z.string().default(''), // 事件主体实体键
+        维度: z.string().default(''), // 变化维度（关系/生命/财富/声誉…）
+        Δ方向: z.number().default(0), // 方向量（+1=提升·-1=下降）
+        客体: z.string().optional(), // 关系类事件的对象键
+        场景: z.string().optional(), // 发生场景键（地点键）
+        量级: z.number().default(0), // 事件量级 [0-100]
+        narrativeFrame: z.string().optional(), // 可争叙事框架（进指纹·可被信息战覆写）
+        有锚布尔: z.boolean().optional(), // G2-2: false=无锚=造谣 factFragment（T1/T6·与 secret.ts 口径对齐）
+        来源世界域: z.string().optional(), // G2-2: 事件发生的世界域键（T9 跨域验证）
+    }).optional(),
 });
 const 认知档案条目Schema = z.object({
     了解度: z.number().min(0).max(100).default(0),

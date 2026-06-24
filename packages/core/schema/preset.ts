@@ -300,6 +300,9 @@ const 媒介登记条目Schema = z.object({
   渠道标签: z.string().optional(),
   配图意图: z.string().optional(),
   渲染缓存上限: z.number().int().min(0).optional(),
+  // G2-2 传播面（进 BUNDLE 指纹 via hashJudgmentBundle 媒介传播面参数·非叙事面）
+  是否传播: z.boolean().optional(),           // true = 可发起社会传播; false/undefined = 叙事专用·零贡献
+  传播系数: z.number().min(0).max(10).optional(), // Bass p_external 权重 [0-10]
 });
 
 export const 媒介登记表Schema = z.record(z.string(), 媒介登记条目Schema).default({});

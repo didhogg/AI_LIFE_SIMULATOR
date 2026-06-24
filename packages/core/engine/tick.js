@@ -62,11 +62,16 @@ const COMPLEX_CONTAGION_LABELS = new Set([
     '思想传播', '行为改变', '身份转变', '政治观点', '信仰转变',
     '革命动员', '集体行动', '范式转移',
 ]);
-// Bass 扩散参数（G2-1 stub — G2-2 媒体开关接线后喂值）
+// Bass 扩散参数（G2-1 stub 默认零·G2-2 通过 TickInput.bassP/bassQ 喂值）
 // p=0 外部系数（媒介/告示广播项接线点）；q=0 口碑系数（Word-of-Mouth 接线点）
-// 无种子不起燃：当前 Bass 全零·仅占位接口；G2-1 对传播行为无影响
-const BASS_P = 0.0; // TODO(G2-2): wire media broadcast switch
-const BASS_Q = 0.0; // TODO(G2-2): wire word-of-mouth coefficient
+// 运行时由 TickInput.bassP/bassQ 覆盖；缺省保持零·向后兼容 G2-1 所有现有测试
+const BASS_P_DEFAULT = 0.0; // fallback when TickInput.bassP undefined
+const BASS_Q_DEFAULT = 0.0; // fallback when TickInput.bassQ undefined
+// ── G2-2 传播系数参数 ─────────────────────────────────────────────────────────
+/** 资源紧张度对传播的最大抑制系数（紧张度100 → 传播强度×(1-0.5)=0.5） */
+const RESOURCE_SUPPRESSION_MAX = 0.5;
+/** 组织信道广播衰减（与 HOP_DECAY 同量纲·每次组织中继再乘一次） */
+const ORG_CHANNEL_DECAY = HOP_DECAY; // 0.5 — 组织信道中继强度折半
 // ── 结算序 ────────────────────────────────────────────────────────────────────
 export const SETTLEMENT_PHASES = [
     '日程结算',
@@ -294,7 +299,8 @@ export function runTick(state, input) {
         const rngSeed = s.$存档种子 ?? 0;
         const rngTick = s._tick?.拍计数 ?? 0;
         const rngSalt = s._存档头?.全局回滚计数器 ?? 0;
-        propagateRipple(s, nowEpochMin, rngSeed, rngTick, rngSalt);
+        propagateRipple(s, nowEpochMin, rngSeed, rngTick, rngSalt, input.bassP ?? BASS_P_DEFAULT, // G2-2: Bass 外部点火系数
+        input.bassQ ?? BASS_Q_DEFAULT);
     });
     // Phase 感知情绪化 · C2-5: 扫认知档案本拍新印象 → 含 factFragment 的条目映射为情绪栈 Δ
     // 维度/Δ方向派生情绪名·取 max 防回路·二手转述 INDIRECT_APPRAISAL_FACTOR 淡化（确定性）
@@ -472,32 +478,62 @@ function deriveThresholdCount(npc) {
     return 3;
 }
 /**
- * Bass 扩散放大因子（G2-1 stub·接口占位·当前恒 1.0）。
- * G2-2 接线：p_external（媒体广播）+ q_wom × F(已知比例）。
- * 无种子不起燃：BASS_P=BASS_Q=0 → factor=1（无影响）。
- * TODO(G2-2): wire media switch, compute F(t) from 认知档案 snapshot.
+ * Bass 扩散放大因子（G2-2 接线）。
+ * 公式：1 + pExt + qWom × F(t)
+ * pExt=0, qWom=0 → factor=1.0（无影响·向后兼容 G2-1 所有现有测试）。
  */
-function bassFactor(_label, _knownFraction) {
-    // p + q * F — both zero in G2-1
-    return 1.0 + BASS_P + BASS_Q * _knownFraction;
+function bassFactor(pExt, qWom, knownFraction) {
+    return 1.0 + pExt + qWom * knownFraction;
 }
 /**
- * 涟漪传播（G2-1 全动力学）：读 $涟漪候选 → 写认知档案 → 清空 $涟漪候选
+ * 资源紧张度 → 传播抑制因子（G2-2）。
+ * 取目标地点所在「区域级」祖先节点的 区域资源紧张度（[0,100]）。
+ * 紧张度 0 → factor=1.0；紧张度 100 → factor=1-RESOURCE_SUPPRESSION_MAX=0.5。
+ * 无区域 / 无字段 → 1.0（不抑制·兼容现有所有测试）。
+ */
+function computeResourceFactor(locKey, locs) {
+    if (!locKey)
+        return 1.0;
+    const region = locRegion(locKey, locs);
+    if (!region)
+        return 1.0;
+    const tension = locs[region]?.区域资源紧张度 ?? 0;
+    const suppression = (tension / 100) * RESOURCE_SUPPRESSION_MAX;
+    return Math.max(1.0 - suppression, 1.0 - RESOURCE_SUPPRESSION_MAX);
+}
+/**
+ * 组织信道：收集某组织所有在职且存活成员键（排除 excludeKeys）。
+ */
+function getOrgMemberKeys(npcs, orgKey, excludeKeys) {
+    const result = [];
+    for (const [k, npc] of Object.entries(npcs)) {
+        if (excludeKeys.has(k))
+            continue;
+        if (npc.存活状态 === '已故')
+            continue;
+        if (npc.所属组织.some(o => o.组织键 === orgKey))
+            result.push(k);
+    }
+    return result;
+}
+/**
+ * 涟漪传播（G2-2 全动力学）：读 $涟漪候选 → 写认知档案 → 清空 $涟漪候选
  *
  * 跳 1（一手在场）：目标地点在场 NPC 直接目击 → 确定性写入（不变·与 G1a 完全一致）。
- * 跳 2（口耳相传）：SEIR×IC×LT×Centola-Macy 全动力学——
- *   ① IC 检定：每条 obs1→obs2 边独立以 icEdgeProb(type, trust) 概率触发（seeded rngFor）；
- *      trust=100 时概率=1.0（恒通过·向后兼容）。
- *   ② LT 聚合：累计所有通过 IC 的桥宽 W = 触发边数。
- *   ③ Centola-Macy 门槛：简单传播 W≥1 即写入；复杂传播 W≥θ_i（派生自体质）才写入。
- *   ④ Bass stub：当前 BASS_P=BASS_Q=0 → factor=1（无影响·G2-2 接线）。
- *   ⑤ 强度公式不变：imp.强度 × HOP_DECAY × (trust/100) × sfactor × sceneCoeff。
- *
- * covert（可见性='隐秘'）= 一跳/二跳均不落印象（走 fact 自带门）。
- * 取 max 防环（同 (observer, target, 标签, 极性)·G1a 不变）。
- * 空间因子（G1）·场景系数（G1）：公式不变。
+ * 跳 2（口耳相传）：SEIR×IC×LT×Centola-Macy 全动力学（G2-1 不变）。
+ * 跳 3（组织信道·G2-2）：跳1观测者所属组织的其他成员 → 忠诚度调制·确定性·官方信道。
+ *   - 传播力 ⊥ 真实性（内容真伪在叙事层·引擎仅传播）。
+ *   - TODO(G2-3): 层级延迟（沿 层级/隶属 边跳数 × delay）；当前同拍交付。
+ * 跳 4（Bass 外部点火·G2-2）：pExt>0 时媒体广播独立触发所有未覆盖 NPC。
+ *   - 触发概率：pExt（[0,1]·seeded·逐 NPC 独立滚）。
+ *   - 写入强度：imp.强度 × HOP_DECAY（同二跳量级）。
+ *   - pExt=0 → 此阶段跳过（向后兼容·G2-1 所有测试不受影响）。
+ * 资源抑制：二跳/三跳/四跳强度均乘 computeResourceFactor（一跳确定性不受影响）。
+ * covert（可见性='隐秘'）= 全跳跳过。
+ * 取 max 防环（同 G1a 不变）。
  */
-function propagateRipple(s, nowEpochMin, seed, nowTick, rerollSalt) {
+function propagateRipple(s, nowEpochMin, seed, nowTick, rerollSalt, pExt, // G2-2: Bass 外部点火系数（TickInput.bassP）；0 = 无媒体广播
+bassQ) {
     const pending = s.$涟漪候选;
     if (!pending || Object.keys(pending).length === 0)
         return;
@@ -537,12 +573,29 @@ function propagateRipple(s, nowEpochMin, seed, nowTick, rerollSalt) {
                 });
             }
             if (covert)
-                continue; // 隐秘 → 二跳同样跳过
+                continue; // 隐秘 → 后续各跳同样跳过
+            // 资源抑制因子（G2-2·目标地点区域·二跳+组织信道+Bass点火均适用）
+            const resourceFactor = computeResourceFactor(targetLoc, locs);
+            // Bass F(t)：当前拍开始前已知该标签的 NPC 比例（G2-2·从 认知档案 读取）
+            let knownFraction = 0.0;
+            if (pExt > 0 || bassQ > 0) {
+                const liveNpcCount = Object.values(npcs).filter(n => n.存活状态 !== '已故').length;
+                if (liveNpcCount > 0) {
+                    let knownCount = 0;
+                    for (const [obsKey, targetMap] of Object.entries(s.认知档案)) {
+                        const archEntry = targetMap[targetKey];
+                        if (!archEntry)
+                            continue;
+                        if (archEntry.印象.some(i => i.标签 === imp.标签)) {
+                            if (npcs[obsKey]?.存活状态 !== '已故')
+                                knownCount++;
+                        }
+                    }
+                    knownFraction = knownCount / liveNpcCount;
+                }
+            }
+            const bf = bassFactor(pExt, bassQ, knownFraction);
             // ── 跳 2：口耳相传（IC×LT×Centola-Macy · seeded）─────────────────────
-            // Bass F(t)：当前拍开始前已知该标签的 NPC 比例（G2-1: stub → 0.0）
-            // TODO(G2-2): 从 认知档案 快照计算 knownFraction
-            const knownFraction = 0.0;
-            const bf = bassFactor(imp.标签, knownFraction); // 当前恒 1.0
             // 是否为复杂传播（Centola-Macy）
             const complex = isComplexContagion(imp.标签, imp.factFragment);
             // 收集所有 obs1→obs2 桥候选：obs2Key → [{obs1Key, strength2}]
@@ -561,7 +614,7 @@ function propagateRipple(s, nowEpochMin, seed, nowTick, rerollSalt) {
                         continue;
                     const obs2Loc = npcs[obs2]?.位置 ?? '';
                     const sfactor = computeSpatialFactor(targetRegion, obs2Loc, locs, regionGraph);
-                    const strength2 = imp.强度 * HOP_DECAY * (rel.信任 / 100) * sfactor * sceneCoeff * bf;
+                    const strength2 = imp.强度 * HOP_DECAY * (rel.信任 / 100) * sfactor * sceneCoeff * bf * resourceFactor;
                     if (strength2 < RIPPLE_MIN)
                         continue;
                     const bucket = hop2Map.get(obs2) ?? [];
@@ -570,6 +623,7 @@ function propagateRipple(s, nowEpochMin, seed, nowTick, rerollSalt) {
                 }
             }
             // IC 检定 + LT 聚合 + Centola-Macy 门槛
+            const hop2Covered = new Set(); // G2-2: 跳2已覆盖键（供跳3/4排重）
             for (const [obs2, candidates] of hop2Map) {
                 // IC 检定：每条桥独立概率触发
                 const passing = [];
@@ -615,6 +669,75 @@ function propagateRipple(s, nowEpochMin, seed, nowTick, rerollSalt) {
                     来源类型: '二手转述',
                     ...(imp.factFragment !== undefined ? { factFragment: imp.factFragment } : {}),
                 });
+                hop2Covered.add(obs2);
+            }
+            // ── 跳 3：组织信道（G2-2·官方信道·沿 所属组织 广播·忠诚度调制）─────────
+            // 跳1观测者所属的每个组织 → 组织内其他成员均收到广播（同拍交付·确定性）。
+            // 传播力 ⊥ 真实性（内容可信度/narrativeFrame 在叙事层·此处仅传播强度）。
+            // TODO(G2-3): 层级延迟（层级/隶属边跳数 × hop delay）；当前无延迟。
+            const presentSet = new Set(presentKeys);
+            const orgCovered = new Set(); // 组织信道已写入键（防重）
+            for (const obs1 of presentKeys) {
+                if (npcs[obs1]?.存活状态 === '已故')
+                    continue;
+                const obs1Npc = npcs[obs1];
+                if (!obs1Npc)
+                    continue;
+                for (const orgMembership of obs1Npc.所属组织) {
+                    const orgKey = orgMembership.组织键;
+                    const orgExclude = new Set([...presentSet, targetKey, ...hop2Covered, ...orgCovered]);
+                    const members = getOrgMemberKeys(npcs, orgKey, orgExclude);
+                    for (const memKey of members) {
+                        // 忠诚度调制（$真实值 [0-100]；缺省 50）
+                        const loyalty = npcs[memKey]?.忠诚[orgKey]?.$真实值 ?? 50;
+                        const orgStrength = imp.强度 * ORG_CHANNEL_DECAY * (loyalty / 100) * resourceFactor;
+                        if (orgStrength < RIPPLE_MIN)
+                            continue;
+                        writeImpressionMax(s.认知档案, memKey, targetKey, {
+                            标签: imp.标签,
+                            极性: imp.极性,
+                            强度: orgStrength,
+                            来源: `组织传达:${orgKey}`,
+                            获知时间: nowEpochMin,
+                            衰减速率: 0,
+                            来源类型: '二手转述',
+                            ...(imp.factFragment !== undefined ? { factFragment: imp.factFragment } : {}),
+                        });
+                        orgCovered.add(memKey);
+                    }
+                }
+            }
+            // ── 跳 4：Bass 外部点火（G2-2·媒体广播·pExt>0 时对未覆盖 NPC 独立滚）─────
+            // 仅在 pExt>0 时激活（pExt=0 完全跳过·向后兼容 G2-1 所有现有测试）。
+            // 触发概率 = pExt（每 NPC 独立·seeded·不混 hop2 / hop3 通道）。
+            if (pExt > 0) {
+                const bassExclude = new Set([
+                    ...presentSet, targetKey, ...hop2Covered, ...orgCovered,
+                ]);
+                for (const [npcKey, npc] of Object.entries(npcs)) {
+                    if (bassExclude.has(npcKey))
+                        continue;
+                    if (npc.存活状态 === '已故')
+                        continue;
+                    // seeded 独立点火检定
+                    const roll = rngFor(seed, nowTick, `涟漪:Bass:${npcKey}:${imp.标签}`, rerollSalt, icRound++);
+                    const triggerProb = Math.min(pExt, 1.0) * 100;
+                    if (roll >= triggerProb)
+                        continue;
+                    const bassStrength = imp.强度 * HOP_DECAY * resourceFactor;
+                    if (bassStrength < RIPPLE_MIN)
+                        continue;
+                    writeImpressionMax(s.认知档案, npcKey, targetKey, {
+                        标签: imp.标签,
+                        极性: imp.极性,
+                        强度: bassStrength,
+                        来源: `媒体广播:${targetKey}`,
+                        获知时间: nowEpochMin,
+                        衰减速率: 0,
+                        来源类型: '二手转述',
+                        ...(imp.factFragment !== undefined ? { factFragment: imp.factFragment } : {}),
+                    });
+                }
             }
         }
     }

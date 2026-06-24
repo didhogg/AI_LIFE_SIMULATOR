@@ -189,6 +189,8 @@ export function hashJudgmentBundle(fields: {
   lore谓词集合?: unknown;
   /** D-a-lore: active mod lore条目.能力集[].类型 集合·R6/R10判定面·类比F-b side_effects注册集·与side_effects不重叠 */
   受控接口能力集注册集?: unknown;
+  /** G2-2: 媒介登记表{是否传播,传播系数}投影·{mediaKey:{是否传播?,传播系数?}}·判定面·改传播配置即改判定 */
+  媒介传播面?: unknown;
   // TODO(P0-7): 方式×速度换算表 — 家在 P0-7 速度模型，届时加入签名 + 补断言
   // TODO(P0-7): H7量纲表全量 — 家在 P0-7 量纲系统，届时加入签名 + 补断言
 }): string {

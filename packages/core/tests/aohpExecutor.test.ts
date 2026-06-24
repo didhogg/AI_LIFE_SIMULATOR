@@ -259,13 +259,13 @@ describe('Test 5 · 动词不在动词Id枚举 10 内 → downgrade:true', () =>
 // ── Test 6: 指纹 + 黄金向量不回归 ────────────────────────────────────────────────
 
 describe('Test 6 · 指纹 manifest 不变 + 确定性验证', () => {
-  it('指纹 manifest 总数 85（BUNDLE20+PRESET11+SNAP5+EXCL49）不变', () => {
+  it('指纹 manifest 总数 86（BUNDLE21+PRESET11+SNAP5+EXCL49）不变', () => {
     expect(
       FINGERPRINT_BUNDLE_MEMBERS.length +
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length,
-    ).toBe(85);
+    ).toBe(86);
   });
 
   it('AOHP選項id集 已在 FINGERPRINT_PRESET_FIELDS（接线已在位）', () => {

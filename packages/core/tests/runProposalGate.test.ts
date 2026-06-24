@@ -602,11 +602,11 @@ describe('⊕-4 e2e-1 · happy path：全链 ①→⑤ 含多包 add+clamp+audit
       ),
     ).not.toThrow();
 
-    // ⑤ fingerprint manifest frozen: 20+11+5+49=85 entries (阶段1 +1: 动词选项集哈希·PRESET_FIELDS 10→11)
+    // ⑤ fingerprint manifest frozen: 21+11+5+49=86 entries (G2-2 +1: 媒介传播面·BUNDLE_MEMBERS 20→21)
     expect(
       FINGERPRINT_BUNDLE_MEMBERS.length + FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length + FINGERPRINT_EXCLUDED_FIELDS.length,
-    ).toBe(85);
+    ).toBe(86);
   });
 });
 

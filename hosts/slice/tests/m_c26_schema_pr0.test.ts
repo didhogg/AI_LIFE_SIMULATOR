@@ -134,9 +134,9 @@ describe('PR0-3 · 全局._factFragment种子库 留位', () => {
   });
 });
 
-describe('PR0-4 · manifest=85 / schemaKeys=52 守恒', () => {
-  it('BUNDLE_MEMBERS = 20', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(20);
+describe('PR0-4 · manifest=86 / schemaKeys=52 守恒（G2-2: +媒介传播面 → BUNDLE21）', () => {
+  it('BUNDLE_MEMBERS = 21（G2-2 +媒介传播面）', () => {
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
   });
 
   it('PRESET_FIELDS = 11', () => {
@@ -147,17 +147,17 @@ describe('PR0-4 · manifest=85 / schemaKeys=52 守恒', () => {
     expect(FINGERPRINT_SNAPSHOT_FIELDS.length).toBe(5);
   });
 
-  it('EXCLUDED_FIELDS = 49（C2-6 新字段不进 EXCL）', () => {
+  it('EXCLUDED_FIELDS = 49（G2-2 新字段不进 EXCL）', () => {
     expect(FINGERPRINT_EXCLUDED_FIELDS.length).toBe(49);
   });
 
-  it('manifest total = 85', () => {
+  it('manifest total = 86（G2-2 +1）', () => {
     const total =
       FINGERPRINT_BUNDLE_MEMBERS.length +
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(85);
+    expect(total).toBe(86);
   });
 
   it('schemaKeys = 52（无新顶层键）', () => {
