@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=d0fa62a（feat: C2-5 · 感知消费收尾）· 前=674283c（C2-4）· 前=9a09c29（C2-3 C）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/C2-5
+# code HEAD=796aed3（test: C2-T · 涟漪基线锁死）· 前=28f7edb（STATUS/C2-5）· 前=d0fa62a（C2-5）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/C2-T
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -341,6 +341,27 @@
   - m_p7tier2.test.ts: SETTLEMENT_PHASES 计数 12→14（描述文字同步）
   - m_c25_appraisal.test.ts（新·21 tests）: FA-1 关系负/正→警惕/信任感·取max防膨胀 / FA-2 死亡→悲恸·死者不自传 / FA-3 schema合法 / FA-4 公共入册·序号单调·低量级不入 / FA-5 covert不入编年史（知情门） / FA-6 assemblePrompt读最近5条 / FA-7 守恒·50拍schema / FA-8 SETTLEMENT_PHASES=14
   - schemaKeys=52不变·指纹=85不变·黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等（buildWorld标准50拍无死亡+Phase6未触发→两新阶段no-op→0漂移）·tsc 0新增·3851/3851全绿
+- [x] C2-T · 涟漪基线锁死·soak·bug-06 确认 · commit=796aed3 · test=3851→3879(+28·88 files)
+  - ① m_p7tier2 35 复锁：35/35 逐位恒等·0 G0 重定基（C2-4/C2-5 对标准 buildWorld 50 拍均 no-op）
+  - ② ripple 基线 m_c2t_ripple_baseline.test.ts（18 tests·BL-1~8）：
+    - BL-1 死亡全管线一拍（发射→传播→情绪→编年史 four-stage pipeline）
+    - BL-2 关系涟漪全管线（Phase6 发射→情绪栈→编年史入册）
+    - BL-3 covert 知情门（隐秘事件→propagateRipple 过滤→情绪栈/编年史均零）
+    - BL-4 二手转述衰减（二跳 ≤ 一跳情绪强度·INDIRECT_APPRAISAL_FACTOR 确定性）
+    - BL-5 双宿主幂等（两次独立 buildWorld+同 tickId → canonicalize 逐位恒等·关系/死亡/50拍三场景）
+    - BL-6 涟漪字段快照（fnv1a32·两次独立计算恒等·作长期回归锚）
+    - BL-7 常量守卫（SETTLEMENT_PHASES=14·assemblePrompt 编年史 slice(-5) slot）
+    - BL-8 全程守恒不破（死亡拍·关系拍·50拍含涟漪事件全绿）
+  - ③ 显形 bug 清零 + bug-06 确认：
+    - env-fix(c5a50b5)+env-fix-02(0f406ea) openai-compatible dangerouslyAllowBrowser 已生效
+    - m_g1b3c_narrative_panel 18+m_g1b3c_enhancement 20 tests全绿（T2 forceFailure→isFallback=true验证降级链）
+    - P-A-bug-01(叙事出字面板)[x]·P-A 无新显形 bug
+  - ④ 多拍 soak m_c2t_soak.test.ts（10 tests·SK-1~4）：
+    - SK-1 拍0关系涟漪→警惕情绪+守恒
+    - SK-2 拍3死亡→悲恸+编年史+双宿主恒等+守恒
+    - SK-3 20拍长程（拍0关系+拍5死亡+拍7关系·全程守恒+schema+序号单调递增）
+    - SK-4 标准50拍no-op·含关系的50拍双宿主恒等
+  - soak 300×8 全绿·黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=85/20不变·schemaKeys=52不变·tsc 0新增
   - tick.ts: 新增 SETTLEMENT_PHASE '死亡感知发射'（提案落账→衰减批之间·11→12 个阶段）
   - tick.ts: priorDeadSet 快照（原始 state·防跨拍重复发射·存活状态==='已故'）
   - tick.ts: runPhase('死亡感知发射') — 扫描本拍新亡 actor → emitRipple factFragment{维度:'生命', Δ方向:-1, 量级:100}；标签=死因||'死亡'（上下文派生·禁写死）；极性='中'（中立事实性事件）；全 actor 同路径（PC + NPC）
