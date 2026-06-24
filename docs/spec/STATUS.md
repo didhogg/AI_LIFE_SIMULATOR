@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=d6a376e（feat: PR-3 动态修正层+经济派生）· 前=91d6bc8（docs: PR-2回填）· 前=52fb01e（feat: PR-2 LOD实体化+新闻纯认知层）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-25/PR-3
+# code HEAD=6d5080e（feat: PR-4 LOD调度器P15-P21+穿越契约T5）· 前=af7b7b2（docs: PR-3回填）· 前=d6a376e（feat: PR-3 动态修正层+经济派生）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-25/PR-4
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -446,6 +446,31 @@
     - 红线 diff=0（gate/conservation/rng/computeDelta/fixed 函数体零diff）✅
     - tsc core=12(0新增) · 新增 exports: packages/core/engine/economyEngine ✅
   - 明确排除：切换/跨区/穿越 LOD 调度（PR-4）·预设版本 bump·认知层投影·停战扫描器自适应调速
+- [x] PR-4 · LOD 调度器（P15–P21·T5）+ 穿越契约 · commit=6d5080e · test=4015→4063(+48)
+  - P4-0 schema 留位（additive·零迁移·守 schemaKeys=52/BUNDLE=21/manifest=86）
+    - map.ts 地点条目Schema: LOD态? z.enum(['粗','实体']).optional() + 保温到期拍号? z.number().int().optional()（仅区域级节点有语义）
+    - preset.ts 玩法预设Schema: LOD保温窗口? z.number().int().min(0).optional()（缺→引擎常量 LOD_WARM_WINDOW_DEFAULT=3·不进指纹）
+  - P4-1 packages/core/engine/lodScheduler.ts（新建·纯函数·确定性·Ring 0）
+    - promoteNode(state,nodeKey,seed): 粗→实体·物化区域内粗 NPC（复用 materializeCoarseNode）·幂等 no-op·原子 checkpoint
+    - demoteNode(state,nodeKey,preset?): 实体→粗·离开再聚合 applyDriftCandidate（复用 PR-3）·清空 保温到期拍号
+  - P4-2 保温滞回窗口防 thrash: startWarmWindow / checkWarmWindow / tryDemoteNode
+    - 窗口内回访复用实体态（V2 双计漏洞修复）·超窗 demoteNode
+  - P4-3 跨区自动物化/解聚: detectCrossRegion / handleRegionCross
+    - 复用 C1 locRegion/buildRegionGraph（tick.ts additive 导出·函数体零 diff）
+    - promote 目标区·离开区起保温窗口·只改 LOD 态指针·实体状态全保留·绝不污染预设
+  - P4-4 切换时机四条件检测器 detectLodTrigger（纯·只读·LLM 不触发）
+    - ① 位置跨区 ② 纪元跨时代（年号标签变更）③ 组织归属变更 ④ 规范偏离（defer·参数化入口）
+  - P4-5 穿越契约 executeTraversal + isCrossDomainAccess
+    - 封存 fromDomain/激活 toDomain·属性映射·技能等价表·货币处理·携带白名单
+    - 跨域主张（来源世界域 ≠ 当前域）→ access=0 纯谣言（域隔离）
+  - P4-6 hosts/slice/tests/m_pr4_lod.test.ts（新建·48 tests·G1~G7 全绿）
+    - G1 单态不变式(8)·G2 checkpoint 原子回访不双计(3)·G3 保温窗口(8)
+    - G4 跨区触发(7)·G5 四条件各命中(7)·G6 穿越+契约+跨域隔离(10)·G7 soak 守恒+确定性(5)
+  - tick.ts: export locRegion/buildRegionGraph/bfsRegionHops + LocRecord/RegionGraph 类型（additive·函数体零 diff）
+  - 守恒表：test 4015→4063(+48)·m_p7tier2 35/35 向量 0 重定基·soak --seed 12345 --runs 1 全绿
+    · tsc core=12(0新增)·schemaKeys=52·BUNDLE=21·manifest=86·黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等
+    · 红线 diff=0（gate/rng/conservation/computeDelta/fixed/propagateRipple 函数体零 diff）
+  - 明确排除：认知投影·记忆卡导出·换角 POV·信息战·UI 库·切换策略闸（PR-5/5b/5c/7）·soak 自适应调速（T7）
 
 - [x] G2-3 · 官方信道完善（矫诏门+SEIR冲突吸收+层级延迟）+ 阶段3 schema 冻结 + G2 机测固化 · commit=509de9d · test=3929→3943(+14·91 files)
   - S1 层级延迟: buildOrgChildGraph(BFS·层级/隶属边)·bfsOrgHierarchyDepths·rollBound=100/(depth+1)·seeded rngFor·默认 fixture 无层级边→orgChildGraph.size===0→子组织循环完全跳过→0 重定基
