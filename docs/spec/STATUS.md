@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=941bd47（test: G2-1·rebase m_p7tier2 5向量验证）· 前=910d1e7（feat: G2-1 propagateRipple 全动力学）· 前=15d3b11（docs: C2-6 STATUS回填）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/G2-1
+# code HEAD=d5f4456（feat: G2-2 传播信道+系数接线）· 前=941bd47（test: G2-1·rebase）· 前=910d1e7（feat: G2-1 propagateRipple 全动力学）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/G2-2
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -377,6 +377,16 @@
   - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·manifest=85·schemaKeys=52·tsc 0新增错误·lint 0新增
   - 本轮排除（G2-2/G2-3）：官方信道传播·层级延迟·媒体广播开关·资源紧张度接线·schema 冻结·Phase 4 PR
   - additive-only: 0 RNG / 0 propagateRipple 改动 / 0 重定基 / schemaKeys=52 / manifest=85 / 黄金向量逐位恒等
+- [x] G2-2 · 传播信道 + 系数接线（媒体开关/官方信道/资源系数/Bass外部点火） · commit=d5f4456 · test=3911→3929(+18·91 files)
+  - 媒体传播面（进指纹·BUNDLE 20→21·manifest 85→86）：preset.ts 媒介登记条目 加 是否传播?/传播系数?；rng.ts hashJudgmentBundle 加 媒介传播面? 参数；fingerprintManifest.ts BUNDLE_MEMBERS +1
+  - Bass 外部点火（TickInput.bassP/bassQ → pExt/bassQ）：bassFactor() 改传参（替换 BASS_P=0.0 stub）；pExt > 0 → 全体孤立 NPC seeded RNG 点火（rngFor 四元盐）
+  - 官方信道 Phase 3（组织关系网隶属/层级边广播）：getOrgMemberKeys() 枚举组织成员；忠诚 $真实值 调制送达强度（loyalty/100 乘子）；TODO(G2-3): 层级延迟
+  - 资源抑制因子 computeResourceFactor（读 区域资源紧张度）：tension 100 → 强度降 50%（RESOURCE_SUPPRESSION_MAX=0.5）；作用于二跳/官方信道/Bass；一跳不受影响
+  - schema additive：actor.ts 印象条目 factFragment 加 有锚布尔?/来源世界域?（T1/T6·与 secret.ts 口径对齐）
+  - m_g2_channel.test.ts（新·17 tests·E1-E8 全绿）：E1 媒体开关·E2 Bass外部点火·E3 传播系数单调性·E4 组织广播/忠诚调制·E5 传播力⊥真实性·E6 资源抑制·E7 seeded确定性·E8 300拍soak
+  - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等（buildWorld fixture：无所属组织→org broadcast无收件·bassP未传=0→Bass无点火·无区域资源紧张度→factor=1.0·m_p7tier2 35 向量 0 重定基）
+  - tsc core=12/slice=23（基线守恒 0新增）·manifest=86·schemaKeys=52·黄金向量逐位恒等·test 3928/3929（1 pre-existing）
+  - 本轮排除（G2-3）：schema 冻结·层级延迟·PR-0~PR-5 预设轨
   - preset.ts/js: 玩法预设Schema +6 optional 字段
     - 父预设 / 创建时预设版本 / 派生标记 / 默认模板（预设元数据·不进指纹）
     - 经济生成规则（G2 SEIR/Bass 种子接线点·留位空跑）
