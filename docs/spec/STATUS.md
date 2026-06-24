@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=c920f5b（feat: PR-1 预设切换原语 swapPreset+unloadPreset）· 前=509de9d（feat: G2-3 官方信道完善·矫诏门+SEIR冲突吸收+层级延迟+机测固化）· 前=d5f4456（feat: G2-2 传播信道+系数接线）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/PR-1
+# code HEAD=52fb01e（feat: PR-2 LOD实体化+新闻纯认知层）· 前=2467bc4（docs: PR-1回填）· 前=c920f5b（feat: PR-1 swapPreset+unloadPreset）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/PR-2
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -398,6 +398,30 @@
     - 红线 diff=0（rng.ts·gate.ts·conservation.ts·computeDelta.ts·fixed.ts·fnv1a32·canonicalize 函数体零 diff）✅
     - schemaKeys=52 · 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等 ✅
     - tsc core=12→12 · slice=23→23（0新增错误）✅
+- [x] PR-2 · LOD 实体化 + 新闻纯认知层 · commit=52fb01e · test=3960→3988(+28)
+  - P2-1 actor.ts: NpcSchema 加 LOD档位 z.enum(['粗','实体']).optional()（additive-only·缺省视为'实体'·零迁移·schemaKeys=52守恒）
+  - P2-2 packages/core/engine/lodEngine.ts: materializeCoarseNode(s, nodeKey, seed)
+    · LOD档位!=='粗' → no-op 幂等 · rngFor 四元盐(tick=0/rerollSalt=0)派生属性 [20,60] · 消费 secret.ts 粗节点引用(T11)
+  - P2-3 packages/core/engine/lodEngine.ts: newsToCognition(s, news, observers, nowEpochMin)
+    · 复用 tick.ts writeImpressionMax（additive export 接出·禁第二实现）
+    · 来源类型固定='二手转述' · 粗节点观察者跳过 · 硬断言 NPC 数不变（no-materialization guarantee）
+  - P2-4 packages/core/engine/lodEngine.ts: triggerLodGate(s, contactKeys, seed)
+    · 拍内 Set 去重 · 无接触/已实体化 → no-op
+  - tick.ts additive export: CHRONICLE_PUBLIC_THRESHOLD · ImpressionEntry · writeImpressionMax（函数体零diff）
+  - packages/core/package.json: +./engine/lodEngine 导出
+  - hosts/slice/tests/m_pr2_lod.test.ts: 28 tests（F1~F6）全绿
+    F1 materialize 确定性逐位恒等+幂等 no-op（6 tests）
+    F2 新闻路径 0 实体化断言（认知层有写·实体数不变·LOD恒='粗'·来源类型='二手转述'）（6 tests）
+    F3 触发闸（接触→实体化·无接触→不变·同拍幂等·批量）（5 tests）
+    F4 LOD 档位迁移（粗→实体·isCoarseNode·不可降级）（4 tests）
+    F5 默认 fixture 零漂移（无粗节点·空触发·空观察者·schemaKeys=52·指纹不含LOD档位）（5 tests）
+    F6 300拍 soak（新闻流+偶发接触·守恒持续成立·双跑逐位恒等）（2 tests）
+  - 守恒表：
+    - m_p7tier2 35/35 向量 0 重定基 ✅
+    - soak --seed 12345 --runs 1 全绿 ✅
+    - BUNDLE=21 · manifest=20 · schemaKeys=52 · 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等 ✅
+    - 红线 diff=0（gate/conservation/rng/computeDelta/fixed 函数体零diff）✅
+    - tsc core 0 新增错误 ✅
 
 - [x] G2-3 · 官方信道完善（矫诏门+SEIR冲突吸收+层级延迟）+ 阶段3 schema 冻结 + G2 机测固化 · commit=509de9d · test=3929→3943(+14·91 files)
   - S1 层级延迟: buildOrgChildGraph(BFS·层级/隶属边)·bfsOrgHierarchyDepths·rollBound=100/(depth+1)·seeded rngFor·默认 fixture 无层级边→orgChildGraph.size===0→子组织循环完全跳过→0 重定基
