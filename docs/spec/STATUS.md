@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=0dc3336（feat: C2-6 · PR-0 预设 schema additive 留位）· 前=796aed3（C2-T）· 前=62fccf8（docs/C2-T）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/C2-6
+# code HEAD=941bd47（test: G2-1·rebase m_p7tier2 5向量验证）· 前=910d1e7（feat: G2-1 propagateRipple 全动力学）· 前=15d3b11（docs: C2-6 STATUS回填）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/G2-1
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -364,6 +364,18 @@
   - soak 300×8 全绿·黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·指纹=85/20不变·schemaKeys=52不变·tsc 0新增
   - tick.ts: 新增 SETTLEMENT_PHASE '死亡感知发射'（提案落账→衰减批之间·11→12 个阶段）
 - [x] C2-6 · PR-0 预设 schema additive 留位（涟漪同批·无重定基） · commit=0dc3336 · test=3879→3896(+17·89 files)
+- [x] G2-1 · propagateRipple 全动力学（IC×LT×Centola-Macy + Bass stub） · C1=910d1e7 · C2=941bd47(rebase verify) · test=3896→3911(+15·90 files)
+  - IC (Independent Cascade): icEdgeProb(relType,trust)=rate+(trust/100)×(1-rate)·trust=100→1.0（兼容既有测试）
+  - 边类型差异 IC 触发率（亲人/伴侣/友人=1.0·相识/熟人=0.7·点头之交=0.4·桥接=0.4·默认=0.8）
+  - HOP_DECAY=RIPPLE_DECAY(0.5)·逐跳畸变衰减·LT 桥宽 W 聚合→ max 强度 writeImpressionMax
+  - Granovetter78 θ_i 异质阈值（派生·不落 schema·schemaKeys=52）：体质≤4→1 / ≤12→2 / >12→3
+  - Centola-Macy 复杂传染（COMPLEX_CONTAGION_LABELS 8类）：简单 W≥1·复杂 W≥θ_i
+  - Bass 占位 stub（BASS_P=BASS_Q=0.0·bassFactor=1.0·TODO G2-2 注释锁位）
+  - seeded rngFor（四元盐：seed/tick/channel/rerollSalt）·非状态·多路调用不互扰
+  - m_g2_dynamics.test.ts 15 tests（D1跳衰减·D2 Centola-Macy 边界·D3 seeded 确定性·D4 300拍 soak·D5 Bass stub）
+  - m_p7tier2 5 涟漪向量：0 重定基（trust=100 路径 icEdgeProb=1.0·IC pass·数值逐位恒等）
+  - 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等·manifest=85·schemaKeys=52·tsc 0新增错误·lint 0新增
+  - 本轮排除（G2-2/G2-3）：官方信道传播·层级延迟·媒体广播开关·资源紧张度接线·schema 冻结·Phase 4 PR
   - additive-only: 0 RNG / 0 propagateRipple 改动 / 0 重定基 / schemaKeys=52 / manifest=85 / 黄金向量逐位恒等
   - preset.ts/js: 玩法预设Schema +6 optional 字段
     - 父预设 / 创建时预设版本 / 派生标记 / 默认模板（预设元数据·不进指纹）
