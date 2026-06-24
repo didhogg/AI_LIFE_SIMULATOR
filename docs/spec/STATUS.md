@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=52fb01e（feat: PR-2 LOD实体化+新闻纯认知层）· 前=2467bc4（docs: PR-1回填）· 前=c920f5b（feat: PR-1 swapPreset+unloadPreset）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-24/PR-2
+# code HEAD=d6a376e（feat: PR-3 动态修正层+经济派生）· 前=91d6bc8（docs: PR-2回填）· 前=52fb01e（feat: PR-2 LOD实体化+新闻纯认知层）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-25/PR-3
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -419,9 +419,33 @@
   - 守恒表：
     - m_p7tier2 35/35 向量 0 重定基 ✅
     - soak --seed 12345 --runs 1 全绿 ✅
-    - BUNDLE=21 · manifest=20 · schemaKeys=52 · 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等 ✅
+    - BUNDLE=21 · manifest=86(fingerprintManifest.ts 含单引号行数=86·BUNDLE_MEMBERS=21) · schemaKeys=52 · 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等 ✅
     - 红线 diff=0（gate/conservation/rng/computeDelta/fixed 函数体零diff）✅
     - tsc core 0 新增错误 ✅
+
+- [x] PR-3 · 动态修正层（P12–P14）+ 经济派生（P27） · commit=d6a376e · test=3988→4015(+27)
+  - P3-1 preset.ts: 经济生成规则 schema 定型（record→typed z.object·additive·不进指纹）
+    · 五字段：品类基线/资源紧张度权重/供需权重/战时修正权重/衰减率（全 optional·[0,1]）
+  - P3-1 map.ts: 区域物价Schema 内层 + 候选基线 optional（P3-4 漂移候选写入点·additive）
+  - P3-2 packages/core/engine/economyEngine.ts（新建）:
+    · deriveEffectivePrice(state, preset, regionId, category)→number（纯函数·不写 state）
+    · baseline × clamp(1 + Σ权重×归一信号 × decayFactor, LO=0.5, HI=3.0)
+    · 信号：区域资源紧张度/供需/hasActiveWar（一档战时判定）
+    · fixed.ts v1.clamp + fixedPow 全程（Math.round 允许·六禁守恒）
+  - P3-3 computeDecayFactor: pow(1-衰减率, 当前拍计数)·闭式·锚拍号·禁逐拍累积
+  - P3-4 applyDriftCandidate: 漂移>DRIFT_THRESHOLD(20%)→写候选基线 inner additive 字段
+    · 明确排除：不 bump 预设版本·不回写只读预设·不新增顶层 schemaKey
+  - P3-5 hosts/slice/tests/m_pr3_economy.test.ts: 27 tests F1~F6 全绿
+    F1 确定性逐位恒等+幂等（3） F2 退化守卫（6） F3 衰减闭式·双跑恒等（5）
+    F4 三信号单调性+钳制+hasActiveWar（6） F5 漂移候选再基线（5） F6 300拍soak（2）
+  - m_c26_schema_pr0.test.ts: PR0-6 测试对齐新字段（旧 通货膨胀率→衰减率+品类基线）
+  - 守恒表：
+    - m_p7tier2 35/35 向量 0 重定基 ✅
+    - soak --seed 12345 --runs 1 全绿 ✅
+    - BUNDLE=21 · manifest=86 · schemaKeys=52 · 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等 ✅
+    - 红线 diff=0（gate/conservation/rng/computeDelta/fixed 函数体零diff）✅
+    - tsc core=12(0新增) · 新增 exports: packages/core/engine/economyEngine ✅
+  - 明确排除：切换/跨区/穿越 LOD 调度（PR-4）·预设版本 bump·认知层投影·停战扫描器自适应调速
 
 - [x] G2-3 · 官方信道完善（矫诏门+SEIR冲突吸收+层级延迟）+ 阶段3 schema 冻结 + G2 机测固化 · commit=509de9d · test=3929→3943(+14·91 files)
   - S1 层级延迟: buildOrgChildGraph(BFS·层级/隶属边)·bfsOrgHierarchyDepths·rollBound=100/(depth+1)·seeded rngFor·默认 fixture 无层级边→orgChildGraph.size===0→子组织循环完全跳过→0 重定基
