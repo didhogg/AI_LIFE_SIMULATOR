@@ -15,6 +15,7 @@ import { assertConservation } from './conservation.js';
 import { getNetAsset } from './netAsset.js';
 import { decayStep } from './time.js';
 import { fixedPow, fixedExp } from './math/fixed.js';
+import { rngFor } from './rng.js';
 import { runProposalGate } from './proposal/index.js';
 import type { ProposalGateResult } from './proposal/index.js';
 import type { K5DeltaEntry } from '../interfaces/interventionMerge.js';
@@ -65,6 +66,34 @@ const SCENE_PROPAGATION_COEFF: Record<string, number> = {
   '中': 1.0,   // 默认：中等社交开放度→因子恒 1（退化不变式）
   '低': 0.7,   // 密室效应：低社交开放度→事件私密性→二跳传播衰减
 };
+
+// ── G2-1 全动力学参数（SEIR×IC×LT · Granovetter78 · Centola-Macy · Bass stub）──────
+// HOP_DECAY alias — preserves backward compat with RIPPLE_DECAY (same numeric value)
+const HOP_DECAY = RIPPLE_DECAY; // 0.5 per hop distortion decay
+
+// IC 边类型速率（Independent Cascade · 边类型→基础传播率 [0,1]）
+// 规则：icEdgeProb(type, trust=100) = 1.0 for any type → trust=100 恒确定性通过（向后兼容）
+const EDGE_TYPE_IC_RATE: Record<string, number> = {
+  '亲人': 1.0, '伴侣': 1.0, '恋人': 1.0, '配偶': 1.0,
+  '友人': 1.0, '旧友': 1.0, '老友': 1.0, '挚友': 1.0, '闺蜜': 1.0,
+  '相识': 0.7, '熟人': 0.7, '邻居': 0.65,
+  '点头之交': 0.4, '路人': 0.35,
+  '桥接': 0.4,
+};
+const IC_RATE_DEFAULT = 0.8; // unknown type fallback
+
+// 复杂传播标签集（Centola-Macy）：需要 W ≥ θ_i 条桥才能采纳
+// 简单传播（默认）：单条通过的桥即可（W ≥ 1）
+const COMPLEX_CONTAGION_LABELS = new Set<string>([
+  '思想传播', '行为改变', '身份转变', '政治观点', '信仰转变',
+  '革命动员', '集体行动', '范式转移',
+]);
+
+// Bass 扩散参数（G2-1 stub — G2-2 媒体开关接线后喂值）
+// p=0 外部系数（媒介/告示广播项接线点）；q=0 口碑系数（Word-of-Mouth 接线点）
+// 无种子不起燃：当前 Bass 全零·仅占位接口；G2-1 对传播行为无影响
+const BASS_P = 0.0; // TODO(G2-2): wire media broadcast switch
+const BASS_Q = 0.0; // TODO(G2-2): wire word-of-mouth coefficient
 
 // ── 结算序 ────────────────────────────────────────────────────────────────────
 
@@ -348,9 +377,12 @@ export function runTick(state: RootState, input: TickInput): TickResult {
     }
   });
 
-  // Phase 8 · 涟漪传播 — 2-hop BFS × 衰减 × 知情过滤 × 取 max 防环
+  // Phase 8 · 涟漪传播 — G2-1 全动力学 SEIR×IC×LT × Centola-Macy × Bass stub
   runPhase('涟漪传播', () => {
-    propagateRipple(s, nowEpochMin);
+    const rngSeed       = s.$存档种子 ?? 0;
+    const rngTick       = s._tick?.拍计数 ?? 0;
+    const rngSalt       = s._存档头?.全局回滚计数器 ?? 0;
+    propagateRipple(s, nowEpochMin, rngSeed, rngTick, rngSalt);
   });
 
   // Phase 感知情绪化 · C2-5: 扫认知档案本拍新印象 → 含 factFragment 的条目映射为情绪栈 Δ
@@ -501,36 +533,98 @@ function computeSpatialFactor(
   return Math.min(SPATIAL_FACTOR_MAX, Math.max(SPATIAL_FACTOR_MIN, hopFactor * density));
 }
 
+// ── G2-1 动力学辅助函数 ──────────────────────────────────────────────────────
+
 /**
- * 涟漪传播：读 $涟漪候选 → 写认知档案 → 清空 $涟漪候选
+ * IC 边概率（Independent Cascade · Granovetter78 边类型×信任调制）。
  *
- * 一手在场（目标 NPC 所在地点的其他 NPC）→ 沿 关系 边二跳×衰减×信任×空间因子×场景系数
- * covert（可见性='隐秘'）= 一跳/二跳均不落印象（走 fact 自带门·零印象）
- * 取 max：同 (observer, target, 标签, 极性) 已有印象则取强度较大值（防回路膨胀）
- * 空间因子（G1）：同区域/无图退化=1；跨区域 = REGION_HOP_DECAY^hops × 密度调制
- * 场景传播系数（G1·二跳）：目标地点 社交开放度 高→1.3 / 中→1.0 / 低→0.7
+ * 公式：rate + (trust/100) × (1 − rate)
+ * 不变式：trust=100 时恒 1.0（对任意 rate）→ 确定性通过（向后兼容 G1a 所有现有测试）。
+ * trust=0 时 = rate（纯边类型下界）。
  */
-function propagateRipple(s: RootState, nowEpochMin: number): void {
+function icEdgeProb(relType: string, trust: number): number {
+  const rate = EDGE_TYPE_IC_RATE[relType] ?? IC_RATE_DEFAULT;
+  return rate + (trust / 100) * (1 - rate);
+}
+
+/**
+ * 判定是否为「复杂传播」内容（Centola-Macy 复杂传播·需多桥）。
+ * 简单传播（默认）= 单条通过桥即可；复杂传播 = 须 W ≥ θ_i 条独立桥。
+ */
+function isComplexContagion(label: string, ff?: { 维度?: string }): boolean {
+  if (COMPLEX_CONTAGION_LABELS.has(label)) return true;
+  if (ff?.维度 && COMPLEX_CONTAGION_LABELS.has(ff.维度)) return true;
+  return false;
+}
+
+/**
+ * 派生 NPC 异质阈值计数 θ_i（Granovetter78·整数·不写 schema）。
+ *
+ * 使用 体质 作为「信息阻力」代理（高体质→更保守→更高阈值）。
+ * 返回值表示：复杂采纳需要的最少独立桥数。
+ * 默认体质=10 → θ_i=2；体质=1 → θ_i=1；体质≥15 → θ_i=3。
+ */
+function deriveThresholdCount(npc: { 属性?: Record<string, number> } | undefined): number {
+  const 体质 = npc?.属性?.['体质'] ?? 10;
+  if (体质 <= 4) return 1;
+  if (体质 <= 12) return 2;
+  return 3;
+}
+
+/**
+ * Bass 扩散放大因子（G2-1 stub·接口占位·当前恒 1.0）。
+ * G2-2 接线：p_external（媒体广播）+ q_wom × F(已知比例）。
+ * 无种子不起燃：BASS_P=BASS_Q=0 → factor=1（无影响）。
+ * TODO(G2-2): wire media switch, compute F(t) from 认知档案 snapshot.
+ */
+function bassFactor(_label: string, _knownFraction: number): number {
+  // p + q * F — both zero in G2-1
+  return 1.0 + BASS_P + BASS_Q * _knownFraction;
+}
+
+/**
+ * 涟漪传播（G2-1 全动力学）：读 $涟漪候选 → 写认知档案 → 清空 $涟漪候选
+ *
+ * 跳 1（一手在场）：目标地点在场 NPC 直接目击 → 确定性写入（不变·与 G1a 完全一致）。
+ * 跳 2（口耳相传）：SEIR×IC×LT×Centola-Macy 全动力学——
+ *   ① IC 检定：每条 obs1→obs2 边独立以 icEdgeProb(type, trust) 概率触发（seeded rngFor）；
+ *      trust=100 时概率=1.0（恒通过·向后兼容）。
+ *   ② LT 聚合：累计所有通过 IC 的桥宽 W = 触发边数。
+ *   ③ Centola-Macy 门槛：简单传播 W≥1 即写入；复杂传播 W≥θ_i（派生自体质）才写入。
+ *   ④ Bass stub：当前 BASS_P=BASS_Q=0 → factor=1（无影响·G2-2 接线）。
+ *   ⑤ 强度公式不变：imp.强度 × HOP_DECAY × (trust/100) × sfactor × sceneCoeff。
+ *
+ * covert（可见性='隐秘'）= 一跳/二跳均不落印象（走 fact 自带门）。
+ * 取 max 防环（同 (observer, target, 标签, 极性)·G1a 不变）。
+ * 空间因子（G1）·场景系数（G1）：公式不变。
+ */
+function propagateRipple(
+  s: RootState,
+  nowEpochMin: number,
+  seed: number,
+  nowTick: number,
+  rerollSalt: number,
+): void {
   const pending = s.$涟漪候选;
   if (!pending || Object.keys(pending).length === 0) return;
 
   const npcs = s.NPC;
   const locs = s.地图.地点;
   const hasMap = Object.keys(locs).length > 0;
-  // 每次 propagateRipple 调用构建一次区域图（本拍内地图不变·复用安全）
   const regionGraph = hasMap ? buildRegionGraph(locs) : undefined;
+
+  // Global round index for IC channel disambiguation (one shared counter per propagateRipple call)
+  let icRound = 0;
 
   for (const [targetKey, impressions] of Object.entries(pending)) {
     for (const imp of impressions) {
       const covert = imp.可见性 === '隐秘';
       const targetLoc = npcs[targetKey]?.位置 ?? '';
-      // 目标区域（供 computeSpatialFactor 二跳计算复用）
       const targetRegion = hasMap && targetLoc ? locRegion(targetLoc, locs) : undefined;
-      // 场景传播系数（G1·二跳·目标地点社交开放度·无图/无地点退化=1.0）
       const targetLocEntry = hasMap && targetLoc ? locs[targetLoc] : undefined;
       const sceneCoeff = SCENE_PROPAGATION_COEFF[targetLocEntry?.社交开放度 ?? '中'] ?? 1.0;
 
-      // 一跳：目标所在地点的在场 NPC（不含目标自身）
+      // ── 跳 1：一手在场目击（与 G1a 完全一致·不走 IC·确定性）────────────────
       const presentKeys = targetLoc
         ? Object.entries(npcs)
           .filter(([k, npc]) => k !== targetKey && npc.位置 === targetLoc)
@@ -538,46 +632,110 @@ function propagateRipple(s: RootState, nowEpochMin: number): void {
         : [];
 
       for (const obs1 of presentKeys) {
-        if (covert) continue; // covert 走 fact 自带门，一跳/二跳均不落印象
-        if (npcs[obs1]?.存活状态 === '已故') continue; // 死者防护：已故 actor 停中继且不接收印象
+        if (covert) continue;
+        if (npcs[obs1]?.存活状态 === '已故') continue;
 
         writeImpressionMax(s.认知档案, obs1, targetKey, {
-          标签:      imp.标签,
-          极性:      imp.极性,
-          强度:      imp.强度,
-          来源:      `tick:${imp.来源拍号}`,
-          获知时间:  nowEpochMin,
-          衰减速率:  0,
-          来源类型:  '一手观测' as const,
+          标签:     imp.标签,
+          极性:     imp.极性,
+          强度:     imp.强度,
+          来源:     `tick:${imp.来源拍号}`,
+          获知时间: nowEpochMin,
+          衰减速率: 0,
+          来源类型: '一手观测' as const,
           ...(imp.factFragment !== undefined ? { factFragment: imp.factFragment } : {}),
         });
+      }
 
-        // 二跳：一跳观察者的 关系 连接（不在场）；场景系数 × 空间因子 × 衰减 × 信任
+      if (covert) continue; // 隐秘 → 二跳同样跳过
+
+      // ── 跳 2：口耳相传（IC×LT×Centola-Macy · seeded）─────────────────────
+
+      // Bass F(t)：当前拍开始前已知该标签的 NPC 比例（G2-1: stub → 0.0）
+      // TODO(G2-2): 从 认知档案 快照计算 knownFraction
+      const knownFraction = 0.0;
+      const bf = bassFactor(imp.标签, knownFraction); // 当前恒 1.0
+
+      // 是否为复杂传播（Centola-Macy）
+      const complex = isComplexContagion(imp.标签, imp.factFragment);
+
+      // 收集所有 obs1→obs2 桥候选：obs2Key → [{obs1Key, strength2}]
+      const hop2Map = new Map<string, Array<{ obs1: string; strength2: number; relType: string; trust: number }>>();
+
+      for (const obs1 of presentKeys) {
+        if (npcs[obs1]?.存活状态 === '已故') continue;
         const obs1Npc = npcs[obs1];
         if (!obs1Npc) continue;
+
         for (const rel of obs1Npc.关系) {
           const obs2 = rel.对象键;
           if (!obs2 || obs2 === targetKey || presentKeys.includes(obs2)) continue;
+          if (npcs[obs2]?.存活状态 === '已故') continue;
+
           const obs2Loc = npcs[obs2]?.位置 ?? '';
           const sfactor = computeSpatialFactor(targetRegion, obs2Loc, locs, regionGraph);
-          const strength2 = imp.强度 * RIPPLE_DECAY * (rel.信任 / 100) * sfactor * sceneCoeff;
+          const strength2 = imp.强度 * HOP_DECAY * (rel.信任 / 100) * sfactor * sceneCoeff * bf;
           if (strength2 < RIPPLE_MIN) continue;
-          writeImpressionMax(s.认知档案, obs2, targetKey, {
-            标签:      imp.标签,
-            极性:      imp.极性,
-            强度:      strength2,
-            来源:      `听闻自:${obs1}`,
-            获知时间:  nowEpochMin,
-            衰减速率:  0,
-            来源类型:  '二手转述' as const,
-            ...(imp.factFragment !== undefined ? { factFragment: imp.factFragment } : {}),
-          });
+
+          const bucket = hop2Map.get(obs2) ?? [];
+          bucket.push({ obs1, strength2, relType: rel.类型, trust: rel.信任 });
+          hop2Map.set(obs2, bucket);
         }
+      }
+
+      // IC 检定 + LT 聚合 + Centola-Macy 门槛
+      for (const [obs2, candidates] of hop2Map) {
+        // IC 检定：每条桥独立概率触发
+        const passing: Array<{ obs1: string; strength2: number }> = [];
+        for (const cand of candidates) {
+          const prob = icEdgeProb(cand.relType, cand.trust);
+          if (prob >= 1.0) {
+            // trust=100（或极高信任强类型）→ 确定性通过·不消耗 RNG
+            passing.push({ obs1: cand.obs1, strength2: cand.strength2 });
+          } else {
+            // seeded IC 检定（channel 四元组·独立通道不混）
+            const roll = rngFor(
+              seed, nowTick,
+              `涟漪:IC:${cand.obs1}:${obs2}:${imp.标签}`,
+              rerollSalt, icRound++,
+            );
+            if (roll < prob * 100) {
+              passing.push({ obs1: cand.obs1, strength2: cand.strength2 });
+            }
+          }
+        }
+
+        // 桥宽 W = 通过 IC 检定的独立路径数
+        const W = passing.length;
+
+        // LT 门槛（Centola-Macy）
+        if (complex) {
+          const θi = deriveThresholdCount(npcs[obs2]);
+          if (W < θi) continue; // 未达复杂传播阈值 → 不写入
+        } else {
+          if (W === 0) continue; // 简单传播：至少一桥通过
+        }
+
+        // 取最强通过路径写入（取 max 防环由 writeImpressionMax 保障）
+        let best = passing[0]!;
+        for (const p of passing) {
+          if (p.strength2 > best.strength2) best = p;
+        }
+
+        writeImpressionMax(s.认知档案, obs2, targetKey, {
+          标签:     imp.标签,
+          极性:     imp.极性,
+          强度:     best.strength2,
+          来源:     `听闻自:${best.obs1}`,
+          获知时间: nowEpochMin,
+          衰减速率: 0,
+          来源类型: '二手转述' as const,
+          ...(imp.factFragment !== undefined ? { factFragment: imp.factFragment } : {}),
+        });
       }
     }
   }
 
-  // 清空已处理的涟漪候选
   s.$涟漪候选 = {};
 }
 
