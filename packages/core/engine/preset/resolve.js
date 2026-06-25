@@ -1,8 +1,8 @@
 // PR-瘦身-A2 · resolve() 双轨并存 + 三层校验
 // PR-瘦身-底座-2b · 规则库路径接线（rules 字段·规则成品·生效中规则集）
+// PR-瘦身-底座-5 · 阶段C 转正（生产路径·含 shimThickPreset 兼容 shim）
 // 新轨（模块键路由 + 内容包库）优先；旧轨（直接叠加）作等价验收基准
-// dormant: 不接 runTick · 不进生产路径 · 纯函数·无副作用
-// 禁 Date.now / new Date / Math.random / window / document
+// 纯函数·无副作用·禁 Date.now / new Date / Math.random / window / document
 import { computeLoadOrder } from '../../loader/modGraph.js';
 import { satisfies } from '../../loader/semver.js';
 import { 聚合生效中内容包集哈希 } from '../../interfaces/contentPackHash.js';
@@ -18,7 +18,7 @@ function deepMerge(base, next) {
         }
         return result;
     }
-    return next;
+    return next; // 数组/叶节点：后载覆盖先载
 }
 // ── 旧轨叠加（不走 种子视图·直接 deep merge·双轨等价验收基准） ─────────────────
 export function 旧轨叠加(base, 新数据) {
@@ -42,6 +42,16 @@ function 新轨叠加(base, 模块种子) {
     return result;
 }
 // ── 三层校验 + 双轨 resolve ──────────────────────────────────────────────────────
+/**
+ * resolve(薄清单, 内容包库) → 解析结果
+ *
+ * 三层校验：
+ *   ① 单包（拼装前）：key===pack_id · 基底契约 semver · 轨道一致性（轻轨禁可写键）
+ *   ② 拼装（跨包）：computeLoadOrder → 自环/依赖被拒/冲突 → 确定性进墓碑库
+ *   ③ 成品（拼装后）：聚合生效中内容包集哈希 → 可直接喂 hashPresetFingerprint
+ *
+ * 新轨（模块键路由·种子视图解析）优先；旧轨叠加()提供等价基准供双轨验收。
+ */
 export function resolve(manifest, library, ruleLib) {
     const BASE_VERSION = manifest.基底版本 ?? '4.1.0';
     const 墓碑库 = {};
@@ -51,7 +61,7 @@ export function resolve(manifest, library, ruleLib) {
         const packId = manifest.packs[i];
         const pack = library[packId];
         if (!pack)
-            continue;
+            continue; // 不在库中 → 静默跳过（不入墓碑·后续 computeLoadOrder 处理悬空依赖）
         // key === pack_id（对齐 memory.ts:342 mod注册表 superRefine）
         if (pack.pack_id !== packId) {
             墓碑库[packId] = {
@@ -98,12 +108,13 @@ export function resolve(manifest, library, ruleLib) {
             依赖: pack.依赖,
             pack_id: pack.pack_id,
             启用: true,
-            优先级: i,
+            优先级: i, // manifest 位置 = 优先级（后列覆盖先列·后载覆盖先载）
             冲突: pack.冲突 ?? [],
         };
     }
     // ── Layer 2: 跨包校验（computeLoadOrder） ───────────────────────────────────
     const loadResult = computeLoadOrder(registry);
+    // 自环 → 墓碑（exactOptionalPropertyTypes：pack_id 仅在已知时写入）
     for (const key of loadResult.graph.selfLoops) {
         if (!墓碑库[key]) {
             const pid = registry[key]?.pack_id;
@@ -112,6 +123,7 @@ export function resolve(manifest, library, ruleLib) {
                 : { 记录键: key, 原因: '自环' };
         }
     }
+    // 依赖被拒（级联）→ 墓碑
     for (const key of loadResult.rejected) {
         if (!墓碑库[key]) {
             const pid = registry[key]?.pack_id;
@@ -120,6 +132,7 @@ export function resolve(manifest, library, ruleLib) {
                 : { 记录键: key, 原因: '依赖被拒' };
         }
     }
+    // 冲突 → 后者（b 端）入墓碑（codepoint-larger key 失败）
     for (const conflict of loadResult.conflicts) {
         if (!墓碑库[conflict.b]) {
             const pid = registry[conflict.b]?.pack_id;
@@ -142,8 +155,9 @@ export function resolve(manifest, library, ruleLib) {
         生效中包集.push(pack);
     }
     // Layer 3 最终：聚合生效中内容包集哈希（喂 hashPresetFingerprint）
+    // 仅传入有值的条目（exactOptionalPropertyTypes 不允许 content_hash: undefined）
     const 生效中内容包集哈希 = 聚合生效中内容包集哈希(生效中包集.map(p => p.内容哈希 !== undefined ? { content_hash: p.内容哈希 } : {}));
-    // ── 规则库路径（底座-2b）────────────────────────────────────────────────────
+    // ── 规则库路径（底座-2b）————————————————————————————————————————————————————
     let 规则成品 = {};
     const 生效中规则集 = [];
     const _规则墓碑库 = {};
@@ -155,6 +169,7 @@ export function resolve(manifest, library, ruleLib) {
             const rule = ruleLib[ruleId];
             if (!rule)
                 continue;
+            // key === rule_id（对齐 内容包库 key===pack_id 语义）
             if (rule.rule_id !== ruleId) {
                 _规则墓碑库[ruleId] = {
                     记录键: ruleId,
@@ -164,6 +179,7 @@ export function resolve(manifest, library, ruleLib) {
                 };
                 continue;
             }
+            // 基底契约 semver
             const 基底契约r = rule.基底契约;
             if (基底契约r && 基底契约r !== '') {
                 let ok = false;
@@ -183,6 +199,7 @@ export function resolve(manifest, library, ruleLib) {
                     continue;
                 }
             }
+            // 轨道一致性：轻轨禁带可写键
             const 轨道r = rule.轨道;
             const 可写键r = rule.可写键;
             if (轨道r && 轨道r !== 'gameplay' && (可写键r?.length ?? 0) > 0) {
@@ -202,7 +219,7 @@ export function resolve(manifest, library, ruleLib) {
                 冲突: rule.冲突 ?? [],
             };
         }
-        // ── 规则 Layer 2: 跨条目校验 ─────────────────────────────────────────────
+        // ── 规则 Layer 2: 跨条目校验（computeLoadOrder） ─────────────────────────
         const ruleLoadResult = computeLoadOrder(ruleRegistry);
         for (const key of ruleLoadResult.graph.selfLoops) {
             if (!_规则墓碑库[key]) {
@@ -241,4 +258,49 @@ export function resolve(manifest, library, ruleLib) {
         }
     }
     return { 成品, _mod墓碑库: 墓碑库, 生效中包集, 生效中内容包集哈希, 规则成品, 生效中规则集, _规则墓碑库 };
+}
+// ── shimThickPreset — 厚预设存档 shim（C2 确定性迁移工具）────────────────────────
+// 将含内联规则字段的旧格式预设 object 转为 {薄清单, 规则库条目}
+// 调用方再: resolve(shim.manifest, {}, shim.ruleLib) → 规则成品 与旧厚预设规则字段等价
+// 确定性：纯函数·不访问时间/随机/DOM·输出仅依赖输入。
+export const 规则字段名集 = [
+    '难度系数组', '属性轴表', '检定配方表', '派生量配方', '赛事结构模板',
+    '规则补丁', '检定骰面', '检定档切分表', '钳制表', '概率域夹逼',
+    '死亡拦截器条目', '换角许可', '归并表',
+];
+/**
+ * shimThickPreset(oldPreset) → {manifest, ruleLib}
+ *
+ * 提取厚预设内联规则字段→单条 rule_id='shim' 规则条目入规则库。
+ * resolve(manifest, {}, ruleLib).规则成品 与原厚预设规则字段等价（deepMerge 语义）。
+ */
+export function shimThickPreset(oldPreset) {
+    const 规则面 = {};
+    for (const key of 规则字段名集) {
+        if (key in oldPreset && oldPreset[key] !== undefined) {
+            规则面[key] = oldPreset[key];
+        }
+    }
+    const 薄packs = Array.isArray(oldPreset['packs'])
+        ? oldPreset['packs']
+        : [];
+    const 薄rules = Object.keys(规则面).length > 0 ? ['shim'] : [];
+    const manifest = {
+        packs: 薄packs,
+        ...(薄rules.length > 0 ? { rules: 薄rules } : {}),
+    };
+    const ruleLib = {};
+    if (薄rules.length > 0) {
+        ruleLib['shim'] = {
+            rule_id: 'shim',
+            版本: '0.1.0',
+            名称: '',
+            作者: '',
+            描述: '',
+            依赖: [],
+            冲突: [],
+            规则面: 规则面,
+        };
+    }
+    return { manifest, ruleLib };
 }

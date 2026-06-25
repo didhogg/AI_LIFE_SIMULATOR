@@ -43,7 +43,7 @@ export const WORLD_OWNED_STATE_KEYS = [
  *
  * 红线遵守：禁 Date.now / Math.random。hashCanonical 来自 rng.ts，只读调用，函数体零 diff。
  */
-export function swapPreset(state, newPreset, opts = {}) {
+export function swapPreset(state, newPreset, opts = {}, resolvedRules) {
     const warnings = [];
     // ① Zod parse（throws ZodError if invalid）
     const parsed = 玩法预设Schema.parse(newPreset);
@@ -53,7 +53,9 @@ export function swapPreset(state, newPreset, opts = {}) {
     const domainId = opts.domainId ?? (domainKeys.length > 0 ? domainKeys[0] : '__default__');
     const oldPresetId = state.世界域[domainId]?.玩法预设引用 ?? '';
     // ④ 新难度系数组指纹（先算·退化守卫需要比对）
-    const newDifficultyFingerprint = hashCanonical(parsed.难度系数组);
+    // 难度系数组 已迁入规则库·由调用方经 resolve() 获得并通过 resolvedRules 传入
+    const 难度系数组 = resolvedRules?.['难度系数组'] ?? {};
+    const newDifficultyFingerprint = hashCanonical(难度系数组);
     // ② 退化守卫：预设ID + 版本 + 难度均不变 → 逐位不变
     const prevSegRecords = state._存档头.版本段记录 ?? [];
     const lastSeg = prevSegRecords.length > 0 ? prevSegRecords[prevSegRecords.length - 1] : null;

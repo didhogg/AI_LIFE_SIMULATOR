@@ -341,8 +341,6 @@ const 序章模板Schema = z.object({
 });
 
 export const 开局装配数据Schema = z.object({
-  // 真相待建：待 A2/P0-7 接线后补全类型；运行期必过五道闸落账，禁直塞存档树（6.42①）
-  家境装配包: z.array(z.unknown()).default([]),
   // 凸成本点购曲线；不进 _tick.难度系数组指纹（6.42⑧）
   凸成本点购曲线: z.array(z.unknown()).default([]),
   出厂行动卡集: z.array(z.string()).default([]),
@@ -474,14 +472,13 @@ export const 玩法预设Schema = z.object({
   版本: z.string().default('0.1.0'),
   作者: z.string().default(''),
   描述: z.string().default(''),
+  // ── 薄清单（装配层·指向内容包库+规则库·由 resolve() 处理）─────────────────────
+  packs: z.array(z.string()).default([]),   // 内容包引用列表（按顺序·后列覆盖先列）
+  rules: z.array(z.string()).optional(),    // 规则引用列表（按顺序·后列覆盖先载）
   历法皮肤: 历法皮肤Schema.default({}),
   种族模板: 种族模板Schema,
   粒度模板覆盖: 粒度模板覆盖Schema,
-  难度系数组: 难度系数组Schema.default({}),
   行动点上限: z.number().int().min(1).default(4),
-  属性轴表: 属性轴表Schema,
-  检定配方表: 检定配方表Schema,
-  派生量配方: 派生量配方Schema,           // 发现B·M·4·HP=f(体质)/精力=f(体质×0.7+心理×0.3)·随整包入指纹
   母题配额: 母题配额Schema,
   媒体渠道表: 媒体渠道表Schema,
   战术包: 战术包Schema,
@@ -493,67 +490,43 @@ export const 玩法预设Schema = z.object({
     事件包: z.number().min(0).max(100).default(50),
     AI自发: z.number().min(0).max(100).default(50),
   }).default({}),
-  赛事结构模板: 赛事结构模板Schema,
   穿越契约: 穿越契约Schema.optional(),
-  规则补丁: 规则补丁Schema,
-  // ── 4.11 · 6.41 · 6.42 · 6.44 新增容器字段 ──
-  检定骰面: 检定骰面Schema.default({}),
+  // ── 4.11 · 6.41 · 6.42 · 6.44 叙事面容器字段 ──
   媒介登记表: 媒介登记表Schema,
   叙事分发表: 叙事分发表Schema,
   母题词汇表: 母题词汇表Schema,
   实体模板库: 实体模板库Schema.default({}),
   开局装配数据: 开局装配数据Schema.default({}),
   文风库: 文风库Schema,
-  // ── P0-5 检定判定层 ──
-  检定档切分表: 检定档切分表Schema,
-  钳制表: 钳制表Schema,
-  概率域夹逼: 概率域夹逼Schema,          // H4·随整包入指纹·判定概率 clamp 至 [p_最小, p_最大]
   // 6.66·纠缠闭包弱边阈值（判定面·随整包入指纹）
-  // 累积强度 < 阈值 即截断弱边、界定闭包半径防扩散全图；口径同涟漪稀疏化阈值
   纠缠闭包弱边阈值: z.number().min(0).max(1).default(0.2),
   账面安全界限: 账面安全界限Schema,       // H1·入账前 clamp·不进指纹（安全执行层·非判定面）
 
-  // ── 指纹族补完（Q5/J5/S4b·入 hashJudgmentBundle·判定面整包·零迁移）──────────────
+  // ── 指纹族补完（Q5/J5·入 hashJudgmentBundle·判定面整包·零迁移）────────────────
   约定谓词集: z.record(z.string(), z.string()).optional(),  // Q5·约定库谓词/选择器谓词定义表
   级联限制: z.object({                                       // J5·级联深度N+轮号上限
     最大深度: z.number().int().min(0).default(8),
     最大轮数: z.number().int().min(0).default(32),
   }).optional(),
-  归并表: z.record(z.string(), z.unknown()).optional(),      // S4b·归并规则表
-  DSL文法版本: z.string().default('1.0'),                   // DSL v1.0 frozen
-  // §十A 分层方案·与 DSL 文法版本并列·随 U3 版本分段
-  // v1 = {min,max,clamp,pow,sqrt} 全逐位恒等固定实现；增列超越函数时 bump 版本号
-  // 旧档锁旧版本语义重放，防优化后重放旧档产生假分叉
+  DSL文法版本: z.string().default('1.0'),
+  // §十A 分层方案·v1={min,max,clamp,pow,sqrt}全逐位恒等固定实现·增列超越函数时 bump
   求值器函数库版本: z.number().int().min(1).default(1),
 
   // ── P0-1 4.10 缺口 ──────────────────────────────────────────────────────────
-  // 缺口一·二审维度库（6.75·开放·叙事质量二审维度注册表）
   二审维度库: z.array(二审维度条目Schema).optional(),
-  // 缺口二·小剧场剧本库（6.75·玩家主动点击触发）
   小剧场剧本库: z.array(小剧场剧本条目Schema).optional(),
-  // 缺口三·死亡拦截器（6.45·list·谁能拦死亡的预设注册表）
-  死亡拦截器条目: z.array(死亡拦截器条目Schema).optional(),
-  // 缺口四·换角许可（6.45·缺省=单人单角）
-  换角许可: 换角许可Schema.optional(),
   // 缺口五·世界遗产白名单出厂值（6.45·路径列表·mod可覆盖）
-  // 继承结算时拷贝成 secret.ts 继承包.世界遗产白名单 运行实例（非双写）
   世界遗产白名单出厂值: z.array(z.string()).optional(),
-  // 顺手·离场演化契约出厂模板（6.45·契约来路②兜底·record(组织类型→模板)）
+  // 离场演化契约出厂模板（6.45·契约来路②兜底·record(组织类型→模板)）
   离场演化契约出厂模板: z.record(z.string(), z.unknown()).optional(),
 
   // ── Phase-L 补漏批 ────────────────────────────────────────────────────────
-  // L-1/L-6 · 社会角色参数（叙事旋钮·不进 hashJudgmentBundle·派生公式 defer P0-10）
-  // w_i,k = 角色类型 i 在社会角色 k 上的贡献权重；δ = 效应量（角色变化→属性影响系数）
   社会角色定义表: z.record(z.string(), z.object({
     名称: z.string().default(''),
     描述: z.string().optional(),
   })).optional(),
   社会角色权重表: z.record(z.string(), z.record(z.string(), z.number())).optional(),
   社会角色效应量表: z.record(z.string(), z.number()).optional(),
-
-  // L-7 · 角色激活阈值（叙事旋钮·不进 hashJudgmentBundle·定点+迟滞带·复用 fixed.ts·禁第二实现）
-  // 激活上限: 热度≥此值 → 角色进入「激活」态；沉默下限: 热度<此值 → 进入「沉默」态
-  // 派生公式（角色热度→激活态谓词）defer（依赖信念派生·P0-7+）
   角色激活配置: z.object({
     激活上限: z.number().min(0).max(100).optional(),
     沉默下限: z.number().min(0).max(100).optional(),
@@ -561,27 +534,22 @@ export const 玩法预设Schema = z.object({
 
   // ── 动词选项集（AOHP·mod 作者经动词表声明的确定性候选选项集）──────────────────
   // 进 PRESET 指纹（hashCanonical(动词选项集) → hashPresetFingerprint 的 动词选项集哈希）
-  // 菜单生成时：取此集合，走 seeded rngFor 子集采样 → 派生 option_id → 权威 option_id 集
-  // LLM 只能在权威集内回 option_id；越界 option_id → executeActionOption 降级纯叙事不写账
-  // option_id 派生规则（buildOptionId）：verb:targetEntityId[:salient_args]
-  // 最多 99 条（受 rngFor [0,99] 精度约束·菜单不应超此数量）
   动词选项集: z.array(动词选项条目Schema).max(99).optional(),
 
   // ── PR-0 · 预设元数据 v2 留位（additive·空跑·消费留 G2 / PR-1~5）────────────────
-  // 不进任何 fingerprint 数组（非判定面·留位·G2 接线后按需升格）
-  父预设: z.string().optional(),            // 父预设 ID（预设继承/派生体系·PR-1 消费）
-  创建时预设版本: z.string().optional(),     // 预设包创建时的规格版本（元数据·不进指纹）
-  派生标记: z.boolean().optional(),         // true = 由父预设 additive 派生
-  默认模板: z.boolean().optional(),         // true = 世界装配时优先选用此预设
-  LOD保温窗口: z.number().int().min(0).optional(),              // PR-4 · 区域 LOD 保温窗口（拍数·缺省=引擎常量 LOD_WARM_WINDOW_DEFAULT·不进指纹）
-  经济生成规则: z.object({                                    // P3-1 经济派生规则（PR-3·additive·不进指纹）
-    品类基线: z.record(z.string(), z.number()).optional(),    // 品类→基线价格（覆盖 区域物价.基准价）
-    资源紧张度权重: z.number().min(0).max(1).optional(),      // [0,1]·资源紧张度信号权重
-    供需权重: z.number().min(0).max(1).optional(),            // [0,1]·供需信号权重
-    战时修正权重: z.number().min(0).max(1).optional(),        // [0,1]·战时激活权重
-    衰减率: z.number().min(0).max(1).optional(),              // [0,1]·修正系数每拍衰减率（闭式·禁逐拍累积）
+  父预设: z.string().optional(),
+  创建时预设版本: z.string().optional(),
+  派生标记: z.boolean().optional(),
+  默认模板: z.boolean().optional(),
+  LOD保温窗口: z.number().int().min(0).optional(),
+  经济生成规则: z.object({
+    品类基线: z.record(z.string(), z.number()).optional(),
+    资源紧张度权重: z.number().min(0).max(1).optional(),
+    供需权重: z.number().min(0).max(1).optional(),
+    战时修正权重: z.number().min(0).max(1).optional(),
+    衰减率: z.number().min(0).max(1).optional(),
   }).optional(),
-  社会熵默认值: z.number().min(0).max(1).optional(),          // G2 Bass 均值场社会熵基准值（传播系数输入）
+  社会熵默认值: z.number().min(0).max(1).optional(),
 });
 
 export type 玩法预设Type = z.infer<typeof 玩法预设Schema>;

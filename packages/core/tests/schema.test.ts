@@ -61,6 +61,7 @@ import {
   死亡事件Schema,
   玩法预设Schema,
   属性轴表Schema,
+  检定骰面Schema,
   检定档切分表Schema,
   钳制表Schema,
   媒介登记表Schema,
@@ -2521,25 +2522,25 @@ describe('4.10 Preset layer', () => {
   it('玩法预设: 空对象 parse 通过（全新字段含默认值）', () => {
     expect(() => 玩法预设Schema.parse({})).not.toThrow();
   });
-  it('检定骰面: 默认 判定骰型=100, 显骰=false, 暴击映射=关', () => {
-    const res = 玩法预设Schema.parse({});
-    expect(res.检定骰面.判定骰型).toBe(100);
-    expect(res.检定骰面.显骰).toBe(false);
-    expect(res.检定骰面.暴击映射).toBe('关');
+  it('检定骰面: 默认 判定骰型=100, 显骰=false, 暴击映射=关（直接测规则库 schema）', () => {
+    const res = 检定骰面Schema.parse({});
+    expect(res.判定骰型).toBe(100);
+    expect(res.显骰).toBe(false);
+    expect(res.暴击映射).toBe('关');
   });
   it('检定骰面: valid 判定骰型=20', () => {
-    expect(玩法预设Schema.safeParse({ 检定骰面: { 判定骰型: 20 } }).success).toBe(true);
+    expect(检定骰面Schema.safeParse({ 判定骰型: 20 }).success).toBe(true);
   });
   it('检定骰面: valid 暴击映射 object form', () => {
-    expect(玩法预设Schema.safeParse({
-      检定骰面: { 暴击映射: { 顶格升一档: true, 底格降一档: true } },
+    expect(检定骰面Schema.safeParse({
+      暴击映射: { 顶格升一档: true, 底格降一档: true },
     }).success).toBe(true);
   });
   it('检定骰面: invalid 判定骰型=6 (out of enum)', () => {
-    expect(玩法预设Schema.safeParse({ 检定骰面: { 判定骰型: 6 } }).success).toBe(false);
+    expect(检定骰面Schema.safeParse({ 判定骰型: 6 }).success).toBe(false);
   });
   it('检定骰面: invalid 暴击映射 wrong string (not 关)', () => {
-    expect(玩法预设Schema.safeParse({ 检定骰面: { 暴击映射: '开' } }).success).toBe(false);
+    expect(检定骰面Schema.safeParse({ 暴击映射: '开' }).success).toBe(false);
   });
   // 1b. 媒介登记表（6.44）
   it('媒介登记表: 默认 parse 为空 record', () => {
@@ -2603,7 +2604,6 @@ describe('4.10 Preset layer', () => {
   // 1e. 开局装配数据
   it('开局装配数据: 默认 parse 通过', () => {
     const res = 玩法预设Schema.parse({});
-    expect(res.开局装配数据.家境装配包).toEqual([]);
     expect(res.开局装配数据.序章模板.模式).toBe('AI自由');
   });
   it('开局装配数据: valid 序章模板.模式=固定文本', () => {
@@ -2644,16 +2644,14 @@ describe('4.10 Preset layer', () => {
     expect(res.惨胜下限).toBe(1);
     expect(res.败下限).toBe(-24);
   });
-  it('检定档切分表: 在 玩法预设 中存在并含默认值', () => {
-    const res = 玩法预设Schema.parse({});
-    expect(res.检定档切分表.大胜下限).toBe(40);
-    expect(res.检定档切分表.胜下限).toBe(15);
+  it('检定档切分表: schema 含默认值（已迁入规则库·直接测规则库 schema）', () => {
+    const res = 检定档切分表Schema.parse({});
+    expect(res.大胜下限).toBe(40);
+    expect(res.胜下限).toBe(15);
   });
-  it('检定档切分表: 可被预设覆盖', () => {
-    const res = 玩法预设Schema.parse({
-      检定档切分表: { 大胜下限: 50, 胜下限: 20, 惨胜下限: 5, 败下限: -20 },
-    });
-    expect(res.检定档切分表.大胜下限).toBe(50);
+  it('检定档切分表: 可被覆盖（直接测规则库 schema）', () => {
+    const res = 检定档切分表Schema.parse({ 大胜下限: 50, 胜下限: 20, 惨胜下限: 5, 败下限: -20 });
+    expect(res.大胜下限).toBe(50);
   });
   // P0-5 钳制表 防回归断言
   it('钳制表: 默认按重要等级为空对象, 按字段为空 record', () => {
@@ -2661,10 +2659,10 @@ describe('4.10 Preset layer', () => {
     expect(res.按重要等级).toEqual({});
     expect(res.按字段).toEqual({});
   });
-  it('钳制表: 在 玩法预设 中存在并含默认值', () => {
-    const res = 玩法预设Schema.parse({});
-    expect(res.钳制表.按重要等级).toEqual({});
-    expect(res.钳制表.按字段).toEqual({});
+  it('钳制表: schema 含默认值（已迁入规则库·直接测规则库 schema）', () => {
+    const res = 钳制表Schema.parse({});
+    expect(res.按重要等级).toEqual({});
+    expect(res.按字段).toEqual({});
   });
   it('钳制表: valid 双层结构', () => {
     expect(钳制表Schema.safeParse({
@@ -2757,9 +2755,9 @@ describe('4.10 Preset layer', () => {
     }).success).toBe(true);
   });
 
-  // ── 缺口三·死亡拦截器条目（6.45·list）────────────────────────────────────────
-  it('死亡拦截器条目: absent (optional)', () => {
-    expect(玩法预设Schema.parse({}).死亡拦截器条目).toBeUndefined();
+  // ── 缺口三·死亡拦截器条目（6.45·已迁入规则库）──────────────────────────────────
+  it('死亡拦截器条目: 已从 玩法预设Schema.shape 删除（迁入规则库）', () => {
+    expect(Object.prototype.hasOwnProperty.call(玩法预设Schema.shape, '死亡拦截器条目')).toBe(false);
   });
   it('死亡拦截器条目: valid 单条（注册者/优先级/条件引用/目标动词）', () => {
     expect(死亡拦截器条目Schema.safeParse({
@@ -2778,18 +2776,18 @@ describe('4.10 Preset layer', () => {
   it('死亡拦截器条目: 负优先级拒收', () => {
     expect(死亡拦截器条目Schema.safeParse({ 注册者: 'x', 优先级: -1, 条件引用: 'c', 目标动词: 'v' }).success).toBe(false);
   });
-  it('死亡拦截器条目: 在 玩法预设 中 valid list', () => {
-    expect(玩法预设Schema.safeParse({
-      死亡拦截器条目: [
-        { 注册者: '系统', 优先级: 100, 条件引用: '天命通道.必活', 目标动词: '穿越.同世界转世' },
-        { 注册者: 'mod_复仇者', 优先级: 50, 条件引用: '概率.20pct_天命', 目标动词: '穿越.换角' },
-      ],
+  it('死亡拦截器条目: valid list 解析（直接测规则库 schema·规则面接受 list）', () => {
+    expect(死亡拦截器条目Schema.safeParse({
+      注册者: '系统', 优先级: 100, 条件引用: '天命通道.必活', 目标动词: '穿越.同世界转世',
+    }).success).toBe(true);
+    expect(死亡拦截器条目Schema.safeParse({
+      注册者: 'mod_复仇者', 优先级: 50, 条件引用: '概率.20pct_天命', 目标动词: '穿越.换角',
     }).success).toBe(true);
   });
 
-  // ── 缺口四·换角许可（6.45）──────────────────────────────────────────────────
-  it('换角许可: absent (optional，缺省=单人单角)', () => {
-    expect(玩法预设Schema.parse({}).换角许可).toBeUndefined();
+  // ── 缺口四·换角许可（6.45·已迁入规则库）────────────────────────────────────────
+  it('换角许可: 已从 玩法预设Schema.shape 删除（迁入规则库）', () => {
+    expect(Object.prototype.hasOwnProperty.call(玩法预设Schema.shape, '换角许可')).toBe(false);
   });
   it('换角许可: valid（候选选择器/冷却/次数上限/谢幕卡开关）', () => {
     expect(换角许可Schema.safeParse({

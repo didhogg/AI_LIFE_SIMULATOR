@@ -77,6 +77,7 @@ export function swapPreset(
   state: RootState,
   newPreset: unknown,
   opts: SwapPresetOptions = {},
+  resolvedRules?: Record<string, unknown>,
 ): SwapPresetResult {
   const warnings: string[] = [];
 
@@ -90,7 +91,9 @@ export function swapPreset(
   const oldPresetId = state.世界域[domainId]?.玩法预设引用 ?? '';
 
   // ④ 新难度系数组指纹（先算·退化守卫需要比对）
-  const newDifficultyFingerprint = hashCanonical(parsed.难度系数组);
+  // 难度系数组 已迁入规则库·由调用方经 resolve() 获得并通过 resolvedRules 传入
+  const 难度系数组 = (resolvedRules?.['难度系数组'] as object | undefined) ?? {};
+  const newDifficultyFingerprint = hashCanonical(难度系数组);
 
   // ② 退化守卫：预设ID + 版本 + 难度均不变 → 逐位不变
   const prevSegRecords = state._存档头.版本段记录 ?? [];

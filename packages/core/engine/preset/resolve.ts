@@ -1,15 +1,15 @@
 // PR-瘦身-A2 · resolve() 双轨并存 + 三层校验
 // PR-瘦身-底座-2b · 规则库路径接线（rules 字段·规则成品·生效中规则集）
+// PR-瘦身-底座-5 · 阶段C 转正（生产路径·含 shimThickPreset 兼容 shim）
 // 新轨（模块键路由 + 内容包库）优先；旧轨（直接叠加）作等价验收基准
-// dormant: 不接 runTick · 不进生产路径 · 纯函数·无副作用
-// 禁 Date.now / new Date / Math.random / window / document
+// 纯函数·无副作用·禁 Date.now / new Date / Math.random / window / document
 import { computeLoadOrder } from '../../loader/modGraph.js';
 import type { ModRegistry } from '../../loader/modGraph.js';
 import { satisfies } from '../../loader/semver.js';
 import { 聚合生效中内容包集哈希 } from '../../interfaces/contentPackHash.js';
 import type { mod墓碑原因Type } from '../../schema/memory.js';
 import type { 内容包条目Type, 内容包库Type } from './contentPack.js';
-import type { 规则条目Type, 规则库Type } from './ruleLibrary.js';
+import type { 规则条目Type, 规则面Type, 规则库Type } from './ruleLibrary.js';
 import { 种子视图 } from './seedView.js';
 import { RootSchema } from '../../schema/index.js';
 
@@ -317,4 +317,60 @@ export function resolve(manifest: 薄清单, library: 内容包库Type, ruleLib?
   }
 
   return { 成品, _mod墓碑库: 墓碑库, 生效中包集, 生效中内容包集哈希, 规则成品, 生效中规则集, _规则墓碑库 };
+}
+
+// ── shimThickPreset — 厚预设存档 shim（C2 确定性迁移工具）────────────────────────
+// 将含内联规则字段的旧格式预设 object 转为 {薄清单, 规则库条目}
+// 调用方再: resolve(shim.manifest, {}, shim.ruleLib) → 规则成品 与旧厚预设规则字段等价
+// 确定性：纯函数·不访问时间/随机/DOM·输出仅依赖输入。
+export const 规则字段名集: readonly string[] = [
+  '难度系数组', '属性轴表', '检定配方表', '派生量配方', '赛事结构模板',
+  '规则补丁', '检定骰面', '检定档切分表', '钳制表', '概率域夹逼',
+  '死亡拦截器条目', '换角许可', '归并表',
+] as const;
+
+export interface ShimResult {
+  manifest: 薄清单;
+  ruleLib: 规则库Type;
+}
+
+/**
+ * shimThickPreset(oldPreset) → {manifest, ruleLib}
+ *
+ * 提取厚预设内联规则字段→单条 rule_id='shim' 规则条目入规则库。
+ * resolve(manifest, {}, ruleLib).规则成品 与原厚预设规则字段等价（deepMerge 语义）。
+ */
+export function shimThickPreset(oldPreset: Record<string, unknown>): ShimResult {
+  const 规则面: Record<string, unknown> = {};
+  for (const key of 规则字段名集) {
+    if (key in oldPreset && oldPreset[key] !== undefined) {
+      规则面[key] = oldPreset[key];
+    }
+  }
+
+  const 薄packs: string[] = Array.isArray(oldPreset['packs'])
+    ? (oldPreset['packs'] as string[])
+    : [];
+  const 薄rules: string[] = Object.keys(规则面).length > 0 ? ['shim'] : [];
+
+  const manifest: 薄清单 = {
+    packs: 薄packs,
+    ...(薄rules.length > 0 ? { rules: 薄rules } : {}),
+  };
+
+  const ruleLib: 规则库Type = {};
+  if (薄rules.length > 0) {
+    ruleLib['shim'] = {
+      rule_id: 'shim',
+      版本: '0.1.0',
+      名称: '',
+      作者: '',
+      描述: '',
+      依赖: [],
+      冲突: [],
+      规则面: 规则面 as 规则面Type,
+    };
+  }
+
+  return { manifest, ruleLib };
 }
