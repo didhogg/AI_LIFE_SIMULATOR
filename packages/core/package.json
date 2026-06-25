@@ -49,6 +49,7 @@
     "./prompt/callRegistry": "./prompt/callRegistry.ts",
     "./engine/preset/seedView": "./engine/preset/seedView.ts",
     "./engine/preset/contentPack": "./engine/preset/contentPack.ts",
+    "./engine/preset/resolve": "./engine/preset/resolve.ts",
     "./replay": "./replay/index.ts"
   },
   "dependencies": {
