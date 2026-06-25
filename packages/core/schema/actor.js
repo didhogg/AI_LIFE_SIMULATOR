@@ -2,6 +2,8 @@
 import { z } from 'zod';
 import { 不可逆Schema } from './verb.js';
 import { 受治理句柄Schema, 是JS保留键 } from './governedKeySpace.js';
+import { 意象条目Schema } from './commonEntry.js';
+export { 意象条目Schema } from './commonEntry.js';
 // ── actor 记录键 superRefine（AA4·禁 JS 保留键·防原型污染） ──
 const actor记录键Schema = z.string().superRefine((k, ctx) => {
     if (是JS保留键(k)) {
@@ -11,14 +13,6 @@ const actor记录键Schema = z.string().superRefine((k, ctx) => {
 // ══════════════════════════════════════════
 // 公共子 schema（被其他文件引用）
 // ══════════════════════════════════════════
-// 意象条目（6.29 统一制式：地点 / NPC / 物品共用）
-export const 意象条目Schema = z.object({
-    标签: z.string().default(''),
-    情绪色彩: z.string().default(''),
-    强度: z.number().min(0).max(100).default(0),
-    来源: z.string().default(''), // '固有' | '事件烙印' | 事件id
-    衰减速率: z.number().min(0).default(0), // 每纪元分钟衰减量；0 = 永久
-});
 // 修饰通道引用（特质效果 / 状态标签效果复用）
 export const 修饰通道引用Schema = z.object({
     通道: z.string().default(''),

@@ -1,6 +1,6 @@
 // 4.6 地图与战争层
 import { z } from 'zod';
-import { 意象条目Schema } from './actor.js';
+import { 意象条目Schema } from './commonEntry.js';
 
 // ══════════════════════════════════════════
 // 地图·地点
