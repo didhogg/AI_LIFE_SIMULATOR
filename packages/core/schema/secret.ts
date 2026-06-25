@@ -200,7 +200,7 @@ const 覆写日志条目Schema = z.object({
 // factFragment 种子条目：真相层显式化（T1）核心载体
 // 键 = factFragment 唯一标识（命名规约 G2 接线时确定·当前留 string 键·空跑）
 // AI 只读（_前缀）；进指纹排除（留位阶段不影响判定面）
-const factFragment种子条目Schema = z.object({
+export const factFragment种子条目Schema = z.object({
   // ── 核心 factFragment 字段（与 $涟漪候选/印象条目 口径对齐）──
   主体: z.string().default(''),           // 事件主体实体键
   维度: z.string().default(''),           // 变化维度（关系/生命/财富/声誉…）

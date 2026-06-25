@@ -47,6 +47,7 @@
     "./engine/cognitionProjection": "./engine/cognitionProjection.ts",
     "./engine/economyEngine": "./engine/economyEngine.ts",
     "./prompt/callRegistry": "./prompt/callRegistry.ts",
+    "./engine/preset/seedView": "./engine/preset/seedView.ts",
     "./replay": "./replay/index.ts"
   },
   "dependencies": {

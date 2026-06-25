@@ -39,7 +39,7 @@ const 相邻条目Schema = z.object({
   }
 });
 
-const 地点条目Schema = z.object({
+export const 地点条目Schema = z.object({
   名称: z.string().default(''),
   // 类别取值为『区域级』的节点即区域；所属区域 = 沿父链回溯最近的区域级祖先节点键；区域物价/传播/压力榜三处共用此键空间
   类别: z.string().default(''),
