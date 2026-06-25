@@ -341,7 +341,7 @@ const 序章模板Schema = z.object({
 });
 
 export const 开局装配数据Schema = z.object({
-  // 家境装配包=开局记账动词脚本；运行期必过五道闸落账，禁直塞存档树（6.42①）
+  // 真相待建：待 A2/P0-7 接线后补全类型；运行期必过五道闸落账，禁直塞存档树（6.42①）
   家境装配包: z.array(z.unknown()).default([]),
   // 凸成本点购曲线；不进 _tick.难度系数组指纹（6.42⑧）
   凸成本点购曲线: z.array(z.unknown()).default([]),
