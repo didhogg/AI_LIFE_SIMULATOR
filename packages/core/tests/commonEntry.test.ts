@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { 意象条目Schema, factFragmentSchema } from '../schema/commonEntry.js';
+import { 意象条目Schema, factFragmentSchema, 变量字段声明Schema, 变量模板Schema } from '../schema/commonEntry.js';
 import { NpcSchema } from '../schema/actor.js';
 import { 地点条目Schema } from '../schema/map.js';
 import { $涟漪候选Schema } from '../schema/dollar.js';
@@ -97,5 +97,95 @@ describe('factFragmentSchema · 共享定义（禁第二实现）', () => {
     // actor 与 dollar 的 factFragment 均来自 factFragmentSchema·解析结果逐位等
     expect(fromCommon.主体).toBe('x');
     expect(fromCommon.Δ方向).toBe(1);
+  });
+});
+
+// ── 变量字段声明Schema / 变量模板Schema ──────────────────────────────────────────
+
+describe('变量字段声明Schema · 类型↔默认值匹配校验', () => {
+  it('数字类型 + number 默认值 → 通过', () => {
+    const r = 变量字段声明Schema.parse({ 类型: '数字', 默认值: 10 });
+    expect(r.类型).toBe('数字');
+    expect(r.默认值).toBe(10);
+  });
+
+  it('字符串类型 + string 默认值 → 通过', () => {
+    const r = 变量字段声明Schema.parse({ 类型: '字符串', 默认值: '无' });
+    expect(r.类型).toBe('字符串');
+    expect(r.默认值).toBe('无');
+  });
+
+  it('布尔类型 + boolean 默认值 → 通过', () => {
+    const r = 变量字段声明Schema.parse({ 类型: '布尔', 默认值: true });
+    expect(r.类型).toBe('布尔');
+    expect(r.默认值).toBe(true);
+  });
+
+  it('类型缺省回落「数字」·number 默认值 → 通过', () => {
+    const r = 变量字段声明Schema.parse({ 默认值: 42 });
+    expect(r.类型).toBe('数字');
+    expect(r.默认值).toBe(42);
+  });
+
+  it('数字类型 + string 默认值 → superRefine 拒', () => {
+    const r = 变量字段声明Schema.safeParse({ 类型: '数字', 默认值: 'x' });
+    expect(r.success).toBe(false);
+  });
+
+  it('字符串类型 + number 默认值 → superRefine 拒', () => {
+    const r = 变量字段声明Schema.safeParse({ 类型: '字符串', 默认值: 0 });
+    expect(r.success).toBe(false);
+  });
+
+  it('布尔类型 + number 默认值 → superRefine 拒', () => {
+    const r = 变量字段声明Schema.safeParse({ 类型: '布尔', 默认值: 1 });
+    expect(r.success).toBe(false);
+  });
+
+  it('缺 默认值 → 拒', () => {
+    const r = 变量字段声明Schema.safeParse({ 类型: '数字' });
+    expect(r.success).toBe(false);
+  });
+
+  it('描述字段可选', () => {
+    const r = 变量字段声明Schema.parse({ 类型: '数字', 默认值: 0, 描述: '攻击力加成' });
+    expect(r.描述).toBe('攻击力加成');
+  });
+
+  it('描述缺省为 undefined', () => {
+    const r = 变量字段声明Schema.parse({ 类型: '数字', 默认值: 0 });
+    expect(r.描述).toBeUndefined();
+  });
+});
+
+describe('变量模板Schema · record<变量名, 变量字段声明>', () => {
+  it('中文字段名（伤害 / 耐久度 / 附魔效果）→ 通过', () => {
+    const r = 变量模板Schema.parse({
+      伤害:   { 类型: '数字',   默认值: 0 },
+      耐久度: { 类型: '数字',   默认值: 100 },
+      附魔效果: { 类型: '字符串', 默认值: '无' },
+    });
+    expect(r['伤害']?.默认值).toBe(0);
+    expect(r['耐久度']?.默认值).toBe(100);
+    expect(r['附魔效果']?.默认值).toBe('无');
+  });
+
+  it('空 record → 通过', () => {
+    const r = 变量模板Schema.parse({});
+    expect(r).toEqual({});
+  });
+
+  it('record 内某条类型不匹配 → 拒', () => {
+    const r = 变量模板Schema.safeParse({
+      内力: { 类型: '数字', 默认值: '满' },
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it('空字符串键 → 拒（z.string().min(1) 守卫）', () => {
+    const r = 变量模板Schema.safeParse({
+      '': { 类型: '数字', 默认值: 0 },
+    });
+    expect(r.success).toBe(false);
   });
 });

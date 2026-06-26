@@ -34,3 +34,25 @@ export const factFragmentSchema = z.object({
 });
 
 export type factFragmentType = z.infer<typeof factFragmentSchema>;
+
+// 变量字段声明（纯脚手架·dormant·0 引用·不接任何实体）
+// 类型↔默认值必须匹配，superRefine fail-closed（不匹配即 addIssue）
+export const 变量字段声明Schema = z.object({
+  类型: z.enum(['数字', '字符串', '布尔']).default('数字'),
+  默认值: z.union([z.number(), z.string(), z.boolean()]),
+  描述: z.string().optional(),
+}).superRefine((v, ctx) => {
+  if (v.类型 === '数字' && typeof v.默认值 !== 'number') {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: '默认值类型不匹配：类型为「数字」但默认值非 number' });
+  } else if (v.类型 === '字符串' && typeof v.默认值 !== 'string') {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: '默认值类型不匹配：类型为「字符串」但默认值非 string' });
+  } else if (v.类型 === '布尔' && typeof v.默认值 !== 'boolean') {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: '默认值类型不匹配：类型为「布尔」但默认值非 boolean' });
+  }
+});
+
+// 变量模板：record<变量名（非空串）, 变量字段声明>
+export const 变量模板Schema = z.record(z.string().min(1), 变量字段声明Schema);
+
+export type 变量字段声明Type = z.infer<typeof 变量字段声明Schema>;
+export type 变量模板Type = z.infer<typeof 变量模板Schema>;
