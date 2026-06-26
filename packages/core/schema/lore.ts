@@ -2,6 +2,7 @@
 // 口径锁定：docs/design/lore_tool_spec.md；gate/组装器实装留 P0-6/P0-8。
 import { z } from 'zod';
 import { 导入保真度枚举 } from './preset.js';
+import { 谓词串Schema } from './commonEntry.js';
 
 // ══════════════════════════════════════════
 // ② 别名同义词条目（进 S 批归并表·受治理键空间）
@@ -42,7 +43,7 @@ export const TOOL_能力条目Schema = z.object({
 // ══════════════════════════════════════════
 
 const lore状态转移条目Schema = z.object({
-  触发条件: z.string().default(''), // ③ DSL 谓词（P0-6 实装求值器）
+  触发条件: 谓词串Schema.default(''), // ③ DSL 谓词（P0-6 实装求值器）
   动作描述: z.string().default(''), // 人读描述
   结果状态: z.string().default(''), // 转移后状态描述符
   工具: TOOL_能力条目Schema.optional(), // 驱动此转移的 [TOOL] 能力（可空）
@@ -53,7 +54,7 @@ const lore状态转移条目Schema = z.object({
 // ══════════════════════════════════════════
 
 const lore硬约束条目Schema = z.object({
-  禁令谓词: z.string().default(''), // DSL 谓词·命中即拒（P0-6 导入闸/拍首检查）
+  禁令谓词: 谓词串Schema.default(''), // DSL 谓词·命中即拒（P0-6 导入闸/拍首检查）
   禁令描述: z.string().default(''), // 人读说明
   错误代码: z.string().optional(),  // 机器可读·供作者警示（R7-a）
 });
@@ -73,7 +74,7 @@ export const lore条目Schema = z.object({
   // ③ 触发谓词（DSL 文法·非关键词字面·走 DSL 求值器·P0-6 实装）
   // 覆盖：时代/地域/场景/在场实体/状态等多维谓词
   // ⚠️ 双轨中的「gate判定路径」输入·命中结果进指纹（TODO P0-6: 纳签名）；绝不走语义召回（R7-b）
-  触发谓词: z.string().default(''),
+  触发谓词: 谓词串Schema.default(''),
 
   // ④ 知识载荷（描述性文本·供叙事读取·不进指纹·叙事注入路径·R7-b）
   // 与③正交：载荷走语义召回/叙事注入，触发谓词走确定性 DSL 求值

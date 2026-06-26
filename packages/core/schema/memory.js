@@ -1,6 +1,7 @@
 // 4.8 记忆·事件·调度层
 import { z } from 'zod';
 import { 受治理路径Schema, 是JS保留键, 键条目Schema } from './governedKeySpace.js';
+import { 谓词串Schema } from './commonEntry.js';
 // ── 记录键 superRefine（AA4·禁 JS 保留键·防原型污染） ──
 // key schema 方式：在 Zod 构造 record 结果前拦截，正确处理 __proto__ 等保留键。
 // add-constraint only：z.infer 仍 string，零迁移。
@@ -342,7 +343,7 @@ const intervention_pack_delta条目Schema = z.object({
     // ·存储仍 string·零迁移·fail-open（registry 成员级校验留 P0-6 导入闸）
     path: 受治理路径Schema,
     op: z.enum(['set', 'add', 'sub', 'clamp', 'lock']),
-    value: z.union([z.number(), z.string()]), // 标量 | DSL v1 表达式串（复用 engine/dsl/eval.ts 同一套文法，禁第二实现）
+    value: z.union([z.number(), 谓词串Schema]), // 标量 | DSL v1 表达式串（复用 engine/dsl/eval.ts 同一套文法，禁第二实现）
     max_delta: z.number().optional(), // 单次Δ上限·P0-6 过五道闸钳制时消费，本批不接线
 });
 export const intervention_pack_v1Schema = z.object({
@@ -351,7 +352,7 @@ export const intervention_pack_v1Schema = z.object({
     flags_add: z.array(z.string()).optional(),
     pack_id: z.string().regex(pack_id正则, { message: 'pack_id 须为蛇形 /^[a-z][a-z0-9_]*$/' }), // K6③·S2·必填·去空串豁免·去 default·对齐 mod条目单一权威口径
     deltas: z.array(intervention_pack_delta条目Schema).optional(),
-    trigger: z.string().optional(), // DSL v1 谓词串·与 lore.ts 触发条件/触发谓词同一套文法，P0-6 实装求值器前仅占位
+    trigger: 谓词串Schema.optional(), // DSL v1 谓词串·与 lore.ts 触发条件/触发谓词同一套文法，P0-6 实装求值器前仅占位
     side_effect_level: 副作用级别枚举Schema.optional(),
     content_hash: z.string().optional(), // 占位·本批不接线，留给 P0-6 进 B1c 生效中包集哈希
 }).strict().superRefine((data, ctx) => {

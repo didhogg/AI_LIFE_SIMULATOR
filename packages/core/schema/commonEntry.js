@@ -1,5 +1,9 @@
 // 公共中性 schema——地点 / NPC / 物品共用，无业务模块依赖
 import { z } from 'zod';
+// DSL v1 谓词/表达式串（求值走 engine/dsl/parsePred·禁第二实现）
+// 裸 z.string()：运行时全等于 z.string()，fingerprint-neutral，0 行为变更。
+// 语法校验留 P0-6 导入闸；空串语义由调用侧约定（触发谓词空串=恒真；禁令谓词空串=恒假）。
+export const 谓词串Schema = z.string();
 // 意象条目（6.29 统一制式：地点 / NPC / 物品共用）
 export const 意象条目Schema = z.object({
     标签: z.string().default(''),

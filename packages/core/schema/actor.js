@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { 不可逆Schema } from './verb.js';
 import { 受治理句柄Schema, 是JS保留键 } from './governedKeySpace.js';
-import { 意象条目Schema, factFragmentSchema } from './commonEntry.js';
+import { 意象条目Schema, factFragmentSchema, 谓词串Schema } from './commonEntry.js';
 export { 意象条目Schema } from './commonEntry.js';
 // ── actor 记录键 superRefine（AA4·禁 JS 保留键·防原型污染） ──
 const actor记录键Schema = z.string().superRefine((k, ctx) => {
@@ -448,7 +448,7 @@ export const NpcSchema = z.object({
     // 引擎只读；G7 offstageSettler 据此驱动幕后演化（默认示例：报仇/告发/逃离/结盟/趋附/探查/流转潜伏）。
     _幕后行动种子: z.array(z.object({
         类型: z.string(), // 开放串；mod 作者可定义自有幕后意图
-        触发条件: z.string().optional(), // DSL v1 谓词串（G7 接线·P0 占位）
+        触发条件: 谓词串Schema.optional(), // DSL v1 谓词串（G7 接线·P0 占位）
         优先级: z.number().int().min(0).default(0),
         后果种子: z.string().optional(), // consequenceSeed 引用键（G7 接线）
     })).optional(),
