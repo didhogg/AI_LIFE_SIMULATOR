@@ -13,6 +13,7 @@ import type { 规则条目Type, 规则面Type, 规则库Type } from './ruleLibra
 import type { UI条目Type, UI库Type } from './uiLibrary.js';
 import type { 工具条目Type, 工具库Type } from '../../schema/toolLibrary.js';
 import type { 成就条目Type, 成就库Type } from '../../schema/achievementLibrary.js';
+import type { 物品定义条目Type, 物品库Type } from '../../schema/itemLibrary.js';
 import { 种子视图 } from './seedView.js';
 import { RootSchema } from '../../schema/index.js';
 import { 是JS保留键 } from '../../schema/governedKeySpace.js';
@@ -25,6 +26,7 @@ export interface 薄清单 {
   ui?: string[];          // UI引用列表（UI_ID 列表·装配层·渲染面·不进 hashJudgmentBundle）
   tools?: string[];         // 工具引用列表（工具ID 列表·装配层·路由面·不进 hashJudgmentBundle）
   achievements?: string[];  // 成就引用列表（成就ID 列表·装配层·定义层·不进 hashJudgmentBundle）
+  items?: string[];         // 物品引用列表（物品ID 列表·装配层·定义层·不进 hashJudgmentBundle）
   基底版本?: string;        // 用于 基底契约 semver 校验（默认 '4.1.0'）
 }
 
@@ -69,6 +71,12 @@ export interface 解析结果 {
   生效中成就集: 成就条目Type[];
   /** 被跳过 成就ID 的审计记录（成就库中不存在的引用） */
   _成就墓碑库: Record<string, 墓碑条目>;
+  /** 按 物品ID 索引的物品定义条目集合（by-ID·物品库路径·dormant·不进 hashJudgmentBundle） */
+  物品成品: Record<string, 物品定义条目Type>;
+  /** 引用顺序的生效物品定义条目列表 */
+  生效中物品集: 物品定义条目Type[];
+  /** 被跳过 物品ID 的审计记录（物品库中不存在的引用） */
+  _物品墓碑库: Record<string, 墓碑条目>;
 }
 
 // ── 确定性深合并（无 Date/random/副作用·对象递归展开·数组/叶节点后载覆盖） ───
@@ -125,7 +133,7 @@ function 新轨叠加(
  *
  * 新轨（模块键路由·种子视图解析）优先；旧轨叠加()提供等价基准供双轨验收。
  */
-export function resolve(manifest: 薄清单, library: 内容包库Type, ruleLib?: 规则库Type, uiLib?: UI库Type, toolLib?: 工具库Type, achLib?: 成就库Type): 解析结果 {
+export function resolve(manifest: 薄清单, library: 内容包库Type, ruleLib?: 规则库Type, uiLib?: UI库Type, toolLib?: 工具库Type, achLib?: 成就库Type, itemLib?: 物品库Type): 解析结果 {
   const BASE_VERSION = manifest.基底版本 ?? '4.1.0';
   const 墓碑库: Record<string, 墓碑条目> = {};
 
@@ -409,7 +417,25 @@ export function resolve(manifest: 薄清单, library: 内容包库Type, ruleLib?
     }
   }
 
-  return { 成品, _mod墓碑库: 墓碑库, 生效中包集, 生效中内容包集哈希, 规则成品, 生效中规则集, _规则墓碑库, UI成品, 生效中UI集, _UI墓碑库, 工具成品, 生效中工具集, _工具墓碑库, 成就成品, 生效中成就集, _成就墓碑库 };
+  // ── 物品库路径 ──────────────────────────────────────────────────────────────────
+  // by-ID 加载：从 manifest.items 出发，按 物品ID 直接查 itemLib（无 BFS·无子组件）
+  // dormant：不进 hashJudgmentBundle·不进指纹·定义层专用·actor 端运行期实例不受影响
+  const 物品成品: Record<string, 物品定义条目Type> = {};
+  const 生效中物品集: 物品定义条目Type[] = [];
+  const _物品墓碑库: Record<string, 墓碑条目> = {};
+
+  if (itemLib && manifest.items && manifest.items.length > 0) {
+    for (const itemId of manifest.items) {
+      // own-property guard（防原型链污染·constructor/__proto__ 等 → 跳过）
+      if (!Object.prototype.hasOwnProperty.call(itemLib, itemId)) continue;
+      const entry = itemLib[itemId];
+      if (!entry) continue;
+      物品成品[itemId] = entry;
+      生效中物品集.push(entry);
+    }
+  }
+
+  return { 成品, _mod墓碑库: 墓碑库, 生效中包集, 生效中内容包集哈希, 规则成品, 生效中规则集, _规则墓碑库, UI成品, 生效中UI集, _UI墓碑库, 工具成品, 生效中工具集, _工具墓碑库, 成就成品, 生效中成就集, _成就墓碑库, 物品成品, 生效中物品集, _物品墓碑库 };
 }
 
 // ── shimThickPreset — 厚预设存档 shim（C2 确定性迁移工具）────────────────────────

@@ -415,11 +415,12 @@ describe('成就库 · 守恒门', () => {
     expect(total).toBe(86);
   });
 
-  it('命名空间枚举 = 16 项（15+成就）', () => {
-    expect(命名空间枚举.length).toBe(16);
+  it('命名空间枚举 = 17 项（16+物品）', () => {
+    expect(命名空间枚举.length).toBe(17);
     expect((命名空间枚举 as readonly string[]).includes('成就')).toBe(true);
     expect((命名空间枚举 as readonly string[]).includes('工具')).toBe(true);
     expect((命名空间枚举 as readonly string[]).includes('UI组件')).toBe(true);
+    expect((命名空间枚举 as readonly string[]).includes('物品')).toBe(true);
   });
 
   it('冰箱绑定表含 成就·解析器键 = 成就库', () => {

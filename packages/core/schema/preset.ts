@@ -329,6 +329,7 @@ export const 母题词汇表Schema = z.record(
 export const 实体模板库Schema = z.object({
   NPC模板: z.array(z.unknown()).default([]),
   组织模板: z.array(z.unknown()).default([]),
+  // → 定义已迁至 itemLibrary 物品库冰箱·此黑洞待"玩法预设双轨剥离"时删除·勿填（反冗余）
   物品模板: z.array(z.unknown()).default([]),
 });
 
