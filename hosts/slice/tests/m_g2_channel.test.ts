@@ -331,10 +331,9 @@ describe('G2-2 E5 · 传播力 ⊥ 真实性', () => {
         },
       },
     });
-    // 造谣 factFragment（有锚布尔=false · 顶层字段·dollar.ts 口径）
+    // 造谣语义未来由 factFragment.有锚布尔=false 表达（G5 真伪门接线·当前 seam dormant）
     emitRipple(s0.$涟漪候选, 'src', {
       标签: '声誉', 极性: '负', 强度: 70, 可见性: '公开', 来源拍号: 0,
-      有锚布尔: false,  // 顶层 · $涟漪候选 outer level（非 factFragment 内部）
       factFragment: { 维度: '声誉', 主体: 'src', Δ方向: -1, 量级: 70 },
     });
     const { state: s1 } = runTick(s0, { tickId: 'e5-rumor', spanMinutes: 1440 });
@@ -359,7 +358,6 @@ describe('G2-2 E5 · 传播力 ⊥ 真实性', () => {
     });
     emitRipple(s0.$涟漪候选, 'src', {
       标签: '声誉', 极性: '负', 强度: 60, 可见性: '公开', 来源拍号: 0,
-      有锚布尔: false,  // 顶层 · 传播力 ⊥ 真实性
       factFragment: { 维度: '声誉', 主体: 'src', Δ方向: -1, 量级: 60 },
     });
     const { state: s1 } = runTick(s0, { tickId: 'e5-bass-rumor', spanMinutes: 1440, bassP: 1.0 });

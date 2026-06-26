@@ -28,7 +28,6 @@ function relPack(actorKey: string, targetKey: string, Δ方向: number, 量级: 
     标签: Δ方向 < 0 ? '冲突' : '义举',
     极性: Δ方向 < 0 ? '负' as const : '正' as const,
     强度: 量级, 可见性: '公开' as const, 来源拍号: 0,
-    有锚布尔: true,
     factFragment: { 主体: actorKey, 维度: '关系', Δ方向, 客体: targetKey, 量级 },
   }];
 }

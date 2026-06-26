@@ -34,7 +34,6 @@ describe('C2-5 FA-1 · 关系维度 factFragment → 情绪栈回写', () => {
     const s0 = buildWorld();
     s0.$涟漪候选[PC] = [{
       标签: '威胁', 极性: '负', 强度: 100, 可见性: '公开', 来源拍号: 0,
-      有锚布尔: true,
       factFragment: { 主体: PC, 维度: '关系', Δ方向: -1, 客体: NPC_WANG, 量级: 100 },
     }];
     const { state: s1 } = runTick(s0, { tickId: 'fa1-rel-neg', spanMinutes: 1440 });
@@ -49,7 +48,6 @@ describe('C2-5 FA-1 · 关系维度 factFragment → 情绪栈回写', () => {
     const s0 = buildWorld();
     s0.$涟漪候选[PC] = [{
       标签: '义举', 极性: '正', 强度: 100, 可见性: '公开', 来源拍号: 0,
-      有锚布尔: true,
       factFragment: { 主体: PC, 维度: '关系', Δ方向: 1, 客体: NPC_WANG, 量级: 100 },
     }];
     const { state: s1 } = runTick(s0, { tickId: 'fa1-rel-pos', spanMinutes: 1440 });
@@ -67,7 +65,6 @@ describe('C2-5 FA-1 · 关系维度 factFragment → 情绪栈回写', () => {
     }];
     s0.$涟漪候选[PC] = [{
       标签: '威胁', 极性: '负', 强度: 100, 可见性: '公开', 来源拍号: 0,
-      有锚布尔: true,
       factFragment: { 主体: PC, 维度: '关系', Δ方向: -1, 客体: NPC_WANG, 量级: 100 },
     }];
     const { state: s1 } = runTick(s0, { tickId: 'fa1-takemax', spanMinutes: 1440 });
@@ -140,7 +137,6 @@ describe('C2-5 FA-3 · 情绪栈回写后 schema 合法', () => {
     const s0 = buildWorld();
     s0.$涟漪候选[PC] = [{
       标签: '冲突', 极性: '负', 强度: 100, 可见性: '公开', 来源拍号: 0,
-      有锚布尔: true,
       factFragment: { 主体: PC, 维度: '关系', Δ方向: -1, 客体: NPC_WANG, 量级: 100 },
     }];
     const { state: s1 } = runTick(s0, { tickId: 'fa3-schema-rel', spanMinutes: 1440 });
@@ -172,7 +168,6 @@ describe('C2-5 FA-4 · 公共事件（量级≥50·一手观测）→ _编年史
     const prevLen = s0.全局._编年史.length;
     s0.$涟漪候选[PC] = [{
       标签: '义举', 极性: '正', 强度: 100, 可见性: '公开', 来源拍号: 0,
-      有锚布尔: true,
       factFragment: { 主体: PC, 维度: '关系', Δ方向: 1, 客体: NPC_WANG, 量级: 100 },
     }];
     const { state: s1 } = runTick(s0, { tickId: 'fa4-chronicle-rel', spanMinutes: 1440 });
@@ -193,7 +188,6 @@ describe('C2-5 FA-4 · 公共事件（量级≥50·一手观测）→ _编年史
     // Tick 2: 手注高量级关系涟漪 → 编年史条目2
     s1.$涟漪候选[PC] = [{
       标签: '决裂', 极性: '负', 强度: 100, 可见性: '公开', 来源拍号: 1,
-      有锚布尔: true,
       factFragment: { 主体: PC, 维度: '关系', Δ方向: -1, 客体: NPC_HONG, 量级: 100 },
     }];
     const { state: s2 } = runTick(s1, { tickId: 'fa4-seq-tick2', spanMinutes: 1440 });
@@ -209,7 +203,6 @@ describe('C2-5 FA-4 · 公共事件（量级≥50·一手观测）→ _编年史
     const prevLen = s0.全局._编年史.length;
     s0.$涟漪候选[PC] = [{
       标签: '小摩擦', 极性: '负', 强度: 10, 可见性: '公开', 来源拍号: 0,
-      有锚布尔: true,
       factFragment: { 主体: PC, 维度: '关系', Δ方向: -1, 客体: NPC_WANG, 量级: 10 },
     }];
     const { state: s1 } = runTick(s0, { tickId: 'fa4-low-mag', spanMinutes: 1440 });
@@ -225,7 +218,6 @@ describe('C2-5 FA-5 · covert 事件（可见性=隐秘）→ 不入公共编年
     const prevLen = s0.全局._编年史.length;
     s0.$涟漪候选[PC] = [{
       标签: '密谋', 极性: '负', 强度: 100, 可见性: '隐秘', 来源拍号: 0,
-      有锚布尔: true,
       factFragment: { 主体: PC, 维度: '关系', Δ方向: -1, 客体: NPC_WANG, 量级: 100 },
     }];
     const { state: s1 } = runTick(s0, { tickId: 'fa5-covert', spanMinutes: 1440 });
@@ -238,7 +230,6 @@ describe('C2-5 FA-5 · covert 事件（可见性=隐秘）→ 不入公共编年
     const preWangEmotionCount = s0.NPC[NPC_WANG]?.情绪栈.length ?? 0;
     s0.$涟漪候选[PC] = [{
       标签: '密谋', 极性: '负', 强度: 100, 可见性: '隐秘', 来源拍号: 0,
-      有锚布尔: true,
       factFragment: { 主体: PC, 维度: '关系', Δ方向: -1, 客体: NPC_WANG, 量级: 100 },
     }];
     const { state: s1 } = runTick(s0, { tickId: 'fa5-covert-emotion', spanMinutes: 1440 });

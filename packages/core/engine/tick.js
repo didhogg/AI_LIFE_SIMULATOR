@@ -187,7 +187,6 @@ export function runTick(state, input) {
                     强度: 量级,
                     可见性: '公开',
                     来源拍号: tickNumber,
-                    有锚布尔: true,
                     factFragment: {
                         主体: npcKey,
                         维度: '关系',
@@ -255,7 +254,6 @@ export function runTick(state, input) {
                 强度: 100,
                 可见性: '公开',
                 来源拍号: tickNumber,
-                有锚布尔: true,
                 factFragment: {
                     主体: actorKey,
                     维度: '生命',

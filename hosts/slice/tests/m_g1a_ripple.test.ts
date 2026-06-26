@@ -218,7 +218,6 @@ describe('G1a-V6 · C2-3 factFragment + 场景系数专项回归', () => {
     // 手动注入：模拟死亡事件 factFragment（真实死亡发射路径 = C2-4 任务·此处验证传播链）
     s0.$涟漪候选[PC] = [{
       标签: '伤亡', 极性: '中', 强度: 80, 可见性: '公开', 来源拍号: 0,
-      有锚布尔: true,
       factFragment: { 主体: 'npc_enemy', 维度: '生命', Δ方向: -1, 量级: 80 },
     }];
     const { state: s1 } = runTick(s0, { tickId: 'ff1', spanMinutes: 1440 });

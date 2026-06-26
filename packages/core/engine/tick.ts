@@ -274,7 +274,6 @@ export function runTick(state: RootState, input: TickInput): TickResult {
           强度:     量级,
           可见性:   '公开',
           来源拍号: tickNumber,
-          有锚布尔: true,
           factFragment: {
             主体:   npcKey,
             维度:   '关系',
@@ -349,7 +348,6 @@ export function runTick(state: RootState, input: TickInput): TickResult {
         强度:     100,
         可见性:   '公开',
         来源拍号: tickNumber,
-        有锚布尔: true,
         factFragment: {
           主体:  actorKey,
           维度:  '生命',
@@ -999,9 +997,6 @@ type RippleEntry = {
   标签: string; 极性: string; 强度: number;
   可见性: string; 来源拍号: number;
   矫诏?: boolean;         // G2-3 S2: 伪诏标志（true=官方信道走伪路径·未声明=退回旧行为）
-  // C2-0 additive seam (factFragment v2)
-  来源世界域?: string;
-  有锚布尔?: boolean;
   factFragment?: {
     主体: string; 维度: string; Δ方向: number;
     客体?: string; 场景?: string; 量级: number;
