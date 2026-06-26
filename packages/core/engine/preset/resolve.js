@@ -55,7 +55,7 @@ function 新轨叠加(base, 模块种子) {
  *
  * 新轨（模块键路由·种子视图解析）优先；旧轨叠加()提供等价基准供双轨验收。
  */
-export function resolve(manifest, library, ruleLib) {
+export function resolve(manifest, library, ruleLib, uiLib) {
     const BASE_VERSION = manifest.基底版本 ?? '4.1.0';
     const 墓碑库 = {};
     // ── Layer 1: 单包校验 ────────────────────────────────────────────────────────
@@ -260,7 +260,36 @@ export function resolve(manifest, library, ruleLib) {
             生效中规则集.push(rule);
         }
     }
-    return { 成品, _mod墓碑库: 墓碑库, 生效中包集, 生效中内容包集哈希, 规则成品, 生效中规则集, _规则墓碑库 };
+    // ── UI库路径 ─────────────────────────────────────────────────────────────────
+    // BFS 展开：从 manifest.ui[] 出发，递归收集 子组件 IDs（自有属性 guard·防原型污染）
+    // dormant：不进 hashJudgmentBundle·不进指纹·渲染面专用
+    const UI成品 = {};
+    const 生效中UI集 = [];
+    const _UI墓碑库 = {};
+    if (uiLib && manifest.ui && manifest.ui.length > 0) {
+        const visited = new Set();
+        const queue = [...manifest.ui];
+        while (queue.length > 0) {
+            const id = queue.shift();
+            if (visited.has(id))
+                continue;
+            visited.add(id);
+            // own-property guard（防原型链污染·constructor/__proto__ 等 → 跳过）
+            if (!Object.prototype.hasOwnProperty.call(uiLib, id))
+                continue;
+            const entry = uiLib[id];
+            if (!entry)
+                continue;
+            UI成品[id] = entry;
+            生效中UI集.push(entry);
+            // 子组件 BFS 展开（多层嵌套·无环保护由 visited Set 守卫）
+            for (const childId of entry.子组件 ?? []) {
+                if (!visited.has(childId))
+                    queue.push(childId);
+            }
+        }
+    }
+    return { 成品, _mod墓碑库: 墓碑库, 生效中包集, 生效中内容包集哈希, 规则成品, 生效中规则集, _规则墓碑库, UI成品, 生效中UI集, _UI墓碑库 };
 }
 // ── shimThickPreset — 厚预设存档 shim（C2 确定性迁移工具）────────────────────────
 // 将含内联规则字段的旧格式预设 object 转为 {薄清单, 规则库条目}

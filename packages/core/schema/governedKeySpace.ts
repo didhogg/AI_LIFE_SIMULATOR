@@ -103,7 +103,7 @@ export const 受治理句柄Schema = z.string().superRefine((raw, ctx) => {
 });
 
 // ══════════════════════════════════════════
-// 命名空间枚举（封闭·13 项·到此锁定；B2·S4 解锁：+mod包；B6 +拦截器句柄）
+// 命名空间枚举（封闭·14 项·到此锁定；B2·S4 解锁：+mod包；B6 +拦截器句柄；UI库 +UI组件）
 // ══════════════════════════════════════════
 
 export const 命名空间枚举 = [
@@ -120,6 +120,7 @@ export const 命名空间枚举 = [
   '纪元',            // 保留占位·本步不入册数据
   'mod包',           // B2·S4·K6②：mod 条目命名空间化；mod 条目.命名空间 强约束 defer B2 拍板④
   '拦截器句柄',      // B6·verb.ts 不可逆Schema.解除通道·拦截解除机制受治理引用（成员级校验 fail-open·留 P0-6）
+  'UI组件',          // UI库·装配层·渲染面·解析器键=UI库·不进 hashJudgmentBundle
 ] as const;
 export type 命名空间Type = (typeof 命名空间枚举)[number];
 

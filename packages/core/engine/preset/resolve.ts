@@ -10,6 +10,7 @@ import { 聚合生效中内容包集哈希 } from '../../interfaces/contentPackH
 import type { mod墓碑原因Type } from '../../schema/memory.js';
 import type { 内容包条目Type, 内容包库Type } from './contentPack.js';
 import type { 规则条目Type, 规则面Type, 规则库Type } from './ruleLibrary.js';
+import type { UI条目Type, UI库Type } from './uiLibrary.js';
 import { 种子视图 } from './seedView.js';
 import { RootSchema } from '../../schema/index.js';
 import { 是JS保留键 } from '../../schema/governedKeySpace.js';
@@ -19,6 +20,7 @@ import { 是JS保留键 } from '../../schema/governedKeySpace.js';
 export interface 薄清单 {
   packs: string[];        // 引用顺序 pack_id 列表（优先级无声明则按顺序后载覆盖先载）
   rules?: string[];       // 规则引用列表（按引用顺序·后列覆盖先载·底座-2b）
+  ui?: string[];          // UI引用列表（UI_ID 列表·装配层·渲染面·不进 hashJudgmentBundle）
   基底版本?: string;      // 用于 基底契约 semver 校验（默认 '4.1.0'）
 }
 
@@ -45,6 +47,12 @@ export interface 解析结果 {
   生效中规则集: 规则条目Type[];
   /** 被拒规则的确定性审计记录 */
   _规则墓碑库: Record<string, 墓碑条目>;
+  /** 按 UI_ID 索引的 UI条目集合（BFS 展开·含子组件·UI库路径） */
+  UI成品: Record<string, UI条目Type>;
+  /** BFS 遍历顺序的生效 UI条目列表 */
+  生效中UI集: UI条目Type[];
+  /** 被跳过 UI_ID 的审计记录（UI库中不存在的引用） */
+  _UI墓碑库: Record<string, 墓碑条目>;
 }
 
 // ── 确定性深合并（无 Date/random/副作用·对象递归展开·数组/叶节点后载覆盖） ───
@@ -101,7 +109,7 @@ function 新轨叠加(
  *
  * 新轨（模块键路由·种子视图解析）优先；旧轨叠加()提供等价基准供双轨验收。
  */
-export function resolve(manifest: 薄清单, library: 内容包库Type, ruleLib?: 规则库Type): 解析结果 {
+export function resolve(manifest: 薄清单, library: 内容包库Type, ruleLib?: 规则库Type, uiLib?: UI库Type): 解析结果 {
   const BASE_VERSION = manifest.基底版本 ?? '4.1.0';
   const 墓碑库: Record<string, 墓碑条目> = {};
 
@@ -318,7 +326,38 @@ export function resolve(manifest: 薄清单, library: 内容包库Type, ruleLib?
     }
   }
 
-  return { 成品, _mod墓碑库: 墓碑库, 生效中包集, 生效中内容包集哈希, 规则成品, 生效中规则集, _规则墓碑库 };
+  // ── UI库路径 ─────────────────────────────────────────────────────────────────
+  // BFS 展开：从 manifest.ui[] 出发，递归收集 子组件 IDs（自有属性 guard·防原型污染）
+  // dormant：不进 hashJudgmentBundle·不进指纹·渲染面专用
+  const UI成品: Record<string, UI条目Type> = {};
+  const 生效中UI集: UI条目Type[] = [];
+  const _UI墓碑库: Record<string, 墓碑条目> = {};
+
+  if (uiLib && manifest.ui && manifest.ui.length > 0) {
+    const visited = new Set<string>();
+    const queue = [...manifest.ui];
+
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      if (visited.has(id)) continue;
+      visited.add(id);
+
+      // own-property guard（防原型链污染·constructor/__proto__ 等 → 跳过）
+      if (!Object.prototype.hasOwnProperty.call(uiLib, id)) continue;
+      const entry = uiLib[id];
+      if (!entry) continue;
+
+      UI成品[id] = entry;
+      生效中UI集.push(entry);
+
+      // 子组件 BFS 展开（多层嵌套·无环保护由 visited Set 守卫）
+      for (const childId of entry.子组件 ?? []) {
+        if (!visited.has(childId)) queue.push(childId);
+      }
+    }
+  }
+
+  return { 成品, _mod墓碑库: 墓碑库, 生效中包集, 生效中内容包集哈希, 规则成品, 生效中规则集, _规则墓碑库, UI成品, 生效中UI集, _UI墓碑库 };
 }
 
 // ── shimThickPreset — 厚预设存档 shim（C2 确定性迁移工具）────────────────────────
