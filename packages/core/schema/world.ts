@@ -2,7 +2,7 @@
 import { z } from 'zod';
 
 // ── 粒度模板条目 ──
-const GranularityTemplateSchema = z.object({
+export const 粒度模板Schema = z.object({
   现实档: z.string().default(''), // 即时/日常/发展/世代
   行动点上限: z.number().int().min(0).default(0), // 0 = 无限
   精力激活: z.boolean().default(true),
@@ -10,6 +10,7 @@ const GranularityTemplateSchema = z.object({
   自动结算: z.array(z.string()).default([]), // 月结/经济等自动结算项
   对齐模式: z.enum(['固定跨度', '历法对齐']).default('固定跨度'),
 });
+export type 粒度模板Type = z.infer<typeof 粒度模板Schema>;
 
 // ── 历法 ──
 const CalendarSchema = z.object({
@@ -42,12 +43,7 @@ export const 世界Schema = z.object({
   粒度栈: z.array(z.string()).default([]),
   周期数: z.number().int().min(0).default(0), // 只读统计；拍计数≠时间，禁止用拍数折算时长
   _本拍跨度: z.number().int().min(1).default(43200), // 只读，单位纪元分钟（默认一天=1440*30）
-  _粒度模板: z.object({
-    即时: GranularityTemplateSchema.default({}),
-    日常: GranularityTemplateSchema.default({}),
-    发展: GranularityTemplateSchema.default({}),
-    世代: GranularityTemplateSchema.default({}),
-  }).default({}),
+  _粒度模板: z.record(z.string(), 粒度模板Schema).default({ 即时: {}, 日常: {}, 发展: {}, 世代: {} }),
 });
 
 // ── G-1 活跃区间条目（域钟唯一派生输入，随线版本化） ──
@@ -72,3 +68,4 @@ export const 世界域Schema = z.record(
 export type 世界Type = z.infer<typeof 世界Schema>;
 export type 世界域Type = z.infer<typeof 世界域Schema>;
 export type 活跃区间条目Type = z.infer<typeof 活跃区间条目Schema>;
+

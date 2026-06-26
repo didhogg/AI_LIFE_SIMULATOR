@@ -374,18 +374,35 @@ describe('4.2 World layer', () => {
   it('unknown key strict rejection', () => {
     expect(世界Schema.strict().safeParse({ 季节: '春' }).success).toBe(false); // 季节 is derived
   });
-  // 13a: 对齐模式 in GranularityTemplateSchema
+  // 13a: 对齐模式 in 粒度模板Schema (open record)
   it('_粒度模板: 对齐模式 defaults to 固定跨度', () => {
     const world = 世界Schema.parse({});
-    expect(world._粒度模板.即时.对齐模式).toBe('固定跨度');
-    expect(world._粒度模板.发展.对齐模式).toBe('固定跨度');
+    expect(world._粒度模板['即时']!.对齐模式).toBe('固定跨度');
+    expect(world._粒度模板['发展']!.对齐模式).toBe('固定跨度');
   });
   it('_粒度模板: 对齐模式 accepts 历法对齐', () => {
     const result = 世界Schema.parse({ _粒度模板: { 发展: { 对齐模式: '历法对齐' } } });
-    expect(result._粒度模板.发展.对齐模式).toBe('历法对齐');
+    expect(result._粒度模板['发展']!.对齐模式).toBe('历法对齐');
   });
   it('_粒度模板: 对齐模式 rejects unknown value', () => {
     expect(世界Schema.safeParse({ _粒度模板: { 即时: { 对齐模式: '自由' } } }).success).toBe(false);
+  });
+  it('_粒度模板: default record has all 4 out-of-box granularity entries', () => {
+    const world = 世界Schema.parse({});
+    expect(world._粒度模板['即时']).toBeDefined();
+    expect(world._粒度模板['日常']).toBeDefined();
+    expect(world._粒度模板['发展']).toBeDefined();
+    expect(world._粒度模板['世代']).toBeDefined();
+  });
+  it('_粒度模板: accepts custom granularity key (open record, de-enumerated)', () => {
+    const world = 世界Schema.parse({ _粒度模板: { 史诗档: {} } });
+    expect(world._粒度模板['史诗档']).toBeDefined();
+    expect(world._粒度模板['史诗档']!.对齐模式).toBe('固定跨度');
+  });
+  it('当前粒度 and 粒度栈 accept custom granularity keys', () => {
+    const world = 世界Schema.parse({ 当前粒度: '史诗档', 粒度栈: ['日常', '史诗档'] });
+    expect(world.当前粒度).toBe('史诗档');
+    expect(world.粒度栈).toContain('史诗档');
   });
 });
 

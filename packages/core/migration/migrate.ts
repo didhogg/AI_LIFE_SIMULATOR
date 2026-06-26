@@ -934,7 +934,7 @@ export function buildV41Raw(input: unknown): MigrateRawResult {
       粒度栈: [],
       周期数,
       _本拍跨度: tickMinutes,
-      _粒度模板: {},
+      _粒度模板: { 即时: {}, 日常: {}, 发展: {}, 世代: {} },
     },
     世界域: {},
     // 6.53 C1: 旧 镜头焦点角色 字符串指针升格为席位表（单机退化为单席位「本机」）
