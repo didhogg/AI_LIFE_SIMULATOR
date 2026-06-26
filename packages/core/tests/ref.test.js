@@ -31,22 +31,25 @@ describe('R4 · 非法命名空间被拒', () => {
         expect(() => 创建引用('mod包', '__proto__')).toThrow();
     });
 });
-// ── R6 · 绑定表覆盖全 13 命名空间 ─────────────────────────────────────────────
-describe('R6 · 冰箱绑定表覆盖全 13 命名空间', () => {
-    it('绑定表 key 数 = 命名空间枚举.length（13）', () => {
+// ── R6 · 绑定表覆盖全 14 命名空间 ─────────────────────────────────────────────
+describe('R6 · 冰箱绑定表覆盖全 14 命名空间', () => {
+    it('绑定表 key 数 = 命名空间枚举.length（14）', () => {
         expect(Object.keys(冰箱绑定表).length).toBe(命名空间枚举.length);
-        expect(Object.keys(冰箱绑定表).length).toBe(13);
+        expect(Object.keys(冰箱绑定表).length).toBe(14);
     });
     it('每个命名空间枚举值均有对应绑定条目', () => {
         for (const ns of 命名空间枚举) {
             expect(Object.prototype.hasOwnProperty.call(冰箱绑定表, ns)).toBe(true);
         }
     });
-    it('mod包 是唯一已建冰箱（解析器键=mod注册表）', () => {
+    it('mod包 解析器键 = mod注册表', () => {
         expect(冰箱绑定表['mod包'].解析器键).toBe('mod注册表');
     });
+    it('UI组件 解析器键 = UI库（UI库已建·渲染面·不进指纹）', () => {
+        expect(冰箱绑定表['UI组件'].解析器键).toBe('UI库');
+    });
     it('其余 12 个命名空间解析器键为 undefined（待建）', () => {
-        const 待建 = Object.entries(冰箱绑定表).filter(([k]) => k !== 'mod包');
+        const 待建 = Object.entries(冰箱绑定表).filter(([k]) => k !== 'mod包' && k !== 'UI组件');
         expect(待建).toHaveLength(12);
         for (const [, v] of 待建) {
             expect(v.解析器键).toBeUndefined();
@@ -213,5 +216,41 @@ describe('R7 · 确定性', () => {
     it('引用Schema 两次 parse 同字符串 → 输出 deep equal', () => {
         const s = 引用Schema('mod包');
         expect(s.parse('pack_y')).toEqual(s.parse('pack_y'));
+    });
+});
+// ── R9 · 原型链 fail-open 防护（P0 + P0-6 member-gate）────────────────────────
+describe('R9 · 原型链 fail-open 防护', () => {
+    const 成品 = {
+        mod注册表: {
+            pack_a: { pack_id: 'pack_a', 名称: '基础包' },
+        },
+    };
+    it('toString handle → 不返回原型链函数·返 null', () => {
+        // toString 通过 受治理句柄Schema（不在 JS保留键黑名单）·可被 创建引用
+        const ref = 创建引用('mod包', 'toString');
+        const result = 解引用(ref, 成品);
+        expect(result).toBeNull();
+        expect(typeof result).not.toBe('function');
+    });
+    it('valueOf handle → 不返回原型链函数·返 null', () => {
+        const ref = 创建引用('mod包', 'valueOf');
+        expect(解引用(ref, 成品)).toBeNull();
+    });
+    it('hasOwnProperty handle → 不返回原型链函数·返 null', () => {
+        const ref = 创建引用('mod包', 'hasOwnProperty');
+        expect(解引用(ref, 成品)).toBeNull();
+    });
+    it('直构 constructor handle Ref → 解引用返 null（不泄漏构造函数）', () => {
+        // constructor 被 受治理句柄Schema 拒绝·只能直接构造 Ref 模拟攻击面
+        const dangerRef = { __ns: 'mod包', handle: 'constructor' };
+        expect(解引用(dangerRef, 成品)).toBeNull();
+    });
+    it('直构 __proto__ handle Ref → 解引用返 null', () => {
+        const dangerRef = { __ns: 'mod包', handle: '__proto__' };
+        expect(解引用(dangerRef, 成品)).toBeNull();
+    });
+    it('own-property handle pack_a → 正常返回条目（guard 不误杀）', () => {
+        const ref = 创建引用('mod包', 'pack_a');
+        expect(解引用(ref, 成品)).toEqual({ pack_id: 'pack_a', 名称: '基础包' });
     });
 });

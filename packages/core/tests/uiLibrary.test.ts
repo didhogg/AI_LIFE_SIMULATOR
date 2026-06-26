@@ -7,7 +7,7 @@
  * 断言④  安全硬化覆盖：原型名作 UI_ID/句柄 → 解引用返 null（own-property guard）
  * 断言⑤  不进指纹：BUNDLE=21 不变；改 UI条目 配置 → 金向量逐位恒等
  * 断言⑥  进 content_hash：UI库 内容变 → computeEffectPackHash 值变（mod 可复现面）
- * 断言⑦  守恒门：schemaKeys=52 / BUNDLE=21 / manifest=86 不变；命名空间枚举 14 项
+ * 断言⑦  守恒门：schemaKeys=52 / BUNDLE=21 / manifest=86 不变；命名空间枚举 15 项
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -498,8 +498,8 @@ describe('UI库 · 守恒门', () => {
     expect(total).toBe(86);
   });
 
-  it('命名空间枚举 = 14 项（13+UI组件）', () => {
-    expect(命名空间枚举.length).toBe(14);
+  it('命名空间枚举 = 15 项（14+工具）', () => {
+    expect(命名空间枚举.length).toBe(15);
     expect((命名空间枚举 as readonly string[]).includes('UI组件')).toBe(true);
   });
 

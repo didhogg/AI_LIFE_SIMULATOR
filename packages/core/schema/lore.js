@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { 导入保真度枚举 } from './preset.js';
 import { 谓词串Schema } from './commonEntry.js';
+import { 工具引用Schema } from './toolLibrary.js';
 // ══════════════════════════════════════════
 // ② 别名同义词条目（进 S 批归并表·受治理键空间）
 // ══════════════════════════════════════════
@@ -12,32 +13,13 @@ const lore别名条目Schema = z.object({
     命名空间: z.string().default(''),
 });
 // ══════════════════════════════════════════
-// [TOOL] 能力集枚举 + output_tag 命名空间
-// R6-a～R6-d 约束见 docs/design/lore_tool_spec.md
-// 入指纹排除名单：能力集元数据属叙事/路由层，不影响判定面（R7-b 叙事注入路径）
-// ══════════════════════════════════════════
-export const TOOL_能力类型 = [
-    'code', // DSL·声明式非图灵完备；禁任意 JS（R6-a）
-    'llm', // LLM 子调用；纳预算闸 + 调用世代号 AA1（R6-b）
-    'roll_dice', // 骰点；爆炸骰走 rngFor 变长消耗确定性（R6-c）
-    'json_schema', // 输出形状校验约束
-    'trigger', // 事件触发；planning/post_pipeline 两段时机（R6-d）
-    'output_tag', // 自定义变量输出；命名空间化 + 过五道闸前缀权限（R10-b）
-];
-export const TOOL_能力条目Schema = z.object({
-    类型: z.enum(TOOL_能力类型),
-    // output_tag 专属：命名空间字段（入指纹排除名单·S/K 批治理·禁写 $ 层·R10-b）
-    输出命名空间: z.string().optional(),
-    参数描述: z.string().optional(), // 人读描述·不参与判定
-});
-// ══════════════════════════════════════════
 // ⑤ 状态转移逻辑（可选·衣物「解扣不脱」/食物「应季」/方言「默认口音」）
 // ══════════════════════════════════════════
 const lore状态转移条目Schema = z.object({
     触发条件: 谓词串Schema.default(''), // ③ DSL 谓词（P0-6 实装求值器）
     动作描述: z.string().default(''), // 人读描述
     结果状态: z.string().default(''), // 转移后状态描述符
-    工具: TOOL_能力条目Schema.optional(), // 驱动此转移的 [TOOL] 能力（可空）
+    工具: 工具引用Schema.optional(), // 驱动此转移的 [TOOL] 工具引用（工具ID→工具库·可带 命名空间覆盖）
 });
 // ══════════════════════════════════════════
 // ⑥ 硬约束/禁令（可选·禁清式盘扣/禁反季食材/禁串口音）
@@ -67,8 +49,8 @@ export const lore条目Schema = z.object({
     状态转移: z.array(lore状态转移条目Schema).optional(),
     // ⑥ 硬约束/禁令（可选）
     硬约束: z.array(lore硬约束条目Schema).optional(),
-    // [TOOL] 能力集（此条目可使用的工具类型白名单·入指纹排除名单）
-    能力集: z.array(TOOL_能力条目Schema).optional(),
+    // [TOOL] 工具引用（此条目关联的工具·工具ID→工具库·可带 命名空间覆盖·入指纹排除名单）
+    工具引用: z.array(工具引用Schema).optional(),
     // D-a-lore: 谓词冻结标志（导入时 freeze·永不重算·配 L-21 纪律）
     // 冻结后谓词串聚合为 lore谓词集合 → hashJudgmentBundle → 指纹（R7-b gate判定路径）
     触发谓词_冻结: z.boolean().optional(),

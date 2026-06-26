@@ -55,7 +55,7 @@ function 新轨叠加(base, 模块种子) {
  *
  * 新轨（模块键路由·种子视图解析）优先；旧轨叠加()提供等价基准供双轨验收。
  */
-export function resolve(manifest, library, ruleLib, uiLib) {
+export function resolve(manifest, library, ruleLib, uiLib, toolLib) {
     const BASE_VERSION = manifest.基底版本 ?? '4.1.0';
     const 墓碑库 = {};
     // ── Layer 1: 单包校验 ────────────────────────────────────────────────────────
@@ -289,7 +289,25 @@ export function resolve(manifest, library, ruleLib, uiLib) {
             }
         }
     }
-    return { 成品, _mod墓碑库: 墓碑库, 生效中包集, 生效中内容包集哈希, 规则成品, 生效中规则集, _规则墓碑库, UI成品, 生效中UI集, _UI墓碑库 };
+    // ── 工具库路径 ──────────────────────────────────────────────────────────────────
+    // by-ID 加载：从 manifest.tools 出发，按 工具ID 直接查 toolLib（无 BFS·无子组件）
+    // dormant：不进 hashJudgmentBundle·不进指纹·路由面专用
+    const 工具成品 = {};
+    const 生效中工具集 = [];
+    const _工具墓碑库 = {};
+    if (toolLib && manifest.tools && manifest.tools.length > 0) {
+        for (const toolId of manifest.tools) {
+            // own-property guard（防原型链污染·constructor/__proto__ 等 → 跳过）
+            if (!Object.prototype.hasOwnProperty.call(toolLib, toolId))
+                continue;
+            const entry = toolLib[toolId];
+            if (!entry)
+                continue;
+            工具成品[toolId] = entry;
+            生效中工具集.push(entry);
+        }
+    }
+    return { 成品, _mod墓碑库: 墓碑库, 生效中包集, 生效中内容包集哈希, 规则成品, 生效中规则集, _规则墓碑库, UI成品, 生效中UI集, _UI墓碑库, 工具成品, 生效中工具集, _工具墓碑库 };
 }
 // ── shimThickPreset — 厚预设存档 shim（C2 确定性迁移工具）────────────────────────
 // 将含内联规则字段的旧格式预设 object 转为 {薄清单, 规则库条目}

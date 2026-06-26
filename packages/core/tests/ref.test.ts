@@ -39,12 +39,12 @@ describe('R4 · 非法命名空间被拒', () => {
   });
 });
 
-// ── R6 · 绑定表覆盖全 14 命名空间 ─────────────────────────────────────────────
+// ── R6 · 绑定表覆盖全 15 命名空间 ─────────────────────────────────────────────
 
-describe('R6 · 冰箱绑定表覆盖全 14 命名空间', () => {
-  it('绑定表 key 数 = 命名空间枚举.length（14）', () => {
+describe('R6 · 冰箱绑定表覆盖全 15 命名空间', () => {
+  it('绑定表 key 数 = 命名空间枚举.length（15）', () => {
     expect(Object.keys(冰箱绑定表).length).toBe(命名空间枚举.length);
-    expect(Object.keys(冰箱绑定表).length).toBe(14);
+    expect(Object.keys(冰箱绑定表).length).toBe(15);
   });
 
   it('每个命名空间枚举值均有对应绑定条目', () => {
@@ -61,8 +61,12 @@ describe('R6 · 冰箱绑定表覆盖全 14 命名空间', () => {
     expect(冰箱绑定表['UI组件'].解析器键).toBe('UI库');
   });
 
+  it('工具 解析器键 = 工具库（工具库已建·路由面·不进指纹）', () => {
+    expect(冰箱绑定表['工具'].解析器键).toBe('工具库');
+  });
+
   it('其余 12 个命名空间解析器键为 undefined（待建）', () => {
-    const 待建 = Object.entries(冰箱绑定表).filter(([k]) => k !== 'mod包' && k !== 'UI组件');
+    const 待建 = Object.entries(冰箱绑定表).filter(([k]) => k !== 'mod包' && k !== 'UI组件' && k !== '工具');
     expect(待建).toHaveLength(12);
     for (const [, v] of 待建) {
       expect(v.解析器键).toBeUndefined();
