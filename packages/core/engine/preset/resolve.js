@@ -55,7 +55,7 @@ function 新轨叠加(base, 模块种子) {
  *
  * 新轨（模块键路由·种子视图解析）优先；旧轨叠加()提供等价基准供双轨验收。
  */
-export function resolve(manifest, library, ruleLib, uiLib, toolLib) {
+export function resolve(manifest, library, ruleLib, uiLib, toolLib, achLib) {
     const BASE_VERSION = manifest.基底版本 ?? '4.1.0';
     const 墓碑库 = {};
     // ── Layer 1: 单包校验 ────────────────────────────────────────────────────────
@@ -307,7 +307,25 @@ export function resolve(manifest, library, ruleLib, uiLib, toolLib) {
             生效中工具集.push(entry);
         }
     }
-    return { 成品, _mod墓碑库: 墓碑库, 生效中包集, 生效中内容包集哈希, 规则成品, 生效中规则集, _规则墓碑库, UI成品, 生效中UI集, _UI墓碑库, 工具成品, 生效中工具集, _工具墓碑库 };
+    // ── 成就库路径 ──────────────────────────────────────────────────────────────────
+    // by-ID 加载：从 manifest.achievements 出发，按 成就ID 直接查 achLib（无 BFS·无子组件）
+    // dormant：不进 hashJudgmentBundle·不进指纹·定义层专用·解锁求值接线留 P0-6
+    const 成就成品 = {};
+    const 生效中成就集 = [];
+    const _成就墓碑库 = {};
+    if (achLib && manifest.achievements && manifest.achievements.length > 0) {
+        for (const achId of manifest.achievements) {
+            // own-property guard（防原型链污染·constructor/__proto__ 等 → 跳过）
+            if (!Object.prototype.hasOwnProperty.call(achLib, achId))
+                continue;
+            const entry = achLib[achId];
+            if (!entry)
+                continue;
+            成就成品[achId] = entry;
+            生效中成就集.push(entry);
+        }
+    }
+    return { 成品, _mod墓碑库: 墓碑库, 生效中包集, 生效中内容包集哈希, 规则成品, 生效中规则集, _规则墓碑库, UI成品, 生效中UI集, _UI墓碑库, 工具成品, 生效中工具集, _工具墓碑库, 成就成品, 生效中成就集, _成就墓碑库 };
 }
 // ── shimThickPreset — 厚预设存档 shim（C2 确定性迁移工具）────────────────────────
 // 将含内联规则字段的旧格式预设 object 转为 {薄清单, 规则库条目}

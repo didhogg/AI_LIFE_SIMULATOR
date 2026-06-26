@@ -418,8 +418,8 @@ describe('工具库 · 守恒门', () => {
             FINGERPRINT_EXCLUDED_FIELDS.length;
         expect(total).toBe(86);
     });
-    it('命名空间枚举 = 15 项（14+工具）', () => {
-        expect(命名空间枚举.length).toBe(15);
+    it('命名空间枚举 = 16 项（15+成就）', () => {
+        expect(命名空间枚举.length).toBe(16);
         expect(命名空间枚举.includes('工具')).toBe(true);
         expect(命名空间枚举.includes('UI组件')).toBe(true);
     });

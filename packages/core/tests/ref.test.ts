@@ -39,12 +39,12 @@ describe('R4 · 非法命名空间被拒', () => {
   });
 });
 
-// ── R6 · 绑定表覆盖全 15 命名空间 ─────────────────────────────────────────────
+// ── R6 · 绑定表覆盖全 16 命名空间 ─────────────────────────────────────────────
 
-describe('R6 · 冰箱绑定表覆盖全 15 命名空间', () => {
-  it('绑定表 key 数 = 命名空间枚举.length（15）', () => {
+describe('R6 · 冰箱绑定表覆盖全 16 命名空间', () => {
+  it('绑定表 key 数 = 命名空间枚举.length（16）', () => {
     expect(Object.keys(冰箱绑定表).length).toBe(命名空间枚举.length);
-    expect(Object.keys(冰箱绑定表).length).toBe(15);
+    expect(Object.keys(冰箱绑定表).length).toBe(16);
   });
 
   it('每个命名空间枚举值均有对应绑定条目', () => {
@@ -66,7 +66,7 @@ describe('R6 · 冰箱绑定表覆盖全 15 命名空间', () => {
   });
 
   it('其余 12 个命名空间解析器键为 undefined（待建）', () => {
-    const 待建 = Object.entries(冰箱绑定表).filter(([k]) => k !== 'mod包' && k !== 'UI组件' && k !== '工具');
+    const 待建 = Object.entries(冰箱绑定表).filter(([k]) => k !== 'mod包' && k !== 'UI组件' && k !== '工具' && k !== '成就');
     expect(待建).toHaveLength(12);
     for (const [, v] of 待建) {
       expect(v.解析器键).toBeUndefined();

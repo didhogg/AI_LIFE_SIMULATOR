@@ -498,8 +498,8 @@ describe('UI库 · 守恒门', () => {
     expect(total).toBe(86);
   });
 
-  it('命名空间枚举 = 15 项（14+工具）', () => {
-    expect(命名空间枚举.length).toBe(15);
+  it('命名空间枚举 = 16 项（15+成就）', () => {
+    expect(命名空间枚举.length).toBe(16);
     expect((命名空间枚举 as readonly string[]).includes('UI组件')).toBe(true);
   });
 
