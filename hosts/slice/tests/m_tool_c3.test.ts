@@ -5,7 +5,7 @@
 //   C3-2: 爆炸链有界——最多 MAX_EXPLOSION_DEPTH 次爆炸（不超上限）
 //   C3-3: 爆炸链正确——高于阈值继续爆炸·低于阈值停止
 //   C3-4: G0 重定基报告——P0-6a 三条 lore 金向量不动（与 roll_dice 路径无关）
-//   C3-5: 确定性上限 MAX_EXPLOSION_DEPTH=8 可被验证
+//   C3-5: 确定性上限 MAX_EXPLOSION_DEPTH=20 可被验证
 //   C3-6: 无 rollDiceArgs → 骨架占位 ok=true，无 rollDice 字段
 //   C3-7: 守恒门 schemaKeys=52 / BUNDLE=21 / manifest=86
 //
@@ -85,8 +85,8 @@ describe('C3-1 · roll_dice 重放逐位恒等', () => {
 // ── C3-2: 爆炸链有界 ────────────────────────────────────────────────────────
 
 describe('C3-2 · 爆炸链有界', () => {
-  it('MAX_EXPLOSION_DEPTH=8（常量确认）', () => {
-    expect(MAX_EXPLOSION_DEPTH).toBe(8);
+  it('MAX_EXPLOSION_DEPTH=20（常量确认）', () => {
+    expect(MAX_EXPLOSION_DEPTH).toBe(20);
   });
 
   it('explosionCount 不超过 MAX_EXPLOSION_DEPTH', () => {
@@ -202,11 +202,11 @@ describe('C3-4 · G0 重定基报告', () => {
 // ── C3-5: MAX_EXPLOSION_DEPTH 常量可验证 ─────────────────────────────────────
 
 describe('C3-5 · MAX_EXPLOSION_DEPTH 恒量检验', () => {
-  it('MAX_EXPLOSION_DEPTH 导出 = 8（拍板值·改则测试变红）', () => {
-    expect(MAX_EXPLOSION_DEPTH).toBe(8);
+  it('MAX_EXPLOSION_DEPTH 导出 = 20（拍板值·改则测试变红）', () => {
+    expect(MAX_EXPLOSION_DEPTH).toBe(20);
   });
 
-  it('rolls.length ≤ MAX_EXPLOSION_DEPTH + 1（底骰1 + 爆炸链≤8）', () => {
+  it('rolls.length ≤ MAX_EXPLOSION_DEPTH + 1（底骰1 + 爆炸链≤20）', () => {
     // 强制爆炸：threshold=0
     const r = executeRollDice('dice_tool', { ...BASE_DICE_ARGS, explodeThreshold: 0 });
     expect(r.rolls.length).toBeLessThanOrEqual(MAX_EXPLOSION_DEPTH + 1);

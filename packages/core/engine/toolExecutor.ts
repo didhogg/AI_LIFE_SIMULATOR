@@ -16,10 +16,9 @@ import type { intervention_pack_v1Type } from '../schema/memory.js';
 // ── commit-3: 爆炸骰确定性上限 ────────────────────────────────────────────────
 /**
  * 爆炸骰最大爆炸次数上限（确定性终止·不可绕过）。
- * 共可投 MAX_EXPLOSION_DEPTH+1 次（1次底骰 + 最多8次爆炸链）。
- * 拍板逻辑：rngFor [0,99]·9轮足够覆盖绝大多数 TRPG 爆炸骰场景·且重放有界。
+ * 共可投 MAX_EXPLOSION_DEPTH+1 次（1 底骰 + 最多 20 次爆炸链·确定性终止）。
  */
-export const MAX_EXPLOSION_DEPTH = 8;
+export const MAX_EXPLOSION_DEPTH = 20;
 
 /**
  * roll_dice 爆炸骰参数（commit-3）。
