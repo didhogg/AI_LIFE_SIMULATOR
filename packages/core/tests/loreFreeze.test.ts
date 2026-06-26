@@ -1,14 +1,37 @@
 /**
  * D-a-lore: loreFreeze — lore 触发谓词冻结纪律测试
  * 对标 L-21 importanceFreeze 同构模式：freeze/assert/read 三件套
+ * commit-1 (1a): collectLorePredicates — 触发谓词聚合·指纹验证
  */
 import { describe, it, expect } from 'vitest';
 import {
   freezeLorePredicate,
   assertLorePredicateFrozen,
   readFrozenLorePredicate,
+  collectLorePredicates,
   type FreezableLoreEntry,
 } from '../engine/loreFreeze.js';
+import { hashJudgmentBundle } from '../engine/rng.js';
+
+// ── JUDGMENT_BASE（最小合法判定面·用于指纹 delta 断言）────────────────────────
+const JUDGMENT_BASE = {
+  历法皮肤: {},
+  粒度模板覆盖: {},
+  种族模板: {},
+  母题配额: {},
+  媒体渠道表: {},
+  检定配方表: {},
+  检定档切分表: {},
+  欠债参数: {},
+  赛事结构模板: {},
+  派生量配方: {},
+  概率域夹逼: {},
+  纠缠闭包弱边阈值: 0.2,
+} as const;
+
+function mkFrozenEntry(pred: string) {
+  return freezeLorePredicate({}, pred);
+}
 
 // ── freezeLorePredicate ──────────────────────────────────────────────────────
 
@@ -148,5 +171,87 @@ describe('D-a-lore: 冻结纪律 完整导入流程', () => {
     const frozen = freezeLorePredicate({}, '');
     assertLorePredicateFrozen(frozen, 'hanfu:交领唐制');
     expect(readFrozenLorePredicate(frozen)).toBe('');
+  });
+});
+
+// ── D-a-lore (1a): collectLorePredicates — 触发谓词聚合 ──────────────────────
+
+describe('D-a-lore: collectLorePredicates (1a 触发谓词)', () => {
+  it('空库 → 返回 undefined', () => {
+    expect(collectLorePredicates({})).toBeUndefined();
+  });
+
+  it('空库 → lore谓词集合=undefined → hashJudgmentBundle 指纹与无此字段时恒等', () => {
+    const fp1 = hashJudgmentBundle(JUDGMENT_BASE);
+    const fp2 = hashJudgmentBundle({ ...JUDGMENT_BASE, lore谓词集合: collectLorePredicates({}) });
+    expect(fp1).toBe(fp2);
+  });
+
+  it('非空触发谓词 → 收集入 result', () => {
+    const bag = { 'cuisine:川菜': mkFrozenEntry('场景.地域 == 四川') };
+    expect(collectLorePredicates(bag)).toEqual({ 'cuisine:川菜': '场景.地域 == 四川' });
+  });
+
+  it('空触发谓词 → 不收集（仅非空）· 返回 undefined', () => {
+    const bag = { 'hanfu:交领唐制': mkFrozenEntry('') };
+    expect(collectLorePredicates(bag)).toBeUndefined();
+  });
+
+  it('混合：非空+空 → 仅收集非空', () => {
+    const bag = {
+      'cuisine:川菜': mkFrozenEntry('场景.地域 == 四川'),
+      'hanfu:交领唐制': mkFrozenEntry(''),
+      'dialect:苏州话': mkFrozenEntry('角色.出身地 == 苏州'),
+    };
+    expect(collectLorePredicates(bag)).toEqual({
+      'cuisine:川菜': '场景.地域 == 四川',
+      'dialect:苏州话': '角色.出身地 == 苏州',
+    });
+  });
+
+  it('未冻结条目 → assertLorePredicateFrozen 守卫 throw', () => {
+    const bag = { 'cuisine:川菜': { 触发谓词: '场景.地域 == 四川' } };
+    expect(() => collectLorePredicates(bag)).toThrow('D-a-lore 守卫');
+  });
+
+  it('谓词内容变 → lore谓词集合变 → hashJudgmentBundle 指纹变', () => {
+    const bag1 = { 'cuisine:川菜': mkFrozenEntry('场景.地域 == 四川') };
+    const bag2 = { 'cuisine:川菜': mkFrozenEntry('场景.地域 == 北京') };
+    const fp1 = hashJudgmentBundle({ ...JUDGMENT_BASE, lore谓词集合: collectLorePredicates(bag1) });
+    const fp2 = hashJudgmentBundle({ ...JUDGMENT_BASE, lore谓词集合: collectLorePredicates(bag2) });
+    expect(fp1).not.toBe(fp2);
+  });
+
+  it('新增条目 → 集合变 → 指纹变', () => {
+    const bag1 = { 'cuisine:川菜': mkFrozenEntry('场景.地域 == 四川') };
+    const bag2 = {
+      'cuisine:川菜': mkFrozenEntry('场景.地域 == 四川'),
+      'dialect:苏州话': mkFrozenEntry('角色.出身地 == 苏州'),
+    };
+    const fp1 = hashJudgmentBundle({ ...JUDGMENT_BASE, lore谓词集合: collectLorePredicates(bag1) });
+    const fp2 = hashJudgmentBundle({ ...JUDGMENT_BASE, lore谓词集合: collectLorePredicates(bag2) });
+    expect(fp1).not.toBe(fp2);
+  });
+
+  it('确定性：同入参双跑 hashJudgmentBundle 逐位恒等', () => {
+    const bag = {
+      'cuisine:川菜': mkFrozenEntry('场景.地域 == 四川'),
+      'dialect:苏州话': mkFrozenEntry('角色.出身地 == 苏州'),
+    };
+    const fp1 = hashJudgmentBundle({ ...JUDGMENT_BASE, lore谓词集合: collectLorePredicates(bag) });
+    const fp2 = hashJudgmentBundle({ ...JUDGMENT_BASE, lore谓词集合: collectLorePredicates(bag) });
+    expect(fp1).toBe(fp2);
+    expect(fp1).toMatch(/^[0-9a-f]{8}$/);
+  });
+
+  it('多条目全空谓词 → 返回 undefined → 指纹与空库恒等', () => {
+    const bag = {
+      'hanfu:交领唐制': mkFrozenEntry(''),
+      'dialect:吴语': mkFrozenEntry(''),
+    };
+    const fpEmpty = hashJudgmentBundle(JUDGMENT_BASE);
+    const fpBag = hashJudgmentBundle({ ...JUDGMENT_BASE, lore谓词集合: collectLorePredicates(bag) });
+    expect(collectLorePredicates(bag)).toBeUndefined();
+    expect(fpBag).toBe(fpEmpty);
   });
 });

@@ -50,7 +50,7 @@ export const lore条目Schema = z.object({
 
   // ③ 触发谓词（DSL 文法·非关键词字面·走 DSL 求值器·P0-6 实装）
   // 覆盖：时代/地域/场景/在场实体/状态等多维谓词
-  // ⚠️ 双轨中的「gate判定路径」输入·命中结果进指纹（TODO P0-6: 纳签名）；绝不走语义召回（R7-b）
+  // ⚠️ 双轨中的「gate判定路径」输入·命中结果进指纹（collectLorePredicates→lore谓词集合·D-a-lore 已纳签名·P0-6）；绝不走语义召回（R7-b）
   触发谓词: 谓词串Schema.default(''),
 
   // ④ 知识载荷（描述性文本·供叙事读取·不进指纹·叙事注入路径·R7-b）
