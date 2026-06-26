@@ -436,7 +436,7 @@ describe('物品库 · 守恒门', () => {
   });
 
   it('命名空间枚举 = 17 项（16+物品）', () => {
-    expect(命名空间枚举.length).toBe(17);
+    expect(命名空间枚举.length).toBe(18);
     expect((命名空间枚举 as readonly string[]).includes('物品')).toBe(true);
     expect((命名空间枚举 as readonly string[]).includes('成就')).toBe(true);
     expect((命名空间枚举 as readonly string[]).includes('工具')).toBe(true);

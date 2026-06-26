@@ -3578,7 +3578,7 @@ describe('6.59 受治理键空间注册表 S1', () => {
     expect(受治理键空间注册表Schema.safeParse({ 未知字段: 1 }).success).toBe(false);
   });
   it('命名空间枚举: 17 项全部合法值逐一 parse 通过', () => {
-    expect(命名空间枚举.length).toBe(17);
+    expect(命名空间枚举.length).toBe(18);
     for (const ns of 命名空间枚举) {
       expect(键条目Schema.safeParse({ 规范键: 'k', 命名空间: ns }).success).toBe(true);
     }
