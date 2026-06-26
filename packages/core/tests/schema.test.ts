@@ -513,6 +513,41 @@ describe('4.3 Actor layer', () => {
   it('invalid: 既往记忆种子 重要度 out of range', () => {
     expect(既往记忆种子条目Schema.safeParse({ 重要度: 4 }).success).toBe(false);
   });
+  it('既往记忆种子 相对事件序号 present → parse passes', () => {
+    const result = 既往记忆种子条目Schema.parse({
+      摘要: '离家出走',
+      发生时间_约: '十五岁',
+      相对事件序号: 2,
+      重要度: 2,
+      情绪色彩: '愤怒',
+      来源: '导入预设',
+    });
+    expect(result.相对事件序号).toBe(2);
+  });
+  it('既往记忆种子 相对事件序号 absent → parse passes (optional)', () => {
+    const result = 既往记忆种子条目Schema.parse({ 摘要: '童年玩伴', 发生时间_约: '七岁', 来源: '导入预设' });
+    expect(result.相对事件序号).toBeUndefined();
+  });
+  it('既往记忆种子 相对事件序号 serialize→load 往返序号恒等', () => {
+    const seeds = [
+      { 摘要: 'A事件', 发生时间_约: '十岁', 相对事件序号: 0, 重要度: 1, 来源: '导入预设' },
+      { 摘要: 'B事件', 发生时间_约: '十二岁', 相对事件序号: 1, 重要度: 2, 来源: '导入预设' },
+      { 摘要: 'C事件', 发生时间_约: '十五岁', 相对事件序号: 2, 重要度: 3, 来源: '导入预设' },
+    ];
+    const loaded = seeds.map(s => 既往记忆种子条目Schema.parse(JSON.parse(JSON.stringify(s))));
+    expect(loaded.map(s => s.相对事件序号)).toEqual([0, 1, 2]);
+  });
+  it('幕后行动种子 自定义意图串 parse passes', () => {
+    expect(() => NpcSchema.parse({
+      _幕后行动种子: [{ 类型: '策反', 优先级: 1 }],
+    })).not.toThrow();
+  });
+  it('幕后行动种子 原 7 默认意图全部仍合法', () => {
+    const defaults = ['报仇', '告发', '逃离', '结盟', '趋附', '探查', '流转潜伏'];
+    for (const 类型 of defaults) {
+      expect(NpcSchema.safeParse({ _幕后行动种子: [{ 类型, 优先级: 0 }] }).success).toBe(true);
+    }
+  });
   it('valid NPC with 开场白[] (素材包数组)', () => {
     expect(() => NpcSchema.parse({
       开场白: ['你好，旅人。', '我们是否在哪里见过？'],

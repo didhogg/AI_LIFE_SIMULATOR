@@ -289,6 +289,7 @@ export const 关系声明条目Schema = z.object({
 export const 既往记忆种子条目Schema = z.object({
     摘要: z.string().default(''),
     发生时间_约: z.string().default(''), // 模糊描述，非绝对时刻
+    相对事件序号: z.number().int().optional(), // 事件间相对先后序；跨档 portable·不绑绝对纪元
     重要度: z.number().int().min(1).max(3).default(1),
     情绪色彩: z.string().default(''),
     来源: z.string().default('导入预设'), // 枚举值：导入预设 / 事件id / 听闻自
@@ -444,9 +445,9 @@ export const NpcSchema = z.object({
     开场白: z.array(z.string()).optional(), // 素材包数组
     占位解析槽: 占位解析槽Schema.optional(), // user/char→实体键
     // ── C2-0 additive seam: 幕后行动种子 (offstage behavior seeds·G7 前置·零运行占位) ──
-    // 引擎只读；G7 offstageSettler 据此驱动幕后演化（报仇/告发/逃离/结盟/趋附/探查/流转潜伏）。
+    // 引擎只读；G7 offstageSettler 据此驱动幕后演化（默认示例：报仇/告发/逃离/结盟/趋附/探查/流转潜伏）。
     _幕后行动种子: z.array(z.object({
-        类型: z.enum(['报仇', '告发', '逃离', '结盟', '趋附', '探查', '流转潜伏']),
+        类型: z.string(), // 开放串；mod 作者可定义自有幕后意图
         触发条件: z.string().optional(), // DSL v1 谓词串（G7 接线·P0 占位）
         优先级: z.number().int().min(0).default(0),
         后果种子: z.string().optional(), // consequenceSeed 引用键（G7 接线）
