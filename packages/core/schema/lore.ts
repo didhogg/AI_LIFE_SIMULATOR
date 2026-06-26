@@ -21,6 +21,7 @@ const lore别名条目Schema = z.object({
 
 const lore状态转移条目Schema = z.object({
   触发条件: 谓词串Schema.default(''), // ③ DSL 谓词（P0-6 实装求值器）
+  触发条件_冻结: z.boolean().optional(), // D-a-lore (1b): freeze bit·import 流程调 freezeLoreTransitionPredicate 后置 true
   动作描述: z.string().default(''), // 人读描述
   结果状态: z.string().default(''), // 转移后状态描述符
   工具: 工具引用Schema.optional(), // 驱动此转移的 [TOOL] 工具引用（工具ID→工具库·可带 命名空间覆盖）
@@ -32,6 +33,7 @@ const lore状态转移条目Schema = z.object({
 
 const lore硬约束条目Schema = z.object({
   禁令谓词: 谓词串Schema.default(''), // DSL 谓词·命中即拒（P0-6 导入闸/拍首检查）
+  禁令谓词_冻结: z.boolean().optional(), // D-a-lore (1c): freeze bit·import 流程调 freezeLoreConstraintPredicate 后置 true
   禁令描述: z.string().default(''), // 人读说明
   错误代码: z.string().optional(),  // 机器可读·供作者警示（R7-a）
 });

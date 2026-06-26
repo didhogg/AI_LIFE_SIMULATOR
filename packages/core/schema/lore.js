@@ -17,6 +17,7 @@ const lore别名条目Schema = z.object({
 // ══════════════════════════════════════════
 const lore状态转移条目Schema = z.object({
     触发条件: 谓词串Schema.default(''), // ③ DSL 谓词（P0-6 实装求值器）
+    触发条件_冻结: z.boolean().optional(), // D-a-lore (1b): freeze bit·import 流程调 freezeLoreTransitionPredicate 后置 true
     动作描述: z.string().default(''), // 人读描述
     结果状态: z.string().default(''), // 转移后状态描述符
     工具: 工具引用Schema.optional(), // 驱动此转移的 [TOOL] 工具引用（工具ID→工具库·可带 命名空间覆盖）
@@ -26,6 +27,7 @@ const lore状态转移条目Schema = z.object({
 // ══════════════════════════════════════════
 const lore硬约束条目Schema = z.object({
     禁令谓词: 谓词串Schema.default(''), // DSL 谓词·命中即拒（P0-6 导入闸/拍首检查）
+    禁令谓词_冻结: z.boolean().optional(), // D-a-lore (1c): freeze bit·import 流程调 freezeLoreConstraintPredicate 后置 true
     禁令描述: z.string().default(''), // 人读说明
     错误代码: z.string().optional(), // 机器可读·供作者警示（R7-a）
 });
@@ -40,7 +42,7 @@ export const lore条目Schema = z.object({
     别名表: z.array(lore别名条目Schema).default([]),
     // ③ 触发谓词（DSL 文法·非关键词字面·走 DSL 求值器·P0-6 实装）
     // 覆盖：时代/地域/场景/在场实体/状态等多维谓词
-    // ⚠️ 双轨中的「gate判定路径」输入·命中结果进指纹（TODO P0-6: 纳签名）；绝不走语义召回（R7-b）
+    // ⚠️ 双轨中的「gate判定路径」输入·命中结果进指纹（collectLorePredicates→lore谓词集合·D-a-lore 已纳签名·P0-6）；绝不走语义召回（R7-b）
     触发谓词: 谓词串Schema.default(''),
     // ④ 知识载荷（描述性文本·供叙事读取·不进指纹·叙事注入路径·R7-b）
     // 与③正交：载荷走语义召回/叙事注入，触发谓词走确定性 DSL 求值
