@@ -1,4 +1,4 @@
-// 工具执行 seam · commit-1 · additive · 不进 hashJudgmentBundle
+// 工具执行 seam · commit-1/2/3 · additive · 不进 hashJudgmentBundle
 // tool_name → 工具库 解引用 → 调用约束谓词 gate → 按能力类型分派骨架
 // R10-b: output_tag 命名空间覆盖域校验 + effectGate Gate③ $/_ 硬拒路由验证
 // 调用约束极性：空串=无约束放行（与 lore 触发谓词空=恒触同侧）
@@ -7,6 +7,39 @@
 // 红线：不改 gate.ts/rng.ts/fnv1a32/canonicalize/computeDelta/conservation/effectGate 函数体
 import { evalPredStr } from './dsl/eval.js';
 import { runEffectGates } from './effectGate.js';
+import { rngFor } from './rng.js';
+// ── commit-3: 爆炸骰确定性上限 ────────────────────────────────────────────────
+/**
+ * 爆炸骰最大爆炸次数上限（确定性终止·不可绕过）。
+ * 共可投 MAX_EXPLOSION_DEPTH+1 次（1次底骰 + 最多8次爆炸链）。
+ * 拍板逻辑：rngFor [0,99]·9轮足够覆盖绝大多数 TRPG 爆炸骰场景·且重放有界。
+ */
+export const MAX_EXPLOSION_DEPTH = 8;
+/**
+ * 爆炸骰执行（commit-3）。
+ * 纯函数·确定性·rngFor 变长消耗（incrementing roundIndex）。
+ * 爆炸上限 = min(rollDiceArgs.maxExplosions ?? MAX_EXPLOSION_DEPTH, MAX_EXPLOSION_DEPTH)。
+ * 红线：rngFor 函数体禁改·此处仅为调用者。
+ */
+export function executeRollDice(toolName, diceArgs) {
+    const { seed, tick, channel, rerollSalt } = diceArgs;
+    const threshold = diceArgs.explodeThreshold ?? 95;
+    const maxExp = Math.min(diceArgs.maxExplosions ?? MAX_EXPLOSION_DEPTH, MAX_EXPLOSION_DEPTH);
+    const rolls = [];
+    // 底骰（roundIndex=0）
+    let roundIndex = 0;
+    let roll = rngFor(seed, tick, channel, rerollSalt, roundIndex);
+    rolls.push(roll);
+    // 爆炸链（roundIndex 递增·有界终止）
+    while (roll >= threshold && rolls.length - 1 < maxExp) {
+        roundIndex++;
+        roll = rngFor(seed, tick, channel, rerollSalt, roundIndex);
+        rolls.push(roll);
+    }
+    const total = rolls.reduce((s, r) => s + r, 0);
+    const explosionCount = rolls.length - 1;
+    return { rolls, total, exploded: explosionCount > 0, explosionCount };
+}
 /**
  * 解引用 tool_name → 工具条目。
  * own-property guard：防原型链注入（'constructor'/'__proto__'/'toString' 等）。
@@ -78,7 +111,7 @@ export function routeOutputTagViaGate(outputTagPath) {
  * commits 2/3/4 复用此 seam 实装各类型执行逻辑。
  */
 export function dispatchTool(args) {
-    const { toolName, toolLib, ctx = {}, namespaceOverride, outputTagPath, budgetTokensRemaining, generation, } = args;
+    const { toolName, toolLib, ctx = {}, namespaceOverride, outputTagPath, rollDiceArgs, budgetTokensRemaining, generation, } = args;
     // Step 1: 解引用 tool_name → 工具条目
     const entry = resolveToolEntry(toolName, toolLib);
     if (!entry) {
@@ -119,9 +152,13 @@ export function dispatchTool(args) {
                 ? { ok: true, kind, entry, generation }
                 : { ok: true, kind, entry };
         }
-        case 'roll_dice':
-            // commit-3: rngFor 变长消耗爆炸骰（骨架占位）
-            return { ok: true, kind, entry };
+        case 'roll_dice': {
+            // commit-3: rngFor 变长消耗爆炸骰
+            if (!rollDiceArgs)
+                return { ok: true, kind, entry };
+            const rollDice = executeRollDice(toolName, rollDiceArgs);
+            return { ok: true, kind, entry, rollDice };
+        }
         case 'code':
         case 'json_schema':
         case 'trigger':

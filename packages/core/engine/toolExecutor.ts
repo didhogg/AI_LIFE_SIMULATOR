@@ -1,4 +1,4 @@
-// 工具执行 seam · commit-1 · additive · 不进 hashJudgmentBundle
+// 工具执行 seam · commit-1/2/3 · additive · 不进 hashJudgmentBundle
 // tool_name → 工具库 解引用 → 调用约束谓词 gate → 按能力类型分派骨架
 // R10-b: output_tag 命名空间覆盖域校验 + effectGate Gate③ $/_ 硬拒路由验证
 // 调用约束极性：空串=无约束放行（与 lore 触发谓词空=恒触同侧）
@@ -8,8 +8,48 @@
 
 import { evalPredStr, type DslContext } from './dsl/eval.js';
 import { runEffectGates } from './effectGate.js';
+import { rngFor } from './rng.js';
 import type { 工具条目Type, 工具库Type } from '../schema/toolLibrary.js';
 import type { intervention_pack_v1Type } from '../schema/memory.js';
+
+// ── commit-3: 爆炸骰确定性上限 ────────────────────────────────────────────────
+/**
+ * 爆炸骰最大爆炸次数上限（确定性终止·不可绕过）。
+ * 共可投 MAX_EXPLOSION_DEPTH+1 次（1次底骰 + 最多8次爆炸链）。
+ * 拍板逻辑：rngFor [0,99]·9轮足够覆盖绝大多数 TRPG 爆炸骰场景·且重放有界。
+ */
+export const MAX_EXPLOSION_DEPTH = 8;
+
+/**
+ * roll_dice 爆炸骰参数（commit-3）。
+ * 宿主从档头读取 seed/tick/rerollSalt，选择通道名，可选声明爆炸阈值。
+ */
+export interface RollDiceArgs {
+  seed: number;
+  tick: number;
+  /** rng 通道（建议格式：`检定:工具:{toolName}`·caller 自定义·须满足 rngFor 格式要求） */
+  channel: string;
+  rerollSalt: number;
+  /**
+   * 爆炸骰阈值（含·`roll >= threshold` 触发爆炸继续投）。
+   * rngFor 返回 [0,99]，默认 95（即 ≥95 的结果=5%爆炸率）。
+   */
+  explodeThreshold?: number;
+  /** 覆盖默认 MAX_EXPLOSION_DEPTH（不得超过 MAX_EXPLOSION_DEPTH·强制取 min）*/
+  maxExplosions?: number;
+}
+
+/**
+ * roll_dice 执行结果。
+ * rolls = 底骰结果 + 爆炸链（按投掷顺序·roundIndex 对应）。
+ * total = sum(rolls)（累计得点）。
+ */
+export interface RollDiceResult {
+  rolls: readonly number[];
+  total: number;
+  exploded: boolean;
+  explosionCount: number;
+}
 
 export type ToolKind = 'code' | 'llm' | 'roll_dice' | 'json_schema' | 'trigger' | 'output_tag';
 
@@ -24,6 +64,9 @@ export interface ToolDispatchArgs {
   namespaceOverride?: string;
   /** output_tag 准备写出的 path（过 Gate③ $/_ 硬拒） */
   outputTagPath?: string;
+  // ── commit-3: roll_dice 爆炸骰 ───────────────────────────────────────────────
+  /** roll_dice 工具所需 rng 参数（不传=骨架占位返回） */
+  rollDiceArgs?: RollDiceArgs;
   // ── commit-2: llm 预算闸 + AA1 世代号 ───────────────────────────────────────
   /** 当前 token 预算余量（宿主维护·传 0=已耗尽→确定性降级·不传=不检预算） */
   budgetTokensRemaining?: number;
@@ -39,8 +82,40 @@ export interface ToolDispatchArgs {
 export type LlmDowngradeReason = 'budget_exhausted';
 
 export type ToolDispatchResult =
-  | { ok: true; kind: ToolKind; entry: 工具条目Type; resolvedNamespace?: string; generation?: number; downgraded?: boolean; downgradeReason?: LlmDowngradeReason }
+  | { ok: true; kind: ToolKind; entry: 工具条目Type; resolvedNamespace?: string; generation?: number; downgraded?: boolean; downgradeReason?: LlmDowngradeReason; rollDice?: RollDiceResult }
   | { ok: false; reason: string; kind?: ToolKind };
+
+/**
+ * 爆炸骰执行（commit-3）。
+ * 纯函数·确定性·rngFor 变长消耗（incrementing roundIndex）。
+ * 爆炸上限 = min(rollDiceArgs.maxExplosions ?? MAX_EXPLOSION_DEPTH, MAX_EXPLOSION_DEPTH)。
+ * 红线：rngFor 函数体禁改·此处仅为调用者。
+ */
+export function executeRollDice(
+  toolName: string,
+  diceArgs: RollDiceArgs,
+): RollDiceResult {
+  const { seed, tick, channel, rerollSalt } = diceArgs;
+  const threshold    = diceArgs.explodeThreshold ?? 95;
+  const maxExp       = Math.min(diceArgs.maxExplosions ?? MAX_EXPLOSION_DEPTH, MAX_EXPLOSION_DEPTH);
+  const rolls: number[] = [];
+
+  // 底骰（roundIndex=0）
+  let roundIndex = 0;
+  let roll = rngFor(seed, tick, channel, rerollSalt, roundIndex);
+  rolls.push(roll);
+
+  // 爆炸链（roundIndex 递增·有界终止）
+  while (roll >= threshold && rolls.length - 1 < maxExp) {
+    roundIndex++;
+    roll = rngFor(seed, tick, channel, rerollSalt, roundIndex);
+    rolls.push(roll);
+  }
+
+  const total          = rolls.reduce((s, r) => s + r, 0);
+  const explosionCount = rolls.length - 1;
+  return { rolls, total, exploded: explosionCount > 0, explosionCount };
+}
 
 /**
  * 解引用 tool_name → 工具条目。
@@ -120,6 +195,7 @@ export function dispatchTool(args: ToolDispatchArgs): ToolDispatchResult {
   const {
     toolName, toolLib, ctx = {},
     namespaceOverride, outputTagPath,
+    rollDiceArgs,
     budgetTokensRemaining, generation,
   } = args;
 
@@ -168,9 +244,12 @@ export function dispatchTool(args: ToolDispatchArgs): ToolDispatchResult {
         : { ok: true, kind, entry };
     }
 
-    case 'roll_dice':
-      // commit-3: rngFor 变长消耗爆炸骰（骨架占位）
-      return { ok: true, kind, entry };
+    case 'roll_dice': {
+      // commit-3: rngFor 变长消耗爆炸骰
+      if (!rollDiceArgs) return { ok: true, kind, entry };
+      const rollDice = executeRollDice(toolName, rollDiceArgs);
+      return { ok: true, kind, entry, rollDice };
+    }
 
     case 'code':
     case 'json_schema':
