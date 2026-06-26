@@ -46,6 +46,8 @@
     "./engine/lodScheduler": "./engine/lodScheduler.ts",
     "./engine/cognitionProjection": "./engine/cognitionProjection.ts",
     "./engine/economyEngine": "./engine/economyEngine.ts",
+    "./engine/toolExecutor": "./engine/toolExecutor.ts",
+    "./schema/toolLibrary": "./schema/toolLibrary.ts",
     "./prompt/callRegistry": "./prompt/callRegistry.ts",
     "./engine/preset/seedView": "./engine/preset/seedView.ts",
     "./engine/preset/contentPack": "./engine/preset/contentPack.ts",
