@@ -403,50 +403,76 @@ describe('UI库 · 不进判定面指纹', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// 断言⑥ · 进 content_hash：内容变 → computeEffectPackHash 值变
+// 断言⑥ · 进 content_hash：UI条目 内容变 → 包信封哈希变（mod 可复现面）
+//
+// 双层命名架构（永久契约·禁混用）：
+//   「库条目」层 (UI条目/规则条目/内容包条目) = 中文 内容哈希（schema 存储）
+//   「包」层 (分发单元·effect pack 信封) = 英文 content_hash  ← computeEffectPackHash 消费
+//   生产边界映射 = resolve.ts:222：p.内容哈希 !== undefined ? { content_hash: p.内容哈希 } : {}
+//
+// 正确用法：哈希 UI条目 前须先经「库条目→包信封」边界映射（复刻 resolve.ts:222）。
+// 直接向 computeEffectPackHash 传中文字段的 UI条目 = 绕过边界·测试写法错·禁止。
+// UI库 接入 聚合生效中内容包集哈希 留 PR-5d 导入/导出（与工具库/媒体库同批）。
 // ═══════════════════════════════════════════════════════════════════
+
+// 复刻 resolve.ts:222 生产边界：库条目(中文 内容哈希) → 包信封(英文 content_hash)
+// 与生产路径同源·此函数仅供测试复现生产路径行为
+function ui条目ToPackEnvelope(entry: UI条目Type): Record<string, unknown> {
+  const { 内容哈希, ...rest } = entry;
+  return 内容哈希 !== undefined ? { ...rest, content_hash: 内容哈希 } : { ...rest };
+}
+
 describe('UI库 · content_hash（mod 可复现面）', () => {
-  it('computeEffectPackHash 对 UI条目 产生确定性 8 字符 hex', () => {
+  it('包信封 computeEffectPackHash 产生确定性 8 字符 hex', () => {
     const entry = mkUI('btn_ok', { 配置: { color: 'red' } });
-    const hash = computeEffectPackHash(entry as unknown as Record<string, unknown>);
+    const hash = computeEffectPackHash(ui条目ToPackEnvelope(entry));
     expect(hash).toMatch(/^[0-9a-f]{8}$/);
   });
 
-  it('配置变 → computeEffectPackHash 值变（内容变·哈希变）', () => {
+  it('round-trip 闭环：无 content_hash → 算 h → 回填 → 重算 === h（剔除自身·可复现）', () => {
+    const entry = mkUI('panel', { 配置: { theme: 'dark' } });
+    // Step1: 无 内容哈希 的包信封 → computeEffectPackHash → h
+    const envelope = ui条目ToPackEnvelope(entry);
+    const h = computeEffectPackHash(envelope);
+    // Step2: 回填 content_hash → 重算（content_hash 被 computeEffectPackHash 剔除）
+    const envelopeWithHash = { ...envelope, content_hash: h };
+    const h2 = computeEffectPackHash(envelopeWithHash);
+    // content_hash 剔除 → 输入与 Step1 相同 → 哈希恒等 → round-trip 成立
+    expect(h2).toBe(h);
+    expect(h).toMatch(/^[0-9a-f]{8}$/);
+  });
+
+  it('内容哈希字段不影响包信封哈希（边界映射后 content_hash 被剔·round-trip 守恒）', () => {
+    const base = mkUI('x', { 配置: { k: 'v' } });
+    const withHash = { ...base, 内容哈希: 'abcd1234' } as UI条目Type;
+    // base 无 内容哈希 → 包信封无 content_hash
+    // withHash 有 内容哈希 → 包信封有 content_hash → 被 computeEffectPackHash 剔除
+    // → 两者实际输入相同 → 哈希相同
+    const h1 = computeEffectPackHash(ui条目ToPackEnvelope(base));
+    const h2 = computeEffectPackHash(ui条目ToPackEnvelope(withHash));
+    expect(h1).toBe(h2);
+  });
+
+  it('配置变 → 包信封哈希变（内容敏感）', () => {
     const v1 = mkUI('btn', { 配置: { color: 'red' } });
     const v2 = mkUI('btn', { 配置: { color: 'blue' } });
-    const h1 = computeEffectPackHash(v1 as unknown as Record<string, unknown>);
-    const h2 = computeEffectPackHash(v2 as unknown as Record<string, unknown>);
+    const h1 = computeEffectPackHash(ui条目ToPackEnvelope(v1));
+    const h2 = computeEffectPackHash(ui条目ToPackEnvelope(v2));
     expect(h1).not.toBe(h2);
   });
 
-  it('类型变 → computeEffectPackHash 值变', () => {
+  it('类型变 → 包信封哈希变', () => {
     const v1 = mkUI('x', { 类型: 'button' });
     const v2 = mkUI('x', { 类型: 'panel' });
-    const h1 = computeEffectPackHash(v1 as unknown as Record<string, unknown>);
-    const h2 = computeEffectPackHash(v2 as unknown as Record<string, unknown>);
+    const h1 = computeEffectPackHash(ui条目ToPackEnvelope(v1));
+    const h2 = computeEffectPackHash(ui条目ToPackEnvelope(v2));
     expect(h1).not.toBe(h2);
   });
 
-  it('computeEffectPackHash 剔 内容哈希 字段本身（幂等·不含自身）', () => {
-    const withHash = { ...mkUI('x'), 内容哈希: 'abcd1234' };
-    const withoutHash = mkUI('x');
-    // 计算的哈希不受 内容哈希 字段影响（computeEffectPackHash 剔除 content_hash/内容哈希）
-    // 注：computeEffectPackHash 剔除的是 'content_hash' 键（英文）
-    // UI条目 的字段名是 '内容哈希'（中文）·两者都不应影响计算结果
-    const h1 = computeEffectPackHash(withHash as unknown as Record<string, unknown>);
-    const h2 = computeEffectPackHash(withoutHash as unknown as Record<string, unknown>);
-    // 内容哈希 不是 content_hash（英文），所以会被纳入计算·此处两者 hash 应不同
-    // 但这是预期行为（中文字段不被 computeEffectPackHash 剔除）
-    expect(h1).toMatch(/^[0-9a-f]{8}$/);
-    expect(h2).toMatch(/^[0-9a-f]{8}$/);
-  });
-
-  it('同内容两次 → hash 恒等（确定性）', () => {
+  it('同内容两次 → 哈希恒等（确定性）', () => {
     const entry = mkUI('btn', { 配置: { x: 1 } });
-    const h1 = computeEffectPackHash(entry as unknown as Record<string, unknown>);
-    const h2 = computeEffectPackHash(entry as unknown as Record<string, unknown>);
-    expect(h1).toBe(h2);
+    const envelope = ui条目ToPackEnvelope(entry);
+    expect(computeEffectPackHash(envelope)).toBe(computeEffectPackHash(envelope));
   });
 });
 
