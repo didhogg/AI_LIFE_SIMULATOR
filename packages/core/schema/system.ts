@@ -111,7 +111,6 @@ export const StateMachineSchema = z.object({
   }).default({}),
 });
 
-export type TickLogEntry = z.infer<typeof TickLogEntrySchema>;
 export type System = z.infer<typeof SystemSchema>;
 export type Tick = z.infer<typeof TickSchema>;
 export type NarrativeSetting = z.infer<typeof NarrativeSettingSchema>;
