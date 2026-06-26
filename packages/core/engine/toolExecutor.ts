@@ -24,10 +24,22 @@ export interface ToolDispatchArgs {
   namespaceOverride?: string;
   /** output_tag 准备写出的 path（过 Gate③ $/_ 硬拒） */
   outputTagPath?: string;
+  // ── commit-2: llm 预算闸 + AA1 世代号 ───────────────────────────────────────
+  /** 当前 token 预算余量（宿主维护·传 0=已耗尽→确定性降级·不传=不检预算） */
+  budgetTokensRemaining?: number;
+  /**
+   * AA1 世代号（Ring2GenerationTracker.enqueue(callId) 的返回值）。
+   * 宿主在 dispatch 前调用 tracker.enqueue(callId)，将返回的世代号传此字段。
+   * 不传=不做世代核对。
+   */
+  generation?: number;
 }
 
+/** llm 确定性降级原因 */
+export type LlmDowngradeReason = 'budget_exhausted';
+
 export type ToolDispatchResult =
-  | { ok: true;  kind: ToolKind; entry: 工具条目Type; resolvedNamespace?: string }
+  | { ok: true; kind: ToolKind; entry: 工具条目Type; resolvedNamespace?: string; generation?: number; downgraded?: boolean; downgradeReason?: LlmDowngradeReason }
   | { ok: false; reason: string; kind?: ToolKind };
 
 /**
@@ -105,7 +117,11 @@ export function routeOutputTagViaGate(outputTagPath: string): { ok: boolean; rea
  * commits 2/3/4 复用此 seam 实装各类型执行逻辑。
  */
 export function dispatchTool(args: ToolDispatchArgs): ToolDispatchResult {
-  const { toolName, toolLib, ctx = {}, namespaceOverride, outputTagPath } = args;
+  const {
+    toolName, toolLib, ctx = {},
+    namespaceOverride, outputTagPath,
+    budgetTokensRemaining, generation,
+  } = args;
 
   // Step 1: 解引用 tool_name → 工具条目
   const entry = resolveToolEntry(toolName, toolLib);
@@ -138,9 +154,19 @@ export function dispatchTool(args: ToolDispatchArgs): ToolDispatchResult {
         : { ok: true, kind, entry };
     }
 
-    case 'llm':
-      // commit-2: llm 预算闸 + AA1 世代号接线（骨架占位）
-      return { ok: true, kind, entry };
+    case 'llm': {
+      // commit-2: llm 预算闸 + AA1 世代号接线
+      // 需预算? 工具 + 预算余量已传 + 余量耗尽 → 确定性降级（不抛·可复现）
+      if (entry.需预算 === true && budgetTokensRemaining !== undefined && budgetTokensRemaining <= 0) {
+        return generation !== undefined
+          ? { ok: true, kind, entry, generation, downgraded: true, downgradeReason: 'budget_exhausted' }
+          : { ok: true, kind, entry, downgraded: true, downgradeReason: 'budget_exhausted' };
+      }
+      // 预算充足（或未声明需预算）→ 正常分派·回传世代号
+      return generation !== undefined
+        ? { ok: true, kind, entry, generation }
+        : { ok: true, kind, entry };
+    }
 
     case 'roll_dice':
       // commit-3: rngFor 变长消耗爆炸骰（骨架占位）
