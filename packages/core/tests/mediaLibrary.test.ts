@@ -445,8 +445,8 @@ describe('媒体库 · 守恒门', () => {
       FINGERPRINT_EXCLUDED_FIELDS.length;
     expect(total).toBe(86);
   });
-  it('命名空间枚举 = 18 项（17+媒体）', () => {
-    expect(命名空间枚举.length).toBe(18);
+  it('命名空间枚举 = 32 項（18+剥离①六库+剥离②选项集）', () => {
+    expect(命名空间枚举.length).toBe(32);
     expect((命名空间枚举 as readonly string[]).includes('媒体')).toBe(true);
     expect((命名空间枚举 as readonly string[]).includes('物品')).toBe(true);
     expect((命名空间枚举 as readonly string[]).includes('成就')).toBe(true);

@@ -6,7 +6,7 @@
 //   R3 · 成环不死循环：ref_a↔ref_b 相互引用·解引用单步查找·无递归·无死循环
 //   R4 · 非法命名空间被拒：引用Schema/创建引用 均 throw
 //   R5 · strict 模式抛：strict=true 时各种未命中均 throw
-//   R6 · 绑定表覆盖全 13 命名空间（枚举与表 key 一一对应）
+//   R6 · 绑定表覆盖全 25 命名空间（枚举与表 key 一一对应）
 //   R7 · 确定性：同输入恒等输出
 //   R8 · 引用Schema 句柄格式校验（复用 受治理句柄Schema·不重写）
 import { describe, it, expect } from 'vitest';
@@ -31,11 +31,11 @@ describe('R4 · 非法命名空间被拒', () => {
         expect(() => 创建引用('mod包', '__proto__')).toThrow();
     });
 });
-// ── R6 · 绑定表覆盖全 16 命名空间 ─────────────────────────────────────────────
-describe('R6 · 冰箱绑定表覆盖全 16 命名空间', () => {
-    it('绑定表 key 数 = 命名空间枚举.length（16）', () => {
+// ── R6 · 绑定表覆盖全 18 命名空间 ─────────────────────────────────────────────
+describe('R6 · 冰箱绑定表覆盖全 32 命名空间', () => {
+    it('绑定表 key 数 = 命名空间枚举.length（32）', () => {
         expect(Object.keys(冰箱绑定表).length).toBe(命名空间枚举.length);
-        expect(Object.keys(冰箱绑定表).length).toBe(16);
+        expect(Object.keys(冰箱绑定表).length).toBe(32);
     });
     it('每个命名空间枚举值均有对应绑定条目', () => {
         for (const ns of 命名空间枚举) {
@@ -52,7 +52,8 @@ describe('R6 · 冰箱绑定表覆盖全 16 命名空间', () => {
         expect(冰箱绑定表['工具'].解析器键).toBe('工具库');
     });
     it('其余 12 个命名空间解析器键为 undefined（待建）', () => {
-        const 待建 = Object.entries(冰箱绑定表).filter(([k]) => k !== 'mod包' && k !== 'UI组件' && k !== '工具' && k !== '成就');
+        const 已建 = new Set(['mod包', 'UI组件', '工具', '成就', '物品', '媒体', '学业制式', '职级体系', '实体模板', '文风', '二审维度', '小剧场剧本', '选项集', '种族模板', '战术包', '叙事分发', '母题词汇', '母题配额', '离场演化契约', '社会角色']);
+        const 待建 = Object.entries(冰箱绑定表).filter(([k]) => !已建.has(k));
         expect(待建).toHaveLength(12);
         for (const [, v] of 待建) {
             expect(v.解析器键).toBeUndefined();

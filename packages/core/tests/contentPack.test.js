@@ -130,8 +130,8 @@ describe('A1 · 内容包内容Schema · fail-closed（不存在顶层键）', (
     it('混合 valid + invalid → 仅 invalid 键报错', () => {
         const result = 内容包内容Schema.safeParse({
             模块种子: {
-                货币系统: {},
-                ghost_key: {},
+                货币系统: {}, // valid
+                ghost_key: {}, // invalid
             },
         });
         expect(result.success).toBe(false);

@@ -433,8 +433,8 @@ describe('UI库 · 守恒门', () => {
             FINGERPRINT_EXCLUDED_FIELDS.length;
         expect(total).toBe(86);
     });
-    it('命名空间枚举 = 17 项（16+物品）', () => {
-        expect(命名空间枚举.length).toBe(18);
+    it('命名空间枚举 = 32 項（18+剥离①六库+剥离②选项集）', () => {
+        expect(命名空间枚举.length).toBe(32);
         expect(命名空间枚举.includes('UI组件')).toBe(true);
         expect(命名空间枚举.includes('物品')).toBe(true);
     });

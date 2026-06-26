@@ -1,4 +1,4 @@
-// PR-瘦身-A1/A2 · 内容包库 schema
+// PR-瘦身-A1/A2·剥离③ · 内容包库 schema
 // 模块菜单 100% 从引擎单一源 RootSchema.shape 派生·零手写清单
 // 两级 fail：顶层键 ∉ RootSchema → fail-closed / 子键词表 → fail-open
 // dormant: 不接 runTick · 不进 hashPresetFingerprint / hashJudgmentBundle
@@ -6,6 +6,13 @@
 import { z } from 'zod';
 import { RootSchema } from '../../schema/index.js';
 import { 种子视图 } from './seedView.js';
+import {
+  历法皮肤Schema,
+  财富分档参数Schema,
+  欠债参数Schema,
+  穿越契约Schema,
+  开局装配数据Schema,
+} from '../../schema/preset.js';
 
 const pack_id正则 = /^[a-z][a-z0-9_]*$/;
 
@@ -65,9 +72,16 @@ export const 内容包内容Schema = z.object({
 }).superRefine((data, ctx) => 运行种子校验(data.模块种子, ctx));
 
 // ── 内容包条目 = 元数据 + 内容（共用 运行种子校验·消除字段重复） ──────────────────
+// 剥离③ 裸标量字段（optional·last-write-wins 由 load order 决·dormant·不接 resolve）
 export const 内容包条目Schema = z.object({
   ...内容包元数据Schema.shape,
   模块种子: z.record(z.string(), z.unknown()).optional(),
+  // ── 裸标量（剥离③·additive·dormant·resolve() 聚合时取最后声明包的值） ──────────
+  历法皮肤:     历法皮肤Schema.optional(),
+  财富分档参数: 财富分档参数Schema.optional(),
+  欠债参数:     欠债参数Schema.optional(),
+  穿越契约:     穿越契约Schema.optional(),
+  开局装配数据: 开局装配数据Schema.optional(),
 }).superRefine((data, ctx) => 运行种子校验(data.模块种子, ctx));
 
 // ── 内容包库 = record<pack_id, 内容包条目> ───────────────────────────────────────

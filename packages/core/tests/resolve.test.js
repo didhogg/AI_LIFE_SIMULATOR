@@ -94,6 +94,7 @@ describe('A2 · 双轨等价', () => {
         let old = 旧轨叠加({}, { NPC: { 张三: { 姓名: '张三', 年龄: 20 } } });
         old = 旧轨叠加(old, { NPC: { 张三: { 年龄: 21 }, 李四: { 姓名: '李四' } } });
         expect(newResult.成品).toEqual(old);
+        // 张三 年龄被后载覆盖，姓名保留
         const npc = newResult.成品['NPC'];
         expect(npc['张三']?.['年龄']).toBe(21);
         expect(npc['张三']?.['姓名']).toBe('张三');
@@ -117,7 +118,9 @@ describe('A2 · 双轨等价', () => {
 // ─────────────────────────────────────────────────────────────────────────────────
 describe('A2 · Layer 1 · key≠pack_id → tombstone', () => {
     it('library key "pack_x" 但 pack_id "pack_y" → key不等pack_id 墓碑', () => {
-        const lib = { pack_x: mkPack('pack_y') };
+        const lib = {
+            pack_x: mkPack('pack_y'), // key ≠ pack_id
+        };
         const result = resolve({ packs: ['pack_x'] }, lib);
         expect(result._mod墓碑库['pack_x']).toBeDefined();
         expect(result._mod墓碑库['pack_x']?.原因).toBe('key不等pack_id');
@@ -125,44 +128,56 @@ describe('A2 · Layer 1 · key≠pack_id → tombstone', () => {
 });
 describe('A2 · Layer 1 · semver 不兼容 → tombstone', () => {
     it('基底契约 ">=9.9.9" 与 4.1.0 不兼容 → semver不兼容 墓碑', () => {
-        const lib = { pack_a: mkPack('pack_a', { 基底契约: '>=9.9.9' }) };
+        const lib = {
+            pack_a: mkPack('pack_a', { 基底契约: '>=9.9.9' }),
+        };
         const result = resolve({ packs: ['pack_a'] }, lib);
         expect(result._mod墓碑库['pack_a']?.原因).toBe('semver不兼容');
     });
     it('基底契约 ">=4.1.0 <5.0.0" 与 4.1.0 兼容 → 不入墓碑', () => {
-        const lib = { pack_a: mkPack('pack_a', { 基底契约: '>=4.1.0 <5.0.0' }) };
+        const lib = {
+            pack_a: mkPack('pack_a', { 基底契约: '>=4.1.0 <5.0.0' }),
+        };
         const result = resolve({ packs: ['pack_a'] }, lib);
         expect(result._mod墓碑库['pack_a']).toBeUndefined();
     });
 });
 describe('A2 · Layer 1 · 越界可写键（轨道一致性）→ tombstone', () => {
     it('轨道 cosmetic + 可写键非空 → "其他" 墓碑（含诊断）', () => {
-        const lib = { pack_a: mkPack('pack_a', { 轨道: 'cosmetic', 可写键: ['foo.bar'] }) };
+        const lib = {
+            pack_a: mkPack('pack_a', { 轨道: 'cosmetic', 可写键: ['foo.bar'] }),
+        };
         const result = resolve({ packs: ['pack_a'] }, lib);
         expect(result._mod墓碑库['pack_a']?.原因).toBe('其他');
         expect(result._mod墓碑库['pack_a']?.诊断).toContain('轻轨');
     });
     it('轨道 gameplay + 可写键 → 允许（不入墓碑）', () => {
-        const lib = { pack_a: mkPack('pack_a', { 轨道: 'gameplay', 可写键: ['foo.bar'] }) };
+        const lib = {
+            pack_a: mkPack('pack_a', { 轨道: 'gameplay', 可写键: ['foo.bar'] }),
+        };
         const result = resolve({ packs: ['pack_a'] }, lib);
         expect(result._mod墓碑库['pack_a']).toBeUndefined();
     });
     it('轨道 view + 可写键空数组 → 允许（不入墓碑）', () => {
-        const lib = { pack_a: mkPack('pack_a', { 轨道: 'view', 可写键: [] }) };
+        const lib = {
+            pack_a: mkPack('pack_a', { 轨道: 'view', 可写键: [] }),
+        };
         const result = resolve({ packs: ['pack_a'] }, lib);
         expect(result._mod墓碑库['pack_a']).toBeUndefined();
     });
 });
 describe('A2 · Layer 2 · 坏依赖 → 墓碑', () => {
     it('自环 → 自环 墓碑', () => {
-        const lib = { pack_a: mkPack('pack_a', { 依赖: ['pack_a'] }) };
+        const lib = {
+            pack_a: mkPack('pack_a', { 依赖: ['pack_a'] }), // depends on itself
+        };
         const result = resolve({ packs: ['pack_a'] }, lib);
         expect(result._mod墓碑库['pack_a']?.原因).toBe('自环');
     });
     it('依赖被拒包 → 级联 依赖被拒 墓碑', () => {
         const lib = {
-            bad: mkPack('bad', { 依赖: ['bad'] }),
-            child: mkPack('child', { 依赖: ['bad'] }),
+            bad: mkPack('bad', { 依赖: ['bad'] }), // self-loop
+            child: mkPack('child', { 依赖: ['bad'] }), // depends on bad
         };
         const result = resolve({ packs: ['bad', 'child'] }, lib);
         expect(result._mod墓碑库['bad']?.原因).toBe('自环');
@@ -176,6 +191,7 @@ describe('A2 · Layer 2 · 冲突 → 墓碑', () => {
             pack_b: mkPack('pack_b', { 冲突: ['pack_a'] }),
         };
         const result = resolve({ packs: ['pack_a', 'pack_b'] }, lib);
+        // pack_b > pack_a (codepoint), so pack_b loses
         expect(result._mod墓碑库['pack_b']?.原因).toBe('冲突');
         expect(result._mod墓碑库['pack_a']).toBeUndefined();
     });
@@ -191,14 +207,14 @@ describe('A2 · Layer 2 · 冲突 → 墓碑', () => {
     });
 });
 // ─────────────────────────────────────────────────────────────────────────────────
-// 断言③ · 指纹双车道
+// 断言③ · 指纹双车道（闭合排程页 B+ Caveat 1）
 // ─────────────────────────────────────────────────────────────────────────────────
 describe('A2 · 指纹双车道 · A桶（内容变 → 生效中内容包集哈希变）', () => {
     it('改 NPC 姓名（内容变） → 生效中内容包集哈希变', () => {
         const mkLib = (name) => ({
             pack_a: mkPack('pack_a', {
                 模块种子: { NPC: { '张三': { 姓名: name } } },
-                内容哈希: hashCanonical({ name }),
+                内容哈希: hashCanonical({ name }), // 内容哈希与内容绑定
             }),
         });
         const result1 = resolve({ packs: ['pack_a'] }, mkLib('张三'));
@@ -234,19 +250,21 @@ describe('A2 · 指纹双车道 · B桶（判定面变 → hashJudgmentBundle变
         const baseJB = hashJudgmentBundle(JUDGMENT_BASE);
         const altJB = hashJudgmentBundle({ ...JUDGMENT_BASE, 概率域夹逼: { p_最小: 0.001, p_最大: 0.999 } });
         expect(baseJB).not.toBe(altJB);
+        // 同一 生效中内容包集哈希 下，B桶变化也改变指纹
         const r = resolve({ packs: [] }, {});
         const fp1 = hashPresetFingerprint({ 判定面整包: baseJB, 生效中内容包集哈希: r.生效中内容包集哈希, snapshot: SNAPSHOT_BASE });
         const fp2 = hashPresetFingerprint({ 判定面整包: altJB, 生效中内容包集哈希: r.生效中内容包集哈希, snapshot: SNAPSHOT_BASE });
         expect(fp1).not.toBe(fp2);
     });
     it('A桶内容不影响 hashJudgmentBundle（信道隔离）', () => {
+        // 即使换了 NPC，hashJudgmentBundle 不变（它只看判定面字段）
         const jb1 = hashJudgmentBundle(JUDGMENT_BASE);
         const jb2 = hashJudgmentBundle(JUDGMENT_BASE);
         expect(jb1).toBe(jb2);
     });
 });
 // ─────────────────────────────────────────────────────────────────────────────────
-// 断言④ · 引用顺序语义
+// 断言④ · 引用顺序语义（Caveat 2）
 // ─────────────────────────────────────────────────────────────────────────────────
 describe('A2 · 引用顺序语义', () => {
     it('A→B 与 B→A 加载顺序 → 成品不同（后载覆盖先载）', () => {
@@ -264,8 +282,8 @@ describe('A2 · 引用顺序语义', () => {
         const ba = resolve({ packs: ['pack_b', 'pack_a'] }, lib);
         const abCurrency = ab.成品['货币系统']?.['基准币种'];
         const baCurrency = ba.成品['货币系统']?.['基准币种'];
-        expect(abCurrency).toBe('B');
-        expect(baCurrency).toBe('A');
+        expect(abCurrency).toBe('B'); // B loads last → wins
+        expect(baCurrency).toBe('A'); // A loads last → wins
         expect(abCurrency).not.toBe(baCurrency);
     });
     it('引用顺序 → 生效中包集顺序一致', () => {
@@ -280,7 +298,7 @@ describe('A2 · 引用顺序语义', () => {
     });
 });
 // ─────────────────────────────────────────────────────────────────────────────────
-// 成品可接 hashPresetFingerprint
+// 成品可接 hashPresetFingerprint（Layer 3 完整链路）
 // ─────────────────────────────────────────────────────────────────────────────────
 describe('A2 · 成品过 hashPresetFingerprint', () => {
     it('空成品可计算指纹（8位 hex）', () => {
@@ -305,11 +323,11 @@ describe('A2 · 成品过 hashPresetFingerprint', () => {
             生效中内容包集哈希: r.生效中内容包集哈希,
             snapshot: SNAPSHOT_BASE,
         });
-        expect(fp()).toBe(fp());
+        expect(fp()).toBe(fp()); // 确定性·双跑恒等
     });
 });
 // ─────────────────────────────────────────────────────────────────────────────────
-// 断言⑤ · 守恒门
+// 断言⑤ · 守恒门（additive-only 不动指纹基数）
 // ─────────────────────────────────────────────────────────────────────────────────
 describe('A2 · 守恒门', () => {
     it('schemaKeys = 52（RootSchema 无新增顶层键）', () => {
@@ -327,6 +345,7 @@ describe('A2 · 守恒门', () => {
         expect(total).toBe(86);
     });
     it('黄金向量：hashPresetFingerprint 确定性（不重定基）', () => {
+        // 同入参双跑相等即可（不钉死具体 hex 值·避免与 A0 黄金向量冲突）
         const r = resolve({ packs: [] }, {});
         const inputs = {
             判定面整包: hashJudgmentBundle(JUDGMENT_BASE),
@@ -337,7 +356,7 @@ describe('A2 · 守恒门', () => {
     });
 });
 // ─────────────────────────────────────────────────────────────────────────────────
-// A1 审计债：schema 去重验证
+// A1 审计债：内容包条目Schema 去重验证（no duplication）
 // ─────────────────────────────────────────────────────────────────────────────────
 describe('A2 · A1 审计债 · contentPack schema 去重', () => {
     it('内容包条目Schema 含元数据所有字段（spread 正确）', () => {
@@ -370,5 +389,40 @@ describe('A2 · A1 审计债 · contentPack schema 去重', () => {
             pack_a: { pack_id: 'pack_a', 模块种子: { 货币系统: {} } },
         });
         expect(r.success).toBe(true);
+    });
+});
+// ─────────────────────────────────────────────────────────────────────────────────
+// P1 · deepMerge 原型污染防护（复用 是JS保留键·无第二黑名单）
+// ─────────────────────────────────────────────────────────────────────────────────
+describe('P1 · deepMerge 原型污染防护', () => {
+    it('旧轨叠加 含 __proto__ 键 → 不污染 Object.prototype', () => {
+        const dangerPack = JSON.parse('{"__proto__":{"polluted":true}}');
+        旧轨叠加({}, dangerPack);
+        expect({}['polluted']).toBeUndefined();
+    });
+    it('旧轨叠加 含 constructor 键 → 不作为 own-property 写入结果', () => {
+        const dangerPack = { constructor: 'evil' };
+        const result = 旧轨叠加({}, dangerPack);
+        // guard 跳过后，result 中 constructor 不是自有属性（仍来自原型链）
+        expect(Object.prototype.hasOwnProperty.call(result, 'constructor')).toBe(false);
+    });
+    it('旧轨叠加 含 prototype 键 → 不作为 own-property 写入结果', () => {
+        const dangerPack = { prototype: { evil: true } };
+        const result = 旧轨叠加({}, dangerPack);
+        expect(Object.prototype.hasOwnProperty.call(result, 'prototype')).toBe(false);
+    });
+    it('resolve 含 __proto__ 模块种子 → 不污染 Object.prototype', () => {
+        const lib = {
+            pack_a: mkPack('pack_a', {
+                模块种子: { NPC: JSON.parse('{"__proto__":{"polluted2":true}}') },
+            }),
+        };
+        resolve({ packs: ['pack_a'] }, lib);
+        expect({}['polluted2']).toBeUndefined();
+    });
+    it('合法键正常合并（guard 不误杀普通字段）', () => {
+        const result = 旧轨叠加({}, { 正常键: 'value', another: 42 });
+        expect(result['正常键']).toBe('value');
+        expect(result['another']).toBe(42);
     });
 });

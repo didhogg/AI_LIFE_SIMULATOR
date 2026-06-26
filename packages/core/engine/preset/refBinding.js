@@ -1,4 +1,4 @@
-// 全 16 命名空间显式注册（封闭·与 命名空间枚举 一一对应·冰箱建立后补 解析器键）
+// 全 32 命名空间显式注册（封闭·与 命名空间枚举 一一对应·冰箱建立后补 解析器键）
 export const 冰箱绑定表 = {
     '币种': { 描述: '待建：货币库·P3+' },
     '单位': { 描述: '待建：单位库·P3+' },
@@ -16,4 +16,21 @@ export const 冰箱绑定表 = {
     'UI组件': { 解析器键: 'UI库', 描述: 'UI组件库·装配层·渲染面·resolve UI成品传入·不进 hashJudgmentBundle' },
     '工具': { 解析器键: '工具库', 描述: '工具库·装配层·路由面·llm/code/roll_dice/… 按 工具ID 解·不进 hashJudgmentBundle' },
     '成就': { 解析器键: '成就库', 描述: '成就库·装配层·定义层·按 成就ID 解·不进 hashJudgmentBundle' },
+    '物品': { 解析器键: '物品库', 描述: '物品库·装配层·定义层·按 物品ID 解·不进 hashJudgmentBundle' },
+    '媒体': { 解析器键: '媒体库', 描述: '媒体库·装配层·按 媒体ID 解·不进 hashJudgmentBundle' },
+    '学业制式': { 解析器键: '学业制式库', 描述: '学业制式库·装配层·按 学业制式ID 解·不进 hashJudgmentBundle' },
+    '职级体系': { 解析器键: '职级体系库', 描述: '职级体系库·装配层·按 职级体系ID 解·不进 hashJudgmentBundle' },
+    '实体模板': { 解析器键: '实体模板库', 描述: '实体模板库（冰箱）·装配层·NPC/组织模板黑洞·不进 hashJudgmentBundle' },
+    '文风': { 解析器键: '文风库', 描述: '文风库（冰箱）·装配层·渲染面 opaque·不进 hashJudgmentBundle' },
+    '二审维度': { 解析器键: '二审维度库', 描述: '二审维度库·装配层·事实层（检测方式/越界类型 typed）·不进 hashJudgmentBundle' },
+    '小剧场剧本': { 解析器键: '小剧场剧本库', 描述: '小剧场剧本库·装配层·渲染面 opaque·不进 hashJudgmentBundle' },
+    '选项集': { 解析器键: '选项集库', 描述: '选项集库·装配层·动词选项条目 by-set 组织·投影回填 动词选项集→进 PRESET 指纹·不进 hashJudgmentBundle' },
+    // ── 剥离③ 新增（record 数据表·by-ID 冰箱化） ────────────────────────────────────────
+    '种族模板': { 解析器键: '种族模板库', 描述: '种族模板库·装配层·世代钳制·进 hashJudgmentBundle（投影回填·dormant）' },
+    '战术包': { 解析器键: '战术包库', 描述: '战术包库·装配层·战斗辅助·不进 hashJudgmentBundle·dormant' },
+    '叙事分发': { 解析器键: '叙事分发库', 描述: '叙事分发库·装配层·叙事面·不进 hashJudgmentBundle·dormant' },
+    '母题词汇': { 解析器键: '母题词汇库', 描述: '母题词汇库·装配层·叙事面词汇·不进 hashJudgmentBundle·dormant' },
+    '母题配额': { 解析器键: '母题配额库', 描述: '母题配额库·装配层·判定面·进 hashJudgmentBundle（投影回填·dormant）' },
+    '离场演化契约': { 解析器键: '离场演化契约库', 描述: '离场演化契约库·装配层·P2 offstageSettler·不进 hashJudgmentBundle·dormant' },
+    '社会角色': { 解析器键: '社会角色库', 描述: '社会角色库·装配层·不进存档·不进 hashJudgmentBundle·dormant' },
 };
