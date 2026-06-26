@@ -71,13 +71,18 @@ export interface 解引用选项 {
 //   · 只读 against 已解析成品·不触发新 resolve·不修改任何状态
 //   · 无递归解析·单步 record 查找·允许引用图成环（与装载图 computeLoadOrder 正交）
 //
-// TODO(P0-6): member-gate 成员级存在性校验（当前 fail-open·与 governedKeySpace 现状一致）
+// 安全铁律（P0 + P0-6 member-gate 已落地）：
+//   · 绑定表查找 + 冰箱条目查找均走 own-property guard
+//   · 原型链成员（constructor/toString/valueOf/__proto__ 等）→ null，不泄漏原型对象
 export function 解引用<N extends 命名空间Type>(
   ref: Ref<N>,
   成品: Record<string, unknown>,
   opts: 解引用选项 = {},
 ): unknown | null {
-  const binding = 冰箱绑定表[ref.__ns as 命名空间Type] as 冰箱绑定条目 | undefined;
+  // own-property guard：防止 ref.__ns 命中原型链（如 constructor）
+  const binding = Object.prototype.hasOwnProperty.call(冰箱绑定表, ref.__ns)
+    ? 冰箱绑定表[ref.__ns as 命名空间Type] as 冰箱绑定条目 | undefined
+    : undefined;
 
   // 冰箱待建（解析器键 = undefined）
   if (binding === undefined || binding.解析器键 === undefined) {
@@ -100,14 +105,14 @@ export function 解引用<N extends 命名空间Type>(
     return null;
   }
 
-  // 按 handle 查冰箱条目
-  const entry = (fridge as Record<string, unknown>)[ref.handle];
-  if (entry === undefined) {
+  // own-property guard（P0-6 member-gate）：
+  // 原型链成员（constructor / toString / __proto__ 等）不是冰箱自有条目 → null
+  if (!Object.prototype.hasOwnProperty.call(fridge, ref.handle)) {
     if (opts.strict) {
       throw new Error(`解引用: 冰箱「${binding.解析器键}」无条目「${ref.handle}」`);
     }
     return null;
   }
 
-  return entry;
+  return (fridge as Record<string, unknown>)[ref.handle];
 }

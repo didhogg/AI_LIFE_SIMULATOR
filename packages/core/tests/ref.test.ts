@@ -262,3 +262,47 @@ describe('R7 · 确定性', () => {
     expect(s.parse('pack_y')).toEqual(s.parse('pack_y'));
   });
 });
+
+// ── R9 · 原型链 fail-open 防护（P0 + P0-6 member-gate）────────────────────────
+
+describe('R9 · 原型链 fail-open 防护', () => {
+  const 成品: Record<string, unknown> = {
+    mod注册表: {
+      pack_a: { pack_id: 'pack_a', 名称: '基础包' },
+    },
+  };
+
+  it('toString handle → 不返回原型链函数·返 null', () => {
+    // toString 通过 受治理句柄Schema（不在 JS保留键黑名单）·可被 创建引用
+    const ref = 创建引用('mod包', 'toString');
+    const result = 解引用(ref, 成品);
+    expect(result).toBeNull();
+    expect(typeof result).not.toBe('function');
+  });
+
+  it('valueOf handle → 不返回原型链函数·返 null', () => {
+    const ref = 创建引用('mod包', 'valueOf');
+    expect(解引用(ref, 成品)).toBeNull();
+  });
+
+  it('hasOwnProperty handle → 不返回原型链函数·返 null', () => {
+    const ref = 创建引用('mod包', 'hasOwnProperty');
+    expect(解引用(ref, 成品)).toBeNull();
+  });
+
+  it('直构 constructor handle Ref → 解引用返 null（不泄漏构造函数）', () => {
+    // constructor 被 受治理句柄Schema 拒绝·只能直接构造 Ref 模拟攻击面
+    const dangerRef: Ref<'mod包'> = { __ns: 'mod包', handle: 'constructor' };
+    expect(解引用(dangerRef, 成品)).toBeNull();
+  });
+
+  it('直构 __proto__ handle Ref → 解引用返 null', () => {
+    const dangerRef: Ref<'mod包'> = { __ns: 'mod包', handle: '__proto__' };
+    expect(解引用(dangerRef, 成品)).toBeNull();
+  });
+
+  it('own-property handle pack_a → 正常返回条目（guard 不误杀）', () => {
+    const ref = 创建引用('mod包', 'pack_a');
+    expect(解引用(ref, 成品)).toEqual({ pack_id: 'pack_a', 名称: '基础包' });
+  });
+});

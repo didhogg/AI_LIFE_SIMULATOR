@@ -446,3 +446,43 @@ describe('A2 · A1 审计债 · contentPack schema 去重', () => {
     expect(r.success).toBe(true);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────
+// P1 · deepMerge 原型污染防护（复用 是JS保留键·无第二黑名单）
+// ─────────────────────────────────────────────────────────────────────────────────
+describe('P1 · deepMerge 原型污染防护', () => {
+  it('旧轨叠加 含 __proto__ 键 → 不污染 Object.prototype', () => {
+    const dangerPack = JSON.parse('{"__proto__":{"polluted":true}}') as Record<string, unknown>;
+    旧轨叠加({}, dangerPack);
+    expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+  });
+
+  it('旧轨叠加 含 constructor 键 → 不作为 own-property 写入结果', () => {
+    const dangerPack = { constructor: 'evil' } as Record<string, unknown>;
+    const result = 旧轨叠加({}, dangerPack);
+    // guard 跳过后，result 中 constructor 不是自有属性（仍来自原型链）
+    expect(Object.prototype.hasOwnProperty.call(result, 'constructor')).toBe(false);
+  });
+
+  it('旧轨叠加 含 prototype 键 → 不作为 own-property 写入结果', () => {
+    const dangerPack = { prototype: { evil: true } } as Record<string, unknown>;
+    const result = 旧轨叠加({}, dangerPack);
+    expect(Object.prototype.hasOwnProperty.call(result, 'prototype')).toBe(false);
+  });
+
+  it('resolve 含 __proto__ 模块种子 → 不污染 Object.prototype', () => {
+    const lib = {
+      pack_a: mkPack('pack_a', {
+        模块种子: { NPC: JSON.parse('{"__proto__":{"polluted2":true}}') },
+      }),
+    } as unknown as 内容包库Type;
+    resolve({ packs: ['pack_a'] }, lib);
+    expect(({} as Record<string, unknown>)['polluted2']).toBeUndefined();
+  });
+
+  it('合法键正常合并（guard 不误杀普通字段）', () => {
+    const result = 旧轨叠加({}, { 正常键: 'value', another: 42 });
+    expect(result['正常键']).toBe('value');
+    expect(result['another']).toBe(42);
+  });
+});

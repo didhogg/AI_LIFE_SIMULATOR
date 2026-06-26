@@ -8,12 +8,15 @@ import { satisfies } from '../../loader/semver.js';
 import { 聚合生效中内容包集哈希 } from '../../interfaces/contentPackHash.js';
 import { 种子视图 } from './seedView.js';
 import { RootSchema } from '../../schema/index.js';
+import { 是JS保留键 } from '../../schema/governedKeySpace.js';
 // ── 确定性深合并（无 Date/random/副作用·对象递归展开·数组/叶节点后载覆盖） ───
 function deepMerge(base, next) {
     if (typeof base === 'object' && base !== null && !Array.isArray(base) &&
         typeof next === 'object' && next !== null && !Array.isArray(next)) {
         const result = { ...base };
         for (const [k, v] of Object.entries(next)) {
+            if (是JS保留键(k))
+                continue;
             result[k] = k in result ? deepMerge(result[k], v) : v;
         }
         return result;

@@ -12,6 +12,7 @@ import type { 内容包条目Type, 内容包库Type } from './contentPack.js';
 import type { 规则条目Type, 规则面Type, 规则库Type } from './ruleLibrary.js';
 import { 种子视图 } from './seedView.js';
 import { RootSchema } from '../../schema/index.js';
+import { 是JS保留键 } from '../../schema/governedKeySpace.js';
 
 // ── 入参 ────────────────────────────────────────────────────────────────────────
 /** 薄清单 = 引用包列表（按引用顺序）+ 可选基底版本（默认 '4.1.0'） */
@@ -54,6 +55,7 @@ function deepMerge(base: unknown, next: unknown): unknown {
   ) {
     const result: Record<string, unknown> = { ...(base as Record<string, unknown>) };
     for (const [k, v] of Object.entries(next as Record<string, unknown>)) {
+      if (是JS保留键(k)) continue;
       result[k] = k in result ? deepMerge(result[k], v) : v;
     }
     return result;
