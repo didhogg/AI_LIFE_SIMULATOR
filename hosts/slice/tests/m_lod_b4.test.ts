@@ -47,7 +47,7 @@ const NPC_KEY = 'npc_coarse_1';
 // ── fixture ───────────────────────────────────────────────────────────────────
 
 function makeMapState(): RootState {
-  return RootSchema.parse({
+  const s = RootSchema.parse({
     $玩家偏好: { 内容分级: 'off', NSFW降级模型: { 启用: false } },
     地图: {
       地点: {
@@ -55,9 +55,12 @@ function makeMapState(): RootState {
       },
     },
     NPC: {
-      [NPC_KEY]: NpcSchema.parse({ 姓名: '粗节点甲', 位置: NODE_KEY, LOD档位: '粗' }),
+      [NPC_KEY]: NpcSchema.parse({ 姓名: '粗节点甲', 位置: NODE_KEY }),
     },
   }) as RootState;
+  // LOD-B4b: NPC 粗态记录在 LOD表
+  (s.LOD表 as Record<string, unknown>)[NPC_KEY] = { 模块键: NPC_KEY, 档位: '粗' };
+  return s;
 }
 
 // ── B4-0 · 守恒门 ──────────────────────────────────────────────────────────────
@@ -262,21 +265,21 @@ describe('B4-6 · LOD表 路径确定性', () => {
     expect(s2.LOD表[NODE_KEY]?.档位).toBe('实体');
 
     // NPC 属性逐位恒等（materializeCoarseNode 确定性）
-    expect(s1.NPC[NPC_KEY]?.LOD档位).toBe('实体');
+    expect(s1.LOD表[NPC_KEY]?.档位).toBe('实体');
     expect(s1.NPC[NPC_KEY]?.属性.体质).toBe(s2.NPC[NPC_KEY]?.属性.体质);
     expect(s1.NPC[NPC_KEY]?.属性.魅力).toBe(s2.NPC[NPC_KEY]?.属性.魅力);
   });
 
-  it('demote 后 LOD表 档位=粗·NPC LOD档位 不回滚（物化已完成）', () => {
+  it('demote 后 LOD表 档位=粗·NPC LOD表 档位 不回滚（物化已完成）', () => {
     const s = makeMapState();
     promoteNode(s, NODE_KEY, SEED);
     expect(s.LOD表[NODE_KEY]?.档位).toBe('实体');
-    expect(s.NPC[NPC_KEY]?.LOD档位).toBe('实体');
+    expect(s.LOD表[NPC_KEY]?.档位).toBe('实体');
 
     demoteNode(s, NODE_KEY);
     expect(s.LOD表[NODE_KEY]?.档位).toBe('粗');
-    // NPC 已物化·demote 不逆转物化（设计：仅降档位·不重置 NPC）
-    expect(s.NPC[NPC_KEY]?.LOD档位).toBe('实体');
+    // NPC 已物化·demote 只降地点档位·不逆转 NPC LOD表条目
+    expect(s.LOD表[NPC_KEY]?.档位).toBe('实体');
   });
 });
 

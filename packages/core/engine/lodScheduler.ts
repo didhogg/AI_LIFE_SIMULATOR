@@ -42,11 +42,12 @@ export function promoteNode(state: RootState, nodeKey: string, seed: number): vo
   const loc = state.地图?.地点?.[nodeKey];
   if (!loc) return; // 不存在节点 → no-op
 
-  // 物化该区域下的粗节点 NPC
+  // 物化该区域下的粗节点 NPC（LOD-B4b: 读 LOD表·写 LOD表）
   for (const npcKey of Object.keys(state.NPC)) {
     const npc = state.NPC[npcKey];
-    if (npc && npc.位置 === nodeKey && npc.LOD档位 === '粗') {
+    if (npc && npc.位置 === nodeKey && state.LOD表[npcKey]?.档位 === '粗') {
       materializeCoarseNode(state, npcKey, seed);
+      state.LOD表[npcKey]!.档位 = '实体';
     }
   }
 

@@ -85,17 +85,14 @@ function makeStateWithLod(opts: {
   } as typeof base.地图;
 
   // NPC（粗节点·位于 nodeKey）
-  const parsedNpc = RootSchema.shape.NPC.parse({
-    [npcKey]: { LOD档位: '粗', 位置: nodeKey },
-  });
-  base.NPC = parsedNpc;
-
-  // PC NPC
   const parsedPc = RootSchema.shape.NPC.parse({
-    [npcKey]: { LOD档位: '粗', 位置: nodeKey },
+    [npcKey]: { 位置: nodeKey },
     [pcKey]:  { 位置: pcAt },
   });
   base.NPC = parsedPc;
+
+  // LOD-B4b: NPC 粗态记录在 LOD表
+  (base.LOD表 as Record<string, unknown>)[npcKey] = { 模块键: npcKey, 档位: '粗' };
 
   // 席位表
   (base._席位表 as Record<string, { 焦点角色键: string }>) = {
@@ -147,10 +144,10 @@ describe('B2-1 · 空 LOD表 精确 no-op', () => {
     expect(JSON.stringify(s)).toBe(before);
   });
 
-  it('LOD表={} → 确认不触发 promoteNode（NPC LOD档位 不变）', () => {
+  it('LOD表={} → 确认不触发 promoteNode（NPC 无 LOD表 条目·不做任何实体化）', () => {
     const s = makeBase();
-    // 即便 NPC 有 粗 节点也不动
-    (s.NPC as Record<string, unknown>)['npc1'] = { LOD档位: '粗' };
+    // 即便 NPC 存在，无 LOD表 条目 → scheduleLodPhase 早返 → NPC 不变
+    (s.NPC as Record<string, unknown>)['npc1'] = { 位置: 'loc1' };
     const before = JSON.stringify(s.NPC);
     scheduleLodPhase(s, 42, 0, undefined, undefined);
     expect(JSON.stringify(s.NPC)).toBe(before);
@@ -168,13 +165,13 @@ describe('B2-2 · PC 在节点 → promote', () => {
     expect(s.LOD表['region_a']?.档位).toBe('实体');
   });
 
-  it('同区 NPC LOD档位 从粗→实体（materializeCoarseNode 接通）', () => {
+  it('同区 NPC LOD表 档位 从粗→实体（promoteNode→materializeCoarseNode 接通）', () => {
     const s = makeStateWithLod({
       nodeKey: 'region_a', npcKey: 'npc1', pcKey: 'pc1', pcAt: 'region_a',
     });
-    // npc1 在 region_a 且 LOD档位='粗'
+    // npc1 在 region_a 且 LOD表[npc1].档位='粗'
     scheduleLodPhase(s, 42, 0, undefined, undefined);
-    expect(s.NPC['npc1']?.LOD档位).toBe('实体');
+    expect(s.LOD表['npc1']?.档位).toBe('实体');
   });
 
   it('已是实体态 → 幂等 no-op（promoteNode 单态保证）', () => {

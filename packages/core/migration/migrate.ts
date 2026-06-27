@@ -1230,6 +1230,53 @@ export function backfillLodTableMapState(raw: Record<string, unknown>): Record<s
   return { ...raw, 地图: newMap, LOD表: newLodTable, _系统: newSys };
 }
 
+// ── LOD-B4b · NPC.LOD档位 → LOD表[npcKey].档位（逐 NPC 迁移·Option-B）──────────────────
+// Shape嗅探幂等门：遍历 NPC 键 → 无任何含 LOD档位 key 的 NPC → no-op。
+// 迁移路径：NPC[k].LOD档位 → LOD表[k].档位（verbatim 拷值）→ delete NPC[k].LOD档位。
+// 幂等：同档二次 migrate → 无 LOD档位 残留 → no-op（migration_version 不再 bump）。
+export function backfillLodTableNpcState(raw: Record<string, unknown>): Record<string, unknown> {
+  const npcRec = asRec(raw['NPC']);
+  const npcKeys = Object.keys(npcRec);
+  if (npcKeys.length === 0) return raw;
+
+  // Shape嗅探：有任何 NPC 含 LOD档位？
+  let needsMigration = false;
+  for (const k of npcKeys) {
+    const npc = asRec(npcRec[k]);
+    if ('LOD档位' in npc) {
+      needsMigration = true;
+      break;
+    }
+  }
+  if (!needsMigration) return raw; // 幂等 → no-op
+
+  const existingLodTable = asRec(raw['LOD表']);
+  const newLodTable: Record<string, unknown> = { ...existingLodTable };
+  const newNpcs: Record<string, unknown> = {};
+
+  for (const k of npcKeys) {
+    const npc = asRec(npcRec[k]);
+    if (!('LOD档位' in npc)) {
+      newNpcs[k] = npcRec[k]; // 无 LOD档位 → 原样
+      continue;
+    }
+
+    // 迁入 LOD表（合并已有条目，verbatim 拷值·禁三元）
+    const existing = asRec(newLodTable[k]);
+    const entry: Record<string, unknown> = { 模块键: k, ...existing, 档位: npc['LOD档位'] };
+    newLodTable[k] = entry;
+
+    // Option-B: 删除 LOD档位 字段
+    const newNpc: Record<string, unknown> = { ...npc };
+    delete newNpc['LOD档位'];
+    newNpcs[k] = newNpc;
+  }
+
+  const sys = asRec(raw['_系统']);
+  const newSys = { ...sys, migration_version: asNum(sys['migration_version']) + 1 };
+  return { ...raw, NPC: newNpcs, LOD表: newLodTable, _系统: newSys };
+}
+
 // ── D-3·种子来源包名归一（$隐藏记忆库.延时种子[*].来源.包id → 来源包·幂等·additive）──
 //
 // 旧档：来源.包id 非空 → 写 来源.来源包；包id 保留不删（读回退 ≥1 版本，D3c 守约）。
@@ -1667,7 +1714,7 @@ export function migrate(input: unknown): MigrateResult {
   // buildV41Raw already emits new key names; applyPrefixRenames is a no-op here
   // but is exported for callers who load existing V4.1 saves with old key names.
   // Within-v4.1 migrations run here (after buildV41Raw v4.1 early-return path).
-  const rawMigrated = backfillLodTableMapState(backfillPhaseL1b(backfillSeedSourcePkgName(backfill货币账户PerEntity(backfillPackId(migrateS1S1b(migrate内容分级位置(raw)))))));
+  const rawMigrated = backfillLodTableNpcState(backfillLodTableMapState(backfillPhaseL1b(backfillSeedSourcePkgName(backfill货币账户PerEntity(backfillPackId(migrateS1S1b(migrate内容分级位置(raw))))))));
   let state: RootState = RootSchema.parse(normalizeRegistryKeyNames(rawMigrated)); // S3 读卡口
 
   // Community-gate self-heal: 内容分级 !== 'community' 时强制 允许玩家覆盖=false，不 throw

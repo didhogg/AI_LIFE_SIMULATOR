@@ -84,12 +84,17 @@ export function dispatchLodGenerate(s, nodeKey, seed) {
 export const NPC_LOD_DESCRIPTOR = {
     模块键: 'NPC',
     真相Schema: NpcSchema,
-    索引器: (s, nodeKey) => Object.keys(s.NPC).filter((k) => s.NPC[k]?.位置 === nodeKey && s.NPC[k]?.LOD档位 === '粗'),
+    // LOD-B4b: 读 LOD表[k].档位 而非 NPC[k].LOD档位
+    索引器: (s, nodeKey) => Object.keys(s.NPC).filter((k) => s.NPC[k]?.位置 === nodeKey && s.LOD表[k]?.档位 === '粗'),
     写入目标: () => {
         /* NPC 生成器已 in-place via materializeCoarseNode·此处 no-op */
     },
     生成器: (_占位, seed, ctx) => {
+        if (ctx.s.LOD表[ctx.entityKey]?.档位 !== '粗')
+            return;
         materializeCoarseNode(ctx.s, ctx.entityKey, seed);
+        // LOD-B4b: 调用方负责写 LOD表 档位
+        ctx.s.LOD表[ctx.entityKey].档位 = '实体';
         // 返回 void：in-place 写入·调用方不再走写入目标
     },
 };

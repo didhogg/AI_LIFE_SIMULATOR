@@ -413,8 +413,7 @@ export const NpcSchema = z.object({
     // 受制于 🧮 派生视图（七源关系图聚合），不存储
     // 秘密索引 🧮 派生（filter 全局.秘密库），不存储
     // ── LOD 与生成 ──
-    // PR-2: 两态 LOD（粗节点/全实体）；optional = 缺省视为'实体'（向后兼容·零迁移）
-    LOD档位: z.enum(['粗', '实体']).optional(),
+    // LOD-B4b: LOD档位 已迁移至 LOD表[npcKey].档位（migrate.ts backfillLodTableNpcState）
     重要等级: z.string().default('路人'), // 路人/次要/重要/核心
     召回权重: z.number().min(0).max(100).default(50),
     意象: z.array(意象条目Schema).default([]), // 公共印象（6.29）

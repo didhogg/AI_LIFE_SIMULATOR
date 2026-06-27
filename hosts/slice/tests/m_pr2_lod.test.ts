@@ -24,7 +24,8 @@ const SEED = SAVE_SEED; // 42
 
 /** 在已 parse 的 state 上挂载粗节点 */
 function addCoarseNode(s: ReturnType<typeof RootSchema.parse>, key: string, locKey = ''): void {
-  s.NPC[key] = NpcSchema.parse({ LOD档位: '粗', 姓名: key, 位置: locKey });
+  s.NPC[key] = NpcSchema.parse({ 姓名: key, 位置: locKey });
+  (s.LOD表 as Record<string, unknown>)[key] = { 模块键: key, 档位: '粗' };
 }
 
 function baseState() {
@@ -52,24 +53,25 @@ describe('F1 · materializeCoarseNode 确定性 + 幂等', () => {
     expect(n1.属性.心理).toBe(n2.属性.心理);
   });
 
-  it('F1-2 实体化后 LOD档位=实体', () => {
+  it('F1-2 实体化后 LOD表 档位=实体', () => {
     const s = baseState();
     addCoarseNode(s, COARSE_KEY);
-    expect(s.NPC[COARSE_KEY]!.LOD档位).toBe('粗');
-    materializeCoarseNode(s, COARSE_KEY, SEED);
-    expect(s.NPC[COARSE_KEY]!.LOD档位).toBe('实体');
+    expect(s.LOD表[COARSE_KEY]?.档位).toBe('粗');
+    // LOD-B4b: triggerLodGate 写属性 + 写 LOD表·materializeCoarseNode 仅写属性
+    triggerLodGate(s, [COARSE_KEY], SEED);
+    expect(s.LOD表[COARSE_KEY]?.档位).toBe('实体');
   });
 
-  it('F1-3 幂等：对已实体化节点调用 → no-op（引用相等·属性不变）', () => {
+  it('F1-3 幂等：triggerLodGate 对已实体化节点调用 → no-op（LOD表 guard·属性不变）', () => {
     const s = baseState();
     addCoarseNode(s, COARSE_KEY);
-    materializeCoarseNode(s, COARSE_KEY, SEED);
+    triggerLodGate(s, [COARSE_KEY], SEED);
     const attrAfter1 = { ...s.NPC[COARSE_KEY]!.属性 };
 
-    // 用不同种子再次调用 → 不应改变
-    materializeCoarseNode(s, COARSE_KEY, 999);
+    // 用不同种子再次调用 → LOD表 guard 阻止重派 materialize
+    triggerLodGate(s, [COARSE_KEY], 999);
     expect(s.NPC[COARSE_KEY]!.属性.体质).toBe(attrAfter1.体质);
-    expect(s.NPC[COARSE_KEY]!.LOD档位).toBe('实体');
+    expect(s.LOD表[COARSE_KEY]?.档位).toBe('实体');
   });
 
   it('F1-4 不同 key → 不同属性（种子区分）', () => {
@@ -139,7 +141,7 @@ describe('F2 · newsToCognition 0 实体化断言', () => {
     const s = baseState();
     addCoarseNode(s, COARSE_KEY);
     newsToCognition(s, newsEntry, [NPC_WANG], 100);
-    expect(s.NPC[COARSE_KEY]!.LOD档位).toBe('粗');
+    expect(s.LOD表[COARSE_KEY]?.档位).toBe('粗');
   });
 
   it('F2-4 来源类型固定为二手转述', () => {
@@ -176,30 +178,30 @@ describe('F3 · triggerLodGate', () => {
     const s = baseState();
     addCoarseNode(s, COARSE_KEY);
     triggerLodGate(s, [COARSE_KEY], SEED);
-    expect(s.NPC[COARSE_KEY]!.LOD档位).toBe('实体');
+    expect(s.LOD表[COARSE_KEY]?.档位).toBe('实体');
   });
 
   it('F3-2 无接触 → 粗节点不变', () => {
     const s = baseState();
     addCoarseNode(s, COARSE_KEY);
     triggerLodGate(s, [], SEED);
-    expect(s.NPC[COARSE_KEY]!.LOD档位).toBe('粗');
+    expect(s.LOD表[COARSE_KEY]?.档位).toBe('粗');
   });
 
-  it('F3-3 接触已有 NPC → no-op（不影响全实体）', () => {
+  it('F3-3 接触已有 NPC → no-op（不影响全实体·无 LOD表 条目）', () => {
     const s = baseState();
     const attrBefore = { ...s.NPC[NPC_WANG]!.属性 };
     triggerLodGate(s, [NPC_WANG], SEED);
     expect(s.NPC[NPC_WANG]!.属性.体质).toBe(attrBefore.体质);
-    // LOD档位 应为 undefined（全实体不设此字段）
-    expect(s.NPC[NPC_WANG]!.LOD档位).toBeUndefined();
+    // 全实体 NPC 无 LOD表 条目·triggerLodGate 跳过
+    expect(s.LOD表[NPC_WANG]).toBeUndefined();
   });
 
   it('F3-4 同拍同节点两次 → 只实体化一次（幂等）', () => {
     const s = baseState();
     addCoarseNode(s, COARSE_KEY);
     triggerLodGate(s, [COARSE_KEY, COARSE_KEY], SEED);
-    expect(s.NPC[COARSE_KEY]!.LOD档位).toBe('实体');
+    expect(s.LOD表[COARSE_KEY]?.档位).toBe('实体');
     // 属性值应与单次实体化相同
     const s2 = baseState();
     addCoarseNode(s2, COARSE_KEY);
@@ -212,8 +214,8 @@ describe('F3 · triggerLodGate', () => {
     addCoarseNode(s, COARSE_KEY);
     addCoarseNode(s, COARSE_KEY_B);
     triggerLodGate(s, [COARSE_KEY, COARSE_KEY_B], SEED);
-    expect(s.NPC[COARSE_KEY]!.LOD档位).toBe('实体');
-    expect(s.NPC[COARSE_KEY_B]!.LOD档位).toBe('实体');
+    expect(s.LOD表[COARSE_KEY]?.档位).toBe('实体');
+    expect(s.LOD表[COARSE_KEY_B]?.档位).toBe('实体');
   });
 });
 
@@ -229,7 +231,7 @@ describe('F4 · LOD 档位迁移', () => {
   it('F4-2 materialize 后 isCoarseNode = false', () => {
     const s = baseState();
     addCoarseNode(s, COARSE_KEY);
-    materializeCoarseNode(s, COARSE_KEY, SEED);
+    triggerLodGate(s, [COARSE_KEY], SEED); // 写属性 + 写 LOD表
     expect(isCoarseNode(s, COARSE_KEY)).toBe(false);
   });
 
@@ -239,23 +241,23 @@ describe('F4 · LOD 档位迁移', () => {
     expect(isCoarseNode(s, PC)).toBe(false);
   });
 
-  it('F4-4 迁移后无法反向（不可降级为粗）', () => {
+  it('F4-4 迁移后无法反向（LOD表 guard 阻止重入·不可降级为粗）', () => {
     const s = baseState();
     addCoarseNode(s, COARSE_KEY);
-    materializeCoarseNode(s, COARSE_KEY, SEED);
-    // 再次调用 materializeCoarseNode → no-op（不会再进 if 分支）
-    materializeCoarseNode(s, COARSE_KEY, 1);
-    expect(s.NPC[COARSE_KEY]!.LOD档位).toBe('实体');
+    triggerLodGate(s, [COARSE_KEY], SEED); // 实体化 + 写 LOD表
+    // 再次调用 → LOD表 guard：档位 !== '粗' → skip
+    triggerLodGate(s, [COARSE_KEY], 1);
+    expect(s.LOD表[COARSE_KEY]?.档位).toBe('实体');
   });
 });
 
 // ── F5 · 默认 fixture 零漂移（无新闻·无接触·无粗节点）───────────────────────
 
 describe('F5 · 默认 fixture 零漂移', () => {
-  it('F5-1 基准 fixture 无粗节点', () => {
+  it('F5-1 基准 fixture 无粗节点（LOD表 无 档位=粗 条目）', () => {
     const s = baseState();
-    for (const [k, npc] of Object.entries(s.NPC)) {
-      expect(npc.LOD档位).toBeUndefined();
+    for (const k of Object.keys(s.NPC)) {
+      expect(s.LOD表[k]?.档位).not.toBe('粗');
     }
   });
 
@@ -297,7 +299,8 @@ describe('F6 · 300 拍 soak', () => {
     const COARSE_SOAK = 'coarse_soak';
     let s = buildWorld();
     // 预置粗节点
-    s.NPC[COARSE_SOAK] = NpcSchema.parse({ LOD档位: '粗', 姓名: '背景人物', 位置: '' });
+    s.NPC[COARSE_SOAK] = NpcSchema.parse({ 姓名: '背景人物', 位置: '' });
+    (s.LOD表 as Record<string, unknown>)[COARSE_SOAK] = { 模块键: COARSE_SOAK, 档位: '粗' };
 
     const news: NewsEntry = {
       主体: COARSE_SOAK,
@@ -342,7 +345,7 @@ describe('F6 · 300 拍 soak', () => {
     );
 
     // 粗节点已被实体化（第 50 拍）
-    expect(s.NPC[COARSE_SOAK]!.LOD档位).toBe('实体');
+    expect(s.LOD表[COARSE_SOAK]?.档位).toBe('实体');
 
     // 认知档案有新闻写入
     expect(s.认知档案[NPC_WANG]?.[COARSE_SOAK]).toBeDefined();
@@ -357,7 +360,8 @@ describe('F6 · 300 拍 soak', () => {
 
     function runSoak(): ReturnType<typeof RootSchema.parse> {
       let s = buildWorld();
-      s.NPC[COARSE_SOAK2] = NpcSchema.parse({ LOD档位: '粗', 姓名: 'BG', 位置: '' });
+      s.NPC[COARSE_SOAK2] = NpcSchema.parse({ 姓名: 'BG', 位置: '' });
+      (s.LOD表 as Record<string, unknown>)[COARSE_SOAK2] = { 模块键: COARSE_SOAK2, 档位: '粗' };
       const news: NewsEntry = { 主体: COARSE_SOAK2, 标签: '谣言', 极性: '负', 强度: 40, 维度: '关系', Δ方向: -1, 量级: 55, 来源: 'soak2' };
       for (let tick = 0; tick < RUNS; tick++) {
         s = structuredClone(s);
@@ -371,7 +375,7 @@ describe('F6 · 300 拍 soak', () => {
 
     const s1 = runSoak();
     const s2 = runSoak();
-    expect(s1.NPC[COARSE_SOAK2]!.LOD档位).toBe(s2.NPC[COARSE_SOAK2]!.LOD档位);
+    expect(s1.LOD表[COARSE_SOAK2]?.档位).toBe(s2.LOD表[COARSE_SOAK2]?.档位);
     expect(s1.NPC[COARSE_SOAK2]!.属性.体质).toBe(s2.NPC[COARSE_SOAK2]!.属性.体质);
     expect(JSON.stringify(s1.认知档案[NPC_WANG]?.[COARSE_SOAK2])).toBe(
       JSON.stringify(s2.认知档案[NPC_WANG]?.[COARSE_SOAK2]),

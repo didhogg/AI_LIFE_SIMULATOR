@@ -38,7 +38,7 @@ const NPC_COARSE_2 = 'npc_coarse_2';
 
 /** 双区域连通 LOD 测试世界（两个区域·各一子地点·各有粗节点 NPC） */
 function buildLodWorld() {
-  return RootSchema.parse({
+  const s = RootSchema.parse({
     地图: {
       地点: {
         [REGION_NORTH]: {
@@ -77,8 +77,8 @@ function buildLodWorld() {
     },
     NPC: {
       [PC_TEST]: { 姓名: '测试主角', 位置: LOC_N1, 属性: { 体质: 5, 魅力: 6 } },
-      [NPC_COARSE_1]: NpcSchema.parse({ 姓名: '路人甲', 位置: REGION_NORTH, LOD档位: '粗' }),
-      [NPC_COARSE_2]: NpcSchema.parse({ 姓名: '路人乙', 位置: REGION_SOUTH, LOD档位: '粗' }),
+      [NPC_COARSE_1]: NpcSchema.parse({ 姓名: '路人甲', 位置: REGION_NORTH }),
+      [NPC_COARSE_2]: NpcSchema.parse({ 姓名: '路人乙', 位置: REGION_SOUTH }),
     },
     货币系统: {
       基准币种: '文',
@@ -88,6 +88,10 @@ function buildLodWorld() {
       },
     },
   });
+  // LOD-B4b: NPC 粗态记录在 LOD表（不在 NpcSchema·非地点键·调度器跳过）
+  (s.LOD表 as Record<string, unknown>)[NPC_COARSE_1] = { 模块键: NPC_COARSE_1, 档位: '粗' };
+  (s.LOD表 as Record<string, unknown>)[NPC_COARSE_2] = { 模块键: NPC_COARSE_2, 档位: '粗' };
+  return s;
 }
 
 /** 双世界域穿越测试世界 */
@@ -172,12 +176,12 @@ describe('G1: 单态不变式', () => {
 
   it('G1-7 promoteNode 物化区域内粗节点 NPC', () => {
     const s = buildLodWorld();
-    expect(s.NPC[NPC_COARSE_1]?.LOD档位).toBe('粗');
+    expect(s.LOD表[NPC_COARSE_1]?.档位).toBe('粗');
     // NPC_COARSE_1 位置 = REGION_NORTH → 物化
     promoteNode(s, REGION_NORTH, SEED);
-    expect(s.NPC[NPC_COARSE_1]?.LOD档位).toBe('实体');
+    expect(s.LOD表[NPC_COARSE_1]?.档位).toBe('实体');
     // NPC_COARSE_2 位置 = REGION_SOUTH → 不物化
-    expect(s.NPC[NPC_COARSE_2]?.LOD档位).toBe('粗');
+    expect(s.LOD表[NPC_COARSE_2]?.档位).toBe('粗');
   });
 
   it('G1-8 两次 promote 后两次 demote：最终为粗（单态序列）', () => {
@@ -212,15 +216,15 @@ describe('G2: checkpoint 原子·回访不双计', () => {
 
   it('G2-2 同一节点连续 promote N 次：状态恒一·NPC 只实体化一次', () => {
     const s = buildLodWorld();
-    expect(s.NPC[NPC_COARSE_1]?.LOD档位).toBe('粗');
+    expect(s.LOD表[NPC_COARSE_1]?.档位).toBe('粗');
 
     promoteNode(s, REGION_NORTH, SEED);
-    expect(s.NPC[NPC_COARSE_1]?.LOD档位).toBe('实体');
+    expect(s.LOD表[NPC_COARSE_1]?.档位).toBe('实体');
     const attrAfter1 = s.NPC[NPC_COARSE_1]?.属性.体质;
 
-    // 再 promote：NPC 已实体化 → no-op·属性不变
+    // 再 promote：REGION_NORTH 已实体化 → 早返·NPC 属性不变
     promoteNode(s, REGION_NORTH, SEED);
-    expect(s.NPC[NPC_COARSE_1]?.LOD档位).toBe('实体');
+    expect(s.LOD表[NPC_COARSE_1]?.档位).toBe('实体');
     expect(s.NPC[NPC_COARSE_1]?.属性.体质).toBe(attrAfter1);
   });
 

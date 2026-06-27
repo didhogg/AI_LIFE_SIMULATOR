@@ -27,10 +27,10 @@ function mapRange(v: number, lo: number, hi: number): number {
 // ── P2-2: materializeCoarseNode ───────────────────────────────────────────────
 
 /**
- * 粗节点实体化（纯 in-place 变更·调用方须已 structuredClone）。
- * - node.LOD档位 !== '粗' → no-op（幂等·引用不变）
+ * 粗节点属性实体化（纯 in-place 变更·调用方须已 structuredClone）。
+ * - node 不存在 → no-op
  * - 用 rngFor 四元盐派生缺省属性（确定性·禁 Math.random）
- * - 将 LOD档位 置为 '实体'
+ * - LOD-B4b: LOD档位 已迁至 LOD表·本函数不再读写 LOD状态·由调用方写 LOD表[npcKey].档位
  */
 export function materializeCoarseNode(
   s: RootState,
@@ -38,7 +38,7 @@ export function materializeCoarseNode(
   seed: number,
 ): void {
   const node = s.NPC[nodeKey];
-  if (!node || node.LOD档位 !== '粗') return;
+  if (!node) return;
 
   // 派生缺省属性（体质/智慧/感知/魅力/心理 → [20,60] 中段范围）
   node.属性.体质 = mapRange(lodRng(seed, nodeKey, '体质'), 20, 60);
@@ -46,9 +46,6 @@ export function materializeCoarseNode(
   node.属性.感知 = mapRange(lodRng(seed, nodeKey, '感知'), 20, 60);
   node.属性.魅力 = mapRange(lodRng(seed, nodeKey, '魅力'), 20, 60);
   node.属性.心理 = mapRange(lodRng(seed, nodeKey, '心理'), 20, 60);
-
-  // 促升 LOD（消费 T11 留位）
-  node.LOD档位 = '实体';
 }
 
 // ── P2-3: newsToCognition ─────────────────────────────────────────────────────
@@ -110,7 +107,7 @@ export function newsToCognition(
   for (const observerKey of observers) {
     const observer = s.NPC[observerKey];
     // 跳过不存在或仍为粗节点的观察者（粗节点无完整认知层）
-    if (!observer || observer.LOD档位 === '粗') continue;
+    if (!observer || s.LOD表[observerKey]?.档位 === '粗') continue;
     writeImpressionMax(s.认知档案, observerKey, news.主体, entry);
   }
 
@@ -124,9 +121,9 @@ export function newsToCognition(
 
 /**
  * 实体化触发闸（in-place·调用方须已 structuredClone）。
- * - 遍历 contactKeys：若对应 NPC.LOD档位==='粗' → materializeCoarseNode
+ * - 遍历 contactKeys：若 LOD表[key].档位==='粗' → materializeCoarseNode + 写 LOD表
  * - 同拍同节点只实体化一次（Set 去重）
- * - 无接触 / 已实体化 → no-op
+ * - 无接触 / 已实体化 / 无 LOD表 条目 → no-op
  */
 export function triggerLodGate(
   s: RootState,
@@ -137,13 +134,15 @@ export function triggerLodGate(
   for (const key of contactKeys) {
     if (done.has(key)) continue;
     done.add(key);
+    if (s.LOD表[key]?.档位 !== '粗') continue;
     materializeCoarseNode(s, key, seed);
+    s.LOD表[key]!.档位 = '实体';
   }
 }
 
-// ── 辅助：判断 NPC 是否为粗节点 ──────────────────────────────────────────────
+// ── 辅助：判断 NPC 是否为粗节点（LOD-B4b: 读 LOD表·不读 NPC.LOD档位）──────────
 export function isCoarseNode(s: RootState, key: string): boolean {
-  return s.NPC[key]?.LOD档位 === '粗';
+  return s.LOD表[key]?.档位 === '粗';
 }
 
 // ── 辅助：计算新闻量级是否达到公共知识阈值 ────────────────────────────────────

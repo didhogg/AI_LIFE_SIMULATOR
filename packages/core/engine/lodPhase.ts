@@ -103,8 +103,9 @@ export function scheduleLodPhase(
   // ── promote 预算计数器（scheduler-local·每拍重置·不持久） ───────────────
   let promoteCount = 0;
 
-  // ── registry 驱动：遍历 LOD表 成员键 ─────────────────────────────────────
+  // ── registry 驱动：遍历 LOD表 成员键（仅地图地点键·跳过 NPC 键）────────────
   for (const nodeKey of Object.keys(s.LOD表)) {
+    if (!locs[nodeKey]) continue; // LOD-B4b: NPC 键也在 LOD表，但调度器只管地点
     const nodeRegion = locRegion(nodeKey, locs) ?? nodeKey;
 
     // 判断是否有 PC 在本节点或同区域
