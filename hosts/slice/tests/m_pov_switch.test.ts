@@ -355,8 +355,8 @@ describe('T6 指纹 85 / schemaKeys 52 守恒（POV 不进指纹）', () => {
     expect(total).toBe(86);
   });
 
-  it('schemaKeys = 52', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(52);
+  it('schemaKeys = 53', () => {
+    expect(Object.keys(RootSchema.shape).length).toBe(53);
   });
 
   it('多次 POV 切换后 state 仍通过 RootSchema 校验', () => {

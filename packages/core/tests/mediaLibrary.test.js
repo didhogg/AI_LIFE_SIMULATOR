@@ -9,7 +9,7 @@
  * 断言⑥  按 媒体ID resolve 挂载：命中加载 / 缺失跳过 / 原型名句柄 → 不命中
  * 断言⑦  不进 hashJudgmentBundle：改媒体库内容 → 金向量逐位恒等 · BUNDLE=21 不变
  * 断言⑧  content_hash round-trip 闭环（库条目→包信封边界映射）
- * 断言⑨  守恒门：schemaKeys=52 / BUNDLE=21 / manifest=86 / 命名空间枚举 18 项
+ * 断言⑨  守恒门：schemaKeys=53 / BUNDLE=21 / manifest=86 / 命名空间枚举 18 项
  */
 import { describe, it, expect } from 'vitest';
 import { 媒体定义条目Schema, 媒体库Schema, 媒体ID正则, } from '../schema/mediaLibrary.js';
@@ -410,9 +410,9 @@ describe('媒体库 · content_hash（mod 可复现面）', () => {
 // 断言⑨ · 守恒门
 // ═══════════════════════════════════════════════════════════════════
 describe('媒体库 · 守恒门', () => {
-    it('schemaKeys = 52（媒体库不进 RootSchema·不改顶层键数）', () => {
-        expect(Object.keys(RootSchema.shape).length).toBe(52);
-        expect(BLUEPRINT_KEYS.length).toBe(52);
+    it('schemaKeys = 53（媒体库不进 RootSchema·不改顶层键数）', () => {
+        expect(Object.keys(RootSchema.shape).length).toBe(53);
+        expect(BLUEPRINT_KEYS.length).toBe(53);
     });
     it('BUNDLE = 21（媒体库 dormant·不改 FINGERPRINT_BUNDLE_MEMBERS）', () => {
         expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);

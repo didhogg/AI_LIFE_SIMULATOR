@@ -37,7 +37,7 @@ export interface FullArchiveHeader extends MinArchiveHeader {
   软拒规则版: number;
   /** B4 AOHP 语义键版（buildOptionId 格式版本·无活常量→字面量 1） */
   AOHP语义键版: number;
-  /** schema 键数量快照（schemaKeys=52·P0-9 迁移侦察用） */
+  /** schema 键数量快照（schemaKeys=53·P0-9 迁移侦察用） */
   schemaKeys: number;
 }
 
@@ -49,7 +49,7 @@ export function createFullArchiveHeader(seed: number = 42): FullArchiveHeader {
     中文数字解析规则版: CHINESE_NUMBER_RULE_VERSION,  // 活常量·当前=3
     软拒规则版: SOFT_REJECT_RULE_VERSION,              // 活常量·当前=1
     AOHP语义键版: AOHP_SEMANTIC_KEY_VERSION,           // 字面量·无活常量
-    schemaKeys: 52,
+    schemaKeys: 53,
   };
 }
 
@@ -62,6 +62,6 @@ export function migrateToFullArchiveHeader(h: MinArchiveHeader | FullArchiveHead
     中文数字解析规则版: CHINESE_NUMBER_RULE_VERSION,
     软拒规则版: SOFT_REJECT_RULE_VERSION,
     AOHP语义键版: AOHP_SEMANTIC_KEY_VERSION,
-    schemaKeys: 52,
+    schemaKeys: 53,
   };
 }

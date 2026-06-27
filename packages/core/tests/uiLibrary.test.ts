@@ -7,7 +7,7 @@
  * 断言④  安全硬化覆盖：原型名作 UI_ID/句柄 → 解引用返 null（own-property guard）
  * 断言⑤  不进指纹：BUNDLE=21 不变；改 UI条目 配置 → 金向量逐位恒等
  * 断言⑥  进 content_hash：UI库 内容变 → computeEffectPackHash 值变（mod 可复现面）
- * 断言⑦  守恒门：schemaKeys=52 / BUNDLE=21 / manifest=86 不变；命名空间枚举 15 项
+ * 断言⑦  守恒门：schemaKeys=53 / BUNDLE=21 / manifest=86 不变；命名空间枚举 15 项
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -480,9 +480,9 @@ describe('UI库 · content_hash（mod 可复现面）', () => {
 // 断言⑦ · 守恒门
 // ═══════════════════════════════════════════════════════════════════
 describe('UI库 · 守恒门', () => {
-  it('schemaKeys = 52（UI库不进 RootSchema·不改顶层键数）', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(52);
-    expect(BLUEPRINT_KEYS.length).toBe(52);
+  it('schemaKeys = 53（UI库不进 RootSchema·不改顶层键数）', () => {
+    expect(Object.keys(RootSchema.shape).length).toBe(53);
+    expect(BLUEPRINT_KEYS.length).toBe(53);
   });
 
   it('BUNDLE = 21（UI库 dormant·不改 FINGERPRINT_BUNDLE_MEMBERS）', () => {

@@ -5,7 +5,7 @@
  * 断言③  按 ID resolve 挂载：resolve() rules 字段 → 规则成品正确
  * 断言④  双轨等价：规则库路径 == 旧轨叠加()（逐表 + 整包·成品逐位恒等）
  * 断言⑤  引用顺序后列覆盖：两规则顺序不同 → 规则成品不同
- * 断言⑥  守恒门：schemaKeys=52 / BUNDLE=21 / manifest=86 不变
+ * 断言⑥  守恒门：schemaKeys=53 / BUNDLE=21 / manifest=86 不变
  * 断言⑦  指纹 0 漂移：黄金向量不变（additive-only 不改判定基线）
  * 断言⑧  审计债：规则元数据字段结构正确·无重复
  */
@@ -492,9 +492,9 @@ describe('底座-2b · 引用顺序语义', () => {
 // 断言⑥ · 守恒门
 // ═══════════════════════════════════════════════════════════════════
 describe('底座-2b · 守恒门', () => {
-  it('schemaKeys = 52（规则库不进 RootSchema·不改顶层键数）', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(52);
-    expect(BLUEPRINT_KEYS.length).toBe(52);
+  it('schemaKeys = 53（规则库不进 RootSchema·不改顶层键数）', () => {
+    expect(Object.keys(RootSchema.shape).length).toBe(53);
+    expect(BLUEPRINT_KEYS.length).toBe(53);
   });
 
   it('BUNDLE = 21（规则库 dormant·不改 FINGERPRINT_BUNDLE_MEMBERS）', () => {

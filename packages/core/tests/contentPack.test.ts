@@ -19,8 +19,8 @@ import { RootSchema, BLUEPRINT_KEYS } from '../schema/index.js';
 // 断言① · 模块菜单派生（引擎单一源·无手写清单）
 // ═══════════════════════════════════════════════════════════════
 describe('A1 · 模块菜单键集 · 派生守恒', () => {
-  it('菜单键数 = RootSchema.shape 键数（52）', () => {
-    expect(模块菜单键集.length).toBe(52);
+  it('菜单键数 = RootSchema.shape 键数（53）', () => {
+    expect(模块菜单键集.length).toBe(53);
   });
 
   it('菜单键集 ≡ RootSchema.shape 全键（无多无少）', () => {

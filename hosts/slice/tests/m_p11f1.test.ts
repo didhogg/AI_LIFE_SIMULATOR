@@ -3,7 +3,7 @@
 // 铁律:
 //   ① prompt 不进指纹（R7-b·canonicalize 不变）
 //   ② reconcileGate 函数体零改（只改注入层·不改判定层）
-//   ③ schemaKeys=52·指纹 84 守恒
+//   ③ schemaKeys=53·指纹 84 守恒
 
 import { describe, it, expect } from 'vitest';
 import { RootSchema } from '@ai-life-sim/core';
@@ -238,8 +238,8 @@ describe('F1 約束注入 指纹隔離 (R7-b)', () => {
     expect(total).toBe(86);
   });
 
-  it('schemaKeys=52 不変', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(52);
+  it('schemaKeys=53 不変', () => {
+    expect(Object.keys(RootSchema.shape).length).toBe(53);
   });
 
   it('callRegistry 変更後も CALL_TYPE_REGISTRY は既存 5 keys を保持', () => {

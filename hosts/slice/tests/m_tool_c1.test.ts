@@ -7,7 +7,7 @@
 //   C1-4: R10-b 命名空间覆盖域校验——覆盖逃出声明域 → 拒; 同域覆盖 → ok
 //   C1-5: tool_name 不存在 → false; own-property guard → null（原型名不命中）
 //   C1-6: 类型分派骨架——code/llm/roll_dice/json_schema/trigger 各自 ok=true（骨架占位）
-//   C1-7: 守恒门 schemaKeys=52 / BUNDLE=21 / manifest=86（无变动）
+//   C1-7: 守恒门 schemaKeys=53 / BUNDLE=21 / manifest=86（无变动）
 
 import { describe, it, expect } from 'vitest';
 import {
@@ -273,9 +273,9 @@ describe('C1-6 · 类型分派骨架 ok=true', () => {
 // ── C1-7: 守恒门 ────────────────────────────────────────────────────────────
 
 describe('C1-7 · 守恒门', () => {
-  it('schemaKeys=52 守恒', () => {
+  it('schemaKeys=53 守恒', () => {
     const keys = Object.keys(RootSchema.shape);
-    expect(keys.length).toBe(52);
+    expect(keys.length).toBe(53);
   });
 
   it('BUNDLE=21 守恒（工具库不进 hashJudgmentBundle）', () => {

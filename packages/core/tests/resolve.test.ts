@@ -378,9 +378,9 @@ describe('A2 · 成品过 hashPresetFingerprint', () => {
 // 断言⑤ · 守恒门（additive-only 不动指纹基数）
 // ─────────────────────────────────────────────────────────────────────────────────
 describe('A2 · 守恒门', () => {
-  it('schemaKeys = 52（RootSchema 无新增顶层键）', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(52);
-    expect(BLUEPRINT_KEYS.length).toBe(52);
+  it('schemaKeys = 53（RootSchema 无新增顶层键）', () => {
+    expect(Object.keys(RootSchema.shape).length).toBe(53);
+    expect(BLUEPRINT_KEYS.length).toBe(53);
   });
 
   it('BUNDLE = 21（FINGERPRINT_BUNDLE_MEMBERS 不变）', () => {

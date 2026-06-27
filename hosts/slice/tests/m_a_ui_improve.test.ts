@@ -262,7 +262,7 @@ describe('恒等门 — 指纹85 / schemaKeys52 守恒', () => {
   it('RootSchema 顶层 keyCount 仍为 52', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const shape = (RootSchema as any)._def.shape();
-    expect(Object.keys(shape).length).toBe(52);
+    expect(Object.keys(shape).length).toBe(53);
   });
 
   it('buildWorld() state 通过 RootSchema 校验', () => {

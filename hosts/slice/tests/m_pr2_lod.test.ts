@@ -276,9 +276,9 @@ describe('F5 · 默认 fixture 零漂移', () => {
     expect(JSON.stringify(s.认知档案)).toBe(before);
   });
 
-  it('F5-4 schemaKeys=52 守恒', async () => {
+  it('F5-4 schemaKeys=53 守恒', async () => {
     const { BLUEPRINT_KEYS } = await import('@ai-life-sim/core');
-    expect(BLUEPRINT_KEYS.length).toBe(52);
+    expect(BLUEPRINT_KEYS.length).toBe(53);
   });
 
   it('F5-5 LOD档位 additive 不进指纹（指纹取材集不含 LOD档位）', async () => {

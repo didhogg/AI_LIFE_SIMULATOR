@@ -7,7 +7,7 @@
  * 断言④  定义字段开放串验收（类别/稀有度/默认重要级别·去枚举）
  * 断言⑤  不进 hashJudgmentBundle：改物品库内容 → golden 逐位恒等 · BUNDLE=21 不变
  * 断言⑥  content_hash round-trip 闭环（库条目→包信封边界映射）
- * 断言⑦  守恒门：schemaKeys=52 / BUNDLE=21 / manifest=86 / 命名空间枚举 17 项
+ * 断言⑦  守恒门：schemaKeys=53 / BUNDLE=21 / manifest=86 / 命名空间枚举 17 项
  */
 import { describe, it, expect } from 'vitest';
 import { 物品定义条目Schema, 物品库Schema, 物品ID正则, } from '../schema/itemLibrary.js';
@@ -364,9 +364,9 @@ describe('物品库 · content_hash（mod 可复现面）', () => {
 // 断言⑦ · 守恒门
 // ═══════════════════════════════════════════════════════════════════
 describe('物品库 · 守恒门', () => {
-    it('schemaKeys = 52（物品库不进 RootSchema·不改顶层键数）', () => {
-        expect(Object.keys(RootSchema.shape).length).toBe(52);
-        expect(BLUEPRINT_KEYS.length).toBe(52);
+    it('schemaKeys = 53（物品库不进 RootSchema·不改顶层键数）', () => {
+        expect(Object.keys(RootSchema.shape).length).toBe(53);
+        expect(BLUEPRINT_KEYS.length).toBe(53);
     });
     it('BUNDLE = 21（物品库 dormant·不改 FINGERPRINT_BUNDLE_MEMBERS）', () => {
         expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);

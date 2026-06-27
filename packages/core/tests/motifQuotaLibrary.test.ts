@@ -186,8 +186,8 @@ describe('母题配额库 · 剥离③', () => {
   });
 
   // 断言⑧ 守恒门
-  it('⑧ 守恒门：schemaKeys=52 / BUNDLE=21 / 命名空间枚举=32项（含母题配额）', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(52);
+  it('⑧ 守恒门：schemaKeys=53 / BUNDLE=21 / 命名空间枚举=32项（含母题配额）', () => {
+    expect(Object.keys(RootSchema.shape).length).toBe(53);
     expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
     expect(FINGERPRINT_BUNDLE_MEMBERS).toContain('母题配额');
     expect(命名空间枚举.length).toBe(32);

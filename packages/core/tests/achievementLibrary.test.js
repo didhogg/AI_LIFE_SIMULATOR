@@ -7,7 +7,7 @@
  * 断言④  解锁条件谓词串 parse（谓词串Schema·DSL gate·dormant）
  * 断言⑤  不进 hashJudgmentBundle：改成就库内容 → golden 逐位恒等 · BUNDLE=21 不变
  * 断言⑥  content_hash round-trip 闭环（库条目→包信封边界映射）
- * 断言⑦  守恒门：schemaKeys=52 / BUNDLE=21 / manifest=86 / 命名空间枚举 16 项
+ * 断言⑦  守恒门：schemaKeys=53 / BUNDLE=21 / manifest=86 / 命名空间枚举 16 项
  */
 import { describe, it, expect } from 'vitest';
 import { 成就条目Schema, 成就库Schema, 成就ID正则, } from '../schema/achievementLibrary.js';
@@ -347,9 +347,9 @@ describe('成就库 · content_hash（mod 可复现面）', () => {
 // 断言⑦ · 守恒门
 // ═══════════════════════════════════════════════════════════════════
 describe('成就库 · 守恒门', () => {
-    it('schemaKeys = 52（成就库不进 RootSchema·不改顶层键数）', () => {
-        expect(Object.keys(RootSchema.shape).length).toBe(52);
-        expect(BLUEPRINT_KEYS.length).toBe(52);
+    it('schemaKeys = 53（成就库不进 RootSchema·不改顶层键数）', () => {
+        expect(Object.keys(RootSchema.shape).length).toBe(53);
+        expect(BLUEPRINT_KEYS.length).toBe(53);
     });
     it('BUNDLE = 21（成就库 dormant·不改 FINGERPRINT_BUNDLE_MEMBERS）', () => {
         expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);

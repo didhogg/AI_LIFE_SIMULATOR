@@ -611,7 +611,7 @@ describe('T10 SnapshotStore — 快照保存/比对/diff', () => {
 // ──────────────────────────────────────────────────────────────────────────────
 // T11. 指纹84 / schemaKeys52 守恒
 // ──────────────────────────────────────────────────────────────────────────────
-describe('T11 指纹守恒 — 84条/schemaKeys=52（锦上添花批不新增）', () => {
+describe('T11 指纹守恒 — 84条/schemaKeys=53（锦上添花批不新增）', () => {
   it('指纹 manifest 总条目 = 85', () => {
     const total =
       FINGERPRINT_BUNDLE_MEMBERS.length +
@@ -621,7 +621,7 @@ describe('T11 指纹守恒 — 84条/schemaKeys=52（锦上添花批不新增）
     expect(total).toBe(86);
   });
 
-  it('schemaKeys = 52（G1b3b 不新增 schema 顶层键）', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(52);
+  it('schemaKeys = 53（G1b3b 不新增 schema 顶层键）', () => {
+    expect(Object.keys(RootSchema.shape).length).toBe(53);
   });
 });

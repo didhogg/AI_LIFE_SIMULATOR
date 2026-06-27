@@ -7,7 +7,7 @@
 //   C3-4: G0 重定基报告——P0-6a 三条 lore 金向量不动（与 roll_dice 路径无关）
 //   C3-5: 确定性上限 MAX_EXPLOSION_DEPTH=20 可被验证
 //   C3-6: 无 rollDiceArgs → 骨架占位 ok=true，无 rollDice 字段
-//   C3-7: 守恒门 schemaKeys=52 / BUNDLE=21 / manifest=86
+//   C3-7: 守恒门 schemaKeys=53 / BUNDLE=21 / manifest=86
 //
 // G0 重定基清单（commit-3 必带）：
 //   结论：P0-6a lore 金向量（5c1d0233/63b3e729/db10d5c7）不动。
@@ -239,8 +239,8 @@ describe('C3-6 · 无 rollDiceArgs 骨架占位', () => {
 // ── C3-7: 守恒门 ────────────────────────────────────────────────────────────
 
 describe('C3-7 · 守恒门', () => {
-  it('schemaKeys=52', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(52);
+  it('schemaKeys=53', () => {
+    expect(Object.keys(RootSchema.shape).length).toBe(53);
   });
 
   it('BUNDLE=21', () => {

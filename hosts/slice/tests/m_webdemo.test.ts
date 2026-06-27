@@ -65,9 +65,9 @@ describe('D0 地基 — buildWorld TS2345 清零', () => {
     expect(state.NPC?.[NPC_HONG]).toBeDefined();
   });
 
-  it('schemaKeys=52 守恒（demo 不新增 schema 字段）', () => {
+  it('schemaKeys=53 守恒（demo 不新增 schema 字段）', () => {
     const schemaKeys = Object.keys(RootSchema.shape);
-    expect(schemaKeys.length).toBe(52);
+    expect(schemaKeys.length).toBe(53);
   });
 });
 
@@ -502,8 +502,8 @@ describe('D3 NSFW 物理隔离', () => {
     expect(total).toBe(86);
   });
 
-  it('schemaKeys=52 不变（demo 不新增 schema 字段·指纹守恒）', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(52);
+  it('schemaKeys=53 不变（demo 不新增 schema 字段·指纹守恒）', () => {
+    expect(Object.keys(RootSchema.shape).length).toBe(53);
   });
 });
 
@@ -539,9 +539,9 @@ describe('D4 存档读写 — FullArchiveHeader', () => {
     expect(h.AOHP语义键版).toBe(1);
   });
 
-  it('FullArchiveHeader 含 schemaKeys=52', () => {
+  it('FullArchiveHeader 含 schemaKeys=53', () => {
     const h = createFullArchiveHeader(SAVE_SEED);
-    expect(h.schemaKeys).toBe(52);
+    expect(h.schemaKeys).toBe(53);
   });
 
   it('JSON 往返恒等（序列化/反序列化保留所有字段）', () => {

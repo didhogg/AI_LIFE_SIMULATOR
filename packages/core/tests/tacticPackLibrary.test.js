@@ -91,8 +91,8 @@ describe('战术包库 · 剥离③', () => {
         expect(result.内容哈希).toBe('abc123');
     });
     // 断言⑦ 守恒门
-    it('⑦ 守恒门：schemaKeys=52 / BUNDLE=21 / manifest=86 / 命名空间枚举=32项（含战术包）', () => {
-        expect(Object.keys(RootSchema.shape).length).toBe(52);
+    it('⑦ 守恒门：schemaKeys=53 / BUNDLE=21 / manifest=86 / 命名空间枚举=32项（含战术包）', () => {
+        expect(Object.keys(RootSchema.shape).length).toBe(53);
         expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
         expect(命名空间枚举.length).toBe(32);
         expect(命名空间枚举).toContain('战术包');

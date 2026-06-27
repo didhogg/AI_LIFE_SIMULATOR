@@ -7,7 +7,7 @@
 //   C4-4: 无 mediaTarget/mediaLib → 不做媒介解引用（向后兼容）
 //   C4-5: 媒介与各工具类型组合——code/llm/roll_dice/output_tag 均可携带 mediaEntry
 //   C4-6: G0 重定基验证——BUNDLE=21 / manifest=86 不变（媒介路由无新指纹成员）
-//   C4-7: 守恒门 schemaKeys=52 / BUNDLE=21 / manifest=86
+//   C4-7: 守恒门 schemaKeys=53 / BUNDLE=21 / manifest=86
 
 import { describe, it, expect } from 'vitest';
 import { dispatchTool } from '@ai-life-sim/core/engine/toolExecutor';
@@ -253,8 +253,8 @@ describe('C4-6 · G0 重定基验证', () => {
 // ── C4-7: 守恒门 ────────────────────────────────────────────────────────────
 
 describe('C4-7 · 守恒门', () => {
-  it('schemaKeys=52', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(52);
+  it('schemaKeys=53', () => {
+    expect(Object.keys(RootSchema.shape).length).toBe(53);
   });
 
   it('BUNDLE=21', () => {

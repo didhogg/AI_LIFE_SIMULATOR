@@ -251,10 +251,10 @@ describe('T7 指纹 84 / schemaKeys 52 守恒', () => {
     expect(total).toBe(86);
   });
 
-  it('schemaKeys = 52', () => {
+  it('schemaKeys = 53', () => {
     const schema = RootSchema;
     const keys = Object.keys(schema.shape);
-    expect(keys.length).toBe(52);
+    expect(keys.length).toBe(53);
   });
 
   it('step 后 state 通过 RootSchema 验证', () => {

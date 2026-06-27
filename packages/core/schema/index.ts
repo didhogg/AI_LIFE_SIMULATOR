@@ -1,4 +1,4 @@
-// V4.1 RootSchema — 52 top-level keys (rev: +$天命重掷券, P0-5: +$存档种子, P0-1: 镜头焦点角色→席位表, P0-1 4.8: +调用类型注册表 +Ring2在途调用信封, P0-1 4.9: +存档头, B-1: +_lore知识库, P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置, B2·S1: +_mod墓碑库, B5·S1+S1b: +受治理键空间注册表 +键空间归并表)
+// V4.1 RootSchema — 53 top-level keys (rev: +$天命重掷券, P0-5: +$存档种子, P0-1: 镜头焦点角色→席位表, P0-1 4.8: +调用类型注册表 +Ring2在途调用信封, P0-1 4.9: +存档头, B-1: +_lore知识库, P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置, B2·S1: +_mod墓碑库, B5·S1+S1b: +受治理键空间注册表 +键空间归并表, LOD-B1: +LOD表)
 import { z } from 'zod';
 
 // ── Layer exports (re-export all sub-schemas) ──
@@ -17,6 +17,7 @@ export * from './proposal.js';
 export * from './lore.js';
 export * from './verb.js';
 export * from './governedKeySpace.js';
+export * from './lodTable.js';
 
 import {
   SystemSchema,
@@ -49,6 +50,7 @@ import {
 } from './memory.js';
 import { lore知识库Schema } from './lore.js';
 import { 受治理键空间注册表Schema, 归并表Schema } from './governedKeySpace.js';
+import { LOD表Schema } from './lodTable.js';
 import {
   $运气Schema,
   $寿命预期Schema,
@@ -73,7 +75,7 @@ import {
   $metaSchema,
 } from './dollar.js';
 
-// ── Authoritative 52-key list from blueprint 4.0 (rev: +$天命重掷券, P0-5: +$存档种子, B-1: +_lore知识库, P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置, B5·S1+S1b: +受治理键空间注册表 +键空间归并表) ──
+// ── Authoritative 53-key list from blueprint 4.0 (rev: +$天命重掷券, P0-5: +$存档种子, B-1: +_lore知识库, P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置, B5·S1+S1b: +受治理键空间注册表 +键空间归并表, LOD-B1: +LOD表) ──
 export const BLUEPRINT_KEYS = [
   '_系统版本',
   '_tick',
@@ -127,6 +129,8 @@ export const BLUEPRINT_KEYS = [
   '$meta',
   '_lore知识库',
   '$临时会话',
+  // LOD-B1: LOD调度表（顶层运行态·additive·dormant·不进指纹·B2 接调度器）
+  'LOD表',
 ] as const;
 
 // ── RootSchema ──
@@ -204,6 +208,8 @@ export const RootSchema = z.object({
   _lore知识库: lore知识库Schema.optional(),
   // 对撞⑥ 易失态（快照外·崩溃即弃·不进重放·不进 U1 迁移面）
   $临时会话: 临时会话Schema,
+  // LOD-B1: LOD调度表（additive·dormant·不进指纹（隐性排外）·B2 接调度器）
+  LOD表: LOD表Schema,
 });
 
 export type RootState = z.infer<typeof RootSchema>;

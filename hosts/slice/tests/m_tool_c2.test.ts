@@ -6,7 +6,7 @@
 //   C2-3: 无预算声明工具——需预算?=undefined + budgetTokensRemaining=0 → ok=true（不降级）
 //   C2-4: 世代号传递——generation 传入即回传·Ring2GenerationTracker 单调递增
 //   C2-5: 双跑逐位恒等——同 args 两次 dispatchTool 结果逐字段相等
-//   C2-6: 守恒门 schemaKeys=52 / BUNDLE=21 / manifest=86（无变动）
+//   C2-6: 守恒门 schemaKeys=53 / BUNDLE=21 / manifest=86（无变动）
 
 import { describe, it, expect } from 'vitest';
 import { dispatchTool } from '@ai-life-sim/core/engine/toolExecutor';
@@ -238,8 +238,8 @@ describe('C2-5 · 双跑逐位恒等', () => {
 // ── C2-6: 守恒门 ────────────────────────────────────────────────────────────
 
 describe('C2-6 · 守恒门', () => {
-  it('schemaKeys=52', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(52);
+  it('schemaKeys=53', () => {
+    expect(Object.keys(RootSchema.shape).length).toBe(53);
   });
 
   it('BUNDLE=21（llm 工具不进 hashJudgmentBundle）', () => {

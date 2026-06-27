@@ -595,8 +595,8 @@ describe('G7 soak·确定性·守恒', () => {
     expect(proj.baseline[TGT_B]).toBeDefined();
   });
 
-  it('G7-5 schemaKeys=52 守恒（新增文件不动顶层 schema 键）', () => {
-    expect(Object.keys(schemaShape)).toHaveLength(52);
+  it('G7-5 schemaKeys=53 守恒（新增文件不动顶层 schema 键）', () => {
+    expect(Object.keys(schemaShape)).toHaveLength(53);
   });
 
   it('G7-6 FINGERPRINT_BUNDLE_MEMBERS=21 守恒（PR-5 无新 bundle member）', () => {

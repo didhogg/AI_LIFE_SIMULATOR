@@ -3043,7 +3043,7 @@ describe('blueprint ↔ schema consistency', () => {
 
     expect(inSchemaNotBlueprint).toEqual([]);
     expect(inBlueprintNotSchema).toEqual([]);
-    expect(schemaKeys.size).toBe(52); // P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置; 对撞⑥: +$临时会话; B2·S1: +_mod墓碑库; B5·S1+S1b: +受治理键空间注册表 +键空间归并表
+    expect(schemaKeys.size).toBe(53); // P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置; 对撞⑥: +$临时会话; B2·S1: +_mod墓碑库; B5·S1+S1b: +受治理键空间注册表 +键空间归并表
   });
 
   it('BLUEPRINT_KEYS has no duplicates', () => {
