@@ -31,6 +31,8 @@ import { runEffectGates } from './effectGate.js';
 import { computeDelta, setAtPath, ComputeDeltaError } from './proposal/computeDelta.js';
 import { M3_HARD_EXCLUDED_PREFIXES } from '../interfaces/patchInvariant.js';
 import type { 成就条目Type } from '../schema/achievementLibrary.js';
+import type { 物品定义条目Type } from '../schema/itemLibrary.js';
+import { seedExtensionParams } from './extensionParams.js';
 
 // ── 环形缓冲上限 ──────────────────────────────────────────────────────────────
 const TICK_LOG_MAX = 8;
@@ -137,7 +139,8 @@ export const SETTLEMENT_PHASES = [
   '感知情绪化', // C2-5: 认知档案本拍新 factFragment → NPC.情绪栈 appraisal
   '编年史入册', // C2-5: 公共 factFragment（≥1 一手观测·量级≥阈值）→ 全局._编年史
   '媒介拍末取材', // E4·6.55: 涟漪先落账后·媒介通道（书信/信使等）在拍末采样·然后进原子提交
-  '成就解锁',  // P8-a: post-settlement 全 actor 成就条件扫描 + 解锁记录（后果 defer P8-b）
+  '成就解锁',   // P8-a: post-settlement 全 actor 成就条件扫描 + 解锁记录（后果 defer P8-b）
+  '扩展参数播种', // P9-2: 按物品定义 变量模板 seed 物品实例 扩展参数缺省键（幂等·串/布尔照常 seed）
   '原子提交',
 ] as const;
 
@@ -183,6 +186,10 @@ export interface TickInput {
   /** 成就条目集合（by-成就ID·来自 resolve().成就成品）。
    *  undefined / {} → 成就解锁 phase 精确 no-op（零 state 写·零金向量影响）。 */
   achievements?: Readonly<Record<string, 成就条目Type>> | undefined;
+  // ── P9-2: 物品库（host 从 resolve() 物品成品传入·瞬态·不进 RootSchema）──────────
+  /** 物品定义条目集合（by-物品ID·来自 resolve().物品成品）。
+   *  undefined / {} → 扩展参数播种 phase 精确 no-op（零 state 写·零金向量影响）。 */
+  物品库?: Readonly<Record<string, 物品定义条目Type>> | undefined;
 }
 
 export interface TickResult {
@@ -538,6 +545,34 @@ export function runTick(state: RootState, input: TickInput): TickResult {
           描述: entry.描述 ?? '',
         };
         // 解锁后果引用：P8-b 实装，本轮不读
+      }
+    }
+  });
+
+  // Phase P9-2 · 扩展参数播种 — 按物品定义 变量模板 seed 物品实例 扩展参数缺省键
+  // 真源 = TickInput.物品库 = resolve().物品成品。
+  // 纪律：码点序·禁 localeCompare·幂等（已有键不覆盖）·串/布尔型照常 seed（P9-3 决定是否进 ctx）。
+  runPhase('扩展参数播种', () => {
+    const itemLib = input.物品库;
+    if (!itemLib || Object.keys(itemLib).length === 0) return; // 空库精确 no-op
+
+    for (const npcKey of Object.keys(s.NPC).sort()) { // 码点序·非 localeCompare
+      if (!Object.prototype.hasOwnProperty.call(s.NPC, npcKey)) continue;
+      const npc = s.NPC[npcKey];
+      if (!npc) continue;
+
+      for (const itemKey of Object.keys(npc.物品).sort()) { // 码点序·非 localeCompare
+        if (!Object.prototype.hasOwnProperty.call(npc.物品, itemKey)) continue;
+        const itemInstance = npc.物品[itemKey];
+        if (!itemInstance) continue;
+        if (!Object.prototype.hasOwnProperty.call(itemLib, itemKey)) continue;
+        const itemDef = itemLib[itemKey];
+        if (!itemDef?.变量模板) continue;
+        // 原地 seed 缺省键（已有键不覆盖·幂等·无 RNG）
+        seedExtensionParams(
+          itemInstance.扩展参数 as Record<string, number | string | boolean>,
+          itemDef.变量模板,
+        );
       }
     }
   });

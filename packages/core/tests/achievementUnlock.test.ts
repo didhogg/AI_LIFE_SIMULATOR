@@ -43,11 +43,11 @@ const BASE: RootState = RootSchema.parse({
   全局: {},
 });
 
-// ── P8-a-0 · SETTLEMENT_PHASES=16 守卫 ──────────────────────────────────────
+// ── P8-a-0 · SETTLEMENT_PHASES 守卫 ──────────────────────────────────────────
 
-describe('P8-a-0 · SETTLEMENT_PHASES=16 · 新 phase 在位 · 既有序不变', () => {
-  it('SETTLEMENT_PHASES 长度=16', () => {
-    expect(SETTLEMENT_PHASES).toHaveLength(16);
+describe('P8-a-0 · SETTLEMENT_PHASES=17 · 新 phase 在位 · 既有序不变', () => {
+  it('SETTLEMENT_PHASES 长度=17（P9-2 扩展参数播种 新增）', () => {
+    expect(SETTLEMENT_PHASES).toHaveLength(17);
   });
 
   it('成就解锁 在 SETTLEMENT_PHASES 中', () => {

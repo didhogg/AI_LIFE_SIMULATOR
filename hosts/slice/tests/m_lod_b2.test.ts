@@ -460,8 +460,8 @@ describe('B2-9 · tick 集成', () => {
     expect(lodIdx).toBeGreaterThan(flagIdx);
   });
 
-  it('SETTLEMENT_PHASES 总数 = 16（含 P8-a 成就解锁）', () => {
-    expect(SETTLEMENT_PHASES).toHaveLength(16);
+  it('SETTLEMENT_PHASES 总数 = 17（含 P8-a 成就解锁 + P9-2 扩展参数播种）', () => {
+    expect(SETTLEMENT_PHASES).toHaveLength(17);
   });
 });
 
