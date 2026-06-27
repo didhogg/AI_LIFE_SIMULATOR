@@ -7,7 +7,7 @@
  * 断言④  定义字段开放串验收（类别/稀有度/默认重要级别·去枚举）
  * 断言⑤  不进 hashJudgmentBundle：改物品库内容 → golden 逐位恒等 · BUNDLE=21 不变
  * 断言⑥  content_hash round-trip 闭环（库条目→包信封边界映射）
- * 断言⑦  守恒门：schemaKeys=53 / BUNDLE=21 / manifest=86 / 命名空间枚举 17 项
+ * 断言⑦  守恒门：schemaKeys=54 / BUNDLE=21 / manifest=87 / 命名空间枚举 17 项
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -417,22 +417,22 @@ describe('物品库 · content_hash（mod 可复现面）', () => {
 // 断言⑦ · 守恒门
 // ═══════════════════════════════════════════════════════════════════
 describe('物品库 · 守恒门', () => {
-  it('schemaKeys = 53（物品库不进 RootSchema·不改顶层键数）', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(53);
-    expect(BLUEPRINT_KEYS.length).toBe(53);
+  it('schemaKeys = 54（物品库不进 RootSchema·不改顶层键数）', () => {
+    expect(Object.keys(RootSchema.shape).length).toBe(54);
+    expect(BLUEPRINT_KEYS.length).toBe(54);
   });
 
   it('BUNDLE = 21（物品库 dormant·不改 FINGERPRINT_BUNDLE_MEMBERS）', () => {
     expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
   });
 
-  it('manifest 四组总长 = 86（不变）', () => {
+  it('manifest 四组总长 = 87（不变）', () => {
     const total =
       FINGERPRINT_BUNDLE_MEMBERS.length +
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(86);
+    expect(total).toBe(87);
   });
 
   it('命名空间枚举 = 32 項（18+剥离①六库+剥离②选项集）', () => {

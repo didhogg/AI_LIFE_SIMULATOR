@@ -20,7 +20,7 @@ import { RootSchema, BLUEPRINT_KEYS } from '../schema/index.js';
 // ═══════════════════════════════════════════════════════════════
 describe('A1 · 模块菜单键集 · 派生守恒', () => {
   it('菜单键数 = RootSchema.shape 键数（53）', () => {
-    expect(模块菜单键集.length).toBe(53);
+    expect(模块菜单键集.length).toBe(54);
   });
 
   it('菜单键集 ≡ RootSchema.shape 全键（无多无少）', () => {

@@ -67,7 +67,7 @@ describe('D0 地基 — buildWorld TS2345 清零', () => {
 
   it('schemaKeys=53 守恒（demo 不新增 schema 字段）', () => {
     const schemaKeys = Object.keys(RootSchema.shape);
-    expect(schemaKeys.length).toBe(53);
+    expect(schemaKeys.length).toBe(54);
   });
 });
 
@@ -499,11 +499,11 @@ describe('D3 NSFW 物理隔离', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(86);
+    expect(total).toBe(87);
   });
 
   it('schemaKeys=53 不变（demo 不新增 schema 字段·指纹守恒）', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(53);
+    expect(Object.keys(RootSchema.shape).length).toBe(54);
   });
 });
 
@@ -541,7 +541,7 @@ describe('D4 存档读写 — FullArchiveHeader', () => {
 
   it('FullArchiveHeader 含 schemaKeys=53', () => {
     const h = createFullArchiveHeader(SAVE_SEED);
-    expect(h.schemaKeys).toBe(53);
+    expect(h.schemaKeys).toBe(54);
   });
 
   it('JSON 往返恒等（序列化/反序列化保留所有字段）', () => {

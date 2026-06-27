@@ -67,7 +67,7 @@ function makeMapState(): RootState {
 
 describe('B4-0 · 守恒门', () => {
   it('schemaKeys=53', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(53);
+    expect(Object.keys(RootSchema.shape).length).toBe(54);
   });
 
   it('BUNDLE=21', () => {
@@ -80,7 +80,7 @@ describe('B4-0 · 守恒门', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(86);
+    expect(total).toBe(87);
   });
 });
 

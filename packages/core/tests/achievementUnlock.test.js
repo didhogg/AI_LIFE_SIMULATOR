@@ -35,10 +35,10 @@ const BASE = RootSchema.parse({
     _席位表: {},
     全局: {},
 });
-// ── P8-a-0 · SETTLEMENT_PHASES=16 守卫 ──────────────────────────────────────
-describe('P8-a-0 · SETTLEMENT_PHASES=16 · 新 phase 在位 · 既有序不变', () => {
-    it('SETTLEMENT_PHASES 长度=16', () => {
-        expect(SETTLEMENT_PHASES).toHaveLength(16);
+// ── P8-a-0 · SETTLEMENT_PHASES 守卫 ──────────────────────────────────────────
+describe('P8-a-0 · SETTLEMENT_PHASES=17 · 新 phase 在位 · 既有序不变', () => {
+    it('SETTLEMENT_PHASES 长度=17（P9-2 扩展参数播种 新增）', () => {
+        expect(SETTLEMENT_PHASES).toHaveLength(17);
     });
     it('成就解锁 在 SETTLEMENT_PHASES 中', () => {
         expect(SETTLEMENT_PHASES).toContain('成就解锁');
@@ -249,5 +249,261 @@ describe('P8-a-9 · 金向量回归·解锁写 NPC.成就 不进指纹', () => {
         const r2 = runTick(BASE, { tickId: TICK_ID('gold-2'), achievements: lib });
         // NPC.成就 状态逐位相同（确定性）
         expect(JSON.stringify(r1.state.NPC['npc_a']?.成就)).toBe(JSON.stringify(r2.state.NPC['npc_a']?.成就));
+    });
+});
+// ═══════════════════════════════════════════════════════════════════════════════
+// P8-b · 成就解锁后果执行（复用 P7-7 apply 链）
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── P8-b-0 · E2E 落账：五 op 端到端验证 ─────────────────────────────────────
+describe('P8-b-0 · E2E 落账 — 五 op 经复用链端到端', () => {
+    // 一个成就含五条后果，覆盖 set/add/sub/clamp/lock 各 op
+    const lib = {
+        e2e_ach: mkAch({
+            解锁条件引用: '属性.智慧 >= 70', // npc_a=80 满足
+            解锁后果引用: [
+                { path: 'NPC.npc_a.属性.智慧', op: 'add', value: 10 }, // 80+10=90
+                { path: 'NPC.npc_a.属性.感知', op: 'sub', value: 5 }, // 50-5=45
+                { path: 'NPC.npc_a.属性.体质', op: 'set', value: 60 }, // 60（类型匹配：number=number）
+                { path: 'NPC.npc_a.属性.魅力', op: 'clamp', value: 0 }, // 跳过（非值写 op）
+                { path: 'NPC.npc_a.属性.心理', op: 'lock', value: 0 }, // 跳过（marker op）
+            ],
+        }),
+    };
+    const r = runTick(BASE, { tickId: TICK_ID('e2e-ops'), achievements: lib });
+    it('add: 属性.智慧 80+10=90', () => {
+        expect(r.state.NPC['npc_a']?.属性.智慧).toBe(90);
+    });
+    it('sub: 属性.感知 50-5=45', () => {
+        expect(r.state.NPC['npc_a']?.属性.感知).toBe(45);
+    });
+    it('set: 属性.体质 → 60', () => {
+        expect(r.state.NPC['npc_a']?.属性.体质).toBe(60);
+    });
+    it('clamp op: 属性.魅力 不写（APPLY_OPS 不含 clamp）', () => {
+        expect(r.state.NPC['npc_a']?.属性.魅力).toBe(30); // 未变
+    });
+    it('lock op: 属性.心理 不写·不污染为 undefined（APPLY_OPS 不含 lock）', () => {
+        expect(r.state.NPC['npc_a']?.属性.心理).toBe(50); // 未变
+        expect(r.state.NPC['npc_a']?.属性.心理).not.toBeUndefined();
+    });
+    it('npc_b（未解锁）属性全不变', () => {
+        expect(r.state.NPC['npc_b']?.属性.智慧).toBe(30);
+        expect(r.state.NPC['npc_b']?.属性.感知).toBe(50);
+    });
+});
+// ── P8-b-1 · 守恒-平：sink 配平货币 → assertConservation 通过 ───────────────
+describe('P8-b-1 · 守恒-平：奖励货币自带 sink → 通过', () => {
+    it('npc_a+50 文 / npc_b-50 文·净值不变·守恒通过', () => {
+        const lib = {
+            currency_balanced: mkAch({
+                解锁条件引用: '属性.智慧 >= 70', // npc_a 满足
+                解锁后果引用: [
+                    { path: '货币系统.账户.npc_a.持有.文', op: 'add', value: 50 },
+                    { path: '货币系统.账户.npc_b.持有.文', op: 'sub', value: 50 },
+                ],
+            }),
+        };
+        let r;
+        expect(() => {
+            r = runTick(BASE, { tickId: TICK_ID('cons-bal'), achievements: lib });
+        }).not.toThrow();
+        expect(r?.state.货币系统?.账户['npc_a']?.持有['文']).toBe(150);
+        expect(r?.state.货币系统?.账户['npc_b']?.持有['文']).toBe(50);
+    });
+});
+// ── P8-b-2 · 守恒-不平：凭空发币 → ConservationError（整拍拒）──────────────
+describe('P8-b-2 · 守恒-不平：凭空发币 → ConservationError', () => {
+    it('npc_a+100 文·无 sink → assertConservation 抛', () => {
+        const lib = {
+            fiat_money: mkAch({
+                解锁条件引用: '属性.智慧 >= 70',
+                解锁后果引用: [
+                    { path: '货币系统.账户.npc_a.持有.文', op: 'add', value: 100 }, // 无对应 sink
+                ],
+            }),
+        };
+        expect(() => {
+            runTick(BASE, { tickId: TICK_ID('cons-fail'), achievements: lib });
+        }).toThrow(); // ConservationError 从原子提交 phase 抛出
+    });
+});
+// ── P8-b-3 · safeParse 跳过：畸形元素被跳·其余照常落账 ──────────────────────
+describe('P8-b-3 · safeParse 跳过·不抛·其余照常', () => {
+    it('畸形元素（缺 path）跳过·后续合法元素落账', () => {
+        const lib = {
+            partial_bad: mkAch({
+                解锁条件引用: '属性.智慧 >= 70',
+                解锁后果引用: [
+                    { bad: 'malformed_no_path' }, // safeParse 失败 → 跳过
+                    { path: 'NPC.npc_a.属性.智慧', op: 'add', value: 7 }, // 合法 → 落账
+                ],
+            }),
+        };
+        let r;
+        expect(() => {
+            r = runTick(BASE, { tickId: TICK_ID('parse-skip'), achievements: lib });
+        }).not.toThrow();
+        expect(r?.state.NPC['npc_a']?.属性.智慧).toBe(87); // 80+7=87（畸形跳过·合法落账）
+    });
+    it('null 元素跳过·不抛', () => {
+        const lib = {
+            null_el: mkAch({
+                解锁条件引用: '属性.智慧 >= 70',
+                解锁后果引用: [null, { path: 'NPC.npc_a.属性.智慧', op: 'add', value: 3 }],
+            }),
+        };
+        let r;
+        expect(() => {
+            r = runTick(BASE, { tickId: TICK_ID('null-skip'), achievements: lib });
+        }).not.toThrow();
+        expect(r?.state.NPC['npc_a']?.属性.智慧).toBe(83);
+    });
+});
+// ── P8-b-4 · M3 硬排除：$/_ 首段路径 → 不写穿治理键空间 ─────────────────────
+describe('P8-b-4 · M3 硬排除：$/_ 首段路径被拒', () => {
+    it('_ 首段路径后果 → M3 硬拒·state 不变', () => {
+        // _internal 通过 safeParse（受治理路径Schema 允许下划线·仅 runtime 拒写）
+        // runEffectGates Gate③ 或 M3 pre-check 均阻止写入
+        const lib = {
+            underscore_path: mkAch({
+                解锁条件引用: '属性.智慧 >= 70',
+                解锁后果引用: [
+                    { path: '_tick.拍计数', op: 'set', value: 999 },
+                ],
+            }),
+        };
+        const r = runTick(BASE, { tickId: TICK_ID('m3-underscore'), achievements: lib });
+        // _tick.拍计数 不被后果覆写（引擎正常 +1·不被 999 污染）
+        expect(r.state._tick?.拍计数).not.toBe(999);
+    });
+    it('$ 首段路径后果 → M3 硬拒（safeParse 路径校验）·state 不变', () => {
+        const lib = {
+            dollar_path: mkAch({
+                解锁条件引用: '属性.智慧 >= 70',
+                解锁后果引用: [
+                    { path: '$临时会话.foo', op: 'set', value: 0 },
+                    { path: 'NPC.npc_a.属性.智慧', op: 'add', value: 2 },
+                ],
+            }),
+        };
+        const r = runTick(BASE, { tickId: TICK_ID('m3-dollar'), achievements: lib });
+        // $ 路径被拒·合法后果照常落账
+        expect(r.state.NPC['npc_a']?.属性.智慧).toBe(82); // +2
+    });
+});
+// ── P8-b-5 · scope 隔离：多 NPC 各自解锁·后果只落对应 npcKey ─────────────────
+describe('P8-b-5 · scope 隔离·多 NPC·后果不串', () => {
+    it('npc_a 后果只落 npc_a·npc_b 后果只落 npc_b·互不干扰', () => {
+        const lib = {
+            ach_a: mkAch({
+                解锁条件引用: '属性.智慧 >= 70', // npc_a=80 满足
+                解锁后果引用: [{ path: 'NPC.npc_a.属性.智慧', op: 'add', value: 10 }],
+            }),
+            ach_b: mkAch({
+                解锁条件引用: '属性.智慧 < 70', // npc_b=30 满足
+                解锁后果引用: [{ path: 'NPC.npc_b.属性.智慧', op: 'add', value: 10 }],
+            }),
+        };
+        const r = runTick(BASE, { tickId: TICK_ID('scope-iso'), achievements: lib });
+        expect(r.state.NPC['npc_a']?.属性.智慧).toBe(90); // npc_a 解锁 ach_a → +10
+        expect(r.state.NPC['npc_b']?.属性.智慧).toBe(40); // npc_b 解锁 ach_b → +10
+        // npc_a 不会执行 ach_b 后果（ach_b 条件对 npc_a 为 false）
+        // npc_b 不会执行 ach_a 后果（ach_a 条件对 npc_b 为 false）
+    });
+});
+// ── P8-b-6 · 幂等/重放：后果仅首解锁拍执行一次 ──────────────────────────────
+describe('P8-b-6 · 幂等/重放：同成就跨拍重复·后果仅首拍执行', () => {
+    const lib = {
+        once_ach: mkAch({
+            解锁条件引用: '属性.智慧 >= 70',
+            解锁后果引用: [{ path: 'NPC.npc_a.属性.智慧', op: 'add', value: 5 }],
+        }),
+    };
+    it('第一拍解锁·属性.智慧 +5', () => {
+        const r1 = runTick(BASE, { tickId: TICK_ID('idem-t1'), achievements: lib });
+        expect(r1.state.NPC['npc_a']?.属性.智慧).toBe(85); // 80+5
+    });
+    it('第二拍（已解锁）→ 后果不重复执行·属性.智慧 不再 +5', () => {
+        const r1 = runTick(BASE, { tickId: TICK_ID('idem-r1'), achievements: lib });
+        const r2 = runTick(r1.state, { tickId: TICK_ID('idem-r2'), achievements: lib });
+        expect(r2.state.NPC['npc_a']?.属性.智慧).toBe(85); // 仍 85·不再 +5
+    });
+    it('双跑逐位恒等（确定性）', () => {
+        const rA = runTick(BASE, { tickId: TICK_ID('idem-det-a'), achievements: lib });
+        const rB = runTick(BASE, { tickId: TICK_ID('idem-det-b'), achievements: lib });
+        expect(JSON.stringify(rA.state.NPC['npc_a']?.属性)).toBe(JSON.stringify(rB.state.NPC['npc_a']?.属性));
+    });
+});
+// ── P8-b-7 · 空库/无后果 no-op ────────────────────────────────────────────────
+describe('P8-b-7 · 解锁后果引用 空/undefined → 零 state 写·phase 仍登记', () => {
+    it('解锁后果引用=[] → 解锁记录写入·属性不变', () => {
+        const lib = {
+            no_conseq: mkAch({ 解锁条件引用: '属性.智慧 >= 70', 解锁后果引用: [] }),
+        };
+        const r = runTick(BASE, { tickId: TICK_ID('noop-empty-ach'), achievements: lib });
+        expect(r.state.NPC['npc_a']?.成就).toHaveProperty('no_conseq');
+        expect(r.state.NPC['npc_a']?.属性.智慧).toBe(80); // 属性不变
+        expect(r.settledPhases).toContain('成就解锁');
+    });
+    it('解锁后果引用=undefined → 解锁记录写入·属性不变', () => {
+        const lib = {
+            undef_conseq: mkAch({ 解锁条件引用: '属性.智慧 >= 70' }), // 无 解锁后果引用 字段
+        };
+        const r = runTick(BASE, { tickId: TICK_ID('noop-undef-ach'), achievements: lib });
+        expect(r.state.NPC['npc_a']?.成就).toHaveProperty('undef_conseq');
+        expect(r.state.NPC['npc_a']?.属性.智慧).toBe(80);
+    });
+});
+// ── P8-b-8 · 原型污染：__proto__ path → safeParse 失败·跳过 ─────────────────
+describe('P8-b-8 · 原型污染 guard', () => {
+    it('__proto__ 名 path 后果 → 受治理路径Schema 拒·safeParse 失败·跳过·不污染原型', () => {
+        const lib = {
+            proto_ach: mkAch({
+                解锁条件引用: '属性.智慧 >= 70',
+                解锁后果引用: [
+                    { path: '__proto__', op: 'set', value: 'poisoned' }, // 受治理路径Schema 拒（JS保留键）
+                    { path: 'NPC.npc_a.属性.智慧', op: 'add', value: 3 },
+                ],
+            }),
+        };
+        let r;
+        expect(() => {
+            r = runTick(BASE, { tickId: TICK_ID('proto-path'), achievements: lib });
+        }).not.toThrow();
+        expect(r?.state.NPC['npc_a']?.属性.智慧).toBe(83); // 合法后果落账
+        // Object.prototype 未被污染
+        expect(Object.prototype['poisoned']).toBeUndefined();
+    });
+    it('constructor 名后果元素 → safeParse 失败·跳过·不抛', () => {
+        const lib = {
+            ctor_ach: mkAch({
+                解锁条件引用: '属性.智慧 >= 70',
+                解锁后果引用: [
+                    { path: 'constructor', op: 'set', value: 0 }, // JS保留键 → safeParse 失败
+                ],
+            }),
+        };
+        expect(() => {
+            runTick(BASE, { tickId: TICK_ID('ctor-path'), achievements: lib });
+        }).not.toThrow();
+    });
+});
+// ── P8-b-9 · 金向量 G0 回归：后果执行不破坏 replay 确定性 ──────────────────
+describe('P8-b-9 · 金向量 G0 · 后果执行确定性', () => {
+    it('含后果的解锁·双跑 settledPhases 逐位相同', () => {
+        const lib = {
+            gold_b: mkAch({
+                解锁条件引用: '属性.智慧 >= 70',
+                解锁后果引用: [{ path: 'NPC.npc_a.属性.智慧', op: 'add', value: 1 }],
+            }),
+        };
+        const r1 = runTick(BASE, { tickId: TICK_ID('g0-1'), achievements: lib });
+        const r2 = runTick(BASE, { tickId: TICK_ID('g0-2'), achievements: lib });
+        expect(r1.state.NPC['npc_a']?.属性.智慧).toBe(81);
+        expect(r2.state.NPC['npc_a']?.属性.智慧).toBe(81);
+        expect(r1.settledPhases).toEqual(r2.settledPhases);
+    });
+    it('无后果成就与有后果成就·settledPhases 一致（SETTLEMENT_PHASES 不变·仍=17）', () => {
+        expect(SETTLEMENT_PHASES).toHaveLength(17);
     });
 });

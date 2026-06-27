@@ -73,9 +73,10 @@ import {
   $RAG配置Schema,
   存档头Schema,
   $metaSchema,
+  $AI创作状态Schema,
 } from './dollar.js';
 
-// ── Authoritative 53-key list from blueprint 4.0 (rev: +$天命重掷券, P0-5: +$存档种子, B-1: +_lore知识库, P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置, B5·S1+S1b: +受治理键空间注册表 +键空间归并表, LOD-B1: +LOD表) ──
+// ── Authoritative 54-key list from blueprint 4.0 (rev: +$天命重掷券, P0-5: +$存档种子, B-1: +_lore知识库, P0-1 BatchA: +$生图配置 +$语音配置 +$RAG配置, B5·S1+S1b: +受治理键空间注册表 +键空间归并表, LOD-B1: +LOD表, DSL-AI: +$AI创作状态) ──
 export const BLUEPRINT_KEYS = [
   '_系统版本',
   '_tick',
@@ -131,6 +132,8 @@ export const BLUEPRINT_KEYS = [
   '$临时会话',
   // LOD-B1: LOD调度表（顶层运行态·additive·dormant·不进指纹·B2 接调度器）
   'LOD表',
+  // DSL-AI: 玩家运行态 AI 覆盖（进存档·不进指纹·$ 前缀排除写）
+  '$AI创作状态',
 ] as const;
 
 // ── RootSchema ──
@@ -210,6 +213,8 @@ export const RootSchema = z.object({
   $临时会话: 临时会话Schema,
   // LOD-B1: LOD调度表（additive·dormant·不进指纹（隐性排外）·B2 接调度器）
   LOD表: LOD表Schema,
+  // DSL-AI: 玩家运行态 AI 谓词覆盖（进存档·不进指纹·$ 前缀排除写·铁律①②③）
+  $AI创作状态: $AI创作状态Schema,
 });
 
 export type RootState = z.infer<typeof RootSchema>;

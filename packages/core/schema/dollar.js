@@ -348,3 +348,10 @@ export const $metaSchema = z.object({
     })).default({}),
     峰值记录: z.record(z.string(), z.number()).default({}), // 各维度峰值
 });
+// ── $AI创作状态（DSL AI 创作层·玩家运行态覆盖·进存档·不进指纹·$ 前缀排除写） ──
+// 谓词override表: AI 产物·进确定性重放流·进存档（铁律③·绝不放 $临时会话）
+// 条目AI控制表: 玩家三态开关·进存档·不进指纹（叠加在作者底线之上）
+export const $AI创作状态Schema = z.object({
+    谓词override表: z.record(z.string(), z.string()).optional(),
+    条目AI控制表: z.record(z.string(), z.boolean()).optional(),
+}).optional();

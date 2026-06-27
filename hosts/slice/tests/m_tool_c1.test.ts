@@ -275,7 +275,7 @@ describe('C1-6 · 类型分派骨架 ok=true', () => {
 describe('C1-7 · 守恒门', () => {
   it('schemaKeys=53 守恒', () => {
     const keys = Object.keys(RootSchema.shape);
-    expect(keys.length).toBe(53);
+    expect(keys.length).toBe(54);
   });
 
   it('BUNDLE=21 守恒（工具库不进 hashJudgmentBundle）', () => {
@@ -289,7 +289,7 @@ describe('C1-7 · 守恒门', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(86);
+    expect(total).toBe(87);
   });
 
   it('工具库条目内容改变 → 指纹不变（整库不进 hashJudgmentBundle）', () => {

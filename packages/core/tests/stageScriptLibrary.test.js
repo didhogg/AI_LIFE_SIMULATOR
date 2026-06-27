@@ -7,7 +7,7 @@
  * 断言④  按 小剧场剧本ID resolve 挂载：命中加载 / 缺失跳过 / 原型名句柄 → 不命中
  * 断言⑤  不进 hashJudgmentBundle：改小剧场剧本库内容 → 金向量逐位恒等 · BUNDLE=21 不变
  * 断言⑥  content_hash round-trip 闭环
- * 断言⑦  守恒门：schemaKeys=53 / BUNDLE=21 / manifest=86 / 命名空间枚举 24 项
+ * 断言⑦  守恒门：schemaKeys=54 / BUNDLE=21 / manifest=87 / 命名空间枚举 24 项
  */
 import { describe, it, expect } from 'vitest';
 import { 小剧场剧本定义条目Schema, 小剧场剧本库Schema, 小剧场剧本ID正则, } from '../schema/stageScriptLibrary.js';
@@ -249,15 +249,15 @@ describe('小剧场剧本库 · content_hash（mod 可复现面）', () => {
     });
 });
 describe('小剧场剧本库 · 守恒门', () => {
-    it('schemaKeys = 53', () => {
-        expect(Object.keys(RootSchema.shape).length).toBe(53);
-        expect(BLUEPRINT_KEYS.length).toBe(53);
+    it('schemaKeys = 54', () => {
+        expect(Object.keys(RootSchema.shape).length).toBe(54);
+        expect(BLUEPRINT_KEYS.length).toBe(54);
     });
     it('BUNDLE = 21', () => {
         expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
     });
-    it('manifest 四组总长 = 86', () => {
-        expect(FINGERPRINT_BUNDLE_MEMBERS.length + FINGERPRINT_PRESET_FIELDS.length + FINGERPRINT_SNAPSHOT_FIELDS.length + FINGERPRINT_EXCLUDED_FIELDS.length).toBe(86);
+    it('manifest 四组总长 = 87', () => {
+        expect(FINGERPRINT_BUNDLE_MEMBERS.length + FINGERPRINT_PRESET_FIELDS.length + FINGERPRINT_SNAPSHOT_FIELDS.length + FINGERPRINT_EXCLUDED_FIELDS.length).toBe(87);
     });
     it('命名空间枚举 = 32 項（含小剧场剧本）', () => {
         expect(命名空间枚举.length).toBe(32);

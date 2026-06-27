@@ -1,9 +1,10 @@
 import { filterSecretsForPOV, } from '@ai-life-sim/core/engine/knowledgeFilter';
 import { evalPredStr } from '@ai-life-sim/core/engine/dsl/eval';
+import { resolveEffectivePredicate, readGlobalDslSwitch } from '@ai-life-sim/core/engine/dsl/aiPredControl';
 import { DEFAULT_NEAR_K, CALL_TYPE_REGISTRY } from '@ai-life-sim/core/prompt/callRegistry';
 import { applySliceBudget, estimateSliceTokens, } from '@ai-life-sim/core/engine/sliceBudget';
 export function assemblePrompt(state, opts) {
-    const { pcKey, locName, povEntityKey, visibleSecrets, nearK, narrativeHistory, historyTicks, actionHistory, balances, lorePredCtx, callTypeKey, proposalConstraints, } = opts;
+    const { pcKey, locName, povEntityKey, visibleSecrets, nearK, narrativeHistory, historyTicks, actionHistory, balances, lorePredCtx, callTypeKey, proposalConstraints, 作者AI控制表, } = opts;
     // ── 主角 ──────────────────────────────────────────────────────────────────────
     const pc = state.NPC?.[pcKey];
     if (!pc)
@@ -31,9 +32,15 @@ export function assemblePrompt(state, opts) {
     const loreLines = [];
     if (lorePredCtx) {
         const loreKB = state['_lore知识库'] ?? {};
-        for (const entry of Object.values(loreKB)) {
-            const matches = entry.触发谓词
-                ? evalPredStr(entry.触发谓词, lorePredCtx)
+        // DSL-AI: 读取三层控制参数（assemble 侧无 tick 上下文·从 state 现场读）
+        const _dslGlobal = readGlobalDslSwitch(state._系统.功能开关表 ?? {});
+        const _dslState = state['$AI创作状态'];
+        for (const [loreKey, entry] of Object.entries(loreKB)) {
+            // DSL-AI: 三层控制解析有效谓词（完整键 = lore:{loreKey}）
+            const 完整键 = `lore:${loreKey}`;
+            const effectivePred = resolveEffectivePredicate(完整键, entry.触发谓词, _dslGlobal, 作者AI控制表, _dslState?.条目AI控制表, _dslState?.谓词override表);
+            const matches = effectivePred
+                ? evalPredStr(effectivePred, lorePredCtx)
                 : true; // 无谓词 = 恒真（通用常识载荷）
             if (matches && entry.知识载荷) {
                 loreLines.push(entry.知识载荷);

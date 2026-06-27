@@ -22,7 +22,7 @@ export function createFullArchiveHeader(seed = 42) {
         中文数字解析规则版: CHINESE_NUMBER_RULE_VERSION, // 活常量·当前=3
         软拒规则版: SOFT_REJECT_RULE_VERSION, // 活常量·当前=1
         AOHP语义键版: AOHP_SEMANTIC_KEY_VERSION, // 字面量·无活常量
-        schemaKeys: 53,
+        schemaKeys: 54,
     };
 }
 /** 旧 MinArchiveHeader → FullArchiveHeader（P0-9 迁移侦察·幂等·保留 seed 和计数器） */
@@ -35,6 +35,6 @@ export function migrateToFullArchiveHeader(h) {
         中文数字解析规则版: CHINESE_NUMBER_RULE_VERSION,
         软拒规则版: SOFT_REJECT_RULE_VERSION,
         AOHP语义键版: AOHP_SEMANTIC_KEY_VERSION,
-        schemaKeys: 53,
+        schemaKeys: 54,
     };
 }

@@ -9,7 +9,7 @@
 // 设计约束：
 //  - runTick 零 RNG 改动（optionSetInput 路径不引入新 RNG 通道）
 //  - 黄金向量不受影响（optionSetInput 未接入涟漪/衰减路径）
-//  - schemaKeys=52 / manifest=86 守恒（G2-2 +媒介传播面 → BUNDLE21）
+//  - schemaKeys=52 / manifest=87 守恒（G2-2 +媒介传播面 → BUNDLE21）
 //  - SINK 使用 world_sink（无 _ 前缀·computeDelta Gate③ 兼容）
 
 import { describe, it, expect } from 'vitest';

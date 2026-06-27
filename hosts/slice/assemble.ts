@@ -9,6 +9,7 @@ import {
 } from '@ai-life-sim/core/engine/knowledgeFilter';
 import { evalPredStr } from '@ai-life-sim/core/engine/dsl/eval';
 import type { DslContext } from '@ai-life-sim/core/engine/dsl/eval';
+import { resolveEffectivePredicate, readGlobalDslSwitch } from '@ai-life-sim/core/engine/dsl/aiPredControl';
 import { DEFAULT_NEAR_K, CALL_TYPE_REGISTRY, type NarrativeCallTypeKey, type ProposalConstraint } from '@ai-life-sim/core/prompt/callRegistry';
 import {
   applySliceBudget,
@@ -49,6 +50,9 @@ export interface AssembleOptions {
   // 作用：告知 LLM 本拍已确定的货币/物品流转数值，使叙事金额与 reconcileGate 解析一致。
   // 单位口径：与 reconcileGate 一致（CANONICAL_UNITS=文/文钱）。
   proposalConstraints?: ProposalConstraint;
+  // ── DSL-AI: 作者 AI 底线控制表（来自 resolve() 聚合·瞬态·不进存档）──────────────────
+  /** 聚合内容包 AI控制策略（完整键→boolean·false=锁死·true=明示允许）。缺省=无底线约束。 */
+  作者AI控制表?: Readonly<Record<string, boolean>>;
 }
 
 export function assemblePrompt(state: RootState, opts: AssembleOptions): {
@@ -60,6 +64,7 @@ export function assemblePrompt(state: RootState, opts: AssembleOptions): {
     povEntityKey, visibleSecrets,
     nearK, narrativeHistory, historyTicks, actionHistory,
     balances, lorePredCtx, callTypeKey, proposalConstraints,
+    作者AI控制表,
   } = opts;
 
   // ── 主角 ──────────────────────────────────────────────────────────────────────
@@ -90,9 +95,16 @@ export function assemblePrompt(state: RootState, opts: AssembleOptions): {
   if (lorePredCtx) {
     const loreKB = (state as unknown as Record<string, unknown>)['_lore知识库'] as
       Record<string, { 触发谓词: string; 知识载荷: string }> | undefined ?? {};
-    for (const entry of Object.values(loreKB)) {
-      const matches = entry.触发谓词
-        ? evalPredStr(entry.触发谓词, lorePredCtx)
+    // DSL-AI: 读取三层控制参数（assemble 侧无 tick 上下文·从 state 现场读）
+    const _dslGlobal = readGlobalDslSwitch(state._系统.功能开关表 as Record<string, unknown>);
+    const _dslState = (state as unknown as Record<string, unknown>)['$AI创作状态'] as
+      { 谓词override表?: Record<string, string>; 条目AI控制表?: Record<string, boolean> } | undefined;
+    for (const [loreKey, entry] of Object.entries(loreKB)) {
+      // DSL-AI: 三层控制解析有效谓词（完整键 = lore:{loreKey}）
+      const 完整键 = `lore:${loreKey}`;
+      const effectivePred = resolveEffectivePredicate(完整键, entry.触发谓词, _dslGlobal, 作者AI控制表, _dslState?.条目AI控制表, _dslState?.谓词override表);
+      const matches = effectivePred
+        ? evalPredStr(effectivePred, lorePredCtx)
         : true; // 无谓词 = 恒真（通用常识载荷）
       if (matches && entry.知识载荷) {
         loreLines.push(entry.知识载荷);

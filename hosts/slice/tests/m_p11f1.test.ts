@@ -235,11 +235,11 @@ describe('F1 約束注入 指纹隔離 (R7-b)', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(86);
+    expect(total).toBe(87);
   });
 
   it('schemaKeys=53 不変', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(53);
+    expect(Object.keys(RootSchema.shape).length).toBe(54);
   });
 
   it('callRegistry 変更後も CALL_TYPE_REGISTRY は既存 5 keys を保持', () => {

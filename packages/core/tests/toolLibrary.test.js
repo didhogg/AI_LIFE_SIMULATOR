@@ -9,7 +9,7 @@
  * 断言⑥  不进 hashJudgmentBundle：改工具库内容 → golden 逐位恒等 · BUNDLE=21 不变
  * 断言⑦  content_hash round-trip 闭环（复刻 UI库 test·库条目→包信封边界映射）
  * 断言⑧  lore 工具引用/状态转移.工具 parse 通过 + 旧 能力集 字段零残留
- * 断言⑨  守恒门：schemaKeys=53 / BUNDLE=21 / manifest=86 / 命名空间枚举 15 项
+ * 断言⑨  守恒门：schemaKeys=54 / BUNDLE=21 / manifest=87 / 命名空间枚举 15 项
  */
 import { describe, it, expect } from 'vitest';
 import { 工具条目Schema, 工具库Schema, 工具引用Schema, TOOL_能力类型, TOOL_能力条目Schema, 工具ID正则, } from '../schema/toolLibrary.js';
@@ -404,19 +404,19 @@ describe('工具库 · lore 引用形态验收', () => {
 // 断言⑨ · 守恒门
 // ═══════════════════════════════════════════════════════════════════
 describe('工具库 · 守恒门', () => {
-    it('schemaKeys = 53（工具库不进 RootSchema·不改顶层键数）', () => {
-        expect(Object.keys(RootSchema.shape).length).toBe(53);
-        expect(BLUEPRINT_KEYS.length).toBe(53);
+    it('schemaKeys = 54（工具库不进 RootSchema·不改顶层键数）', () => {
+        expect(Object.keys(RootSchema.shape).length).toBe(54);
+        expect(BLUEPRINT_KEYS.length).toBe(54);
     });
     it('BUNDLE = 21（工具库 dormant·不改 FINGERPRINT_BUNDLE_MEMBERS）', () => {
         expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
     });
-    it('manifest 四组总长 = 86（不变）', () => {
+    it('manifest 四组总长 = 87（不变）', () => {
         const total = FINGERPRINT_BUNDLE_MEMBERS.length +
             FINGERPRINT_PRESET_FIELDS.length +
             FINGERPRINT_SNAPSHOT_FIELDS.length +
             FINGERPRINT_EXCLUDED_FIELDS.length;
-        expect(total).toBe(86);
+        expect(total).toBe(87);
     });
     it('命名空间枚举 = 32 項（18+剥离①六库+剥离②选项集）', () => {
         expect(命名空间枚举.length).toBe(32);

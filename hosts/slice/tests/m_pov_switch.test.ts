@@ -338,7 +338,7 @@ describe('T8 POV 投影 6 组字段 · 数据层纯只读', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(86);
+    expect(total).toBe(87);
   });
 });
 
@@ -352,11 +352,11 @@ describe('T6 指纹 85 / schemaKeys 52 守恒（POV 不进指纹）', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(86);
+    expect(total).toBe(87);
   });
 
   it('schemaKeys = 53', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(53);
+    expect(Object.keys(RootSchema.shape).length).toBe(54);
   });
 
   it('多次 POV 切换后 state 仍通过 RootSchema 校验', () => {

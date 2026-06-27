@@ -7,6 +7,7 @@
 // 红线：不改 gate.ts/rng.ts/fnv1a32/canonicalize/computeDelta/conservation/effectGate 函数体
 
 import { evalPredStr, type DslContext } from './dsl/eval.js';
+import { resolveEffectivePredicate } from './dsl/aiPredControl.js';
 import { runEffectGates } from './effectGate.js';
 import { rngFor } from './rng.js';
 import type { 工具条目Type, 工具库Type } from '../schema/toolLibrary.js';
@@ -84,6 +85,14 @@ export interface ToolDispatchArgs {
    * 不传=不做世代核对。
    */
   generation?: number;
+  // ── DSL-AI: 三层 AI 控制参数（additive·可省·缺省=全透传=无 AI 控制）────────────
+  /** DSL AI 创作层控制束（host 从 tick 上下文透传·缺省=不做 AI 控制·等价全局开=true+无覆盖表） */
+  dslControl?: {
+    readonly 全局开关: boolean;
+    readonly 作者控制表?: Readonly<Record<string, boolean>>;
+    readonly 玩家控制表?: Readonly<Record<string, boolean>>;
+    readonly override表?: Readonly<Record<string, string>>;
+  };
 }
 
 /** llm 确定性降级原因 */
@@ -225,6 +234,7 @@ export function dispatchTool(args: ToolDispatchArgs): ToolDispatchResult {
     rollDiceArgs,
     mediaTarget, mediaLib,
     budgetTokensRemaining, generation,
+    dslControl,
   } = args;
 
   // Step 1: 解引用 tool_name → 工具条目
@@ -233,10 +243,15 @@ export function dispatchTool(args: ToolDispatchArgs): ToolDispatchResult {
     return { ok: false, reason: `工具「${toolName}」在工具库中不存在` };
   }
 
-  const kind = entry.能力.类型 as ToolKind;
+  // Step 1.5: DSL-AI 三层控制解析调用约束有效谓词（additive·缺省=直接用 entry.调用约束）
+  const effectiveEntry: 工具条目Type = dslControl
+    ? { ...entry, 调用约束: resolveEffectivePredicate(`tool:${toolName}`, entry.调用约束 ?? '', dslControl.全局开关, dslControl.作者控制表, dslControl.玩家控制表, dslControl.override表) }
+    : entry;
+
+  const kind = effectiveEntry.能力.类型 as ToolKind;
 
   // Step 2: 调用约束谓词 gate（空串放行·非空 evalPredStr fail-closed）
-  if (!checkCallConstraint(entry, ctx)) {
+  if (!checkCallConstraint(effectiveEntry, ctx)) {
     return { ok: false, reason: `调用约束不满足：工具「${toolName}」`, kind };
   }
 

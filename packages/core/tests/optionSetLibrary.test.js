@@ -8,7 +8,7 @@
  * 断言⑤  指纹金测：hashCanonical(投影结果) === hashCanonical(原数组) → 三金向量 0 重定基
  * 断言⑥  by-ID resolve 挂载：命中加载 / 缺失跳过 / 原型名句柄拦截
  * 断言⑦  content_hash round-trip 闭环
- * 断言⑧  守恒门：schemaKeys=53 / BUNDLE=21 / manifest=86 / 命名空间枚举 = 32 項
+ * 断言⑧  守恒门：schemaKeys=54 / BUNDLE=21 / manifest=87 / 命名空间枚举 = 32 項
  */
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
@@ -350,18 +350,18 @@ describe('选项集库 · content_hash（mod 可复现面）', () => {
 });
 // ── 断言⑧ · 守恒门 ──────────────────────────────────────────────────────────────────
 describe('选项集库 · 守恒门', () => {
-    it('schemaKeys = 53', () => {
-        expect(Object.keys(RootSchema.shape).length).toBe(53);
-        expect(BLUEPRINT_KEYS.length).toBe(53);
+    it('schemaKeys = 54', () => {
+        expect(Object.keys(RootSchema.shape).length).toBe(54);
+        expect(BLUEPRINT_KEYS.length).toBe(54);
     });
     it('BUNDLE = 21', () => {
         expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
     });
-    it('manifest 四组总长 = 86', () => {
+    it('manifest 四组总长 = 87', () => {
         expect(FINGERPRINT_BUNDLE_MEMBERS.length +
             FINGERPRINT_PRESET_FIELDS.length +
             FINGERPRINT_SNAPSHOT_FIELDS.length +
-            FINGERPRINT_EXCLUDED_FIELDS.length).toBe(86);
+            FINGERPRINT_EXCLUDED_FIELDS.length).toBe(87);
     });
     it('命名空间枚举 = 32 項（含选项集）', () => {
         expect(命名空间枚举.length).toBe(32);

@@ -82,6 +82,8 @@ export const 内容包条目Schema = z.object({
   欠债参数:     欠债参数Schema.optional(),
   穿越契约:     穿越契约Schema.optional(),
   开局装配数据: 开局装配数据Schema.optional(),
+  // 作者底线·完整键→boolean·false=锁死禁AI改·true=明示允许·不进指纹（内容层·进 content_hash）
+  AI控制策略: z.record(z.string(), z.boolean()).optional(),
 }).superRefine((data, ctx) => 运行种子校验(data.模块种子, ctx));
 
 // ── 内容包库 = record<pack_id, 内容包条目> ───────────────────────────────────────
@@ -91,3 +93,31 @@ export type 内容包元数据Type = z.infer<typeof 内容包元数据Schema>;
 export type 内容包内容Type = z.infer<typeof 内容包内容Schema>;
 export type 内容包条目Type = z.infer<typeof 内容包条目Schema>;
 export type 内容包库Type = z.infer<typeof 内容包库Schema>;
+
+// ── 薄清单 schema（单一权威·resolve.ts interface 薄清单 迁入此处·避免双声明漂移） ──────
+// packs 必填·其余引用列表 optional·基底版本 optional
+export const 薄清单Schema = z.object({
+  packs: z.array(z.string()),
+  rules: z.array(z.string()).optional(),
+  ui: z.array(z.string()).optional(),
+  tools: z.array(z.string()).optional(),
+  achievements: z.array(z.string()).optional(),
+  items: z.array(z.string()).optional(),
+  media: z.array(z.string()).optional(),
+  学业制式: z.array(z.string()).optional(),
+  职级体系: z.array(z.string()).optional(),
+  实体模板: z.array(z.string()).optional(),
+  文风: z.array(z.string()).optional(),
+  二审维度: z.array(z.string()).optional(),
+  小剧场剧本: z.array(z.string()).optional(),
+  选项集: z.array(z.string()).optional(),
+  种族模板: z.array(z.string()).optional(),
+  战术包: z.array(z.string()).optional(),
+  叙事分发: z.array(z.string()).optional(),
+  母题词汇: z.array(z.string()).optional(),
+  母题配额: z.array(z.string()).optional(),
+  离场演化契约: z.array(z.string()).optional(),
+  社会角色: z.array(z.string()).optional(),
+  基底版本: z.string().optional(),
+});
+export type 薄清单 = z.infer<typeof 薄清单Schema>;

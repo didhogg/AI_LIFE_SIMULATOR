@@ -5,7 +5,7 @@
  * 断言② validateExtensionParams — 多键批量校验
  * 断言③ seedExtensionParams — 默认值播种（幂等·已有不覆盖·串/布尔照常 seed）
  * 断言④ tick 集成 — 扩展参数播种 phase 落地·空库 no-op·金向量逐位恒等
- * 断言⑤ 守恒门 — SETTLEMENT_PHASES=17·schemaKeys=53·0 重定基
+ * 断言⑤ 守恒门 — SETTLEMENT_PHASES=17·schemaKeys=54·0 重定基
  * 断言⑥ DSL ctx 自定义变量 — 数字型投影·串/布尔 skip·evalPredStr 谓词确定性（P9-3）
  * 断言⑦ deriveExtensionParamPaths — 声明键→条目·未声明键不生成·空库 no-op（P9-3）
  * 断言⑧ 提案闸② 集成 — 声明键可写穿·未声明键拒·0 重定基（P9-3）
@@ -348,8 +348,8 @@ describe('extensionParams · 守恒门', () => {
     expect(SETTLEMENT_PHASES.at(-1)).toBe('原子提交');
   });
 
-  it('schemaKeys = 53（扩展参数为 NpcSchema/物品条目嵌套字段·非顶层键）', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(53);
+  it('schemaKeys = 54（扩展参数为 NpcSchema/物品条目嵌套字段·非顶层键）', () => {
+    expect(Object.keys(RootSchema.shape).length).toBe(54);
   });
 
   it('BUNDLE = 21 · manifest 总长 = 86（扩展参数/物品库不进判定面指纹）', () => {

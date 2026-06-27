@@ -6,15 +6,15 @@
 // commits 2/3/4 复用此 seam 实装各类型执行逻辑
 // 红线：不改 gate.ts/rng.ts/fnv1a32/canonicalize/computeDelta/conservation/effectGate 函数体
 import { evalPredStr } from './dsl/eval.js';
+import { resolveEffectivePredicate } from './dsl/aiPredControl.js';
 import { runEffectGates } from './effectGate.js';
 import { rngFor } from './rng.js';
 // ── commit-3: 爆炸骰确定性上限 ────────────────────────────────────────────────
 /**
  * 爆炸骰最大爆炸次数上限（确定性终止·不可绕过）。
- * 共可投 MAX_EXPLOSION_DEPTH+1 次（1次底骰 + 最多8次爆炸链）。
- * 拍板逻辑：rngFor [0,99]·9轮足够覆盖绝大多数 TRPG 爆炸骰场景·且重放有界。
+ * 共可投 MAX_EXPLOSION_DEPTH+1 次（1 底骰 + 最多 20 次爆炸链·确定性终止）。
  */
-export const MAX_EXPLOSION_DEPTH = 8;
+export const MAX_EXPLOSION_DEPTH = 20;
 /**
  * 爆炸骰执行（commit-3）。
  * 纯函数·确定性·rngFor 变长消耗（incrementing roundIndex）。
@@ -126,15 +126,19 @@ function applyMediaTarget(base, mediaTarget, mediaLib) {
  * commits 2/3/4 复用此 seam 实装各类型执行逻辑。
  */
 export function dispatchTool(args) {
-    const { toolName, toolLib, ctx = {}, namespaceOverride, outputTagPath, rollDiceArgs, mediaTarget, mediaLib, budgetTokensRemaining, generation, } = args;
+    const { toolName, toolLib, ctx = {}, namespaceOverride, outputTagPath, rollDiceArgs, mediaTarget, mediaLib, budgetTokensRemaining, generation, dslControl, } = args;
     // Step 1: 解引用 tool_name → 工具条目
     const entry = resolveToolEntry(toolName, toolLib);
     if (!entry) {
         return { ok: false, reason: `工具「${toolName}」在工具库中不存在` };
     }
-    const kind = entry.能力.类型;
+    // Step 1.5: DSL-AI 三层控制解析调用约束有效谓词（additive·缺省=直接用 entry.调用约束）
+    const effectiveEntry = dslControl
+        ? { ...entry, 调用约束: resolveEffectivePredicate(`tool:${toolName}`, entry.调用约束 ?? '', dslControl.全局开关, dslControl.作者控制表, dslControl.玩家控制表, dslControl.override表) }
+        : entry;
+    const kind = effectiveEntry.能力.类型;
     // Step 2: 调用约束谓词 gate（空串放行·非空 evalPredStr fail-closed）
-    if (!checkCallConstraint(entry, ctx)) {
+    if (!checkCallConstraint(effectiveEntry, ctx)) {
         return { ok: false, reason: `调用约束不满足：工具「${toolName}」`, kind };
     }
     // Step 3: 按能力类型分派，所有成功分支经 applyMediaTarget 附加媒介目标解引用

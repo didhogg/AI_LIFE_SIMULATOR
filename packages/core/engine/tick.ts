@@ -21,10 +21,12 @@ import type { ProposalGateResult } from './proposal/index.js';
 import type { K5DeltaEntry } from '../interfaces/interventionMerge.js';
 import type { 指令信封Type, ActionOptionType } from '../schema/proposal.js';
 import type { intervention_pack_v1Type } from '../schema/memory.js';
+import { intervention_pack_delta条目Schema } from '../schema/memory.js';
 import { deriveVerbDelta } from './proposal/verbDelta.js';
 import { executeActionOption } from './aohpExecutor.js';
 import { scheduleLodPhase } from './lodPhase.js';
 import { evalPredStr } from './dsl/eval.js';
+import { resolveEffectivePredicate, readGlobalDslSwitch } from './dsl/aiPredControl.js';
 import { projectStateCtx } from './dsl/stateCtx.js';
 import { resolveDeltaValues } from './dsl/resolveDeltas.js';
 import { runEffectGates } from './effectGate.js';
@@ -191,6 +193,10 @@ export interface TickInput {
   /** 物品定义条目集合（by-物品ID·来自 resolve().物品成品）。
    *  undefined / {} → 扩展参数播种 phase 精确 no-op（零 state 写·零金向量影响）。 */
   物品库?: Readonly<Record<string, 物品定义条目Type>> | undefined;
+  // ── DSL-AI: 作者 AI 底线控制表（来自 resolve() 聚合的 内容包条目.AI控制策略·瞬态） ──
+  /** 聚合内容包 AI控制策略（完整键→boolean·false=锁死·true=明示允许）。
+   *  undefined → 全交玩家+全局开关决定（等价于无作者底线·退化至两层）。 */
+  作者AI控制表?: Readonly<Record<string, boolean>> | undefined;
 }
 
 export interface TickResult {
@@ -210,6 +216,13 @@ export function runTick(state: RootState, input: TickInput): TickResult {
   // [1] 入口深拷 — 全部操作在 s 上进行，不回写 state
   // let: 提案落账 阶段注入成功时 s 替换为 runProposalGate 产出的新状态
   let s = structuredClone(state) as RootState;
+
+  // [2] DSL AI 创作层控制参数（三层·拍入口一次性读取·纯读不写）
+  const _dslGlobal = readGlobalDslSwitch(s._系统.功能开关表 as Record<string, unknown>);
+  const _dslState = s.$AI创作状态 as { 谓词override表?: Record<string, string>; 条目AI控制表?: Record<string, boolean> } | undefined;
+  const _dslOverride = _dslState?.谓词override表;
+  const _dslPlayerCtrl = _dslState?.条目AI控制表;
+  const _dslAuthorCtrl = input.作者AI控制表;
 
   // [3] 幂等检查 — tickId 已全量结算则直接返回
   if (s._系统.已结算标记[input.tickId]?.即时分量 === 1) {
@@ -282,7 +295,10 @@ export function runTick(state: RootState, input: TickInput): TickResult {
       const ctx = projectStateCtx(s, pack.scope);
 
       // trigger gate（空串/undefined = 无闸 = 恒执行；非空 → evalPredStr fail-closed）
-      if (pack.trigger && !evalPredStr(pack.trigger, ctx)) continue;
+      // DSL-AI: 三层控制解析有效谓词串（fail-safe: 缺 override → 回 base）
+      const _packKey = `effectPack:${pack.pack_id}`;
+      const _effectiveTrigger = resolveEffectivePredicate(_packKey, pack.trigger ?? '', _dslGlobal, _dslAuthorCtrl, _dslPlayerCtrl, _dslOverride);
+      if (_effectiveTrigger && !evalPredStr(_effectiveTrigger, ctx)) continue;
 
       // value 前置 pass（effectGate 前·fail-closed：任一 delta 解析失败→整包跳）
       const r = resolveDeltaValues(pack.deltas ?? [], ctx);
@@ -515,13 +531,17 @@ export function runTick(state: RootState, input: TickInput): TickResult {
     // stub: 媒介通道在此时刻采样·待 E1/E2 consumer 就位后实装
   });
 
-  // Phase P8-a · 成就解锁 — post-settlement 全 actor 扫描·检测+记录（后果 defer P8-b）
+  // Phase P8 · 成就解锁 — post-settlement 全 actor 扫描·检测+记录+后果执行（P8-a+P8-b）
   // 真源 = TickInput.achievements = resolve().成就成品（已做 by-ID+own-prop guard+墓碑过滤）。
   // 纪律：禁 localeCompare / Date.now / Math.random·纪元分钟取 ctx.全局·幂等（已解锁跳过）。
-  // 解锁后果引用 本 phase 完全不读（P8-b）。
+  // 后果执行：100% 复用 P7-7 apply 链（resolveDeltaValues→M3前缀→runEffectGates→computeDelta→setAtPath）。
   runPhase('成就解锁', () => {
     const achLib = input.achievements;
     if (!achLib || Object.keys(achLib).length === 0) return; // 空库精确 no-op
+
+    // P8-b apply chain types（复用 P7-7 pattern·'clamp'/'lock' 非值写 op·不进 APPLY_OPS）
+    type AchApplyOp = 'set' | 'add' | 'sub';
+    const ACH_APPLY_OPS: ReadonlySet<string> = new Set<AchApplyOp>(['set', 'add', 'sub']);
 
     for (const npcKey of Object.keys(s.NPC).sort()) { // 码点序·非 localeCompare
       if (!Object.prototype.hasOwnProperty.call(s.NPC, npcKey)) continue;
@@ -535,18 +555,58 @@ export function runTick(state: RootState, input: TickInput): TickResult {
         const entry = achLib[achId];
         if (!entry) continue;
 
-        // 幂等：已解锁跳过
+        // 幂等：已解锁跳过（P8-b 后果天然继承此 guard·仅首次解锁拍执行一次）
         if (Object.prototype.hasOwnProperty.call(npc.成就, achId)) continue;
 
-        // 解锁条件：空串/解析失败 → fail-closed=false
-        if (!evalPredStr(entry.解锁条件引用 ?? '', ctx)) continue;
+        // 解锁条件：空串/解析失败 → fail-closed=false；DSL-AI 三层控制解析有效谓词
+        const _achKey = `achievement:${achId}`;
+        const _effectiveCond = resolveEffectivePredicate(_achKey, entry.解锁条件引用 ?? '', _dslGlobal, _dslAuthorCtrl, _dslPlayerCtrl, _dslOverride);
+        if (!evalPredStr(_effectiveCond, ctx)) continue;
 
         // 记录解锁（nowEpochMin = s.世界?.纪元分钟 与 ctx.全局.纪元分钟 同源·确定性）
         npc.成就[achId] = {
           解锁时间: nowEpochMin,
           描述: entry.描述 ?? '',
         };
-        // 解锁后果引用：P8-b 实装，本轮不读
+
+        // P8-b: 解锁后果执行（复用 P7-7 apply 链·严格同序·六禁 clean）
+        // scope = 触发解锁的 actor：entityKey = npcKey（显式传入·禁路径推断）
+        const 后果列表 = entry.解锁后果引用 ?? [];
+        for (let _i = 0; _i < 后果列表.length; _i++) {
+          if (!Object.prototype.hasOwnProperty.call(后果列表, _i)) continue;
+          const el = 后果列表[_i];
+          const parsed = intervention_pack_delta条目Schema.safeParse(el);
+          if (!parsed.success) continue; // 畸形元素跳过·不中断其余
+          const d = parsed.data;
+          // step 1: resolveDeltaValues（fail-closed·string DSL → number）
+          const rr = resolveDeltaValues(
+            [{ path: d.path, op: d.op, value: d.value, ...(d.max_delta !== undefined ? { max_delta: d.max_delta } : {}) }],
+            ctx,
+          );
+          if (!rr.ok) continue;
+          // step 2: M3 硬排除前缀（$/_ 首段·与 runEffectGates Gate③ 双保险）
+          if (rr.resolved.some(dd => M3_HARD_EXCLUDED_PREFIXES.some(p => dd.path.startsWith(p)))) continue;
+          // step 3: runEffectGates（函数体零 diff·仅调用）
+          const gg = runEffectGates({ deltas: rr.resolved });
+          if (!gg.ok) continue;
+          // step 4: apply（'set'/'add'/'sub' 落账·'clamp'/'lock' 非值写 skip·防 setAtPath(undefined)）
+          for (const cd of gg.clampedDeltas) {
+            if (!ACH_APPLY_OPS.has(cd.op)) continue;
+            try {
+              const dEntry = {
+                path:  cd.path,
+                op:    cd.op as AchApplyOp,
+                value: cd.value as number,
+                ...(cd.max_delta !== undefined ? { max_delta: cd.max_delta } : {}),
+              };
+              const res = computeDelta(s as Record<string, unknown>, dEntry);
+              s = setAtPath(s as Record<string, unknown>, cd.path, res.proposedValue) as RootState;
+            } catch (e) {
+              if (e instanceof ComputeDeltaError) continue; // 单 delta 跳过·不废整后果
+              throw e;
+            }
+          }
+        }
       }
     }
   });

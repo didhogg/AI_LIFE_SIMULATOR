@@ -97,6 +97,8 @@ const BASE_CTX = {
     protocol: undefined,
     // 对撞⑥ 临时容器
     '$临时会话': undefined,
+    // DSL-AI 创作状态
+    '$AI创作状态': undefined,
     // 越界动词族·案底状态
     案底: undefined,
     // AOHP選項id集 在 BASE_CTX 中不设置（optional·undefined by default → 不参与指纹）
@@ -255,6 +257,8 @@ const EXCLUDED_MUTATIONS = {
     protocol: 'openai-compatible',
     // 对撞⑥ 临时容器
     '$临时会话': { 草稿文本: '玩家临时草稿内容', 临时意图标签: ['攻击'] },
+    // DSL-AI 创作状态（玩家谓词override表·进存档·不进指纹）
+    '$AI创作状态': { 谓词override表: { 'lore:test:key': '属性.体质 >= 3' }, 条目AI控制表: { 'effectPack:ep001': false } },
     // 越界动词族·案底状态
     案底: { 状态: '案底', 过期时间: 0, 记录: [{ 类型: '盗窃', 时间: 1000, 严重度: 60 }] },
 };

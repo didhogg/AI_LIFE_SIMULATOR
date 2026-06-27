@@ -378,21 +378,21 @@ describe('A2 · 成品过 hashPresetFingerprint', () => {
 // 断言⑤ · 守恒门（additive-only 不动指纹基数）
 // ─────────────────────────────────────────────────────────────────────────────────
 describe('A2 · 守恒门', () => {
-  it('schemaKeys = 53（RootSchema 无新增顶层键）', () => {
-    expect(Object.keys(RootSchema.shape).length).toBe(53);
-    expect(BLUEPRINT_KEYS.length).toBe(53);
+  it('schemaKeys = 54（RootSchema 无新增顶层键）', () => {
+    expect(Object.keys(RootSchema.shape).length).toBe(54);
+    expect(BLUEPRINT_KEYS.length).toBe(54);
   });
 
   it('BUNDLE = 21（FINGERPRINT_BUNDLE_MEMBERS 不变）', () => {
     expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
   });
 
-  it('manifest 四组总长 = 86（不变）', () => {
+  it('manifest 四组总长 = 87（不变）', () => {
     const total = FINGERPRINT_BUNDLE_MEMBERS.length +
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(86);
+    expect(total).toBe(87);
   });
 
   it('黄金向量：hashPresetFingerprint 确定性（不重定基）', () => {
