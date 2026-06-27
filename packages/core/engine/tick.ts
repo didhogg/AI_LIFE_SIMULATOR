@@ -30,6 +30,7 @@ import { resolveDeltaValues } from './dsl/resolveDeltas.js';
 import { runEffectGates } from './effectGate.js';
 import { computeDelta, setAtPath, ComputeDeltaError } from './proposal/computeDelta.js';
 import { M3_HARD_EXCLUDED_PREFIXES } from '../interfaces/patchInvariant.js';
+import type { 成就条目Type } from '../schema/achievementLibrary.js';
 
 // ── 环形缓冲上限 ──────────────────────────────────────────────────────────────
 const TICK_LOG_MAX = 8;
@@ -136,6 +137,7 @@ export const SETTLEMENT_PHASES = [
   '感知情绪化', // C2-5: 认知档案本拍新 factFragment → NPC.情绪栈 appraisal
   '编年史入册', // C2-5: 公共 factFragment（≥1 一手观测·量级≥阈值）→ 全局._编年史
   '媒介拍末取材', // E4·6.55: 涟漪先落账后·媒介通道（书信/信使等）在拍末采样·然后进原子提交
+  '成就解锁',  // P8-a: post-settlement 全 actor 成就条件扫描 + 解锁记录（后果 defer P8-b）
   '原子提交',
 ] as const;
 
@@ -177,6 +179,10 @@ export interface TickInput {
   /** 本拍生效包集（瞬态·不进 RootSchema·不进存档态）。
    *  undefined / [] → 阈值触发 phase 精确 no-op（金向量逐位恒等守卫）。 */
   effectPacks?: ReadonlyArray<intervention_pack_v1Type> | undefined;
+  // ── P8-a: 成就库（host 从 resolve() 成就成品传入·瞬态·不进 RootSchema）──────────
+  /** 成就条目集合（by-成就ID·来自 resolve().成就成品）。
+   *  undefined / {} → 成就解锁 phase 精确 no-op（零 state 写·零金向量影响）。 */
+  achievements?: Readonly<Record<string, 成就条目Type>> | undefined;
 }
 
 export interface TickResult {
@@ -498,6 +504,42 @@ export function runTick(state: RootState, input: TickInput): TickResult {
   runPhase('媒介拍末取材', () => {
     // TODO(P0-7 E1/E2): 遍历媒介登记表·按 E1 读取落账 / E2 书信双宿主在途态 规格取材
     // stub: 媒介通道在此时刻采样·待 E1/E2 consumer 就位后实装
+  });
+
+  // Phase P8-a · 成就解锁 — post-settlement 全 actor 扫描·检测+记录（后果 defer P8-b）
+  // 真源 = TickInput.achievements = resolve().成就成品（已做 by-ID+own-prop guard+墓碑过滤）。
+  // 纪律：禁 localeCompare / Date.now / Math.random·纪元分钟取 ctx.全局·幂等（已解锁跳过）。
+  // 解锁后果引用 本 phase 完全不读（P8-b）。
+  runPhase('成就解锁', () => {
+    const achLib = input.achievements;
+    if (!achLib || Object.keys(achLib).length === 0) return; // 空库精确 no-op
+
+    for (const npcKey of Object.keys(s.NPC).sort()) { // 码点序·非 localeCompare
+      if (!Object.prototype.hasOwnProperty.call(s.NPC, npcKey)) continue;
+      const npc = s.NPC[npcKey];
+      if (!npc) continue;
+
+      const ctx = projectStateCtx(s, { entityKey: npcKey });
+
+      for (const achId of Object.keys(achLib).sort()) { // 码点序·非 localeCompare
+        if (!Object.prototype.hasOwnProperty.call(achLib, achId)) continue;
+        const entry = achLib[achId];
+        if (!entry) continue;
+
+        // 幂等：已解锁跳过
+        if (Object.prototype.hasOwnProperty.call(npc.成就, achId)) continue;
+
+        // 解锁条件：空串/解析失败 → fail-closed=false
+        if (!evalPredStr(entry.解锁条件引用 ?? '', ctx)) continue;
+
+        // 记录解锁（nowEpochMin = s.世界?.纪元分钟 与 ctx.全局.纪元分钟 同源·确定性）
+        npc.成就[achId] = {
+          解锁时间: nowEpochMin,
+          描述: entry.描述 ?? '',
+        };
+        // 解锁后果引用：P8-b 实装，本轮不读
+      }
+    }
   });
 
   // Phase 9 · 原子提交 — 守恒验证 + 时钟推进 + tick_log + 全量结算标记

@@ -311,16 +311,16 @@ describe('C2-5 FA-7 · 守恒 / schema 合法（additive 不破 schemaKeys）', 
 
 // ── FA-8 · SETTLEMENT_PHASES 计数 ──────────────────────────────────────────────
 
-describe('C2-5 FA-8 · SETTLEMENT_PHASES 计数 = 15', () => {
-  it('SETTLEMENT_PHASES 含 15 个阶段（感知情绪化 + 编年史入册 + B2 LOD调度 新增）', () => {
-    expect(SETTLEMENT_PHASES).toHaveLength(15);
+describe('C2-5 FA-8 · SETTLEMENT_PHASES 计数 = 16', () => {
+  it('SETTLEMENT_PHASES 含 16 个阶段（感知情绪化 + 编年史入册 + B2 LOD调度 + P8-a 成就解锁 新增）', () => {
+    expect(SETTLEMENT_PHASES).toHaveLength(16);
     expect(SETTLEMENT_PHASES).toContain('感知情绪化');
     expect(SETTLEMENT_PHASES).toContain('编年史入册');
   });
 
-  it('单拍结算全部 15 个阶段', () => {
+  it('单拍结算全部 16 个阶段', () => {
     const { settledPhases } = runTick(buildWorld(), { tickId: 'fa8-phases' });
-    expect(settledPhases).toHaveLength(15);
+    expect(settledPhases).toHaveLength(16);
     expect(settledPhases.at(-1)).toBe('原子提交');
   });
 });
