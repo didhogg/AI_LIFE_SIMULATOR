@@ -70,8 +70,6 @@ function makeStateWithLod(opts: {
         描述: '',
         类别: '区域级' as const,
         相邻: [],
-        LOD态: lodAtInit,
-        ...(warmUntil !== undefined ? { 保温到期拍号: warmUntil } : {}),
       },
       ...(pcAt && pcAt !== nodeKey
         ? {
@@ -104,10 +102,11 @@ function makeStateWithLod(opts: {
     本机: { 焦点角色键: pcKey },
   } as typeof base._席位表;
 
-  // LOD表 注册
+  // LOD表 注册（包含初始档位/保温到期拍号）
   (base.LOD表 as Record<string, unknown>)[nodeKey] = {
     模块键: nodeKey,
-    档位: '粗',
+    档位: lodAtInit,
+    ...(warmUntil !== undefined ? { 保温到期拍号: warmUntil } : {}),
   };
 
   return base;
@@ -161,12 +160,12 @@ describe('B2-1 · 空 LOD表 精确 no-op', () => {
 // ── B2-2: PC 在节点 → promoteNode ────────────────────────────────────────────
 
 describe('B2-2 · PC 在节点 → promote', () => {
-  it('地点 LOD态 从粗→实体', () => {
+  it('LOD表 档位 从粗→实体', () => {
     const s = makeStateWithLod({
       nodeKey: 'region_a', npcKey: 'npc1', pcKey: 'pc1', pcAt: 'region_a',
     });
     scheduleLodPhase(s, 42, 0, undefined, undefined);
-    expect(s.地图.地点['region_a']?.LOD态).toBe('实体');
+    expect(s.LOD表['region_a']?.档位).toBe('实体');
   });
 
   it('同区 NPC LOD档位 从粗→实体（materializeCoarseNode 接通）', () => {
@@ -186,21 +185,21 @@ describe('B2-2 · PC 在节点 → promote', () => {
     const npcBefore = JSON.stringify(s.NPC['npc1']);
     scheduleLodPhase(s, 42, 0, undefined, undefined);
     expect(JSON.stringify(s.NPC['npc1'])).toBe(npcBefore);
-    expect(s.地图.地点['region_a']?.LOD态).toBe('实体');
+    expect(s.LOD表['region_a']?.档位).toBe('实体');
   });
 });
 
 // ── B2-3: PC 不在节点 + 保温期满 → demote ────────────────────────────────────
 
 describe('B2-3 · PC 不在节点 + 保温期满 → demote', () => {
-  it('tryDemoteNode → demoteNode：LOD态 回 粗', () => {
+  it('tryDemoteNode → demoteNode：LOD表 档位 回 粗', () => {
     const s = makeStateWithLod({
       nodeKey: 'region_a', npcKey: 'npc1', pcKey: 'pc1', pcAt: 'region_b',
       lodAtInit: '实体',
       warmUntil: 0, // 到期拍号=0 · 当前 tick=5 → 保温已过期
     });
     scheduleLodPhase(s, 42, 5, undefined, undefined);
-    expect(s.地图.地点['region_a']?.LOD态).toBe('粗');
+    expect(s.LOD表['region_a']?.档位).toBe('粗');
   });
 
   it('demoteNode 后 保温到期拍号 被清除', () => {
@@ -210,21 +209,21 @@ describe('B2-3 · PC 不在节点 + 保温期满 → demote', () => {
       warmUntil: 0,
     });
     scheduleLodPhase(s, 42, 5, undefined, undefined);
-    expect(s.地图.地点['region_a']?.保温到期拍号).toBeUndefined();
+    expect(s.LOD表['region_a']?.保温到期拍号).toBeUndefined();
   });
 });
 
 // ── B2-4: 保温期内不 demote ───────────────────────────────────────────────────
 
 describe('B2-4 · 保温期内不 demote', () => {
-  it('PC 不在场 + 保温未到期 → LOD态 仍 实体', () => {
+  it('PC 不在场 + 保温未到期 → LOD表 档位 仍 实体', () => {
     const s = makeStateWithLod({
       nodeKey: 'region_a', npcKey: 'npc1', pcKey: 'pc1', pcAt: 'region_b',
       lodAtInit: '实体',
       warmUntil: 100, // 到期拍号=100 · 当前 tick=5 → 仍在保温期
     });
     scheduleLodPhase(s, 42, 5, undefined, undefined);
-    expect(s.地图.地点['region_a']?.LOD态).toBe('实体');
+    expect(s.LOD表['region_a']?.档位).toBe('实体');
   });
 });
 
@@ -244,12 +243,12 @@ describe('B2-5 · promote 预算封顶', () => {
 
     // 创建 10 个区域级地点，PC 均在 region_pc
     const locs: Record<string, {
-      名称: string; 描述: string; 类别: '区域级'; 相邻: never[]; LOD态: '粗';
+      名称: string; 描述: string; 类别: '区域级'; 相邻: never[];
     }> = {};
     const lodTable: Record<string, unknown> = {};
     for (let i = 1; i <= 10; i++) {
       const key = `node_${i}`;
-      locs[key] = { 名称: key, 描述: '', 类别: '区域级', 相邻: [], LOD态: '粗' };
+      locs[key] = { 名称: key, 描述: '', 类别: '区域级', 相邻: [] };
       lodTable[key] = { 模块键: key, 档位: '粗' };
     }
     // PC 在 region_pc（= 与 node_1..node_10 同区域·但本例用各自独立区域）
@@ -278,7 +277,7 @@ describe('B2-5 · promote 预算封顶', () => {
     // 最多 LOD_PROMOTE_BUDGET=8 个节点变为 实体
     let promoted = 0;
     for (let i = 1; i <= 10; i++) {
-      if (locs[`node_${i}`]?.LOD态 === '实体') promoted++;
+      if (s.LOD表[`node_${i}`]?.档位 === '实体') promoted++;
     }
     expect(promoted).toBeLessThanOrEqual(LOD_PROMOTE_BUDGET);
     expect(promoted).toBe(LOD_PROMOTE_BUDGET); // 10>8 个需促升·8 个被促升
@@ -310,8 +309,8 @@ describe('B2-6 · 三条件 - 跨区', () => {
     (s.地图 as typeof s.地图) = {
       ...(s.地图 ?? {}),
       地点: {
-        region_a: { 名称: 'a', 描述: '', 类别: '区域级', 相邻: [], LOD态: '粗' },
-        region_b: { 名称: 'b', 描述: '', 类别: '区域级', 相邻: [], LOD态: '粗' },
+        region_a: { 名称: 'a', 描述: '', 类别: '区域级', 相邻: [] },
+        region_b: { 名称: 'b', 描述: '', 类别: '区域级', 相邻: [] },
       },
     } as typeof s.地图;
     // PC 现在在 region_b
@@ -330,9 +329,9 @@ describe('B2-6 · 三条件 - 跨区', () => {
     scheduleLodPhase(s, 42, 5, prevLocCtxs, undefined);
 
     // region_b 应已 promote（handleRegionCross → promoteNode(region_b)）
-    expect(s.地图.地点['region_b']?.LOD态).toBe('实体');
+    expect(s.LOD表['region_b']?.档位).toBe('实体');
     // region_a 应有保温窗口（handleRegionCross → startWarmWindow(region_a)）
-    expect(s.地图.地点['region_a']?.保温到期拍号).toBeGreaterThan(5);
+    expect(s.LOD表['region_a']?.保温到期拍号).toBeGreaterThan(5);
   });
 });
 
@@ -353,7 +352,7 @@ describe('B2-7 · 三条件 - 纪元跨时代', () => {
     (s.地图 as typeof s.地图) = {
       ...(s.地图 ?? {}),
       地点: {
-        region_a: { 名称: 'a', 描述: '', 类别: '区域级', 相邻: [], LOD态: '粗' },
+        region_a: { 名称: 'a', 描述: '', 类别: '区域级', 相邻: [] },
       },
     } as typeof s.地图;
     // PC 在 region_a
@@ -386,9 +385,9 @@ describe('B2-7 · 三条件 - 纪元跨时代', () => {
     // 因为 PC 在 region_a（pc in node）→ promote 已走 PC-presence 路径
     // 用独立 region 仅测 org 变更路径时，我们需要 PC 不在 LOD 注册区（走 prevLocCtxs 路径）
     // 这里 PC 就在 region_a → 实际走的是 "PC 在场 promote" 分支，而非 prevLocCtxs 分支
-    // 但我们仍然可以验证 promote 后 LOD态='实体'（因为两个分支都调 promoteNode）
+    // 但我们仍然可以验证 promote 后 LOD表 档位='实体'（因为两个分支都调 promoteNode）
     scheduleLodPhase(s, 42, 0, prevLocCtxs, undefined);
-    expect(s.地图.地点['region_a']?.LOD态).toBe('实体');
+    expect(s.LOD表['region_a']?.档位).toBe('实体');
   });
 });
 
@@ -416,7 +415,7 @@ describe('B2-8 · 三条件 - 组织归属变更', () => {
     (s.地图 as typeof s.地图) = {
       ...(s.地图 ?? {}),
       地点: {
-        region_b: { 名称: 'b', 描述: '', 类别: '区域级', 相邻: [], LOD态: '粗' },
+        region_b: { 名称: 'b', 描述: '', 类别: '区域级', 相邻: [] },
         region_pc: { 名称: 'pc', 描述: '', 类别: '区域级', 相邻: [] },
       },
     } as typeof s.地图;
@@ -438,10 +437,10 @@ describe('B2-8 · 三条件 - 组织归属变更', () => {
     scheduleLodPhase(s, 42, 0, prevLocCtxs, undefined);
 
     // 组织变更触发 promote 当前 PC 所在区域（region_pc）
-    // region_pc 没在 LOD表 中·但 promoteNode 直接调用·loc 存在·LOD态 undefined→ no-op（幂等）
+    // region_pc 没在 LOD表 中·promoteNode 惰性建条目（loc 存在）
     // 主要验证不报错·流程接通
-    // region_b 不 promote（PC 不在）· LOD态 仍 粗
-    expect(s.地图.地点['region_b']?.LOD态).not.toBe('实体');
+    // region_b 不 promote（PC 不在）· 档位 仍 粗
+    expect(s.LOD表['region_b']?.档位).not.toBe('实体');
   });
 });
 
@@ -480,11 +479,11 @@ describe('B2-10 · tick 集成 空 LOD表 精确 no-op', () => {
     expect(Object.keys(s1.LOD表)).toHaveLength(0);
   });
 
-  it('runTick 空 LOD表 → 地图地点 LOD态 不变', () => {
+  it('runTick 空 LOD表 → LOD表 仍为空（地图地点无 LOD 写入）', () => {
     const s0 = RootSchema.parse({
       $玩家偏好: { 内容分级: 'off', NSFW降级模型: { 启用: false } },
     });
-    // 插入一个地点（无 LOD态）
+    // 插入一个地点（不在 LOD表）
     (s0.地图 as typeof s0.地图) = {
       ...(s0.地图 ?? {}),
       地点: {
@@ -492,7 +491,7 @@ describe('B2-10 · tick 集成 空 LOD表 精确 no-op', () => {
       },
     } as typeof s0.地图;
     const { state: s1 } = runTick(s0, { tickId: 'b2-noop-2', spanMinutes: 1440 });
-    expect(s1.地图.地点['loc1']?.LOD态).toBeUndefined();
+    expect(Object.keys(s1.LOD表)).toHaveLength(0);
   });
 
   it('runTick 空 LOD表 → settledPhases 含 LOD调度', () => {

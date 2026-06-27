@@ -57,7 +57,8 @@
     "./engine/preset/contentPack": "./engine/preset/contentPack.ts",
     "./engine/preset/resolve": "./engine/preset/resolve.ts",
     "./engine/preset/ruleLibrary": "./engine/preset/ruleLibrary.ts",
-    "./replay": "./replay/index.ts"
+    "./replay": "./replay/index.ts",
+    "./migration/migrate": "./migration/migrate.ts"
   },
   "dependencies": {
     "pure-rand": "^6.1.0",

@@ -43,6 +43,9 @@ import { SnapshotRingBuffer, assertClosedAccount, RING_K } from "./engine/snapsh
 import { rewindTick } from "./engine/rewind.js";
 import { filterSecretsForPOV } from "@ai-life-sim/core/engine/knowledgeFilter";
 import { DEFAULT_NEAR_K } from "@ai-life-sim/core/prompt/callRegistry";
+import { registerProductionLodMounts } from "@ai-life-sim/core/engine/lodMount";
+// ── LOD 生产挂载（B4·引导阶段·幂等）────────────────────────────────────────────
+registerProductionLodMounts();
 // ── P7-3 事务保真单例 ─────────────────────────────────────────────────────────
 const ticketStore = new TicketStore(); // Z5 工单库 / 3d irreversible 防护
 const committedEvents = new Set(); // 6.67 幂等键集（eventId → 不双落账）
@@ -153,19 +156,20 @@ async function narrativeWithFilter(action, checkInfo) {
     const linjiuBal = bal[PC] ?? 0;
     const wangBal = bal[NPC_WANG] ?? 0;
     const hongBal = bal[NPC_HONG] ?? 0;
-    // lore 谓词上下文
+    // lore 谓词上下文：用主角属性 + 当前拍计数组成平坦数值快照
     const pcAttrs = (state.NPC?.[PC]?.属性 ?? {});
     const lorePredCtx = { 属性: pcAttrs, 拍计数: tickCount };
-    // 知情过滤前置闸：povEntityKey 注入到 assemblePrompt 内部处理
+    // 知情过滤前置闸：povEntityKey 注入到 assemblePrompt 内部处理（不可旁路）
     const { systemPrompt } = assemblePrompt(state, {
         pcKey: PC,
         locName: LOC_NAME,
-        povEntityKey: PC,
-        narrativeHistory,
-        actionHistory,
-        balances: bal,
-        lorePredCtx,
+        povEntityKey: PC, // gate 前置：assembler 内部调用 filterSecretsForPOV
+        narrativeHistory, // 近 K 拍叙事历史（assembler 取末 DEFAULT_NEAR_K 条）
+        actionHistory, // 动作序列（assembler 取末 6 条）
+        balances: bal, // live 账本快照
+        lorePredCtx, // lore 底层谓词求值上下文
     });
+    // 结构化 userPrompt（游戏特定：债务/时间/写作要求·不进 assembler 通用层）
     const payCount = Math.max(0, Math.round((hongBal - (INITIAL_BALANCES[NPC_HONG] ?? 0)) / 2));
     const debtLine = debt > 0
         ? `林九尚欠王掌柜 ${debt} 文（已赊账 ${creditCount} 次，未还清）。`
@@ -177,7 +181,7 @@ async function narrativeWithFilter(action, checkInfo) {
         (recentActions ? `\n【最近动作顺序】${recentActions}` : "");
     const clock = gameClock(tickCount);
     const timeLine = `第 ${clock.day} 天 · ${clock.label}`;
-    // 近 K 拍叙事（替代旧的只喂最近1条）
+    // 近 K 拍叙事（替代旧的只喂最近1条·P0-8 Batch 1 止血）
     const recentScenes = narrativeHistory.slice(-DEFAULT_NEAR_K);
     const userPrompt = `【此刻】${timeLine}\n${recap}\n\n` +
         (recentScenes.length > 0

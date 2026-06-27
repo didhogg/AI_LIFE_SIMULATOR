@@ -85,10 +85,6 @@ export const 地点条目Schema = z.object({
   // L-3a · 可行走性标记（optional·零迁移·引擎可读·⊥ 前端绘图字段）
   可行走: z.boolean().optional(),
 
-  // ── PR-4 · LOD 调度器状态（additive·仅对 类别='区域级' 节点有语义·非区域级留 undefined）
-  LOD态: z.enum(['粗', '实体']).optional(),        // 当前 LOD 状态（缺省视为'粗'·惰性）
-  保温到期拍号: z.number().int().optional(),         // 离开后保温窗口到期拍号（超窗 demote）
-
   // ── PR-0 · 区域层 v2 留位（additive·与 NpcSchema._幕后发生区域 共用地点键空间·G2 接线）
   // 语义仅对 类别='区域级' 节点有效；非区域级节点留 undefined 即忽略
   区域映射: z.string().optional(),          // 此节点所属父区域键（涟漪传播聚合路由·G2 接线）

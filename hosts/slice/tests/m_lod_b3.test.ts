@@ -65,7 +65,6 @@ function makeStateWithLod(opts: {
     地点: {
       [nodeKey]: {
         名称: nodeKey,
-        LOD态: '粗',
         父节点: '',
         相对方位: '',
       },
@@ -413,12 +412,12 @@ describe('B3-7 · 三条件 冷启动（无 prev 快照）', () => {
     expect(s._系统.LOD位置快照!['pc1']!.locKey).toBe('node1');
   });
 
-  it('冷启动不触发 detectLodTrigger（地图 LOD态 仅由 promote 决定·无双重 promote）', () => {
+  it('冷启动不触发 detectLodTrigger（LOD表 档位 仅由 promote 决定·无双重 promote）', () => {
     const s = makeStateWithLod({ nodeKey: 'node1', pcKey: 'pc1', pcAtNode: 'node1' });
     scheduleLodPhase(s, 42, 0);
 
     // PC 在场 → promote（B2 行为不变）
-    expect(s.地图?.地点?.['node1']?.LOD态).toBe('实体');
+    expect(s.LOD表?.['node1']?.档位).toBe('实体');
   });
 });
 
@@ -432,8 +431,8 @@ describe('B3-8 · 三条件 跨区（state 快照 → detectLodTrigger → handl
     // 地图：两个地点，各自为独立 region（无 父节点）
     (s.地图 as Record<string, unknown>) = {
       地点: {
-        loc_a: { 名称: 'loc_a', LOD态: '粗' },
-        loc_b: { 名称: 'loc_b', LOD态: '粗' },
+        loc_a: { 名称: 'loc_a' },
+        loc_b: { 名称: 'loc_b' },
       },
       区域物价: {},
     };
@@ -458,7 +457,7 @@ describe('B3-8 · 三条件 跨区（state 快照 → detectLodTrigger → handl
     scheduleLodPhase(s, 42, 5);
 
     // 跨区 → loc_b region promoted（handleRegionCross 接通）
-    expect(s.地图?.地点?.['loc_b']?.LOD态).toBe('实体');
+    expect(s.LOD表?.['loc_b']?.档位).toBe('实体');
 
     // 快照更新为当前位置（loc_b）
     expect(s._系统.LOD位置快照!['pc1']!.locKey).toBe('loc_b');
@@ -472,7 +471,7 @@ describe('B3-9 · 三条件 纪元跨时代', () => {
     const s = makeBase();
 
     (s.地图 as Record<string, unknown>) = {
-      地点: { loc1: { 名称: 'loc1', LOD态: '粗' } },
+      地点: { loc1: { 名称: 'loc1' } },
       区域物价: {},
     };
     (s.NPC as Record<string, unknown>)['pc1'] = {
@@ -498,7 +497,7 @@ describe('B3-9 · 三条件 纪元跨时代', () => {
     scheduleLodPhase(s, 0, 10);
 
     // 纪元跨时代 → 当前区域 loc1 promoted
-    expect(s.地图?.地点?.['loc1']?.LOD态).toBe('实体');
+    expect(s.LOD表?.['loc1']?.档位).toBe('实体');
   });
 });
 
@@ -509,7 +508,7 @@ describe('B3-10 · 三条件 组织归属变更', () => {
     const s = makeBase();
 
     (s.地图 as Record<string, unknown>) = {
-      地点: { loc1: { 名称: 'loc1', LOD态: '粗' } },
+      地点: { loc1: { 名称: 'loc1' } },
       区域物价: {},
     };
     // PC 所属组织 = ['guild_new']（上拍为 []）
@@ -531,7 +530,7 @@ describe('B3-10 · 三条件 组织归属变更', () => {
     scheduleLodPhase(s, 0, 0);
 
     // 组织变更 → loc1 promoted
-    expect(s.地图?.地点?.['loc1']?.LOD态).toBe('实体');
+    expect(s.LOD表?.['loc1']?.档位).toBe('实体');
   });
 });
 
@@ -545,7 +544,7 @@ describe('B3-11 · NPC promote 路径等价（B3 dispatchLodGenerate 不改变 B
     scheduleLodPhase(s, 42, 0);
 
     // 地点 promoted（B2-2 行为）
-    expect(s.地图?.地点?.['n1']?.LOD态).toBe('实体');
+    expect(s.LOD表?.['n1']?.档位).toBe('实体');
     // NPC materialized（B2-2 行为·通过 promoteNode→materializeCoarseNode）
     expect(s.NPC['npc1']?.LOD档位).toBe('实体');
     // 属性有 RNG 派生值（materializeCoarseNode 已运行）

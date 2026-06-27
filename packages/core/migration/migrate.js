@@ -766,7 +766,7 @@ export function buildV41Raw(input) {
             粒度栈: [],
             周期数,
             _本拍跨度: tickMinutes,
-            _粒度模板: {},
+            _粒度模板: { 即时: {}, 日常: {}, 发展: {}, 世代: {} },
         },
         世界域: {},
         // 6.53 C1: 旧 镜头焦点角色 字符串指针升格为席位表（单机退化为单席位「本机」）
@@ -976,6 +976,63 @@ export function backfill货币账户PerEntity(raw) {
 export function backfillPhaseL1b(raw) {
     // pure-optional fields — Zod parse handles absence; no structural write needed
     return raw;
+}
+// ── LOD-B4 · 散落 map LOD 字段 → LOD表迁移（地点.LOD态/保温到期拍号 → LOD表[k]·Option-B）──
+// Shape嗅探幂等门：遍历 地图.地点 → 无任何 LOD态/保温到期拍号 key → no-op。
+// 迁移路径：旧档 地点[k].LOD态='实体' → LOD表[k].档位='实体'；保温到期拍号同理移入。
+// Option-B：删除 地点[k].LOD态 / 地点[k].保温到期拍号（不保留旧路径）。
+// 幂等：同档二次 migrate → 无散落字段残留 → no-op（migration_version 不再 bump）。
+export function backfillLodTableMapState(raw) {
+    const 地图Rec = asRec(raw['地图']);
+    const locsRec = asRec(地图Rec['地点']);
+    const locKeys = Object.keys(locsRec);
+    if (locKeys.length === 0)
+        return raw;
+    // Shape嗅探：有任何地点含 LOD态 或 保温到期拍号？
+    let needsMigration = false;
+    for (const k of locKeys) {
+        const loc = asRec(locsRec[k]);
+        if ('LOD态' in loc || '保温到期拍号' in loc) {
+            needsMigration = true;
+            break;
+        }
+    }
+    if (!needsMigration)
+        return raw; // 幂等 → no-op
+    const existingLodTable = asRec(raw['LOD表']);
+    const newLodTable = { ...existingLodTable };
+    const newLocs = {};
+    for (const k of locKeys) {
+        const loc = asRec(locsRec[k]);
+        if (!('LOD态' in loc) && !('保温到期拍号' in loc)) {
+            newLocs[k] = locsRec[k]; // 无散落字段 → 原样
+            continue;
+        }
+        // 迁入 LOD表（合并已有条目）
+        const existing = asRec(newLodTable[k]);
+        const entry = { 模块键: k, 档位: '粗', ...existing };
+        if ('LOD态' in loc) {
+            const lodState = asStr(loc['LOD态']);
+            if (lodState === '实体')
+                entry['档位'] = '实体';
+        }
+        if ('保温到期拍号' in loc) {
+            const expiry = loc['保温到期拍号'];
+            if (typeof expiry === 'number' && Number.isFinite(expiry)) {
+                entry['保温到期拍号'] = expiry;
+            }
+        }
+        newLodTable[k] = entry;
+        // Option-B: 删除散落字段
+        const newLoc = { ...loc };
+        delete newLoc['LOD态'];
+        delete newLoc['保温到期拍号'];
+        newLocs[k] = newLoc;
+    }
+    const newMap = { ...地图Rec, 地点: newLocs };
+    const sys = asRec(raw['_系统']);
+    const newSys = { ...sys, migration_version: asNum(sys['migration_version']) + 1 };
+    return { ...raw, 地图: newMap, LOD表: newLodTable, _系统: newSys };
 }
 // ── D-3·种子来源包名归一（$隐藏记忆库.延时种子[*].来源.包id → 来源包·幂等·additive）──
 //
@@ -1391,7 +1448,7 @@ export function migrate(input) {
     // buildV41Raw already emits new key names; applyPrefixRenames is a no-op here
     // but is exported for callers who load existing V4.1 saves with old key names.
     // Within-v4.1 migrations run here (after buildV41Raw v4.1 early-return path).
-    const rawMigrated = backfillPhaseL1b(backfillSeedSourcePkgName(backfill货币账户PerEntity(backfillPackId(migrateS1S1b(migrate内容分级位置(raw))))));
+    const rawMigrated = backfillLodTableMapState(backfillPhaseL1b(backfillSeedSourcePkgName(backfill货币账户PerEntity(backfillPackId(migrateS1S1b(migrate内容分级位置(raw)))))));
     let state = RootSchema.parse(normalizeRegistryKeyNames(rawMigrated)); // S3 读卡口
     // Community-gate self-heal: 内容分级 !== 'community' 时强制 允许玩家覆盖=false，不 throw
     const strict = RootSchemaStrict.safeParse(state);

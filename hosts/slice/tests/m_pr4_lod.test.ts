@@ -128,37 +128,35 @@ function clone<T>(s: T): T {
 describe('G1: 单态不变式', () => {
   it('G1-1 promoteNode 粗→实体', () => {
     const s = buildLodWorld();
-    // 先将北区 LOD态 设为 '粗'（新 schema 字段·默认 undefined）
-    s.地图.地点[REGION_NORTH]!.LOD态 = '粗';
+    // LOD表 无条目 = 视为粗（惰性）
     promoteNode(s, REGION_NORTH, SEED);
-    expect(s.地图.地点[REGION_NORTH]?.LOD态).toBe('实体');
+    expect(s.LOD表[REGION_NORTH]?.档位).toBe('实体');
   });
 
   it('G1-2 promoteNode 已为实体态 幂等 no-op', () => {
     const s = buildLodWorld();
-    s.地图.地点[REGION_NORTH]!.LOD态 = '粗';
-    promoteNode(s, REGION_NORTH, SEED);
-    const snap1 = JSON.stringify(s.地图.地点[REGION_NORTH]);
+    promoteNode(s, REGION_NORTH, SEED); // 促升·惰性建条目
+    const snap1 = JSON.stringify(s.LOD表[REGION_NORTH]);
     // 物化 NPC：npc_coarse_1 位于 REGION_NORTH → 已实体化
-    promoteNode(s, REGION_NORTH, SEED);
-    const snap2 = JSON.stringify(s.地图.地点[REGION_NORTH]);
+    promoteNode(s, REGION_NORTH, SEED); // 幂等 no-op
+    const snap2 = JSON.stringify(s.LOD表[REGION_NORTH]);
     expect(snap1).toBe(snap2);
   });
 
   it('G1-3 demoteNode 实体→粗', () => {
     const s = buildLodWorld();
-    s.地图.地点[REGION_NORTH]!.LOD态 = '实体';
+    (s.LOD表 as Record<string, unknown>)[REGION_NORTH] = { 模块键: REGION_NORTH, 档位: '实体' };
     demoteNode(s, REGION_NORTH);
-    expect(s.地图.地点[REGION_NORTH]?.LOD态).toBe('粗');
+    expect(s.LOD表[REGION_NORTH]?.档位).toBe('粗');
   });
 
   it('G1-4 demoteNode 已为粗态 幂等 no-op', () => {
     const s = buildLodWorld();
-    s.地图.地点[REGION_NORTH]!.LOD态 = '粗';
-    demoteNode(s, REGION_NORTH);
-    const snap1 = JSON.stringify(s.地图.地点[REGION_NORTH]);
-    demoteNode(s, REGION_NORTH);
-    const snap2 = JSON.stringify(s.地图.地点[REGION_NORTH]);
+    (s.LOD表 as Record<string, unknown>)[REGION_NORTH] = { 模块键: REGION_NORTH, 档位: '粗' };
+    demoteNode(s, REGION_NORTH); // guard: 档位 != '实体' → no-op
+    const snap1 = JSON.stringify(s.LOD表[REGION_NORTH]);
+    demoteNode(s, REGION_NORTH); // no-op 再次
+    const snap2 = JSON.stringify(s.LOD表[REGION_NORTH]);
     expect(snap1).toBe(snap2);
   });
 
@@ -175,7 +173,6 @@ describe('G1: 单态不变式', () => {
   it('G1-7 promoteNode 物化区域内粗节点 NPC', () => {
     const s = buildLodWorld();
     expect(s.NPC[NPC_COARSE_1]?.LOD档位).toBe('粗');
-    s.地图.地点[REGION_NORTH]!.LOD态 = '粗';
     // NPC_COARSE_1 位置 = REGION_NORTH → 物化
     promoteNode(s, REGION_NORTH, SEED);
     expect(s.NPC[NPC_COARSE_1]?.LOD档位).toBe('实体');
@@ -185,13 +182,12 @@ describe('G1: 单态不变式', () => {
 
   it('G1-8 两次 promote 后两次 demote：最终为粗（单态序列）', () => {
     const s = buildLodWorld();
-    s.地图.地点[REGION_NORTH]!.LOD态 = '粗';
     promoteNode(s, REGION_NORTH, SEED);
     promoteNode(s, REGION_NORTH, SEED); // 幂等
-    expect(s.地图.地点[REGION_NORTH]?.LOD态).toBe('实体');
+    expect(s.LOD表[REGION_NORTH]?.档位).toBe('实体');
     demoteNode(s, REGION_NORTH);
     demoteNode(s, REGION_NORTH); // 幂等
-    expect(s.地图.地点[REGION_NORTH]?.LOD态).toBe('粗');
+    expect(s.LOD表[REGION_NORTH]?.档位).toBe('粗');
   });
 });
 
@@ -200,12 +196,9 @@ describe('G1: 单态不变式', () => {
 describe('G2: checkpoint 原子·回访不双计', () => {
   it('G2-1 A→B→A 回访：窗口内 A 仍为实体（不双计·V2 修复）', () => {
     const s = buildLodWorld();
-    s.地图.地点[REGION_NORTH]!.LOD态 = '粗';
-    s.地图.地点[REGION_SOUTH]!.LOD态 = '粗';
-
     // tick=1: 从 loc_n1 → loc_s1（跨区）
     handleRegionCross(s, LOC_N1, LOC_S1, SEED, 1);
-    expect(s.地图.地点[REGION_SOUTH]?.LOD态).toBe('实体'); // S promote
+    expect(s.LOD表[REGION_SOUTH]?.档位).toBe('实体'); // S promote
     expect(checkWarmWindow(s, REGION_NORTH, 1)).toBe(true); // N 在保温窗口
 
     // tick=2: 从 loc_s1 → loc_n1（回 A·窗口内）
@@ -219,7 +212,6 @@ describe('G2: checkpoint 原子·回访不双计', () => {
 
   it('G2-2 同一节点连续 promote N 次：状态恒一·NPC 只实体化一次', () => {
     const s = buildLodWorld();
-    s.地图.地点[REGION_NORTH]!.LOD态 = '粗';
     expect(s.NPC[NPC_COARSE_1]?.LOD档位).toBe('粗');
 
     promoteNode(s, REGION_NORTH, SEED);
@@ -235,8 +227,6 @@ describe('G2: checkpoint 原子·回访不双计', () => {
   it('G2-3 回访确定性：相同 seed 两次 promote 属性逐位恒等', () => {
     const s1 = buildLodWorld();
     const s2 = buildLodWorld();
-    s1.地图.地点[REGION_NORTH]!.LOD态 = '粗';
-    s2.地图.地点[REGION_NORTH]!.LOD态 = '粗';
 
     promoteNode(s1, REGION_NORTH, SEED);
     promoteNode(s2, REGION_NORTH, SEED);
@@ -252,7 +242,7 @@ describe('G3: 保温窗口', () => {
   it('G3-1 startWarmWindow 写 保温到期拍号 = tick + LOD_WARM_WINDOW_DEFAULT', () => {
     const s = buildLodWorld();
     startWarmWindow(s, REGION_NORTH, 5);
-    expect(s.地图.地点[REGION_NORTH]?.保温到期拍号).toBe(5 + LOD_WARM_WINDOW_DEFAULT);
+    expect(s.LOD表[REGION_NORTH]?.保温到期拍号).toBe(5 + LOD_WARM_WINDOW_DEFAULT);
   });
 
   it('G3-2 窗口内（tick <= 到期）→ checkWarmWindow=true', () => {
@@ -275,27 +265,27 @@ describe('G3: 保温窗口', () => {
     expect(checkWarmWindow(s, REGION_NORTH, 0)).toBe(false);
   });
 
-  it('G3-5 tryDemoteNode：窗口内 → no-op（LOD态 不变）', () => {
+  it('G3-5 tryDemoteNode：窗口内 → no-op（档位 不变）', () => {
     const s = buildLodWorld();
-    s.地图.地点[REGION_NORTH]!.LOD态 = '实体';
+    (s.LOD表 as Record<string, unknown>)[REGION_NORTH] = { 模块键: REGION_NORTH, 档位: '实体' };
     startWarmWindow(s, REGION_NORTH, 1);
     tryDemoteNode(s, REGION_NORTH, 2); // tick=2 ≤ 1+3=4
-    expect(s.地图.地点[REGION_NORTH]?.LOD态).toBe('实体'); // 仍实体
+    expect(s.LOD表[REGION_NORTH]?.档位).toBe('实体'); // 仍实体
   });
 
   it('G3-6 tryDemoteNode：超窗 → demote', () => {
     const s = buildLodWorld();
-    s.地图.地点[REGION_NORTH]!.LOD态 = '实体';
+    (s.LOD表 as Record<string, unknown>)[REGION_NORTH] = { 模块键: REGION_NORTH, 档位: '实体' };
     startWarmWindow(s, REGION_NORTH, 1);
     tryDemoteNode(s, REGION_NORTH, 5); // tick=5 > 1+3=4
-    expect(s.地图.地点[REGION_NORTH]?.LOD态).toBe('粗');
+    expect(s.LOD表[REGION_NORTH]?.档位).toBe('粗');
   });
 
   it('G3-7 自定义保温窗口（预设 LOD保温窗口=1）', () => {
     const s = buildLodWorld();
     const preset: 玩法预设Type = { LOD保温窗口: 1 } as 玩法预设Type;
     startWarmWindow(s, REGION_NORTH, 10, preset);
-    expect(s.地图.地点[REGION_NORTH]?.保温到期拍号).toBe(11);
+    expect(s.LOD表[REGION_NORTH]?.保温到期拍号).toBe(11);
     // tick=11 仍在窗口内
     expect(checkWarmWindow(s, REGION_NORTH, 11)).toBe(true);
     // tick=12 超窗
@@ -304,11 +294,11 @@ describe('G3: 保温窗口', () => {
 
   it('G3-8 demoteNode 清空 保温到期拍号', () => {
     const s = buildLodWorld();
-    s.地图.地点[REGION_NORTH]!.LOD态 = '实体';
+    (s.LOD表 as Record<string, unknown>)[REGION_NORTH] = { 模块键: REGION_NORTH, 档位: '实体' };
     startWarmWindow(s, REGION_NORTH, 1);
-    expect(s.地图.地点[REGION_NORTH]?.保温到期拍号).toBeDefined();
+    expect(s.LOD表[REGION_NORTH]?.保温到期拍号).toBeDefined();
     demoteNode(s, REGION_NORTH);
-    expect(s.地图.地点[REGION_NORTH]?.保温到期拍号).toBeUndefined();
+    expect(s.LOD表[REGION_NORTH]?.保温到期拍号).toBeUndefined();
   });
 });
 
@@ -333,11 +323,9 @@ describe('G4: 跨区触发 promote + 离开起窗', () => {
 
   it('G4-4 handleRegionCross：promote 目标区域', () => {
     const s = buildLodWorld();
-    s.地图.地点[REGION_NORTH]!.LOD态 = '粗';
-    s.地图.地点[REGION_SOUTH]!.LOD态 = '粗';
     handleRegionCross(s, LOC_N1, LOC_S1, SEED, 1);
     // 目标区域 REGION_SOUTH promoted
-    expect(s.地图.地点[REGION_SOUTH]?.LOD态).toBe('实体');
+    expect(s.LOD表[REGION_SOUTH]?.档位).toBe('实体');
   });
 
   it('G4-5 handleRegionCross：离开区域起保温窗口', () => {
@@ -345,7 +333,7 @@ describe('G4: 跨区触发 promote + 离开起窗', () => {
     handleRegionCross(s, LOC_N1, LOC_S1, SEED, 1);
     // 离开区域 REGION_NORTH 有保温窗口
     expect(checkWarmWindow(s, REGION_NORTH, 1)).toBe(true);
-    expect(s.地图.地点[REGION_NORTH]?.保温到期拍号).toBe(1 + LOD_WARM_WINDOW_DEFAULT);
+    expect(s.LOD表[REGION_NORTH]?.保温到期拍号).toBe(1 + LOD_WARM_WINDOW_DEFAULT);
   });
 
   it('G4-6 handleRegionCross：同区内移动 → 不起窗（同区不视为离开）', () => {
@@ -353,14 +341,12 @@ describe('G4: 跨区触发 promote + 离开起窗', () => {
     // LOC_N1 → REGION_NORTH 同区
     handleRegionCross(s, LOC_N1, REGION_NORTH, SEED, 1);
     // prev 区 = REGION_NORTH, new 区 = REGION_NORTH → 相同 → 不起窗
-    expect(s.地图.地点[REGION_NORTH]?.保温到期拍号).toBeUndefined();
+    expect(s.LOD表[REGION_NORTH]?.保温到期拍号).toBeUndefined();
   });
 
   it('G4-7 跨区 NPC 物化确定性：同 seed 双跑逐位恒等', () => {
     const s1 = buildLodWorld();
     const s2 = buildLodWorld();
-    s1.地图.地点[REGION_SOUTH]!.LOD态 = '粗';
-    s2.地图.地点[REGION_SOUTH]!.LOD态 = '粗';
 
     handleRegionCross(s1, LOC_N1, LOC_S1, SEED, 1);
     handleRegionCross(s2, LOC_N1, LOC_S1, SEED, 1);
@@ -595,8 +581,6 @@ describe('G7: soak 守恒 + 确定性 + 黄金向量', () => {
   it('G7-4 双跑逐位恒等（LOD 调度确定性·同 seed 同 tick）', () => {
     const s1 = buildLodWorld();
     const s2 = buildLodWorld();
-    s1.地图.地点[REGION_NORTH]!.LOD态 = '粗';
-    s2.地图.地点[REGION_NORTH]!.LOD态 = '粗';
 
     for (let i = 0; i < 20; i++) {
       if (i % 5 === 0) {
@@ -613,8 +597,8 @@ describe('G7: soak 守恒 + 确定性 + 黄金向量', () => {
     }
 
     // LOD 态逐位恒等
-    expect(s1.地图.地点[REGION_NORTH]?.LOD态).toBe(s2.地图.地点[REGION_NORTH]?.LOD态);
-    expect(s1.地图.地点[REGION_SOUTH]?.LOD态).toBe(s2.地图.地点[REGION_SOUTH]?.LOD态);
+    expect(s1.LOD表[REGION_NORTH]?.档位).toBe(s2.LOD表[REGION_NORTH]?.档位);
+    expect(s1.LOD表[REGION_SOUTH]?.档位).toBe(s2.LOD表[REGION_SOUTH]?.档位);
     // NPC 属性逐位恒等
     expect(s1.NPC[NPC_COARSE_1]?.属性.体质).toBe(s2.NPC[NPC_COARSE_1]?.属性.体质);
     expect(s1.NPC[NPC_COARSE_2]?.属性.体质).toBe(s2.NPC[NPC_COARSE_2]?.属性.体质);

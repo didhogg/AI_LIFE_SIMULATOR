@@ -99,3 +99,10 @@ export const NPC_LOD_DESCRIPTOR = {
 export function registerNpcLodMount() {
     registerLodMount(NPC_LOD_DESCRIPTOR);
 }
+/**
+ * 注册全部生产 LOD 描述符（B4·server.js 引导阶段调用·幂等）。
+ * 测试中通过 clearLodRegistry + 单独注册实现隔离，不调用此函数。
+ */
+export function registerProductionLodMounts() {
+    registerNpcLodMount();
+}

@@ -12,6 +12,7 @@
 
 import type { RootState } from '../schema/index.js';
 import type { 玩法预设Type } from '../schema/preset.js';
+import type { LOD态条目 } from '../schema/lodTable.js';
 import { 穿越契约Schema } from '../schema/preset.js';
 import type { z } from 'zod';
 import { locRegion, buildRegionGraph, bfsRegionHops, type LocRecord } from './tick.js';
@@ -31,14 +32,15 @@ export const LOD_WARM_WINDOW_DEFAULT = 3;
  * 促升：location node 粗→实体（in-place·调用方须已 structuredClone）。
  *
  * - nodeKey 不存在 → 幂等 no-op（退化守卫）
- * - LOD态 已='实体' → 幂等 no-op（单态保证）
+ * - LOD表[nodeKey].档位 已='实体' → 幂等 no-op（单态保证）
  * - 物化 nodeKey 下所有 LOD档位='粗' 的 NPC（复用 materializeCoarseNode·PR-2）
- * - 写 checkpoint：loc.LOD态 = '实体'（原子转换）
+ * - 写 checkpoint：LOD表[nodeKey].档位 = '实体'（原子转换·惰性建条目）
  */
 export function promoteNode(state: RootState, nodeKey: string, seed: number): void {
+  if (state.LOD表[nodeKey]?.档位 === '实体') return; // 幂等
+
   const loc = state.地图?.地点?.[nodeKey];
-  if (!loc) return;
-  if (loc.LOD态 === '实体') return; // 幂等
+  if (!loc) return; // 不存在节点 → no-op
 
   // 物化该区域下的粗节点 NPC
   for (const npcKey of Object.keys(state.NPC)) {
@@ -48,26 +50,27 @@ export function promoteNode(state: RootState, nodeKey: string, seed: number): vo
     }
   }
 
-  // 写 checkpoint（原子：LOD态 单态转换）
-  loc.LOD态 = '实体';
+  // 写 checkpoint（原子：LOD表 单态转换·惰性建条目）
+  if (!state.LOD表[nodeKey]) {
+    const entry: LOD态条目 = { 模块键: nodeKey, 档位: '粗' };
+    state.LOD表[nodeKey] = entry;
+  }
+  state.LOD表[nodeKey]!.档位 = '实体';
 }
 
 /**
  * 降级：location node 实体→粗（in-place·调用方须已 structuredClone）。
  *
- * - nodeKey 不存在 → 幂等 no-op（退化守卫）
- * - LOD态 非 '实体' → 幂等 no-op（含 undefined·单态保证）
+ * - LOD表[nodeKey].档位 非 '实体' → 幂等 no-op（含 undefined·单态保证）
  * - 离开再聚合：对该区域所有品类调用 applyDriftCandidate（P14·复用 PR-3）
- * - 写 LOD态='粗'，清空 保温到期拍号（原子转换）
+ * - 写 LOD表[nodeKey].档位='粗'，清空 保温到期拍号（原子转换）
  */
 export function demoteNode(state: RootState, nodeKey: string, preset?: 玩法预设Type): void {
-  const loc = state.地图?.地点?.[nodeKey];
-  if (!loc) return;
-  if (loc.LOD态 !== '实体') return; // 幂等（含 undefined）
+  if (state.LOD表[nodeKey]?.档位 !== '实体') return; // 幂等（含 undefined）
 
   // 离开再聚合（P14·复用 PR-3 applyDriftCandidate）
   if (preset?.经济生成规则) {
-    const locs = state.地图.地点;
+    const locs = state.地图?.地点 ?? {};
     const regionId = locRegion(nodeKey, locs) ?? nodeKey;
     const regionPrices = state.地图?.区域物价?.[regionId];
     if (regionPrices) {
@@ -77,11 +80,12 @@ export function demoteNode(state: RootState, nodeKey: string, preset?: 玩法预
     }
   }
 
-  // 写 LOD态（单态转换）+ 清空保温
-  loc.LOD态 = '粗';
+  // 写 LOD表（单态转换）+ 清空保温
+  const entry = state.LOD表[nodeKey]!;
+  entry.档位 = '粗';
   // exactOptionalPropertyTypes: 用 delete 代替赋值 undefined
-  if ('保温到期拍号' in loc) {
-    delete (loc as { 保温到期拍号?: number }).保温到期拍号;
+  if ('保温到期拍号' in entry) {
+    delete (entry as { 保温到期拍号?: number }).保温到期拍号;
   }
 }
 
@@ -93,7 +97,8 @@ function getWarmWindow(preset?: 玩法预设Type): number {
 
 /**
  * 起始保温窗口（in-place）。
- * 写 保温到期拍号 = currentTick + warmWindow（实体态在到期拍内可复用）。
+ * 写 LOD表[nodeKey].保温到期拍号 = currentTick + warmWindow（实体态在到期拍内可复用）。
+ * 节点不存在于地图 → no-op（防孤儿条目）。
  */
 export function startWarmWindow(
   state: RootState,
@@ -101,9 +106,12 @@ export function startWarmWindow(
   currentTick: number,
   preset?: 玩法预设Type,
 ): void {
-  const loc = state.地图?.地点?.[nodeKey];
-  if (!loc) return;
-  loc.保温到期拍号 = currentTick + getWarmWindow(preset);
+  if (!state.地图?.地点?.[nodeKey]) return; // guard: loc must exist
+  if (!state.LOD表[nodeKey]) {
+    const entry: LOD态条目 = { 模块键: nodeKey, 档位: '粗' };
+    state.LOD表[nodeKey] = entry;
+  }
+  state.LOD表[nodeKey]!.保温到期拍号 = currentTick + getWarmWindow(preset);
 }
 
 /**
@@ -111,7 +119,7 @@ export function startWarmWindow(
  * 返回 true = 在窗口内，不应 demote；false = 已超窗或无窗口。
  */
 export function checkWarmWindow(state: RootState, nodeKey: string, currentTick: number): boolean {
-  const expiry = state.地图?.地点?.[nodeKey]?.保温到期拍号;
+  const expiry = state.LOD表[nodeKey]?.保温到期拍号;
   return expiry !== undefined && currentTick <= expiry;
 }
 
