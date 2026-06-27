@@ -190,6 +190,7 @@ describe('D-a-lore: collectLorePredicates (1a 触发谓词)', () => {
     const fp1 = hashJudgmentBundle(JUDGMENT_BASE);
     const fp2 = hashJudgmentBundle({ ...JUDGMENT_BASE, lore谓词集合: collectLorePredicates({}) });
     expect(fp1).toBe(fp2);
+    expect(fp1).toBe('2635a1d9'); // G0: Option B baseline pinned
   });
 
   it('非空触发谓词 → 收集入 result', () => {
@@ -246,7 +247,7 @@ describe('D-a-lore: collectLorePredicates (1a 触发谓词)', () => {
     const fp1 = hashJudgmentBundle({ ...JUDGMENT_BASE, lore谓词集合: collectLorePredicates(bag) });
     const fp2 = hashJudgmentBundle({ ...JUDGMENT_BASE, lore谓词集合: collectLorePredicates(bag) });
     expect(fp1).toBe(fp2);
-    expect(fp1).toMatch(/^[0-9a-f]{8}$/);
+    expect(fp1).toBe('4cf6c4f0'); // G0: 1a 双条目·pinned
   });
 
   it('多条目全空谓词 → 返回 undefined → 指纹与空库恒等', () => {
@@ -461,7 +462,30 @@ describe('D-a-lore: collectLorePredicates (1a+1b+1c 三类聚合)', () => {
     const fp1 = hashJudgmentBundle({ ...JUDGMENT_BASE, lore谓词集合: collectLorePredicates(bag) });
     const fp2 = hashJudgmentBundle({ ...JUDGMENT_BASE, lore谓词集合: collectLorePredicates(bag) });
     expect(fp1).toBe(fp2);
-    expect(fp1).toMatch(/^[0-9a-f]{8}$/);
+    expect(fp1).toBe('7ac2a52d'); // G0: 三类全·pinned
+  });
+
+  it('G0 插入顺序独立：颠倒 lore 库键序 → collectLorePredicates + bundle hex 逐位恒等', () => {
+    const bagNormal = {
+      'cuisine:川菜': mkFullEntry(
+        '场景.地域 == 四川',
+        [{ pred: '角色.年龄 >= 18' }],
+        [{ pred: '角色.年龄 < 5' }],
+      ),
+      'hanfu:盘扣': mkFullEntry('', [], [{ pred: '' }]),
+    };
+    const bagReversed = {
+      'hanfu:盘扣': mkFullEntry('', [], [{ pred: '' }]),
+      'cuisine:川菜': mkFullEntry(
+        '场景.地域 == 四川',
+        [{ pred: '角色.年龄 >= 18' }],
+        [{ pred: '角色.年龄 < 5' }],
+      ),
+    };
+    const fp1 = hashJudgmentBundle({ ...JUDGMENT_BASE, lore谓词集合: collectLorePredicates(bagNormal) });
+    const fp2 = hashJudgmentBundle({ ...JUDGMENT_BASE, lore谓词集合: collectLorePredicates(bagReversed) });
+    expect(fp1).toBe('7ac2a52d'); // G0: 正序 pinned
+    expect(fp2).toBe('7ac2a52d'); // G0: 逆序 pinned·canonicalize 排序稳定
   });
 
   it('空库 → undefined（三类均无条目）', () => {
