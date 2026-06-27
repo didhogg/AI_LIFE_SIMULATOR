@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { 不可逆Schema } from './verb.js';
 import { 受治理句柄Schema, 是JS保留键 } from './governedKeySpace.js';
-import { 意象条目Schema, factFragmentSchema, 谓词串Schema } from './commonEntry.js';
+import { 意象条目Schema, factFragmentSchema, 谓词串Schema, 变量参数键Schema } from './commonEntry.js';
 export { 意象条目Schema } from './commonEntry.js';
 // ── actor 记录键 superRefine（AA4·禁 JS 保留键·防原型污染） ──
 const actor记录键Schema = z.string().superRefine((k, ctx) => {
@@ -113,6 +113,8 @@ const 物品条目Schema = z.object({
     遗失保护: z.boolean().default(false),
     可携意象: z.array(意象条目Schema).default([]), // 6.29
     物品状态: z.enum(['持有', '遗失', '销毁']).optional().default('持有'), // L-15·三态·零迁移
+    // P9-1 · 运行期扩展参数容器（additive·0 重定基·actor 不进 hashJudgmentBundle）
+    扩展参数: z.record(变量参数键Schema, z.union([z.number(), z.string(), z.boolean()])).default({}),
 });
 const 衣物槽Schema = z.object({
     物品名: z.string().default(''),
@@ -459,6 +461,8 @@ export const NpcSchema = z.object({
     养育: 养育Schema.optional(),
     亲子: 亲子Schema.optional(),
     继承预案: 继承预案Schema.optional(),
+    // P9-1 · NPC 运行期扩展参数容器（additive·0 重定基·actor 不进 hashJudgmentBundle）
+    扩展参数: z.record(变量参数键Schema, z.union([z.number(), z.string(), z.boolean()])).default({}),
 });
 // ── 已故 NPC 归档（L2 冻结层） ──
 export const 已故NPC归档Schema = z.record(actor记录键Schema, z.object({

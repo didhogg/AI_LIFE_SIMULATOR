@@ -1,5 +1,6 @@
 // 公共中性 schema——地点 / NPC / 物品共用，无业务模块依赖
 import { z } from 'zod';
+import { 是JS保留键 } from './governedKeySpace.js';
 // DSL v1 谓词/表达式串（求值走 engine/dsl/parsePred·禁第二实现）
 // 裸 z.string()：运行时全等于 z.string()，fingerprint-neutral，0 行为变更。
 // 语法校验留 P0-6 导入闸；空串语义由调用侧约定（触发谓词空串=恒真；禁令谓词空串=恒假）。
@@ -26,3 +27,32 @@ export const factFragmentSchema = z.object({
     有锚布尔: z.boolean().optional(), // G2-2: false=无锚=造谣 factFragment（T1/T6）
     来源世界域: z.string().optional(), // G2-2: 事件发生的世界域键（T9 跨域验证）
 });
+// 变量字段声明（纯脚手架·dormant·0 引用·不接任何实体）
+// 类型↔默认值必须匹配，superRefine fail-closed（不匹配即 addIssue）
+export const 变量字段声明Schema = z.object({
+    类型: z.enum(['数字', '字符串', '布尔']).default('数字'),
+    默认值: z.union([z.number(), z.string(), z.boolean()]),
+    描述: z.string().optional(),
+}).superRefine((v, ctx) => {
+    if (v.类型 === '数字' && typeof v.默认值 !== 'number') {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: '默认值类型不匹配：类型为「数字」但默认值非 number' });
+    }
+    else if (v.类型 === '字符串' && typeof v.默认值 !== 'string') {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: '默认值类型不匹配：类型为「字符串」但默认值非 string' });
+    }
+    else if (v.类型 === '布尔' && typeof v.默认值 !== 'boolean') {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: '默认值类型不匹配：类型为「布尔」但默认值非 boolean' });
+    }
+});
+// 变量参数键：路径段正则 + JS 保留键（单一权威·actor.ts/itemLibrary.ts 复用此 schema·禁第二实现）
+const _变量参数键正则 = /^[\p{L}\p{N}_]+$/u;
+export const 变量参数键Schema = z.string().min(1).superRefine((k, ctx) => {
+    if (是JS保留键(k)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `变量参数键: 命中 JS 保留键黑名单「${k}」` });
+    }
+    if (!_变量参数键正则.test(k)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `变量参数键: 不符合路径段正则（仅允许字母/数字/下划线/语言文字）` });
+    }
+});
+// 变量模板：record<变量参数键, 变量字段声明>（键硬化·单一权威）
+export const 变量模板Schema = z.record(变量参数键Schema, 变量字段声明Schema);

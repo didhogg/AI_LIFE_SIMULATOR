@@ -1,5 +1,6 @@
 // 公共中性 schema——地点 / NPC / 物品共用，无业务模块依赖
 import { z } from 'zod';
+import { 是JS保留键 } from './governedKeySpace.js';
 
 // DSL v1 谓词/表达式串（求值走 engine/dsl/parsePred·禁第二实现）
 // 裸 z.string()：运行时全等于 z.string()，fingerprint-neutral，0 行为变更。
@@ -51,8 +52,20 @@ export const 变量字段声明Schema = z.object({
   }
 });
 
-// 变量模板：record<变量名（非空串）, 变量字段声明>
-export const 变量模板Schema = z.record(z.string().min(1), 变量字段声明Schema);
+// 变量参数键：路径段正则 + JS 保留键（单一权威·actor.ts/itemLibrary.ts 复用此 schema·禁第二实现）
+const _变量参数键正则 = /^[\p{L}\p{N}_]+$/u;
+export const 变量参数键Schema = z.string().min(1).superRefine((k, ctx) => {
+  if (是JS保留键(k)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: `变量参数键: 命中 JS 保留键黑名单「${k}」` });
+  }
+  if (!_变量参数键正则.test(k)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: `变量参数键: 不符合路径段正则（仅允许字母/数字/下划线/语言文字）` });
+  }
+});
+
+// 变量模板：record<变量参数键, 变量字段声明>（键硬化·单一权威）
+export const 变量模板Schema = z.record(变量参数键Schema, 变量字段声明Schema);
 
 export type 变量字段声明Type = z.infer<typeof 变量字段声明Schema>;
-export type 变量模板Type = z.infer<typeof 变量模板Schema>;
+export type 变量参数键Type   = z.infer<typeof 变量参数键Schema>;
+export type 变量模板Type     = z.infer<typeof 变量模板Schema>;

@@ -4,6 +4,7 @@
 // 命名避撞：actor.ts 已有运行期 物品条目Schema·本文件用 物品定义条目Schema 区分
 // 纯 schema + 类型·无副作用·禁 Date.now / new Date / Math.random / window / document
 import { z } from 'zod';
+import { 变量模板Schema } from './commonEntry.js';
 
 export const 物品ID正则 = /^[a-z][a-z0-9_]*$/;
 
@@ -31,6 +32,9 @@ export const 物品定义条目Schema = z.object({
 
   // ③ 展示层·认知 opaque（引擎零解释·不进指纹·守作者自由）
   展示: z.record(z.string(), z.unknown()).optional(),
+
+  // P9-1 · 参数集变量模板（作者定义层·挂载于物品定义条目·dormant 接入·additive·0 重定基）
+  变量模板: 变量模板Schema.optional(),
 });
 
 // ── 物品库 = record<物品ID, 物品定义条目>.default({}) ───────────────────────────
