@@ -176,7 +176,7 @@ export interface TickInput {
   // ── P7-7.c: 自主触发效果包（阈值/日期/标志触发·host 从预设成品组装传入）────────
   /** 本拍生效包集（瞬态·不进 RootSchema·不进存档态）。
    *  undefined / [] → 阈值触发 phase 精确 no-op（金向量逐位恒等守卫）。 */
-  effectPacks?: ReadonlyArray<intervention_pack_v1Type>;
+  effectPacks?: ReadonlyArray<intervention_pack_v1Type> | undefined;
 }
 
 export interface TickResult {
@@ -284,11 +284,13 @@ export function runTick(state: RootState, input: TickInput): TickResult {
       if (!g.ok) continue; // 整包原子拒
 
       // apply deltas（computeDelta + setAtPath·函数体零 diff·仅调用）
-      // 'clamp' / 'lock' 是约束 op·computeDelta 不处理 clamp·跳过（no value-change）
-      type ApplyOp = 'set' | 'add' | 'sub' | 'lock';
-      const APPLY_OPS: ReadonlySet<string> = new Set<ApplyOp>(['set', 'add', 'sub', 'lock']);
+      // 'clamp' = effectGate 约束 op（无值写）；'lock' = marker op（computeDelta 返回
+      // proposedValue:undefined·调用 setAtPath 会把字段写成 undefined=状态污染）。
+      // 两者均不属值写序列·仅 'set'/'add'/'sub' 经 computeDelta 落账。
+      type ApplyOp = 'set' | 'add' | 'sub';
+      const APPLY_OPS: ReadonlySet<string> = new Set<ApplyOp>(['set', 'add', 'sub']);
       for (const cd of g.clampedDeltas) {
-        if (!APPLY_OPS.has(cd.op)) continue; // 'clamp' = constraint op → 跳过值写入
+        if (!APPLY_OPS.has(cd.op)) continue; // 'clamp'/'lock' = 非值写 op → 跳过
         try {
           const entry = {
             path:  cd.path,
@@ -306,13 +308,17 @@ export function runTick(state: RootState, input: TickInput): TickResult {
     }
   });
 
-  // Phase 4–5 · 日期触发/标志触发（泛化留 P7-7.d·本轮 stub）
-  runPhase('日期触发', () => {
-    // TODO(P0-7): scan date triggers (epoch-minute anchors) — 复用 effectPacks 机制·P7-7.d
-  });
-  runPhase('标志触发', () => {
-    // TODO(P0-7): scan flag triggers — 复用 effectPacks 机制·P7-7.d
-  });
+  // Phase 4 · 日期触发 — 精确 no-op
+  // 「日期触发」已由 Phase 3 阈值触发（effectPacks）覆盖：
+  //   trigger: '全局.纪元分钟 >= X' 经 projectStateCtx 全局命名空间直接工作。
+  // 此 phase 保留以维持 SETTLEMENT_PHASES 序号完整性（15 锁定）。
+  runPhase('日期触发', () => { /* no-op: 日期条件由 Phase 3 effectPacks trigger 表达 */ });
+
+  // Phase 5 · 标志触发 — defer（待 RootSchema 引入全局标志表后扩展）
+  // RootSchema.全局 无 Record<string, boolean> 标志表；flags_add 仅在 intervention_pack
+  // 写侧（memory.ts），无对应读位置可供 projectStateCtx 投影。
+  // 禁为不存在的 schema 字段造投影——待 全局.标志表 引入后，扩展 全局 命名空间并解锁。
+  runPhase('标志触发', () => { /* no-op: 待 RootSchema 引入 全局.标志表 后扩展 */ });
 
   // Phase 5.5 · LOD 调度（B2·registry 模型·先于关系触发物化·空 LOD表 精确 no-op）
   runPhase('LOD调度', () => {

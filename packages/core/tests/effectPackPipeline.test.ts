@@ -1,8 +1,12 @@
-// P7-7.c · effectPacks 触发管线单测
+// P7-7.c+d · effectPacks 触发管线单测
 // 覆盖：no-op 回归 / trigger 真/假/空串 / string value eval / gate 拒 / M3 前缀 / scope / 守恒
+// 收口 A：unbalanced 货币包 → ConservationError（守恒非旁路证明）
+// 收口 B：lock delta → 跳过（marker op·非值写·setAtPath(undefined) 防污染）
+// P7-7.d：日期触发（全局.纪元分钟 >= X via Phase 3）
 // 守恒纪律：货币 delta 必须成对平衡（add + sub = 0）；非货币路径（NPC.属性）天然守恒中性。
 import { describe, it, expect } from 'vitest';
 import { runTick } from '../engine/tick.js';
+import { ConservationError } from '../engine/conservation.js';
 import { RootSchema } from '../schema/index.js';
 import type { RootState } from '../schema/index.js';
 import type { intervention_pack_v1Type } from '../schema/memory.js';
@@ -275,5 +279,84 @@ describe('P7.c-13 · 守恒：balanced 货币包维持 Σ净值', () => {
   it('mirror -50 → 250', () => {
     const 账户 = r.state.货币系统?.账户 as Record<string, { 持有: Record<string, number> }>;
     expect(账户['npc_mirror']?.持有['文']).toBe(250);
+  });
+});
+
+// ── 收口 A · unbalanced 货币包 → ConservationError（守恒非旁路证明）──────────
+//
+// 目的：证明 effectPacks 受原子提交守恒约束·非旁路。
+// 若 runTick 不抛 → 守恒被旁路 = 治理漏洞（须修而非改测）。
+
+describe('收口 A · unbalanced 货币包 → ConservationError', () => {
+  // hero +100 无配对 sub → Σ净值 600→700 → assertConservation 抛
+  const pack: intervention_pack_v1Type = {
+    pack_id: 'ep_unbalanced',
+    deltas:  [{ path: '货币系统.账户.npc_hero.持有.文', op: 'add', value: 100 }],
+  };
+
+  it('unbalanced 货币 effectPack → 抛 ConservationError', () => {
+    expect(() => {
+      runTick(BASE, { tickId: TICK_ID('unbalanced'), effectPacks: [pack] });
+    }).toThrow(ConservationError);
+  });
+});
+
+// ── 收口 B · lock delta → 跳过（marker op·非值写）────────────────────────────
+//
+// computeDelta 对 lock 返回 proposedValue:undefined（marker·orchestrator 追踪 lock set）。
+// setAtPath(s, path, undefined) 会污染状态字段 → lock 必须在 APPLY_OPS 外跳过。
+
+describe('收口 B · lock delta → 跳过（no state change）', () => {
+  const pack: intervention_pack_v1Type = {
+    pack_id: 'ep_lock_skip',
+    deltas:  [
+      { path: 'NPC.npc_hero.属性.体质', op: 'lock', value: 0 },
+    ],
+  };
+  const r = runTick(BASE, { tickId: TICK_ID('lock-skip'), effectPacks: [pack] });
+
+  it('体质 仍为 60（lock delta 被 APPLY_OPS 外跳过·不写值）', () => {
+    expect(getAttr(r.state, 'npc_hero', '体质')).toBe(60);
+  });
+
+  it('runTick 不抛（lock 跳过而非报错）', () => {
+    expect(r.settledPhases).toContain('阈值触发');
+  });
+});
+
+// ── P7-7.d · 日期触发：全局.纪元分钟 via Phase 3 阈值触发 ────────────────────
+//
+// Phase 4 (日期触发) = 精确 no-op（SETTLEMENT_PHASES 序号完整性）。
+// 日期条件由 Phase 3 effectPacks trigger 表达：
+//   trigger: '全局.纪元分钟 >= X' — 纪元分钟已由 projectStateCtx 投影至全局命名空间。
+// 无需 Phase 4 新代码；以下测试证明该模式完整工作。
+
+describe('P7-7.d · 日期触发（全局.纪元分钟 via Phase 3 阈值触发）', () => {
+  // BASE.世界.纪元分钟 = 1440（projectStateCtx 全局.纪元分钟）
+
+  it('全局.纪元分钟 >= 1440 → trigger 真 → delta 落账', () => {
+    const pack: intervention_pack_v1Type = {
+      pack_id: 'ep_date_true',
+      trigger: '全局.纪元分钟 >= 1440',   // 纪元分钟=1440，条件为真
+      deltas:  [{ path: 'NPC.npc_hero.属性.体质', op: 'add', value: 3 }],
+    };
+    const r = runTick(BASE, { tickId: TICK_ID('date-t'), effectPacks: [pack] });
+    expect(getAttr(r.state, 'npc_hero', '体质')).toBe(63);
+  });
+
+  it('全局.纪元分钟 >= 2000 → trigger 假 → no-op（1440 < 2000）', () => {
+    const pack: intervention_pack_v1Type = {
+      pack_id: 'ep_date_false',
+      trigger: '全局.纪元分钟 >= 2000',   // 纪元分钟=1440，条件为假
+      deltas:  [{ path: 'NPC.npc_hero.属性.体质', op: 'add', value: 99 }],
+    };
+    const r = runTick(BASE, { tickId: TICK_ID('date-f'), effectPacks: [pack] });
+    expect(getAttr(r.state, 'npc_hero', '体质')).toBe(60);
+  });
+
+  it('Phase 4 日期触发·Phase 5 标志触发 均出现在 settledPhases（SETTLEMENT_PHASES=15 完整）', () => {
+    const r = runTick(BASE, { tickId: TICK_ID('phases') });
+    expect(r.settledPhases).toContain('日期触发');
+    expect(r.settledPhases).toContain('标志触发');
   });
 });
