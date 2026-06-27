@@ -302,8 +302,8 @@ describe('C2-T BL-6 · 涟漪字段快照（长期回归锚）', () => {
 // ── BL-7 · 常量守卫 ──────────────────────────────────────────────────────────
 
 describe('C2-T BL-7 · 常量守卫', () => {
-  it('SETTLEMENT_PHASES = 14（C2-5 感知情绪化 + 编年史入册）', () => {
-    expect(SETTLEMENT_PHASES).toHaveLength(14);
+  it('SETTLEMENT_PHASES = 15（C2-5 感知情绪化 + 编年史入册 + B2 LOD调度）', () => {
+    expect(SETTLEMENT_PHASES).toHaveLength(15);
     expect(SETTLEMENT_PHASES).toContain('感知情绪化');
     expect(SETTLEMENT_PHASES).toContain('编年史入册');
   });

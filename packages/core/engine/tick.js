@@ -6,6 +6,7 @@ import { rngFor } from './rng.js';
 import { runProposalGate } from './proposal/index.js';
 import { deriveVerbDelta } from './proposal/verbDelta.js';
 import { executeActionOption } from './aohpExecutor.js';
+import { scheduleLodPhase } from './lodPhase.js';
 // ── 环形缓冲上限 ──────────────────────────────────────────────────────────────
 const TICK_LOG_MAX = 8;
 // ── 涟漪参数 ──────────────────────────────────────────────────────────────────
@@ -87,6 +88,7 @@ export const SETTLEMENT_PHASES = [
     '阈值触发',
     '日期触发',
     '标志触发',
+    'LOD调度', // B2: registry 模型·空 LOD表 精确 no-op·散落字段留 B4 迁移
     '关系触发',
     '提案落账', // additive: injected AOHP envelope → five-gate pipeline → 落账守恒
     '死亡感知发射', // C2-4: 提案落账后扫描新亡 actor → emitRipple → Phase 8 传播
@@ -168,6 +170,11 @@ export function runTick(state, input) {
     });
     runPhase('标志触发', () => {
         // TODO(P0-7): scan flag triggers
+    });
+    // Phase 5.5 · LOD 调度（B2·registry 模型·先于关系触发物化·空 LOD表 精确 no-op）
+    runPhase('LOD调度', () => {
+        scheduleLodPhase(s, s.$存档种子 ?? 0, s._tick?.拍计数 ?? 0, undefined, // tick 正路无跨拍历史·三条件路径退化 no-op（B3+ 注入）
+        undefined);
     });
     // Phase 6 · 关系触发 — G1a 发射端：|强度|×信任/100 ≥ REL_RIPPLE_THRESHOLD 的关系推候选涟漪
     // C2-3: 全体 actor 均可发射（不仅 PC）；emit factFragment 载荷（有锚·关系维度）

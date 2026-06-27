@@ -8,8 +8,8 @@
 //   • 守恒：原子提交点验 Σ净值 = 拍前快照值（assertConservation 抛 ConservationError）
 //
 // 结算序（显式数组）：
-//   日程结算 → 事件种子萌发 → 阈值触发 → 日期触发 → 标志触发 → 关系触发
-//   → 提案落账 → 衰减批 → 涟漪传播 → 原子提交
+//   日程结算 → 事件种子萌发 → 阈值触发 → 日期触发 → 标志触发 → LOD调度
+//   → 关系触发 → 提案落账 → 衰减批 → 涟漪传播 → 原子提交
 import type { RootState } from '../schema/index.js';
 import { assertConservation } from './conservation.js';
 import { getNetAsset } from './netAsset.js';
@@ -22,6 +22,7 @@ import type { K5DeltaEntry } from '../interfaces/interventionMerge.js';
 import type { 指令信封Type, ActionOptionType } from '../schema/proposal.js';
 import { deriveVerbDelta } from './proposal/verbDelta.js';
 import { executeActionOption } from './aohpExecutor.js';
+import { scheduleLodPhase } from './lodPhase.js';
 
 // ── 环形缓冲上限 ──────────────────────────────────────────────────────────────
 const TICK_LOG_MAX = 8;
@@ -119,6 +120,7 @@ export const SETTLEMENT_PHASES = [
   '阈值触发',
   '日期触发',
   '标志触发',
+  'LOD调度',   // B2: registry 模型·空 LOD表 精确 no-op·散落字段留 B4 迁移
   '关系触发',
   '提案落账', // additive: injected AOHP envelope → five-gate pipeline → 落账守恒
   '死亡感知发射', // C2-4: 提案落账后扫描新亡 actor → emitRipple → Phase 8 传播
@@ -256,6 +258,17 @@ export function runTick(state: RootState, input: TickInput): TickResult {
   });
   runPhase('标志触发', () => {
     // TODO(P0-7): scan flag triggers
+  });
+
+  // Phase 5.5 · LOD 调度（B2·registry 模型·先于关系触发物化·空 LOD表 精确 no-op）
+  runPhase('LOD调度', () => {
+    scheduleLodPhase(
+      s,
+      s.$存档种子 ?? 0,
+      s._tick?.拍计数 ?? 0,
+      undefined, // tick 正路无跨拍历史·三条件路径退化 no-op（B3+ 注入）
+      undefined, // preset：B2 静态阈值·无需预设
+    );
   });
 
   // Phase 6 · 关系触发 — G1a 发射端：|强度|×信任/100 ≥ REL_RIPPLE_THRESHOLD 的关系推候选涟漪
