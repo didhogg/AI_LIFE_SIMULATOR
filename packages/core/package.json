@@ -45,6 +45,7 @@
     "./engine/lodEngine": "./engine/lodEngine.ts",
     "./engine/lodScheduler": "./engine/lodScheduler.ts",
     "./engine/lodPhase": "./engine/lodPhase.ts",
+    "./engine/lodMount": "./engine/lodMount.ts",
     "./engine/cognitionProjection": "./engine/cognitionProjection.ts",
     "./engine/economyEngine": "./engine/economyEngine.ts",
     "./engine/toolExecutor": "./engine/toolExecutor.ts",

@@ -18,6 +18,7 @@ import {
   detectLodTrigger,
   type LodTriggerCtx,
 } from './lodScheduler.js';
+import { dispatchLodGenerate } from './lodMount.js';
 
 // ── §四·6 定稿常量 ───────────────────────────────────────────────────────────
 
@@ -70,6 +71,35 @@ export function scheduleLodPhase(
     if (locKey) pcLocMap.set(pcKey, locKey);
   }
 
+  // ── B3: build cur contexts for all PCs（用于三条件 detect + 快照写入）──
+  const curCtxMap = new Map<string, LodTriggerCtx>();
+  for (const [pcKey, curLocKey] of pcLocMap) {
+    const pcOrgKeys = (s.NPC[pcKey]?.所属组织 ?? []).map(o => o.组织键);
+    curCtxMap.set(pcKey, {
+      locKey: curLocKey,
+      orgKeys: pcOrgKeys,
+      epochMin: nowEpochMin,
+      eraLabel: curEraLabel,
+    });
+  }
+
+  // ── B3: state-based prevLocCtxs（参数优先·兼 B2 测试·无参时读 _系统 快照）──
+  const effectivePrevLocCtxs: Map<string, LodTriggerCtx> | undefined =
+    prevLocCtxs ??
+    (s._系统?.LOD位置快照
+      ? new Map(
+          Object.entries(s._系统.LOD位置快照).map(([k, v]) => [
+            k,
+            {
+              locKey: v.locKey ?? '',
+              orgKeys: v.orgKeys ?? [],
+              epochMin: v.epochMin ?? 0,
+              eraLabel: v.eraLabel ?? '',
+            },
+          ]),
+        )
+      : undefined);
+
   // ── promote 预算计数器（scheduler-local·每拍重置·不持久） ───────────────
   let promoteCount = 0;
 
@@ -91,6 +121,7 @@ export function scheduleLodPhase(
       // PC 在场 → promote（预算守卫·超出直接跳过）
       if (promoteCount < LOD_PROMOTE_BUDGET) {
         promoteNode(s, nodeKey, rngSeed);
+        dispatchLodGenerate(s, nodeKey, rngSeed); // B3: lodMount seam（NPC 已促升→索引器返空·no-op）
         promoteCount++;
       }
     } else {
@@ -100,41 +131,46 @@ export function scheduleLodPhase(
   }
 
   // ── 三条件接通：detectLodTrigger → handleRegionCross / promote ──────────
-  // prevLocCtxs 由调用方显式注入（tick 正路传 undefined·三条件退化 no-op）。
-  if (!prevLocCtxs) return;
+  if (effectivePrevLocCtxs) {
+    for (const [pcKey, curCtx] of curCtxMap) {
+      const prevCtx = effectivePrevLocCtxs.get(pcKey);
+      if (!prevCtx) continue;
 
-  for (const [pcKey, curLocKey] of pcLocMap) {
-    const prevCtx = prevLocCtxs.get(pcKey);
-    if (!prevCtx) continue;
+      const result = detectLodTrigger(s, prevCtx, curCtx);
+      if (!result.triggered) continue;
 
-    const pcOrgKeys = (s.NPC[pcKey]?.所属组织 ?? []).map(o => o.组织键);
-    const curCtx: LodTriggerCtx = {
-      locKey: curLocKey,
-      orgKeys: pcOrgKeys,
-      epochMin: nowEpochMin,
-      eraLabel: curEraLabel,
-    };
-
-    const result = detectLodTrigger(s, prevCtx, curCtx);
-    if (!result.triggered) continue;
-
-    if (result.condition === '跨区') {
-      // 跨区：promote 新区域 + 对旧区域起保温窗口（via handleRegionCross）
-      if (promoteCount < LOD_PROMOTE_BUDGET) {
-        handleRegionCross(s, prevCtx.locKey, curLocKey, rngSeed, currentTick, preset);
-        promoteCount++;
-      }
-    } else if (
-      result.condition === '纪元跨时代' ||
-      result.condition === '组织归属变更'
-    ) {
-      // 纪元/组织变更：promote 当前区域（同预算）
-      if (promoteCount < LOD_PROMOTE_BUDGET) {
-        const region = locRegion(curLocKey, locs) ?? curLocKey;
-        promoteNode(s, region, rngSeed);
-        promoteCount++;
+      if (result.condition === '跨区') {
+        // 跨区：promote 新区域 + 对旧区域起保温窗口（via handleRegionCross）
+        if (promoteCount < LOD_PROMOTE_BUDGET) {
+          handleRegionCross(s, prevCtx.locKey, curCtx.locKey, rngSeed, currentTick, preset);
+          promoteCount++;
+        }
+      } else if (
+        result.condition === '纪元跨时代' ||
+        result.condition === '组织归属变更'
+      ) {
+        // 纪元/组织变更：promote 当前区域（同预算）
+        if (promoteCount < LOD_PROMOTE_BUDGET) {
+          const region = locRegion(curCtx.locKey, locs) ?? curCtx.locKey;
+          promoteNode(s, region, rngSeed);
+          promoteCount++;
+        }
       }
     }
+  }
+
+  // ── B3: 写 LOD位置快照 到 _系统（冷启动首拍亦写·供下拍读 prev）──────────
+  if (curCtxMap.size > 0) {
+    const newSnapshot: Record<string, { locKey: string; orgKeys: string[]; epochMin: number; eraLabel: string }> = {};
+    for (const [pcKey, ctx] of curCtxMap) {
+      newSnapshot[pcKey] = {
+        locKey: ctx.locKey,
+        orgKeys: ctx.orgKeys,
+        epochMin: ctx.epochMin,
+        eraLabel: ctx.eraLabel,
+      };
+    }
+    s._系统.LOD位置快照 = newSnapshot;
   }
 }
 

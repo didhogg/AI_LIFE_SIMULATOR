@@ -9,6 +9,7 @@
 //   B2 不迁移散落字段·不写 LOD表 条目字段·仅驱动现有 scheduler 函数
 import { locRegion } from './tick.js';
 import { promoteNode, tryDemoteNode, handleRegionCross, detectLodTrigger, } from './lodScheduler.js';
+import { dispatchLodGenerate } from './lodMount.js';
 // ── §四·6 定稿常量 ───────────────────────────────────────────────────────────
 /** promote 每拍硬上限（§四·6 定稿值·静态·动态 computeResourceFactor 留 B2.5） */
 export const LOD_PROMOTE_BUDGET = 8;
@@ -45,6 +46,30 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
         if (locKey)
             pcLocMap.set(pcKey, locKey);
     }
+    // ── B3: build cur contexts for all PCs（用于三条件 detect + 快照写入）──
+    const curCtxMap = new Map();
+    for (const [pcKey, curLocKey] of pcLocMap) {
+        const pcOrgKeys = (s.NPC[pcKey]?.所属组织 ?? []).map(o => o.组织键);
+        curCtxMap.set(pcKey, {
+            locKey: curLocKey,
+            orgKeys: pcOrgKeys,
+            epochMin: nowEpochMin,
+            eraLabel: curEraLabel,
+        });
+    }
+    // ── B3: state-based prevLocCtxs（参数优先·兼 B2 测试·无参时读 _系统 快照）──
+    const effectivePrevLocCtxs = prevLocCtxs ??
+        (s._系统?.LOD位置快照
+            ? new Map(Object.entries(s._系统.LOD位置快照).map(([k, v]) => [
+                k,
+                {
+                    locKey: v.locKey ?? '',
+                    orgKeys: v.orgKeys ?? [],
+                    epochMin: v.epochMin ?? 0,
+                    eraLabel: v.eraLabel ?? '',
+                },
+            ]))
+            : undefined);
     // ── promote 预算计数器（scheduler-local·每拍重置·不持久） ───────────────
     let promoteCount = 0;
     // ── registry 驱动：遍历 LOD表 成员键 ─────────────────────────────────────
@@ -63,6 +88,7 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
             // PC 在场 → promote（预算守卫·超出直接跳过）
             if (promoteCount < LOD_PROMOTE_BUDGET) {
                 promoteNode(s, nodeKey, rngSeed);
+                dispatchLodGenerate(s, nodeKey, rngSeed); // B3: lodMount seam（NPC 已促升→索引器返空·no-op）
                 promoteCount++;
             }
         }
@@ -72,39 +98,44 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
         }
     }
     // ── 三条件接通：detectLodTrigger → handleRegionCross / promote ──────────
-    // prevLocCtxs 由调用方显式注入（tick 正路传 undefined·三条件退化 no-op）。
-    if (!prevLocCtxs)
-        return;
-    for (const [pcKey, curLocKey] of pcLocMap) {
-        const prevCtx = prevLocCtxs.get(pcKey);
-        if (!prevCtx)
-            continue;
-        const pcOrgKeys = (s.NPC[pcKey]?.所属组织 ?? []).map(o => o.组织键);
-        const curCtx = {
-            locKey: curLocKey,
-            orgKeys: pcOrgKeys,
-            epochMin: nowEpochMin,
-            eraLabel: curEraLabel,
-        };
-        const result = detectLodTrigger(s, prevCtx, curCtx);
-        if (!result.triggered)
-            continue;
-        if (result.condition === '跨区') {
-            // 跨区：promote 新区域 + 对旧区域起保温窗口（via handleRegionCross）
-            if (promoteCount < LOD_PROMOTE_BUDGET) {
-                handleRegionCross(s, prevCtx.locKey, curLocKey, rngSeed, currentTick, preset);
-                promoteCount++;
+    if (effectivePrevLocCtxs) {
+        for (const [pcKey, curCtx] of curCtxMap) {
+            const prevCtx = effectivePrevLocCtxs.get(pcKey);
+            if (!prevCtx)
+                continue;
+            const result = detectLodTrigger(s, prevCtx, curCtx);
+            if (!result.triggered)
+                continue;
+            if (result.condition === '跨区') {
+                // 跨区：promote 新区域 + 对旧区域起保温窗口（via handleRegionCross）
+                if (promoteCount < LOD_PROMOTE_BUDGET) {
+                    handleRegionCross(s, prevCtx.locKey, curCtx.locKey, rngSeed, currentTick, preset);
+                    promoteCount++;
+                }
+            }
+            else if (result.condition === '纪元跨时代' ||
+                result.condition === '组织归属变更') {
+                // 纪元/组织变更：promote 当前区域（同预算）
+                if (promoteCount < LOD_PROMOTE_BUDGET) {
+                    const region = locRegion(curCtx.locKey, locs) ?? curCtx.locKey;
+                    promoteNode(s, region, rngSeed);
+                    promoteCount++;
+                }
             }
         }
-        else if (result.condition === '纪元跨时代' ||
-            result.condition === '组织归属变更') {
-            // 纪元/组织变更：promote 当前区域（同预算）
-            if (promoteCount < LOD_PROMOTE_BUDGET) {
-                const region = locRegion(curLocKey, locs) ?? curLocKey;
-                promoteNode(s, region, rngSeed);
-                promoteCount++;
-            }
+    }
+    // ── B3: 写 LOD位置快照 到 _系统（冷启动首拍亦写·供下拍读 prev）──────────
+    if (curCtxMap.size > 0) {
+        const newSnapshot = {};
+        for (const [pcKey, ctx] of curCtxMap) {
+            newSnapshot[pcKey] = {
+                locKey: ctx.locKey,
+                orgKeys: ctx.orgKeys,
+                epochMin: ctx.epochMin,
+                eraLabel: ctx.eraLabel,
+            };
         }
+        s._系统.LOD位置快照 = newSnapshot;
     }
 }
 // ── 内部辅助 ──────────────────────────────────────────────────────────────────

@@ -51,6 +51,17 @@ export const SystemSchema = z.object({
     标题: z.string().default(''),
     结果摘要行: z.string().default(''),
   })).optional(),
+  // LOD-B3: 前拍 PC 位置快照（三条件 detectLodTrigger 跨拍 prev 存储）
+  // optional 无 default·空 LOD表 精确 no-op·不进指纹·additive·
+  LOD位置快照: z.record(
+    z.string(),
+    z.object({
+      locKey: z.string(),
+      orgKeys: z.array(z.string()),
+      epochMin: z.number().int(),
+      eraLabel: z.string(),
+    }).partial(),
+  ).optional(),
   功能开关表: z.object({
     认知迷雾: z.boolean().default(true),
     上帝视角: z.boolean().default(false),
