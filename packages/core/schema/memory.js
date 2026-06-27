@@ -355,6 +355,8 @@ export const intervention_pack_v1Schema = z.object({
     trigger: 谓词串Schema.optional(), // DSL v1 谓词串·与 lore.ts 触发条件/触发谓词同一套文法，P0-6 实装求值器前仅占位
     side_effect_level: 副作用级别枚举Schema.optional(),
     content_hash: z.string().optional(), // 占位·本批不接线，留给 P0-6 进 B1c 生效中包集哈希
+    // P7-7.c: 求值范围（additive·optional·不进 RootSchema·不进指纹·canonicalize 略过 undefined）
+    scope: z.object({ entityKey: z.string().optional() }).optional(),
 }).strict().superRefine((data, ctx) => {
     // M3 结构不变量校验（纯结构违例·语义越权写墓碑归 M2·活线 fire defer B6）
     // 规范同 interfaces/patchInvariant.ts（公开 API）。

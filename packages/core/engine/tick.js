@@ -7,6 +7,12 @@ import { runProposalGate } from './proposal/index.js';
 import { deriveVerbDelta } from './proposal/verbDelta.js';
 import { executeActionOption } from './aohpExecutor.js';
 import { scheduleLodPhase } from './lodPhase.js';
+import { evalPredStr } from './dsl/eval.js';
+import { projectStateCtx } from './dsl/stateCtx.js';
+import { resolveDeltaValues } from './dsl/resolveDeltas.js';
+import { runEffectGates } from './effectGate.js';
+import { computeDelta, setAtPath, ComputeDeltaError } from './proposal/computeDelta.js';
+import { M3_HARD_EXCLUDED_PREFIXES } from '../interfaces/patchInvariant.js';
 // ── 环形缓冲上限 ──────────────────────────────────────────────────────────────
 const TICK_LOG_MAX = 8;
 // ── 涟漪参数 ──────────────────────────────────────────────────────────────────
@@ -161,15 +167,54 @@ export function runTick(state, input) {
             }
         }
     });
-    // Phase 3–5 · 三类触发扫描（stub — P0-7+）
+    // Phase 3 · 阈值触发 — P7-7.c: effectPacks trigger scan
     runPhase('阈值触发', () => {
-        // TODO(P0-7): scan threshold triggers
+        if (!input.effectPacks?.length)
+            return; // 金向量短路守卫：undefined/[] → 精确 no-op
+        for (const pack of input.effectPacks) {
+            const ctx = projectStateCtx(s, pack.scope);
+            // trigger gate（空串/undefined = 无闸 = 恒执行；非空 → evalPredStr fail-closed）
+            if (pack.trigger && !evalPredStr(pack.trigger, ctx))
+                continue;
+            // value 前置 pass（effectGate 前·fail-closed：任一 delta 解析失败→整包跳）
+            const r = resolveDeltaValues(pack.deltas ?? [], ctx);
+            if (!r.ok)
+                continue;
+            // 治理闸：M3 硬排除前缀（与 effectGate Gate③ 双保险）
+            if (r.resolved.some(d => M3_HARD_EXCLUDED_PREFIXES.some(p => d.path.startsWith(p))))
+                continue;
+            // effectGate（函数体零 diff·仅调用）
+            const g = runEffectGates({ deltas: r.resolved });
+            if (!g.ok)
+                continue; // 整包原子拒
+            const APPLY_OPS = new Set(['set', 'add', 'sub', 'lock']);
+            for (const cd of g.clampedDeltas) {
+                if (!APPLY_OPS.has(cd.op))
+                    continue; // 'clamp' = constraint op → 跳过值写入
+                try {
+                    const entry = {
+                        path: cd.path,
+                        op: cd.op,
+                        value: cd.value, // resolveDeltaValues 已确保 number
+                        ...(cd.max_delta !== undefined ? { max_delta: cd.max_delta } : {}),
+                    };
+                    const res = computeDelta(s, entry);
+                    s = setAtPath(s, cd.path, res.proposedValue);
+                }
+                catch (e) {
+                    if (e instanceof ComputeDeltaError)
+                        continue; // 单 delta 跳过·不整包废
+                    throw e;
+                }
+            }
+        }
     });
+    // Phase 4–5 · 日期触发/标志触发（泛化留 P7-7.d·本轮 stub）
     runPhase('日期触发', () => {
-        // TODO(P0-7): scan date triggers (epoch-minute anchors)
+        // TODO(P0-7): scan date triggers (epoch-minute anchors) — 复用 effectPacks 机制·P7-7.d
     });
     runPhase('标志触发', () => {
-        // TODO(P0-7): scan flag triggers
+        // TODO(P0-7): scan flag triggers — 复用 effectPacks 机制·P7-7.d
     });
     // Phase 5.5 · LOD 调度（B2·registry 模型·先于关系触发物化·空 LOD表 精确 no-op）
     runPhase('LOD调度', () => {
