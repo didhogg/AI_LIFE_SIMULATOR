@@ -195,12 +195,14 @@ export interface LodTriggerCtx {
   epochMin: number;
   /** 世界.历法.年号表 中当前年号标签（'' = 无历法 / 初始） */
   eraLabel: string;
+  /** LOD-B2.5 条件④：consumer 在调用前注入的连续偏离拍数（由 scheduleLodPhase 从 LOD表 读取后传入） */
+  consecutiveDriftCount?: number;
 }
 
 export interface LodTriggerResult {
   triggered: boolean;
   /** 首个命中的条件（仅 triggered=true 时有值） */
-  condition?: '跨区' | '纪元跨时代' | '组织归属变更';
+  condition?: '跨区' | '纪元跨时代' | '组织归属变更' | '连续偏离';
 }
 
 /**
@@ -243,7 +245,11 @@ export function detectLodTrigger(
     if (!prevOrgs.has(o)) return { triggered: true, condition: '组织归属变更' };
   }
 
-  // ④ 规范评估器连续 N 拍偏离基线（defer·consumer 传入偏离拍数）
+  // ④ 连续偏离基线：consumer 在调用前将 LOD表[pcLocKey].连续偏离计数 注入 cur.consecutiveDriftCount
+  // N 由 lodPhase.LOD_DRIFT_N 定义（= 3）；此处只做阈值比较，计数管理在 scheduleLodPhase
+  if ((cur.consecutiveDriftCount ?? 0) >= 3) {
+    return { triggered: true, condition: '连续偏离' };
+  }
 
   return { triggered: false };
 }

@@ -261,6 +261,8 @@ const EXCLUDED_MUTATIONS = {
     '$AI创作状态': { 谓词override表: { 'lore:test:key': '属性.体质 >= 3' }, 条目AI控制表: { 'effectPack:ep001': false } },
     // 越界动词族·案底状态
     案底: { 状态: '案底', 过期时间: 0, 记录: [{ 类型: '盗窃', 时间: 1000, 严重度: 60 }] },
+    // LOD-B2.5 调度层（敏感度 bias·阈值调控·不影响判定面）
+    模块绑定策略: { '*': { 敏感度: 0.3 }, loc_a: { 敏感度: -0.5 } },
 };
 const _checkExcluded = true;
 void _checkExcluded;

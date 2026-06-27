@@ -467,6 +467,11 @@ export const 玩法预设Schema = z.object({
     派生标记: z.boolean().optional(),
     默认模板: z.boolean().optional(),
     LOD保温窗口: z.number().int().min(0).optional(),
+    // LOD-B2.5 · 模块绑定策略（PR-5c-1·additive·排外·敏感度 bias 阈值·不进指纹）
+    // record key '*' = 全模块默认；per-module key 覆盖全局默认；缺省=无 bias
+    模块绑定策略: z.record(z.string(), z.object({
+        敏感度: z.number().min(-1).max(1).optional(),
+    })).optional(),
     经济生成规则: z.object({
         品类基线: z.record(z.string(), z.number()).optional(),
         资源紧张度权重: z.number().min(0).max(1).optional(),

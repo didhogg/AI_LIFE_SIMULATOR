@@ -7,9 +7,11 @@
  *   · 账户       = 货币系统.账户[entityKey].持有 — 币种→余额（number）
  *   · 全局       = { 拍计数, 纪元分钟 }  — 始终可用
  *   · 自定义变量 = NPC[entityKey].扩展参数（数字型键·P9-3·串/布尔 skip）
+ *   · LOD态      = LOD表[k].档位 数值编码（粗=0/实体=1·B2.5·排外路径·闸②授权即授权）
  *
  * scope 缺省或 entityKey 对应 NPC 不存在 → 属性/技能/账户/自定义变量 = {}
  * 路径 miss → resolvePath 返回 0 → 谓词 fail-closed（evalPred 内已保证）
+ * LOD态：key 不存在 LOD表 → ctx 中无此键 → resolvePath 返回 0（粗）
  */
 export function projectStateCtx(state, scope) {
     const entityKey = scope?.entityKey;
@@ -45,5 +47,16 @@ export function projectStateCtx(state, scope) {
         }
     }
     const 自定义变量 = 自定义变量Rec;
-    return { 属性, 技能, 账户, 全局, 自定义变量 };
+    // LOD态：遍历 LOD表，档位 → 粗=0/实体=1（排外路径·LOD表排外不进指纹）
+    // 授权：key 必须存在 LOD表 → fail-closed（未知模块键不注入·miss→evalPred返0=粗）
+    const LOD态Rec = {};
+    if (state.LOD表) {
+        for (const [k, entry] of Object.entries(state.LOD表)) {
+            if (entry !== null && typeof entry === 'object') {
+                LOD态Rec[k] = entry.档位 === '实体' ? 1 : 0;
+            }
+        }
+    }
+    const LOD态 = LOD态Rec;
+    return { 属性, 技能, 账户, 全局, 自定义变量, LOD态 };
 }

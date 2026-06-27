@@ -139,7 +139,7 @@ describe('B3-0 · 守恒门', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(87);
+    expect(total).toBe(88);
   });
 
   it('LOD位置快照 不在 FINGERPRINT_BUNDLE_MEMBERS', () => {

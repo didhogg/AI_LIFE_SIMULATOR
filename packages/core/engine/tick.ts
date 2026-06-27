@@ -821,7 +821,7 @@ function bassFactor(pExt: number, qWom: number, knownFraction: number): number {
  * 紧张度 0 → factor=1.0；紧张度 100 → factor=1-RESOURCE_SUPPRESSION_MAX=0.5。
  * 无区域 / 无字段 → 1.0（不抑制·兼容现有所有测试）。
  */
-function computeResourceFactor(locKey: string, locs: LocRecord): number {
+export function computeResourceFactor(locKey: string, locs: LocRecord): number {
   if (!locKey) return 1.0;
   const region = locRegion(locKey, locs);
   if (!region) return 1.0;

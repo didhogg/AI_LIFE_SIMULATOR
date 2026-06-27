@@ -392,7 +392,7 @@ describe('A2 · 守恒门', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(87);
+    expect(total).toBe(88);
   });
 
   it('黄金向量：hashPresetFingerprint 确定性（不重定基）', () => {

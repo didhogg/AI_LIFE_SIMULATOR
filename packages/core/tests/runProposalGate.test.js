@@ -452,7 +452,7 @@ describe('⊕-4 e2e-1 · happy path：全链 ①→⑤ 含多包 add+clamp+audit
         expect(() => assertConservation(accts, 220, (acct) => Object.values(acct.持有).reduce((s, v) => s + v, 0))).not.toThrow();
         // ⑤ fingerprint manifest frozen: 21+11+5+49=86 entries (G2-2 +1: 媒介传播面·BUNDLE_MEMBERS 20→21)
         expect(FINGERPRINT_BUNDLE_MEMBERS.length + FINGERPRINT_PRESET_FIELDS.length +
-            FINGERPRINT_SNAPSHOT_FIELDS.length + FINGERPRINT_EXCLUDED_FIELDS.length).toBe(87);
+            FINGERPRINT_SNAPSHOT_FIELDS.length + FINGERPRINT_EXCLUDED_FIELDS.length).toBe(88);
     });
 });
 describe('⊕-4 e2e-2 · fail-closed Gate② → 全状态 deepEqual（零写）', () => {

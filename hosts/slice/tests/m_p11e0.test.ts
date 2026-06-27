@@ -138,7 +138,7 @@ describe('E1 LLM 输出隔离断言 — 指纹/黄金向量不受 LLM 影响', (
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(87);
+    expect(total).toBe(88);
   });
 
   it('schemaKeys=53 守恒（探雷轮で新 schema フィールドなし）', () => {

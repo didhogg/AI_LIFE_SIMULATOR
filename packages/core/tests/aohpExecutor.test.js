@@ -225,7 +225,7 @@ describe('Test 6 · 指纹 manifest 不变 + 确定性验证', () => {
         expect(FINGERPRINT_BUNDLE_MEMBERS.length +
             FINGERPRINT_PRESET_FIELDS.length +
             FINGERPRINT_SNAPSHOT_FIELDS.length +
-            FINGERPRINT_EXCLUDED_FIELDS.length).toBe(87);
+            FINGERPRINT_EXCLUDED_FIELDS.length).toBe(88);
     });
     it('AOHP選項id集 已在 FINGERPRINT_PRESET_FIELDS（接线已在位）', () => {
         expect(FINGERPRINT_PRESET_FIELDS).toContain('AOHP選項id集');

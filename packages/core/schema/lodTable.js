@@ -28,6 +28,9 @@ export const LOD态条目Schema = z.object({
     保温到期拍号: z.number().int().optional(),
     占位形态: 合一占位形态Schema.optional(),
     粗节点引用: z.string().optional(),
+    // LOD-B2.5 · 条件④ 连续偏离计数 + 漂移基线值（additive·排外·不进指纹）
+    连续偏离计数: z.number().int().min(0).optional(),
+    漂移基线值: z.number().optional(),
 });
 // ── LOD表（顶层键·record<任意模块键, LOD态条目>）───────────────────────────
 export const LOD表Schema = z.record(z.string(), LOD态条目Schema).default({});

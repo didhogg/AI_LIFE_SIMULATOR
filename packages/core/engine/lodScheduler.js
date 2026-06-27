@@ -175,7 +175,11 @@ export function detectLodTrigger(state, prev, cur) {
         if (!prevOrgs.has(o))
             return { triggered: true, condition: '组织归属变更' };
     }
-    // ④ 规范评估器连续 N 拍偏离基线（defer·consumer 传入偏离拍数）
+    // ④ 连续偏离基线：consumer 在调用前将 LOD表[pcLocKey].连续偏离计数 注入 cur.consecutiveDriftCount
+    // N 由 lodPhase.LOD_DRIFT_N 定义（= 3）；此处只做阈值比较，计数管理在 scheduleLodPhase
+    if ((cur.consecutiveDriftCount ?? 0) >= 3) {
+        return { triggered: true, condition: '连续偏离' };
+    }
     return { triggered: false };
 }
 // ── P4-5 · 穿越 = 切世界域 + 穿越契约执行 ────────────────────────────────────────
