@@ -603,9 +603,9 @@ describe('extensionParams · P9-3 · 提案闸② 集成', () => {
     }
   });
 
-  it('extraWhitelistPaths 缺省 → 静态通配白名单已覆盖（允写·不触发声明缩减闸）', () => {
-    // 静态 whitelistDryRun 从 z.record 自动派生 NPC.{id}.物品.{id}.扩展参数.{id} 通配条目。
-    // Gate②-a.1 声明缩减闸仅在 extraWhitelistPaths 含扩展参数条目时触发 → 此处不触发 → ok:true。
+  it('extraWhitelistPaths 缺省 → 扩展参数路径退出静态白名单·Gate② 全拒（FIX-2）', () => {
+    // FIX-2: 静态白名单 post-filter 已剔除 扩展参数 通配条目。
+    // 不传 extraWhitelistPaths → 无任何授权源 → Gate②-a 直拒。
     const state = makeProposalState();
     const envelope = 指令信封Schema.parse({ 提案: {} });
     const result = runProposalGate(
@@ -614,9 +614,68 @@ describe('extensionParams · P9-3 · 提案闸② 集成', () => {
       'p1',
       '玩家确认',
       [[{ path: 'NPC.hero.物品.iron_sword.扩展参数.耐久度', op: 'set', value: 50 }]],
-      // 不传 extraWhitelistPaths → 声明缩减闸不激活 → 静态通配允写
+      // 不传 extraWhitelistPaths → 扩展参数零授权 → fail-closed
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.gate).toBe('②-whitelist');
+    }
+  });
+
+  it('FIX-3: NPC 级扩展参数路径 → Gate② 全拒（静态白名单无通配·无授权源）', () => {
+    // NPC.hero.扩展参数.hp 是 4 段路径（NPC 级·非物品级）。
+    // FIX-2 剔除了 NPC.{id}.扩展参数.{id} 通配；deriveExtensionParamPaths 当前不产 NPC 级路径。
+    // → Gate②-a 无匹配条目 → fail-closed。
+    const state = makeProposalState();
+    const envelope = 指令信封Schema.parse({ 提案: {} });
+    const result = runProposalGate(
+      envelope,
+      state,
+      'p1',
+      '玩家确认',
+      [[{ path: 'NPC.hero.扩展参数.hp', op: 'set', value: 99 }]],
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.gate).toBe('②-whitelist');
+    }
+  });
+
+  it('FIX-1: 数字声明键 = 字符串值 → Gate② 类型拒（live 写路径·非仅单测）', () => {
+    const state = makeProposalState();
+    const envelope = 指令信封Schema.parse({ 提案: {} });
+    const extraPaths = deriveExtensionParamPaths(state, { iron_sword: itemDef });
+    const result = runProposalGate(
+      envelope,
+      state,
+      'p1',
+      '玩家确认',
+      [[{ path: 'NPC.hero.物品.iron_sword.扩展参数.耐久度', op: 'set', value: '不是数字' }]],
+      extraPaths,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.gate).toBe('②-whitelist');
+      expect(result.reason).toContain('类型');
+    }
+  });
+
+  it('FIX-1: 数字声明键 = 数字值 → Gate② 通过 + 落地', () => {
+    const state = makeProposalState();
+    const envelope = 指令信封Schema.parse({ 提案: {} });
+    const extraPaths = deriveExtensionParamPaths(state, { iron_sword: itemDef });
+    const result = runProposalGate(
+      envelope,
+      state,
+      'p1',
+      '玩家确认',
+      [[{ path: 'NPC.hero.物品.iron_sword.扩展参数.耐久度', op: 'set', value: 55 }]],
+      extraPaths,
     );
     expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect((result.state.NPC['hero']?.物品['iron_sword']?.扩展参数 as Record<string, number>)['耐久度']).toBe(55);
+    }
   });
 
   it('0 重定基：Gate② 操作不碰 hashPresetFingerprint / hashJudgmentBundle 输出', () => {

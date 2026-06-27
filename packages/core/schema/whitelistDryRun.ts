@@ -6,6 +6,7 @@
 //   且不污染存档。当前仅有派生器层面的 read-only 分类断言，端到端验证留 P0-6 补。
 import { z } from 'zod';
 import { RootSchema } from './index.js';
+import type { 变量字段声明Type } from './commonEntry.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,7 @@ export interface DerivedEntry {
   layer: AccessLayer;
   kind: FieldKind;
   enumValues?: readonly string[];
+  decl?: 变量字段声明Type; // 扩展参数声明元数据（仅 deriveExtensionParamPaths 填充·FIX-1 类型守门）
 }
 
 // ─── Top-level key classification ────────────────────────────────────────────
@@ -182,7 +184,10 @@ export function deriveWritableWhitelist(): DerivedEntry[] {
     const layer = classifyTopKey(key);
     walkSchema(schema as z.ZodTypeAny, key, layer, results);
   }
-  return results;
+  // FIX-2: 扩展参数 退出静态白名单（post-filter）。
+  // walkSchema 对 ZodRecord 产生 .扩展参数 record 节点 + .扩展参数.{id} 叶通配。
+  // 去除后，写入须凭 deriveExtensionParamPaths 的具体声明路径授权（引用即授权）。
+  return results.filter(e => !/\.扩展参数(\.|$)/.test(e.path));
 }
 
 // ─── Dry-run report ───────────────────────────────────────────────────────────
