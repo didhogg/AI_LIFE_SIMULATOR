@@ -33,6 +33,7 @@ import { M3_HARD_EXCLUDED_PREFIXES } from '../interfaces/patchInvariant.js';
 import type { 成就条目Type } from '../schema/achievementLibrary.js';
 import type { 物品定义条目Type } from '../schema/itemLibrary.js';
 import { seedExtensionParams } from './extensionParams.js';
+import { deriveExtensionParamPaths } from '../loader/modWhitelist.js';
 
 // ── 环形缓冲上限 ──────────────────────────────────────────────────────────────
 const TICK_LOG_MAX = 8;
@@ -406,6 +407,7 @@ export function runTick(state: RootState, input: TickInput): TickResult {
           seatId,
           input.injected授权源 ?? '玩家确认',
           packs,
+          deriveExtensionParamPaths(s, input.物品库), // P9-3: 扩展参数路径动态注入闸②
         );
         proposalGateResult = gateResult;
         if (gateResult.ok) {

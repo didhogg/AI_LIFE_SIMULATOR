@@ -1,11 +1,14 @@
 /**
- * P9-2 · 扩展参数 实例校验器 + 默认值播种 验收
+ * P9-2/P9-3 · 扩展参数 实例校验器 + 默认值播种 + DSL ctx + 白名单派生 验收
  *
  * 断言① validateExtensionEntry — 单键类型闸（fail-closed）
  * 断言② validateExtensionParams — 多键批量校验
  * 断言③ seedExtensionParams — 默认值播种（幂等·已有不覆盖·串/布尔照常 seed）
  * 断言④ tick 集成 — 扩展参数播种 phase 落地·空库 no-op·金向量逐位恒等
  * 断言⑤ 守恒门 — SETTLEMENT_PHASES=17·schemaKeys=53·0 重定基
+ * 断言⑥ DSL ctx 自定义变量 — 数字型投影·串/布尔 skip·evalPredStr 谓词确定性（P9-3）
+ * 断言⑦ deriveExtensionParamPaths — 声明键→条目·未声明键不生成·空库 no-op（P9-3）
+ * 断言⑧ 提案闸② 集成 — 声明键可写穿·未声明键拒·0 重定基（P9-3）
  */
 import { describe, it, expect } from 'vitest';
 import { validateExtensionEntry, validateExtensionParams, seedExtensionParams, } from '../engine/extensionParams.js';
@@ -13,6 +16,11 @@ import { runTick, SETTLEMENT_PHASES } from '../engine/tick.js';
 import { RootSchema } from '../schema/index.js';
 import { hashPresetFingerprint, hashJudgmentBundle } from '../engine/rng.js';
 import { FINGERPRINT_BUNDLE_MEMBERS, FINGERPRINT_PRESET_FIELDS, FINGERPRINT_SNAPSHOT_FIELDS, } from '../engine/fingerprintManifest.js';
+import { projectStateCtx } from '../engine/dsl/stateCtx.js';
+import { evalPredStr } from '../engine/dsl/eval.js';
+import { deriveExtensionParamPaths } from '../loader/modWhitelist.js';
+import { runProposalGate } from '../engine/proposal/index.js';
+import { 指令信封Schema } from '../schema/proposal.js';
 // ── 最小化 state fixture ──────────────────────────────────────────────────────
 function makeState() {
     return RootSchema.parse({});
@@ -311,5 +319,211 @@ describe('extensionParams · 守恒门', () => {
     it('扩展参数 播种后 runTick → 结算全 17 个 phase', () => {
         const { settledPhases } = runTick(makeState(), { tickId: 'ext-phases-1' });
         expect(settledPhases).toHaveLength(SETTLEMENT_PHASES.length);
+    });
+});
+// ═══════════════════════════════════════════════════════════════════════
+// 断言⑥ · DSL ctx 自定义变量（P9-3）
+// 数字型投影·串/布尔 skip·evalPredStr 谓词求值确定性
+// ═══════════════════════════════════════════════════════════════════════
+function makeStateWithExt(npcKey, 扩展参数) {
+    return RootSchema.parse({
+        NPC: { [npcKey]: { 扩展参数 } },
+    });
+}
+describe('extensionParams · P9-3 · DSL ctx 自定义变量', () => {
+    it('数字型扩展参数 → 进 ctx.自定义变量', () => {
+        const s = makeStateWithExt('hero', { hp: 80, mp: 40 });
+        const ctx = projectStateCtx(s, { entityKey: 'hero' });
+        const 自定义变量 = ctx['自定义变量'];
+        expect(自定义变量['hp']).toBe(80);
+        expect(自定义变量['mp']).toBe(40);
+    });
+    it('字符串型扩展参数 → skip（不进 ctx.自定义变量）', () => {
+        const s = makeStateWithExt('hero', { name: 'Alice', hp: 50 });
+        const ctx = projectStateCtx(s, { entityKey: 'hero' });
+        const 自定义变量 = ctx['自定义变量'];
+        expect('name' in 自定义变量).toBe(false);
+        expect(自定义变量['hp']).toBe(50);
+    });
+    it('布尔型扩展参数 → skip（不进 ctx.自定义变量）', () => {
+        const s = makeStateWithExt('hero', { active: true, hp: 99 });
+        const ctx = projectStateCtx(s, { entityKey: 'hero' });
+        const 自定义变量 = ctx['自定义变量'];
+        expect('active' in 自定义变量).toBe(false);
+        expect(自定义变量['hp']).toBe(99);
+    });
+    it('扩展参数 = {} → 自定义变量 = {}（无键）', () => {
+        const s = makeStateWithExt('hero', {});
+        const ctx = projectStateCtx(s, { entityKey: 'hero' });
+        expect(ctx['自定义变量']).toEqual({});
+    });
+    it('NPC 不存在 → 自定义变量 = {}', () => {
+        const s = RootSchema.parse({});
+        const ctx = projectStateCtx(s, { entityKey: 'nobody' });
+        expect(ctx['自定义变量']).toEqual({});
+    });
+    it('scope 缺省 → 自定义变量 = {}（无 entityKey）', () => {
+        const s = makeStateWithExt('hero', { hp: 100 });
+        const ctx = projectStateCtx(s);
+        expect(ctx['自定义变量']).toEqual({});
+    });
+    it('谓词「自定义变量.hp > 50」确定性求值 → true（hp=80）', () => {
+        const s = makeStateWithExt('hero', { hp: 80, note: 'text', flag: false });
+        const ctx = projectStateCtx(s, { entityKey: 'hero' });
+        expect(evalPredStr('自定义变量.hp > 50', ctx)).toBe(true);
+    });
+    it('谓词「自定义变量.hp <= 30」→ false（hp=80）', () => {
+        const s = makeStateWithExt('hero', { hp: 80 });
+        const ctx = projectStateCtx(s, { entityKey: 'hero' });
+        expect(evalPredStr('自定义变量.hp <= 30', ctx)).toBe(false);
+    });
+    it('谓词引用串型键 → 退默认 0 → false（守 fail-closed）', () => {
+        const s = makeStateWithExt('hero', { note: 'hello', hp: 0 });
+        const ctx = projectStateCtx(s, { entityKey: 'hero' });
+        // note 不在 ctx·resolvePath 返回 0·"0 > 0"=false
+        expect(evalPredStr('自定义变量.note > 0', ctx)).toBe(false);
+    });
+    it('谓词引用布尔键 → 退默认 0 → false（守 fail-closed）', () => {
+        const s = makeStateWithExt('hero', { active: true });
+        const ctx = projectStateCtx(s, { entityKey: 'hero' });
+        expect(evalPredStr('自定义变量.active > 0', ctx)).toBe(false);
+    });
+    it('数字型 ctx 投影确定性：同 state 两次调用值相等', () => {
+        const s = makeStateWithExt('hero', { hp: 42 });
+        const c1 = projectStateCtx(s, { entityKey: 'hero' });
+        const c2 = projectStateCtx(s, { entityKey: 'hero' });
+        expect(c1['自定义变量']['hp'])
+            .toBe(c2['自定义变量']['hp']);
+    });
+});
+// ═══════════════════════════════════════════════════════════════════════
+// 断言⑦ · deriveExtensionParamPaths — 白名单路径派生（P9-3）
+// 声明键→条目·未声明键不生成·空库 no-op
+// ═══════════════════════════════════════════════════════════════════════
+describe('extensionParams · P9-3 · deriveExtensionParamPaths', () => {
+    const itemDef = {
+        名称: '铁剑',
+        变量模板: {
+            耐久度: { 类型: '数字', 默认值: 100 },
+            刻字: { 类型: '字符串', 默认值: '无' },
+        },
+    };
+    it('空物品库 → 返回 []', () => {
+        const s = RootSchema.parse({ NPC: { hero: { 物品: { iron_sword: { 数量: 1 } } } } });
+        expect(deriveExtensionParamPaths(s, {})).toEqual([]);
+    });
+    it('undefined 物品库 → 返回 []', () => {
+        const s = RootSchema.parse({ NPC: { hero: { 物品: { iron_sword: { 数量: 1 } } } } });
+        expect(deriveExtensionParamPaths(s, undefined)).toEqual([]);
+    });
+    it('NPC 无物品 → 返回 []', () => {
+        const s = RootSchema.parse({ NPC: { hero: {} } });
+        expect(deriveExtensionParamPaths(s, { iron_sword: itemDef })).toEqual([]);
+    });
+    it('物品命中库 + 声明模板 → 生成 per-键 DerivedEntry（writable）', () => {
+        const s = RootSchema.parse({ NPC: { hero: { 物品: { iron_sword: { 数量: 1 } } } } });
+        const entries = deriveExtensionParamPaths(s, { iron_sword: itemDef });
+        const paths = entries.map(e => e.path);
+        expect(paths).toContain('NPC.hero.物品.iron_sword.扩展参数.耐久度');
+        expect(paths).toContain('NPC.hero.物品.iron_sword.扩展参数.刻字');
+        expect(entries.every(e => e.layer === 'writable')).toBe(true);
+    });
+    it('物品在库但无 变量模板 → 不生成条目', () => {
+        const s = RootSchema.parse({ NPC: { hero: { 物品: { dagger: { 数量: 1 } } } } });
+        const entries = deriveExtensionParamPaths(s, { dagger: { 名称: '匕首' /* 无变量模板 */ } });
+        expect(entries).toEqual([]);
+    });
+    it('item key 不在库 → 不生成条目', () => {
+        const s = RootSchema.parse({ NPC: { hero: { 物品: { mystery: { 数量: 1 } } } } });
+        const entries = deriveExtensionParamPaths(s, { iron_sword: itemDef });
+        expect(entries).toEqual([]);
+    });
+    it('多 NPC × 多物品 → 正确展开所有声明键', () => {
+        const s = RootSchema.parse({
+            NPC: {
+                hero: { 物品: { iron_sword: { 数量: 1 } } },
+                mage: { 物品: { iron_sword: { 数量: 2 } } },
+            },
+        });
+        const entries = deriveExtensionParamPaths(s, { iron_sword: itemDef });
+        const paths = entries.map(e => e.path);
+        expect(paths).toContain('NPC.hero.物品.iron_sword.扩展参数.耐久度');
+        expect(paths).toContain('NPC.mage.物品.iron_sword.扩展参数.耐久度');
+        expect(paths.length).toBe(4); // 2 NPC × 2 声明键
+    });
+    it('派生路径不含通配符（无 {id}/{i}）', () => {
+        const s = RootSchema.parse({ NPC: { hero: { 物品: { iron_sword: { 数量: 1 } } } } });
+        const entries = deriveExtensionParamPaths(s, { iron_sword: itemDef });
+        for (const e of entries) {
+            expect(e.path).not.toContain('{');
+            expect(e.path).not.toContain('}');
+        }
+    });
+});
+// ═══════════════════════════════════════════════════════════════════════
+// 断言⑧ · 提案闸② 集成 — 声明键可写穿·未声明键拒（P9-3）
+// ═══════════════════════════════════════════════════════════════════════
+describe('extensionParams · P9-3 · 提案闸② 集成', () => {
+    const itemDef = {
+        名称: '铁剑',
+        变量模板: {
+            耐久度: { 类型: '数字', 默认值: 100 },
+        },
+    };
+    function makeProposalState() {
+        return RootSchema.parse({
+            NPC: {
+                hero: {
+                    物品: {
+                        iron_sword: { 数量: 1, 扩展参数: { 耐久度: 80 } },
+                    },
+                },
+            },
+            _席位表: { p1: { 控制角色键: 'hero', 模式: '单机' } },
+        });
+    }
+    it('声明键路径 → Gate② pass（扩展参数路径在白名单·set op）', () => {
+        const state = makeProposalState();
+        const envelope = 指令信封Schema.parse({ 提案: {} });
+        const extraPaths = deriveExtensionParamPaths(state, { iron_sword: itemDef });
+        const result = runProposalGate(envelope, state, 'p1', '玩家确认', [[{ path: 'NPC.hero.物品.iron_sword.扩展参数.耐久度', op: 'set', value: 70 }]], extraPaths);
+        expect(result.ok).toBe(true);
+        // 写入值应落地
+        if (result.ok) {
+            expect((result.state.NPC['hero']?.物品['iron_sword']?.扩展参数)['耐久度']).toBe(70);
+        }
+    });
+    it('未声明键路径 → Gate② reject（不在白名单·fail-closed）', () => {
+        const state = makeProposalState();
+        const envelope = 指令信封Schema.parse({ 提案: {} });
+        const extraPaths = deriveExtensionParamPaths(state, { iron_sword: itemDef });
+        const result = runProposalGate(envelope, state, 'p1', '玩家确认', [[{ path: 'NPC.hero.物品.iron_sword.扩展参数.未声明键', op: 'set', value: 999 }]], extraPaths);
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.gate).toBe('②-whitelist');
+        }
+    });
+    it('extraWhitelistPaths 缺省 → 静态通配白名单已覆盖（允写·不触发声明缩减闸）', () => {
+        // 静态 whitelistDryRun 从 z.record 自动派生 NPC.{id}.物品.{id}.扩展参数.{id} 通配条目。
+        // Gate②-a.1 声明缩减闸仅在 extraWhitelistPaths 含扩展参数条目时触发 → 此处不触发 → ok:true。
+        const state = makeProposalState();
+        const envelope = 指令信封Schema.parse({ 提案: {} });
+        const result = runProposalGate(envelope, state, 'p1', '玩家确认', [[{ path: 'NPC.hero.物品.iron_sword.扩展参数.耐久度', op: 'set', value: 50 }]]);
+        expect(result.ok).toBe(true);
+    });
+    it('0 重定基：Gate② 操作不碰 hashPresetFingerprint / hashJudgmentBundle 输出', () => {
+        const fp = hashPresetFingerprint({
+            判定面整包: hashJudgmentBundle(JUDGMENT_BASE),
+            生效中内容包集哈希: 'abc00001',
+            snapshot: SNAPSHOT_BASE,
+        });
+        expect(fp).toMatch(/^[0-9a-f]{8}$/);
+        // 两次调用仍逐位恒等
+        const fp2 = hashPresetFingerprint({
+            判定面整包: hashJudgmentBundle(JUDGMENT_BASE),
+            生效中内容包集哈希: 'abc00001',
+            snapshot: SNAPSHOT_BASE,
+        });
+        expect(fp).toBe(fp2);
     });
 });

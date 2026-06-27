@@ -14,6 +14,7 @@ import { runEffectGates } from './effectGate.js';
 import { computeDelta, setAtPath, ComputeDeltaError } from './proposal/computeDelta.js';
 import { M3_HARD_EXCLUDED_PREFIXES } from '../interfaces/patchInvariant.js';
 import { seedExtensionParams } from './extensionParams.js';
+import { deriveExtensionParamPaths } from '../loader/modWhitelist.js';
 // ── 环形缓冲上限 ──────────────────────────────────────────────────────────────
 const TICK_LOG_MAX = 8;
 // ── 涟漪参数 ──────────────────────────────────────────────────────────────────
@@ -283,7 +284,7 @@ export function runTick(state, input) {
                 const packs = input.injectedPacks !== undefined
                     ? input.injectedPacks
                     : deriveVerbDelta(effectiveEnvelope, s, seatId);
-                const gateResult = runProposalGate(effectiveEnvelope, s, seatId, input.injected授权源 ?? '玩家确认', packs);
+                const gateResult = runProposalGate(effectiveEnvelope, s, seatId, input.injected授权源 ?? '玩家确认', packs, deriveExtensionParamPaths(s, input.物品库));
                 proposalGateResult = gateResult;
                 if (gateResult.ok) {
                     // gateResult.state = structuredClone(s) + K5 deltas applied.

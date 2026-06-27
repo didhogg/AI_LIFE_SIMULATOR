@@ -41,6 +41,12 @@ function isWhitelisted(path: string, whitelist: DerivedEntry[]): boolean {
   return whitelist.some(e => e.layer === 'writable' && pathMatchesWildcard(path, e.path));
 }
 
+// P9-3: NPC.{npc}.物品.{item}.扩展参数.{key} — 6段·位置4='扩展参数'
+function isItemExtensionParamPath(path: string): boolean {
+  const parts = path.split('.');
+  return parts.length === 6 && parts[0] === 'NPC' && parts[4] === '扩展参数';
+}
+
 function readAtPath(obj: Record<string, unknown>, path: string): unknown {
   let cur: unknown = obj;
   for (const seg of path.split('.')) {
@@ -63,6 +69,7 @@ export function runProposalGate(
   seatId: string,
   授权源: string,
   packs?: ReadonlyArray<ReadonlyArray<K5DeltaEntry>>,
+  extraWhitelistPaths?: readonly DerivedEntry[], // P9-3 additive: 运行期扩展参数路径
 ): ProposalGateResult {
   // Gate①: Zod shape validation.
   const parsed = 指令信封Schema.safeParse(rawEnvelope);
@@ -83,8 +90,11 @@ export function runProposalGate(
   // K5 merge: combine packs into a single deterministic delta list.
   const merged = mergeInterventionDeltas(packs ?? []);
 
-  // Whitelist derived once per run (E-e static for now; DSL/mod paths via loader).
-  const whitelist = deriveModAwareWhitelist(computeLoadOrder({}), {});
+  // Whitelist derived once per run (static base E-e; P9-3 additive extension param paths).
+  const whitelist: DerivedEntry[] = [
+    ...deriveModAwareWhitelist(computeLoadOrder({}), {}),
+    ...(extraWhitelistPaths ?? []),
+  ];
 
   // Gate② + Gate③: validate all merged delta paths before any write (fail-fast).
   for (const delta of merged) {
@@ -93,6 +103,20 @@ export function runProposalGate(
     // Gate②-a: path must appear in the writable whitelist.
     if (!isWhitelisted(path, whitelist)) {
       return { ok: false, gate: '②-whitelist', reason: `路径「${path}」不在白名单`, state: snapshot };
+    }
+
+    // Gate②-a.1: P9-3 扩展参数声明缩减闸（当 extraWhitelistPaths 含声明条目时 fail-closed）
+    // 静态通配符已授权全体 扩展参数 键·但写入须以已声明键为准（防写入未声明键）。
+    // 当 extraWhitelistPaths 提供且含 扩展参数 条目时，路径必须精确命中；否则 fail-closed 拒写。
+    if (
+      extraWhitelistPaths &&
+      extraWhitelistPaths.some(e => e.path.includes('扩展参数')) &&
+      isItemExtensionParamPath(path)
+    ) {
+      const declaredExact = extraWhitelistPaths.some(e => e.layer === 'writable' && e.path === path);
+      if (!declaredExact) {
+        return { ok: false, gate: '②-whitelist', reason: `扩展参数键「${path}」未在变量模板中声明`, state: snapshot };
+      }
     }
 
     // Gate②-b: C6 seat scope check — only for NPC.* top-level paths.

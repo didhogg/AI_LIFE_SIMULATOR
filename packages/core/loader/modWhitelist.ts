@@ -70,6 +70,51 @@ export function deriveModAwareWhitelist(
   return [...base, ...extra];
 }
 
+// ─── P9-3: 运行期实例扩展参数白名单派生（additive·禁改上方既有函数体）────────────
+
+import type { RootState } from '../schema/index.js';
+import type { 物品定义条目Type } from '../schema/itemLibrary.js';
+
+/**
+ * 从现存 NPC 实例 × 已声明变量模板键派生 扩展参数 白名单路径（P9-3 · 闸②）。
+ * 确定性绝对路径·无通配 matcher·无 RNG·声明键 → DerivedEntry writable；未声明键不生成条目。
+ * 当前仅覆盖物品级路径（NPC.{npcKey}.物品.{itemKey}.扩展参数.{varKey}）；
+ * NPC 级路径留实体模板库就位后扩展。
+ */
+export function deriveExtensionParamPaths(
+  state: RootState,
+  itemLib?: Readonly<Record<string, 物品定义条目Type>>,
+): DerivedEntry[] {
+  if (!itemLib || Object.keys(itemLib).length === 0) return [];
+
+  const paths: DerivedEntry[] = [];
+
+  for (const npcKey of Object.keys(state.NPC).sort()) { // 码点序·非 localeCompare
+    if (!Object.prototype.hasOwnProperty.call(state.NPC, npcKey)) continue;
+    const npc = state.NPC[npcKey];
+    if (!npc) continue;
+
+    for (const itemKey of Object.keys(npc.物品).sort()) { // 码点序·非 localeCompare
+      if (!Object.prototype.hasOwnProperty.call(npc.物品, itemKey)) continue;
+      if (!Object.prototype.hasOwnProperty.call(itemLib, itemKey)) continue;
+      const itemDef = itemLib[itemKey];
+      if (!itemDef?.变量模板) continue;
+
+      for (const varKey of Object.keys(itemDef.变量模板).sort()) { // 码点序·非 localeCompare
+        if (!Object.prototype.hasOwnProperty.call(itemDef.变量模板, varKey)) continue;
+        // 生成确定性绝对路径（per-实例 × per-声明键·不使用通配符）
+        paths.push({
+          path: `NPC.${npcKey}.物品.${itemKey}.扩展参数.${varKey}`,
+          layer: 'writable',
+          kind: 'open-string',
+        });
+      }
+    }
+  }
+
+  return paths;
+}
+
 // ─── Runtime consumption anchor (B6 / first consumer) ────────────────────────
 //
 // When the import-gate fires (B6), the canonical call sequence is:
