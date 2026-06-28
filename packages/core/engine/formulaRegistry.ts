@@ -14,8 +14,9 @@
 import { fixedExp } from './math/fixed.js';
 import { evalExpr, type DslContext } from './dsl/eval.js';
 import { tryParseExpr } from './dsl/parser.js';
+import { MINUTES_PER_MONTH, MINUTES_PER_YEAR } from './time.js';
 
-// ── F1: 公式点 key 列表（42 点） ──────────────────────────────────────────────────
+// ── F1: 公式点 key 列表（43 点） ──────────────────────────────────────────────────
 
 export const FORMULA_POINT_KEYS = [
   // tick.ts — R1 社会动力学 13 + 记忆衰减 + 缺失回退魔数
@@ -55,10 +56,11 @@ export const FORMULA_POINT_KEYS = [
   // lodEngine.ts — LOD 粗节点属性实体化范围
   'lod_attr_range_lo',
   'lod_attr_range_hi',
-  // economyEngine.ts — 价格钳制 + 漂移阈值
+  // economyEngine.ts — 价格钳制 + 漂移阈值 + 衰减率缺省
   'economy_price_clamp_lo',
   'economy_price_clamp_hi',
   'economy_drift_threshold',
+  'economy_decay_rate',
   // crossDomain.ts — 跨域利息年度分钟（日历锚定·结账公式分母）
   'cross_domain_year_minutes',
   // relationGraph.ts — 装配期关系图常量
@@ -103,7 +105,7 @@ export const FORMULA_REGISTRY: Readonly<Record<FormulaPointKey, FormulaPointDesc
   memory_recency_rate:                 { key: 'memory_recency_rate',                 defaultValue: 0.995,                    description: '记忆召回权重每拍衰减率',             fingerprint: true  },
   default_physique:                    { key: 'default_physique',                    defaultValue: 10,                       description: 'Granovetter 阈值计算缺省体质值',    fingerprint: true  },
   default_loyalty:                     { key: 'default_loyalty',                     defaultValue: 50,                       description: '组织信道成员忠诚度缺省值',           fingerprint: true  },
-  default_span_minutes:                { key: 'default_span_minutes',                defaultValue: 43200,                    description: '缺省拍跨度（分钟）',               fingerprint: true  },
+  default_span_minutes:                { key: 'default_span_minutes',                defaultValue: MINUTES_PER_MONTH,        description: '缺省拍跨度（分钟）',               fingerprint: true  },
   // ── check.ts ─────────────────────────────────────────────────────────────────
   check_proficiency_coeff:             { key: 'check_proficiency_coeff',             defaultValue: 0.4,                      description: '检定公式熟练系数',                 fingerprint: true  },
   check_level_coeff:                   { key: 'check_level_coeff',                   defaultValue: 3,                        description: '检定公式等级系数',                 fingerprint: true  },
@@ -126,8 +128,9 @@ export const FORMULA_REGISTRY: Readonly<Record<FormulaPointKey, FormulaPointDesc
   economy_price_clamp_lo:              { key: 'economy_price_clamp_lo',              defaultValue: 0.5,                      description: '有效价格修正系数钳制下界',           fingerprint: true  },
   economy_price_clamp_hi:              { key: 'economy_price_clamp_hi',              defaultValue: 3.0,                      description: '有效价格修正系数钳制上界',           fingerprint: true  },
   economy_drift_threshold:             { key: 'economy_drift_threshold',             defaultValue: 0.2,                      description: '价格漂移候选再基线触发阈值',         fingerprint: true  },
+  economy_decay_rate:                  { key: 'economy_decay_rate',                  defaultValue: 0,                        description: '经济修正衰减率全局缺省（per-rule rule.衰减率 优先）', fingerprint: true  },
   // ── crossDomain.ts ────────────────────────────────────────────────────────────
-  cross_domain_year_minutes:           { key: 'cross_domain_year_minutes',           defaultValue: 518400,                   description: '跨域利息年度分钟（12×30×1440）',   fingerprint: true  },
+  cross_domain_year_minutes:           { key: 'cross_domain_year_minutes',           defaultValue: MINUTES_PER_YEAR,         description: '跨域利息年度分钟（商业年·12×30×1440）', fingerprint: true  },
   // ── relationGraph.ts ──────────────────────────────────────────────────────────
   rel_coloc_base:                      { key: 'rel_coloc_base',                      defaultValue: 30,                       description: '装配期共址基底强度',               fingerprint: true  },
   rel_org_bonus:                       { key: 'rel_org_bonus',                       defaultValue: 30,                       description: '装配期同组织叠加增量',             fingerprint: true  },

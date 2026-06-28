@@ -10,8 +10,8 @@ import { fixedPow, stableProb } from './math/fixed.js';
 export const EPOCH_ANCHOR_YEAR = 1970;
 
 export const MINUTES_PER_DAY = 1440;
-export const MINUTES_PER_MONTH = 43200;   // 30-day game month
-export const MINUTES_PER_YEAR = 518400;   // 12 × MINUTES_PER_MONTH
+export const MINUTES_PER_MONTH = 43200;   // 30-day game month（商业月·固定·非 Gregorian 历法月）
+export const MINUTES_PER_YEAR = 518400;   // 12 × MINUTES_PER_MONTH（商业年 360日·非 Gregorian 365/366日·与 computeTickSpan Gregorian 历法对齐基准刻意不等价）
 
 /**
  * Nominal tick duration in minutes, indexed by granularity key.

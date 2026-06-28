@@ -151,8 +151,8 @@ describe('F5-2 registry completeness', () => {
     }
   });
 
-  test('total formula point count = 42', () => {
-    expect(FORMULA_POINT_KEYS.length).toBe(42);
+  test('total formula point count = 43', () => {
+    expect(FORMULA_POINT_KEYS.length).toBe(43);
   });
 });
 

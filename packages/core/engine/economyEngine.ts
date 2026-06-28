@@ -72,7 +72,7 @@ export function deriveEffectivePrice(
 
   // P3-3 衰减乘子（锚当前拍计数·闭式）
   const currentTick = state._tick?.拍计数 ?? 0;
-  const decayFactor = computeDecayFactor(rule.衰减率 ?? 0, currentTick);
+  const decayFactor = computeDecayFactor(rule.衰减率 ?? resolveFormula('economy_decay_rate', formulaConfig), currentTick);
 
   // 归一化信号（均在 [-1, 1] 或 [0, 1]）
   const tension  = (state.地图?.地点?.[regionId]?.区域资源紧张度 ?? 0) / 100; // [0, 1]
