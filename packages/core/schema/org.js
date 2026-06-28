@@ -99,9 +99,9 @@ const 用工Schema = z.object({
 // ── 个人项目档（6.34·个人项目=微型组织·轻重两档）─────────────────────────────────
 const 项目档Schema = z.object({
     进展树: z.record(z.string(), 进展树领域Schema).default({}),
-    财务: 财务Schema.default({}),
+    财务: 财务Schema.optional(),
     传播: z.record(z.string(), z.number().min(0).max(100)).default({}), // 区域→渗透度
-    用工: 用工Schema.default({}),
+    用工: 用工Schema.optional(),
 });
 // ══════════════════════════════════════════
 // 组织实体主 schema
@@ -117,9 +117,9 @@ export const 组织实体条目Schema = z.object({
     风险: z.number().min(0).max(100).default(0),
     币种: z.string().default(''),
     // ── 财务 ──
-    财务: 财务Schema.default({}),
+    财务: 财务Schema.optional(),
     // ── 用工 ──（士气已收编属性轴，不在此重存）
-    用工: 用工Schema.default({}),
+    用工: 用工Schema.optional(),
     // ── 属性轴?（6.45/6.48·出厂七轴·可扩·可休眠·键名冻结）──────────────────────
     // 出厂轴域分布：治理={掌控度,合法性,民心,凝聚力} / 军事={士气} / 信念={强制度,异端容忍}
     // 🗑️ 这些值不再作治理/军事/信念下的固定字段重存（旧字段 P0-2 迁移映射单独 PR）
@@ -130,7 +130,7 @@ export const 组织实体条目Schema = z.object({
         追随者规模: z.number().int().min(0).default(0),
         控制区: z.array(z.string()).default([]), // 节点键列表
         关联职级体系ID: z.string().default(''),
-    }).default({}),
+    }).optional(),
     // ── 军事（士气已收编出厂轴）───────────────────────────────────────────────────
     // 🗑️ 士气 已迁至属性轴.士气
     军事: z.object({
@@ -142,14 +142,14 @@ export const 组织实体条目Schema = z.object({
         主将: z.string().default(''), // NPC 键
         驻地: z.string().default(''), // 节点键
         部队: z.array(部队条目Schema).default([]),
-    }).default({}),
+    }).optional(),
     // ── 信念（6.45/6.48 瘦身·强制度/异端容忍收编为信念域出厂轴）─────────────────────
     // 🗑️ 强制度/异端容忍 已迁至属性轴（3-8B 迁移映射已落 migrate.ts·migrate组织信念轴）
     // ⚠️ 勿碰 NPC.信念（4.3），只有组织信念走出厂轴
     信念: z.object({
         官方体系: z.string().default(''),
         思潮派系: z.string().default(''),
-    }).default({}),
+    }).optional(),
     // ── 离场演化契约?（6.45/6.66·惰性补结·可空零迁移）──────────────────────────────
     离场演化契约: 离场演化契约Schema.optional(),
     // ── 进展树（[领域]:节点DAG + 当前节点指针）─────────────────────────────────────

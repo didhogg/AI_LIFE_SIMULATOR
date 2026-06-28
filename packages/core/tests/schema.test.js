@@ -766,6 +766,56 @@ describe('4.4 Org layer', () => {
         })).not.toThrow();
     });
 });
+describe('R7 · 组织实体条目 5 子树 顶层 opt-in', () => {
+    it('空组织实体 parse → 财务 === undefined', () => {
+        const parsed = 组织实体Schema.parse({ org: {} });
+        expect(parsed['org'].财务).toBeUndefined();
+    });
+    it('空组织实体 parse → 用工 === undefined', () => {
+        const parsed = 组织实体Schema.parse({ org: {} });
+        expect(parsed['org'].用工).toBeUndefined();
+    });
+    it('空组织实体 parse → 治理 === undefined', () => {
+        const parsed = 组织实体Schema.parse({ org: {} });
+        expect(parsed['org'].治理).toBeUndefined();
+    });
+    it('空组织实体 parse → 军事 === undefined', () => {
+        const parsed = 组织实体Schema.parse({ org: {} });
+        expect(parsed['org'].军事).toBeUndefined();
+    });
+    it('空组织实体 parse → 信念 === undefined', () => {
+        const parsed = 组织实体Schema.parse({ org: {} });
+        expect(parsed['org'].信念).toBeUndefined();
+    });
+    it('accessor 读回退: 财务显式 {} → 叶子 default 生效（本期净利=0）', () => {
+        const parsed = 组织实体Schema.parse({ org: { 财务: {} } });
+        expect(parsed['org'].财务?.本期净利 ?? 0).toBe(0);
+    });
+    it('accessor 读回退: 用工显式 {} → 叶子 default 生效（产能系数=1）', () => {
+        const parsed = 组织实体Schema.parse({ org: { 用工: {} } });
+        expect(parsed['org'].用工?.产能系数 ?? 1).toBe(1);
+    });
+    it('accessor 读回退: 治理显式 {} → 叶子 default 生效（追随者规模=0）', () => {
+        const parsed = 组织实体Schema.parse({ org: { 治理: {} } });
+        expect(parsed['org'].治理?.追随者规模 ?? 0).toBe(0);
+    });
+    it('accessor 读回退: 军事显式 {} → 叶子 default 生效（补给=100）', () => {
+        const parsed = 组织实体Schema.parse({ org: { 军事: {} } });
+        expect(parsed['org'].军事?.补给 ?? 100).toBe(100);
+    });
+    it('accessor 读回退: 信念显式 {} → 叶子 default 生效（官方体系=\'\'）', () => {
+        const parsed = 组织实体Schema.parse({ org: { 信念: {} } });
+        expect(parsed['org'].信念?.官方体系 ?? '').toBe('');
+    });
+    it('项目档内 财务 absent → undefined', () => {
+        const parsed = 组织实体Schema.parse({ org: { 项目档: { 进展树: {} } } });
+        expect(parsed['org'].项目档?.财务).toBeUndefined();
+    });
+    it('项目档内 用工 absent → undefined', () => {
+        const parsed = 组织实体Schema.parse({ org: { 项目档: { 进展树: {} } } });
+        expect(parsed['org'].项目档?.用工).toBeUndefined();
+    });
+});
 describe('4.5 Global layer', () => {
     // ── 最小开局状态 ──────────────────────────────────────────────────────────────
     it('valid empty parse (minimal state)', () => {
@@ -4117,5 +4167,44 @@ describe('actor 子树级 opt-in · NpcSchema 10 个子树 optional', () => {
         expect(npc.属性).toBeDefined();
         expect(npc.属性?.体质).toBe(75);
         expect(npc.属性?.智慧).toBe(10);
+    });
+});
+// ── R5 · 货币系统 顶层 opt-in 机制验证 ──────────────────────────────────────────────
+describe('R5 · 货币系统 顶层 opt-in（RootSchema.optional()）', () => {
+    const EMPTY_ROOT = RootSchema.parse({});
+    it('空存档 parse → 货币系统 === undefined（不注入默认骨架）', () => {
+        expect(EMPTY_ROOT.货币系统).toBeUndefined();
+    });
+    it('显式提供 {} → 货币系统已定义·内部叶子 default 生效', () => {
+        const r = RootSchema.parse({ 货币系统: {} });
+        expect(r.货币系统).toBeDefined();
+        expect(r.货币系统?.基准币种).toBe('');
+        expect(r.货币系统?.市场状态?.激活).toBe(false);
+        expect(r.货币系统?.市场状态?.大盘景气).toBe(50);
+        expect(r.货币系统?.账户).toEqual({});
+        expect(r.货币系统?.换汇登记).toEqual([]);
+    });
+    it('accessor 读回退：基准币种 ?? "" == 改前 root.货币系统.基准币种 default', () => {
+        const ccy = EMPTY_ROOT.货币系统?.基准币种 ?? '';
+        expect(ccy).toBe('');
+    });
+    it('accessor 读回退：账户 ?? {} == 改前 root.货币系统.账户 default', () => {
+        const accounts = EMPTY_ROOT.货币系统?.账户 ?? {};
+        expect(accounts).toEqual({});
+    });
+    it('accessor 读回退：市场状态.激活 ?? false == 改前 default', () => {
+        const activated = EMPTY_ROOT.货币系统?.市场状态?.激活 ?? false;
+        expect(activated).toBe(false);
+    });
+    it('accessor 读回退：市场状态.大盘景气 ?? 50 == 改前 default', () => {
+        const prosperity = EMPTY_ROOT.货币系统?.市场状态?.大盘景气 ?? 50;
+        expect(prosperity).toBe(50);
+    });
+    it('显式子树传入时叶子 default 仍生效', () => {
+        const r = RootSchema.parse({ 货币系统: { 基准币种: '两', 市场状态: { 激活: true } } });
+        expect(r.货币系统?.基准币种).toBe('两');
+        expect(r.货币系统?.市场状态?.激活).toBe(true);
+        expect(r.货币系统?.市场状态?.大盘景气).toBe(50);
+        expect(r.货币系统?.账户).toEqual({});
     });
 });
