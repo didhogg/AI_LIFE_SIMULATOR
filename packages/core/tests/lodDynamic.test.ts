@@ -1,33 +1,39 @@
 /**
- * LOD-B2.5 · 动态阈值 + 敏感度 bias + 条件④ + LOD态 DSL ctx 机测
+ * LOD-B2 opt-in 漂移触发（条件④）机测
  *
  * 验收门：
- *   D-1: 漂移命名空间 + 谓词驱动行为 — resolveTriggerPred/evalPredStr/敏感度缩放/指纹守护
- *   D-2: resolveSensitivity — per-module 覆盖 / 全局默认 / 缺省=0 / clamp 越界
+ *   D-1: resolveLodPredicate + opt-in 触发谓词驱动
+ *        — Tier A/B 解析·合成等价·null=永全态·AI override·fail-closed
  *   D-3: seededSortKey — 同入参确定性 / 不同节点值不同 / 不用禁函数
  *   D-4: 条件④ detectLodTrigger — 计数≥3→triggered·1/2拍不触发·中断重置
- *   D-5: drift 计数管理（谓词驱动·无滞回）— true+1/false归零/首拍0
+ *   D-5: drift 计数管理（opt-in 谓词驱动·无滞回）
+ *        — true+1/false归零/首拍初始化/无声明永不增
  *   D-6: per-tick promote ≤8 seeded 排序 — PC-present 场景·封顶
  *   D-7: LOD态 DSL ctx — 粗=0/实体=1 注入·闸②fail-closed·未知键 miss=0
  *   D-8: 指纹分线守卫 — LOD表/连续偏离计数/漂移基线值/模块绑定策略 全排外·金向量恒等
  *   D-9: computeResourceFactor re-export — 原 tick 调用点输出不变
- *   D-10: 守恒门 — schemaKeys=54 / BUNDLE=21 / manifest=87（同 DSL-AI 收官值）
+ *   D-10: 守恒门 — schemaKeys=54 / BUNDLE=21 / manifest=88
  *
+ * opt-in 铁律：作者不声明触发条件 → null → 引擎跳过 → 实体永全态 → 不 demote
  * 六禁：禁 Date.now/new Date/Math.random/window/document/localeCompare
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { z } from 'zod';
 import {
   scheduleLodPhase,
   LOD_PROMOTE_BUDGET,
   LOD_DRIFT_N,
-  resolveSensitivity,
-  resolveTriggerPred,
+  resolveLodPredicate,
   seededSortKey,
 } from '../engine/lodPhase.js';
 import {
   detectLodTrigger,
   type LodTriggerCtx,
 } from '../engine/lodScheduler.js';
+import {
+  registerLodMount,
+  clearLodRegistry,
+} from '../engine/lodMount.js';
 import { projectStateCtx } from '../engine/dsl/stateCtx.js';
 import { computeResourceFactor } from '../engine/tick.js';
 import { RootSchema, BLUEPRINT_KEYS } from '../schema/index.js';
@@ -62,21 +68,21 @@ function makeBase() {
   });
 }
 
-/** 构造含 LOD表 entry + 地图地点 + (可选)区域资源紧张度 的测试 state */
+/**
+ * 构造含 LOD表 entry + 地图地点的测试 state。
+ * 漂移基线值为 per-axis Record（新语义）。
+ */
 function makeStateWithLod(opts: {
   nodeKey: string;
+  模块键?: string;
   档位?: '粗' | '实体';
-  区域资源紧张度?: number;
   连续偏离计数?: number;
-  漂移基线值?: number;
+  漂移基线值?: Record<string, number>;
 }) {
   const s = makeBase();
-  const { nodeKey, 档位 = '粗', 区域资源紧张度 = 0, 连续偏离计数, 漂移基线值 } = opts;
+  const { nodeKey, 模块键 = nodeKey, 档位 = '粗', 连续偏离计数, 漂移基线值 } = opts;
   (s.地图.地点 as Record<string, unknown>)[nodeKey] = { 名称: nodeKey, 父节点: '' };
-  if (区域资源紧张度 > 0) {
-    (s.地图.地点[nodeKey] as Record<string, unknown>)['区域资源紧张度'] = 区域资源紧张度;
-  }
-  const entry: Record<string, unknown> = { 模块键: nodeKey, 档位 };
+  const entry: Record<string, unknown> = { 模块键, 档位 };
   if (连续偏离计数 !== undefined) entry['连续偏离计数'] = 连续偏离计数;
   if (漂移基线值 !== undefined) entry['漂移基线值'] = 漂移基线值;
   s.LOD表[nodeKey] = entry as Parameters<typeof scheduleLodPhase>[0]['LOD表'][string];
@@ -84,114 +90,157 @@ function makeStateWithLod(opts: {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// D-1: 漂移命名空间 + 谓词驱动行为
+// 通用测试用 LOD 描述符（读数值轴 from testAxisValues 外部 map）
 // ────────────────────────────────────────────────────────────────────────────
-describe('D-1: 漂移命名空间 + 谓词驱动行为', () => {
-  it('resolveTriggerPred 无预设 → undefined → 条件④ no-op（计数不增）', () => {
-    expect(resolveTriggerPred(undefined, 'n1')).toBeUndefined();
-    const s = makeStateWithLod({ nodeKey: 'n1', 漂移基线值: 0.2 });
-    scheduleLodPhase(s, 1, 1);
-    expect(s.LOD表['n1']?.连续偏离计数).toBeUndefined();
+
+const TEST_MODULE_KEY = 'TEST_LOD';
+
+/** 在测试中存放 {nodeKey → {axis → value}} 的外部 map（by-ref·测试可直接改） */
+let testAxisValues: Record<string, Record<string, number>> = {};
+
+function registerTestDescriptor() {
+  testAxisValues = {};
+  registerLodMount({
+    模块键: TEST_MODULE_KEY,
+    真相Schema: z.object({}),
+    索引器: () => [],
+    写入目标: () => { /* no-op */ },
+    读数值轴: (_s, nodeKey, axis) => testAxisValues[nodeKey]?.[axis],
+  });
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// D-1: resolveLodPredicate + opt-in 触发谓词驱动
+// ────────────────────────────────────────────────────────────────────────────
+describe('D-1: resolveLodPredicate + opt-in 触发谓词驱动', () => {
+  beforeEach(() => registerTestDescriptor());
+  afterEach(() => clearLodRegistry());
+
+  // ── Tier A/B 纯解析 ──────────────────────────────────────────────────────
+
+  it('resolveLodPredicate undefined → null（不参与漂移）', () => {
+    expect(resolveLodPredicate(undefined)).toBeNull();
+  });
+
+  it('Tier A: 有 触发谓词 → 直接返回谓词串', () => {
+    expect(resolveLodPredicate({ 触发谓词: '漂移.声望 > 30%' })).toBe('漂移.声望 > 30%');
+  });
+
+  it('Tier B: 监测轴 + 触发阈值 → 合成 漂移.{轴} {阈值}', () => {
+    expect(resolveLodPredicate({ 监测轴: '民心', 触发阈值: '< 20%' })).toBe('漂移.民心 < 20%');
+  });
+
+  it('Tier B: 只有 监测轴 无 触发阈值 → null', () => {
+    expect(resolveLodPredicate({ 监测轴: '民心' })).toBeNull();
+  });
+
+  it('Tier B: 只有 触发阈值 无 监测轴 → null', () => {
+    expect(resolveLodPredicate({ 触发阈值: '> 30%' })).toBeNull();
+  });
+
+  // ── opt-in 铁律：无声明 → 永全态 ──────────────────────────────────────
+
+  it('无任何触发声明 → scheduleLodPhase 3拍不增 count（opt-in 铁律）', () => {
+    const s = makeStateWithLod({
+      nodeKey: 'n1', 模块键: TEST_MODULE_KEY,
+      漂移基线值: { 声望: 100 },
+    });
+    testAxisValues['n1'] = { 声望: 300 }; // 200% drift，但无声明
+    scheduleLodPhase(s, 1, 1); // 无 preset
     scheduleLodPhase(s, 1, 2);
-    expect(s.LOD表['n1']?.连续偏离计数).toBeUndefined();
+    scheduleLodPhase(s, 1, 3);
+    expect(s.LOD表['n1']?.连续偏离计数).toBeUndefined(); // 永不增
   });
 
-  it("触发谓词='漂移.资源紧张度 > 3'·baseline=0.2·factor≈1.0·drift=4.0 → 计数+1", () => {
-    // DSL v1 只支持整数字面量；drift=4.0 > 3 → TRUE
-    const s = makeStateWithLod({ nodeKey: 'n1', 漂移基线值: 0.2 });
+  // ── Tier A 真触发 ────────────────────────────────────────────────────────
+
+  it('Tier A: baseline=100·cur=165·drift=65%>50% → 连续3拍 count=3', () => {
+    const s = makeStateWithLod({
+      nodeKey: 'n1', 模块键: TEST_MODULE_KEY,
+      漂移基线值: { 声望: 100 },
+    });
+    testAxisValues['n1'] = { 声望: 165 };
     const preset = {
-      模块绑定策略: { '*': { 触发谓词: '漂移.资源紧张度 > 3' } },
+      模块绑定策略: { '*': { 触发谓词: '漂移.声望 > 50%' } },
     } as unknown as Parameters<typeof scheduleLodPhase>[4];
     scheduleLodPhase(s, 1, 1, undefined, preset);
-    expect(s.LOD表['n1']?.连续偏离计数).toBe(1);
+    scheduleLodPhase(s, 1, 2, undefined, preset);
+    scheduleLodPhase(s, 1, 3, undefined, preset);
+    expect(s.LOD表['n1']?.连续偏离计数).toBe(3);
   });
 
-  it('首拍无 baseline → 漂移=0 → predicate false → 计数=0，基线已初始化', () => {
-    const s = makeStateWithLod({ nodeKey: 'n1' }); // 无 漂移基线值
+  // ── Tier B 合成等价 ──────────────────────────────────────────────────────
+
+  it('Tier B 监测轴=声望·触发阈值=>50% 与 Tier A 直接谓词等价（计数相同）', () => {
+    const presetA = {
+      模块绑定策略: { '*': { 触发谓词: '漂移.声望 > 50%' } },
+    } as unknown as Parameters<typeof scheduleLodPhase>[4];
+    const presetB = {
+      模块绑定策略: { '*': { 监测轴: '声望', 触发阈值: '> 50%' } },
+    } as unknown as Parameters<typeof scheduleLodPhase>[4];
+
+    function makeS() {
+      const s = makeStateWithLod({
+        nodeKey: 'n1', 模块键: TEST_MODULE_KEY,
+        漂移基线值: { 声望: 100 },
+      });
+      testAxisValues['n1'] = { 声望: 165 };
+      return s;
+    }
+    const sA = makeS(); scheduleLodPhase(sA, 1, 1, undefined, presetA);
+    const sB = makeS(); scheduleLodPhase(sB, 1, 1, undefined, presetB);
+    expect(sA.LOD表['n1']?.连续偏离计数).toBe(sB.LOD表['n1']?.连续偏离计数);
+  });
+
+  // ── fail-closed ──────────────────────────────────────────────────────────
+
+  it('首拍无基线 → 初始化基线·漂移=0 → pred false → count=0·基线已设', () => {
+    const s = makeStateWithLod({ nodeKey: 'n1', 模块键: TEST_MODULE_KEY }); // 无 漂移基线值
+    testAxisValues['n1'] = { 声望: 200 };
     const preset = {
-      模块绑定策略: { '*': { 触发谓词: '漂移.资源紧张度 > 3' } },
+      模块绑定策略: { '*': { 触发谓词: '漂移.声望 > 50%' } },
     } as unknown as Parameters<typeof scheduleLodPhase>[4];
     scheduleLodPhase(s, 1, 1, undefined, preset);
-    expect(s.LOD表['n1']?.连续偏离计数).toBeUndefined(); // 首拍漂移=0·pred false
+    expect(s.LOD表['n1']?.连续偏离计数).toBeUndefined(); // 首拍 fail-closed
     expect(s.LOD表['n1']?.漂移基线值).toBeDefined();      // 基线已初始化
   });
 
-  it('sensitivity=+1 放大漂移率（临界谓词下 sens=0 false / sens=+1 true）', () => {
-    // baseline=0.4·factor≈1.0 → rawDrift=1.5；pred='漂移.资源紧张度 >= 2'
-    //   sens=0:  1.5×1.0=1.5 < 2 → false → count=0
-    //   sens=+1: 1.5×1.5=2.25 >= 2 → true → count=1
-    const s0 = makeStateWithLod({ nodeKey: 'n1', 漂移基线值: 0.4 });
-    const s1 = makeStateWithLod({ nodeKey: 'n1', 漂移基线值: 0.4 });
-    const presetSens0 = {
-      模块绑定策略: { '*': { 触发谓词: '漂移.资源紧张度 >= 2', 敏感度: 0 } },
+  it('未注册模块键 → 轴值 undefined → 漂移=0 → pred false → count=0', () => {
+    const s = makeStateWithLod({
+      nodeKey: 'n1', 模块键: 'UNKNOWN_MODULE',
+      漂移基线值: { 声望: 100 },
+    });
+    testAxisValues['n1'] = { 声望: 300 };
+    const preset = {
+      模块绑定策略: { '*': { 触发谓词: '漂移.声望 > 50%' } },
     } as unknown as Parameters<typeof scheduleLodPhase>[4];
-    const presetSensPos = {
-      模块绑定策略: { '*': { 触发谓词: '漂移.资源紧张度 >= 2', 敏感度: 1 } },
-    } as unknown as Parameters<typeof scheduleLodPhase>[4];
-    scheduleLodPhase(s0, 1, 1, undefined, presetSens0);
-    scheduleLodPhase(s1, 1, 1, undefined, presetSensPos);
-    expect(s0.LOD表['n1']?.连续偏离计数).toBeUndefined(); // sens=0 → pred false
-    expect(s1.LOD表['n1']?.连续偏离计数).toBe(1);          // sens=+1 → pred true
+    scheduleLodPhase(s, 1, 1, undefined, preset);
+    expect(s.LOD表['n1']?.连续偏离计数).toBeUndefined(); // 轴不可达·drift=0
   });
 
-  it('sensitivity=-1 缩小漂移率（临界谓词下 sens=0 true / sens=-1 false）', () => {
-    // baseline=0.4·factor≈1.0 → rawDrift=1.5；pred='漂移.资源紧张度 >= 1'
-    //   sens=0:  1.5×1.0=1.5 >= 1 → true  → count=1
-    //   sens=-1: 1.5×0.5=0.75 < 1 → false → count=0
-    const s0 = makeStateWithLod({ nodeKey: 'n1', 漂移基线值: 0.4 });
-    const s1 = makeStateWithLod({ nodeKey: 'n1', 漂移基线值: 0.4 });
-    const presetSens0 = {
-      模块绑定策略: { '*': { 触发谓词: '漂移.资源紧张度 >= 1', 敏感度: 0 } },
+  // ── AI override ──────────────────────────────────────────────────────────
+
+  it('AI override 凌驾：override表替换谓词为 always-true → count 累积', () => {
+    // base pred = false (drift=0，cur==baseline)；override → 全局.拍计数 >= 0 always true
+    const s = makeStateWithLod({
+      nodeKey: 'n1', 模块键: TEST_MODULE_KEY,
+      漂移基线值: { 声望: 100 },
+    });
+    testAxisValues['n1'] = { 声望: 100 }; // 0% drift → base pred false
+    (s as unknown as Record<string, unknown>)['$AI创作状态'] = {
+      谓词override表: { 'lod:n1': '全局.拍计数 >= 0' },
+    };
+    const preset = {
+      模块绑定策略: { '*': { 触发谓词: '漂移.声望 > 50%' } },
     } as unknown as Parameters<typeof scheduleLodPhase>[4];
-    const presetSensNeg = {
-      模块绑定策略: { '*': { 触发谓词: '漂移.资源紧张度 >= 1', 敏感度: -1 } },
-    } as unknown as Parameters<typeof scheduleLodPhase>[4];
-    scheduleLodPhase(s0, 1, 1, undefined, presetSens0);
-    scheduleLodPhase(s1, 1, 1, undefined, presetSensNeg);
-    expect(s0.LOD表['n1']?.连续偏离计数).toBe(1);          // sens=0 → pred true
-    expect(s1.LOD表['n1']?.连续偏离计数).toBeUndefined();  // sens=-1 → pred false
+    scheduleLodPhase(s, 1, 1, undefined, preset);
+    expect(s.LOD表['n1']?.连续偏离计数).toBe(1); // override 生效
   });
 
-  it('敏感度变化不影响 hashJudgmentBundle（指纹守护·排外路径）', () => {
+  it('hashJudgmentBundle 不受影响（指纹排外·LOD 全程不进盐）', () => {
     const h1 = hashJudgmentBundle({ ...JUDGMENT_BASE });
     const h2 = hashJudgmentBundle({ ...JUDGMENT_BASE });
     expect(h1).toBe(h2);
-  });
-});
-
-// ────────────────────────────────────────────────────────────────────────────
-// D-2: resolveSensitivity
-// ────────────────────────────────────────────────────────────────────────────
-describe('D-2: resolveSensitivity', () => {
-  it('无预设 → 0', () => {
-    expect(resolveSensitivity(undefined, 'node_a')).toBe(0);
-  });
-
-  it("key '*' 全模块默认", () => {
-    const preset = { 模块绑定策略: { '*': { 敏感度: 0.6 } } } as unknown as Parameters<typeof resolveSensitivity>[0];
-    expect(resolveSensitivity(preset, 'node_a')).toBe(0.6);
-    expect(resolveSensitivity(preset, 'node_b')).toBe(0.6);
-  });
-
-  it('per-module key 覆盖全局默认', () => {
-    const preset = { 模块绑定策略: { '*': { 敏感度: 0.3 }, node_a: { 敏感度: 0.9 } } } as unknown as Parameters<typeof resolveSensitivity>[0];
-    expect(resolveSensitivity(preset, 'node_a')).toBe(0.9);
-    expect(resolveSensitivity(preset, 'node_b')).toBe(0.3);
-  });
-
-  it('无策略记录 → 0', () => {
-    const preset = { LOD保温窗口: 3 } as unknown as Parameters<typeof resolveSensitivity>[0];
-    expect(resolveSensitivity(preset, 'node_a')).toBe(0);
-  });
-
-  it('敏感度 > 1 clamp 到 1', () => {
-    const preset = { 模块绑定策略: { node_a: { 敏感度: 2.5 } } } as unknown as Parameters<typeof resolveSensitivity>[0];
-    expect(resolveSensitivity(preset, 'node_a')).toBe(1);
-  });
-
-  it('敏感度 < -1 clamp 到 -1', () => {
-    const preset = { 模块绑定策略: { node_a: { 敏感度: -3 } } } as unknown as Parameters<typeof resolveSensitivity>[0];
-    expect(resolveSensitivity(preset, 'node_a')).toBe(-1);
   });
 });
 
@@ -262,53 +311,70 @@ describe('D-4: 条件④ detectLodTrigger 连续偏离', () => {
   });
 
   it('consecutiveDriftCount undefined → not triggered（默认 0）', () => {
-    const cur = { ...baseCur }; // no consecutiveDriftCount
+    const cur = { ...baseCur };
     expect(detectLodTrigger(s, basePrev, cur).triggered).toBe(false);
   });
 
   it('条件①②③ 仍正常工作（不被条件④ 遮蔽）', () => {
-    // 条件①: 位置跨区需要 state.地图，这里只验同位置无触发
     const r = detectLodTrigger(s, basePrev, baseCur);
     expect(r.triggered).toBe(false);
   });
 });
 
 // ────────────────────────────────────────────────────────────────────────────
-// D-5: drift 计数管理（谓词驱动·无滞回）
+// D-5: drift 计数管理（opt-in 谓词驱动·无滞回）
 // ────────────────────────────────────────────────────────────────────────────
-describe('D-5: scheduleLodPhase drift 计数管理（谓词驱动·无滞回）', () => {
-  // DSL v1 只支持整数字面量；drift=4.0 > 3 → TRUE；drift=0 < 3 → FALSE
+describe('D-5: scheduleLodPhase drift 计数管理（opt-in·谓词驱动·无滞回）', () => {
+  beforeEach(() => registerTestDescriptor());
+  afterEach(() => clearLodRegistry());
+
   const PRED_PRESET = {
-    模块绑定策略: { '*': { 触发谓词: '漂移.资源紧张度 > 3' } },
+    模块绑定策略: { '*': { 触发谓词: '漂移.声望 > 50%' } },
   } as unknown as Parameters<typeof scheduleLodPhase>[4];
 
-  it('predicate true → count+1（baseline=0.2·factor≈1.0·drift=4.0 > 3）', () => {
-    const s = makeStateWithLod({ nodeKey: 'n1', 漂移基线值: 0.2 });
+  it('predicate true → count+1（baseline=100·cur=165·drift=65%>50%）', () => {
+    const s = makeStateWithLod({
+      nodeKey: 'n1', 模块键: TEST_MODULE_KEY,
+      漂移基线值: { 声望: 100 },
+    });
+    testAxisValues['n1'] = { 声望: 165 };
     scheduleLodPhase(s, 1, 1, undefined, PRED_PRESET);
     expect(s.LOD表['n1']?.连续偏离计数).toBe(1);
   });
 
   it('连续 3 拍 predicate true → 计数=3（供 detectLodTrigger 读取）', () => {
-    const s = makeStateWithLod({ nodeKey: 'n1', 漂移基线值: 0.2 });
+    const s = makeStateWithLod({
+      nodeKey: 'n1', 模块键: TEST_MODULE_KEY,
+      漂移基线值: { 声望: 100 },
+    });
+    testAxisValues['n1'] = { 声望: 165 };
     scheduleLodPhase(s, 1, 1, undefined, PRED_PRESET);
     scheduleLodPhase(s, 1, 2, undefined, PRED_PRESET);
     scheduleLodPhase(s, 1, 3, undefined, PRED_PRESET);
     expect(s.LOD表['n1']?.连续偏离计数).toBe(3);
   });
 
-  it('predicate 突然 false → 计数立刻归零（无滞回·baseline 改≈factor→drift=0 < 3）', () => {
-    const s = makeStateWithLod({ nodeKey: 'n1', 连续偏离计数: 2, 漂移基线值: 0.2 });
-    // 第1拍：drift=4.0 > 3 → pred true → count=3
+  it('predicate 突然 false → 计数立刻归零（无滞回·cur 改回≈baseline）', () => {
+    const s = makeStateWithLod({
+      nodeKey: 'n1', 模块键: TEST_MODULE_KEY,
+      连续偏离计数: 2,
+      漂移基线值: { 声望: 100 },
+    });
+    // 第1拍：cur=165 drift=65%>50% → true → count=3
+    testAxisValues['n1'] = { 声望: 165 };
     scheduleLodPhase(s, 1, 1, undefined, PRED_PRESET);
     expect(s.LOD表['n1']?.连续偏离计数).toBe(3);
-    // 手动将 baseline 改为 ≈ currentFactor(1.0) → drift=0 < 3 → pred false → 归零
-    (s.LOD表['n1'] as Record<string, unknown>)['漂移基线值'] = 1.0;
+    // 第2拍：cur≈baseline → drift=5%<50% → false → 归零
+    testAxisValues['n1'] = { 声望: 105 };
     scheduleLodPhase(s, 1, 2, undefined, PRED_PRESET);
     expect(s.LOD表['n1']?.连续偏离计数).toBeUndefined(); // 归零后 delete
   });
 
-  it('首拍无基线 → 初始化基线·漂移=0 < 3 → predicate false → 计数=0', () => {
-    const s = makeStateWithLod({ nodeKey: 'n1' }); // 无 漂移基线值
+  it('首拍无基线 → 初始化基线·漂移=0 → predicate false → count=0', () => {
+    const s = makeStateWithLod({
+      nodeKey: 'n1', 模块键: TEST_MODULE_KEY, // 无 漂移基线值
+    });
+    testAxisValues['n1'] = { 声望: 200 };
     scheduleLodPhase(s, 1, 1, undefined, PRED_PRESET);
     expect(s.LOD表['n1']?.连续偏离计数).toBeUndefined(); // 首拍 fail-closed
     expect(s.LOD表['n1']?.漂移基线值).toBeDefined();      // 基线已初始化
@@ -321,7 +387,6 @@ describe('D-5: scheduleLodPhase drift 计数管理（谓词驱动·无滞回）'
 describe('D-6: per-tick promote ≤8 seeded 排序', () => {
   it(`10 PC-present 节点 → 只促升 ≤${LOD_PROMOTE_BUDGET} 个（共享区域·1 PC）`, () => {
     const s = makeBase();
-    // 共享区域级节点 region_hub·1 PC 位于此处 → 10 子节点全 PC-present
     (s.地图.地点 as Record<string, unknown>)['region_hub'] = {
       名称: 'region_hub', 类别: '区域级', 父节点: '',
     };
@@ -392,7 +457,7 @@ describe('D-7: LOD态 DSL ctx', () => {
     const ctx = projectStateCtx(s);
     expect((ctx as Record<string, unknown>)['LOD态']).toBeDefined();
     const lodCtx = (ctx as Record<string, Record<string, number>>)['LOD态']!;
-    expect(lodCtx['loc_a']).toBe(0); // 粗=0
+    expect(lodCtx['loc_a']).toBe(0);
   });
 
   it('实体节点 → LOD态.{key} = 1', () => {
@@ -400,7 +465,7 @@ describe('D-7: LOD态 DSL ctx', () => {
     s.LOD表['loc_b'] = { 模块键: 'loc_b', 档位: '实体' };
     const ctx = projectStateCtx(s);
     const lodCtx = (ctx as Record<string, Record<string, number>>)['LOD态']!;
-    expect(lodCtx['loc_b']).toBe(1); // 实体=1
+    expect(lodCtx['loc_b']).toBe(1);
   });
 
   it('混合节点 → 各键独立编码', () => {
@@ -414,7 +479,7 @@ describe('D-7: LOD态 DSL ctx', () => {
   });
 
   it('未授权键（不在 LOD表）→ ctx 无此键→ miss=0（fail-closed）', () => {
-    const s = makeBase(); // LOD表={}
+    const s = makeBase();
     const ctx = projectStateCtx(s);
     const lodCtx = (ctx as Record<string, Record<string, number>>)['LOD态'];
     expect(lodCtx?.['ghost_key']).toBeUndefined();
@@ -438,44 +503,32 @@ describe('D-8: 指纹分线守卫', () => {
     expect(FINGERPRINT_SNAPSHOT_FIELDS).not.toContain('模块绑定策略');
   });
 
-  it('模块绑定策略 在 EXCLUDED_FIELDS', () => {
+  it('模块绑定策略 在 EXCLUDED_FIELDS（单条·子字段 触发谓词/监测轴/触发阈值 覆盖其中）', () => {
     expect(FINGERPRINT_EXCLUDED_FIELDS).toContain('模块绑定策略');
   });
 
   it('LOD态 DSL ctx 调用 evalPredStr 不通过 collectLorePredicates（架构分线断言）', () => {
-    // 验证 projectStateCtx 中 LOD态 命名空间的构建不引用 loreFreeze 路径
-    // 此处以模块导入断言：stateCtx.ts 不从 loreFreeze.ts 导入
-    // （静态代码结构·此处仅做运行态结果断言）
     const s = makeBase();
     s.LOD表['loc_x'] = { 模块键: 'loc_x', 档位: '实体' };
-    const ctx = projectStateCtx(s);
-    // ctx 包含 LOD态（1）且不影响 hashJudgmentBundle
+    projectStateCtx(s);
     const h1 = hashJudgmentBundle({ ...JUDGMENT_BASE });
-    // LOD态改变不影响判定面
     s.LOD表['loc_x']!.档位 = '粗';
     const h2 = hashJudgmentBundle({ ...JUDGMENT_BASE });
-    expect(h1).toBe(h2); // 指纹不变·排外路径确认
+    expect(h1).toBe(h2);
   });
 
-  it('模块绑定策略变化 → 不影响指纹（排外结构断言·不传入 hashPresetFingerprint）', () => {
-    // 排外断言：模块绑定策略不在任何 fingerprint 组 → 不可能影响 hashPresetFingerprint
-    // （已由上方 EXCLUDED_FIELDS 断言 + BUNDLE/PRESET/SNAPSHOT 未列举断言覆盖）
+  it('模块绑定策略变化 → 不影响指纹（排外结构断言）', () => {
     expect(FINGERPRINT_EXCLUDED_FIELDS).toContain('模块绑定策略');
     expect(FINGERPRINT_BUNDLE_MEMBERS).not.toContain('模块绑定策略');
-    expect(FINGERPRINT_PRESET_FIELDS).not.toContain('模块绑定策略');
-    expect(FINGERPRINT_SNAPSHOT_FIELDS).not.toContain('模块绑定策略');
-    // hashJudgmentBundle 独立确定性验证（JUDGMENT_BASE 恒定 → hash 恒定）
     const h1 = hashJudgmentBundle({ ...JUDGMENT_BASE });
     const h2 = hashJudgmentBundle({ ...JUDGMENT_BASE });
     expect(h1).toBe(h2);
   });
 
   it('LOD表/连续偏离计数/漂移基线值 不在 BUNDLE/PRESET/SNAPSHOT 任意组', () => {
-    // LOD表 是顶层 schema key 但不进指纹（排外：不在任何 fingerprint group 中）
     expect(FINGERPRINT_BUNDLE_MEMBERS).not.toContain('LOD表');
     expect(FINGERPRINT_PRESET_FIELDS).not.toContain('LOD表');
     expect(FINGERPRINT_SNAPSHOT_FIELDS).not.toContain('LOD表');
-    // 内层字段也不直接进指纹（由 LOD表 整体排外保证）
     expect(FINGERPRINT_EXCLUDED_FIELDS).not.toContain('连续偏离计数');
     expect(FINGERPRINT_EXCLUDED_FIELDS).not.toContain('漂移基线值');
   });
@@ -504,7 +557,7 @@ describe('D-9: computeResourceFactor re-export', () => {
 // D-10: 守恒门 schemaKeys/BUNDLE/manifest
 // ────────────────────────────────────────────────────────────────────────────
 describe('D-10: 守恒门', () => {
-  it('schemaKeys = 54（DSL-AI 收官值·无新顶层键）', () => {
+  it('schemaKeys = 54（无新顶层键）', () => {
     expect(BLUEPRINT_KEYS.length).toBe(54);
   });
 
@@ -512,7 +565,7 @@ describe('D-10: 守恒门', () => {
     expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
   });
 
-  it('manifest 总长 = 88（BUNDLE21+PRESET11+SNAPSHOT5+EXCLUDED51·+模块绑定策略）', () => {
+  it('manifest 总长 = 88（BUNDLE21+PRESET11+SNAPSHOT5+EXCLUDED51·模块绑定策略子字段由单条覆盖）', () => {
     const total = FINGERPRINT_BUNDLE_MEMBERS.length
       + FINGERPRINT_PRESET_FIELDS.length
       + FINGERPRINT_SNAPSHOT_FIELDS.length

@@ -46,6 +46,12 @@ export interface LodMountDescriptor<S extends ZodTypeAny> {
   ) => z.infer<S> | void;
   /** 惰性预留·充血工具引用（B3 不消费） */
   充血工具引用?: string;
+  /**
+   * 泛型数值轴读取器（可选）·零 switch·注册表驱动。
+   * 条件④ buildLodDriftCtx 调用：从 state 读取 nodeKey 对应的具名轴值（如 声望/民心）。
+   * 返回 undefined → fail-closed → 该轴漂移=0 → 谓词不触发。
+   */
+  读数值轴?: (s: RootState, nodeKey: string, axis: string) => number | undefined;
 }
 
 // ── 模块级注册表（静态·运行期只读·测试用 clear） ─────────────────────────────

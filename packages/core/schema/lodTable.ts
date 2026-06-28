@@ -32,8 +32,9 @@ export const LOD态条目Schema = z.object({
   占位形态:     合一占位形态Schema.optional(),
   粗节点引用:   z.string().optional(),
   // LOD-B2.5 · 条件④ 连续偏离计数 + 漂移基线值（additive·排外·不进指纹）
+  // 漂移基线值 = per-axis Record<轴名, 初始值>（泛型多轴·opt-in·无声明→不参与）
   连续偏离计数: z.number().int().min(0).optional(),
-  漂移基线值:   z.number().optional(),
+  漂移基线值:   z.record(z.string(), z.number()).optional(),
 });
 export type LOD态条目 = z.infer<typeof LOD态条目Schema>;
 

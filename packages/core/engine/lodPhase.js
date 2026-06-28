@@ -7,59 +7,73 @@
 //   LOD表（顶层·B1 additive）= 注册表（决定哪些节点受 LOD 治理）
 //   散落字段（地図.地点[k].LOD态 / NPC[k].LOD档位 / 地点.保温到期拍号）= 实际状态（B4 再迁移）
 //   B2 不迁移散落字段·不写 LOD表 条目字段·仅驱动现有 scheduler 函数
-import { locRegion, computeResourceFactor } from './tick.js';
+//
+// 条件④ 漂移触发设计（opt-in 铁律）：
+//   作者不声明触发条件 → resolveLodPredicate → null → 实体永全态·不评估·不 demote
+//   Tier A: 触发谓词（完整 DSL 谓词串）
+//   Tier B: 监测轴 + 触发阈值（合成 '漂移.{监测轴} {触发阈值}'）
+//   轴值经 LOD挂载注册表[模块键].读数值轴 读取（零 switch·零枚举）
+//   漂移 = computeRelativeDrift(cur, baseline[轴])·原始小数·不 ×100
+import { locRegion } from './tick.js';
 import { promoteNode, tryDemoteNode, handleRegionCross, detectLodTrigger, } from './lodScheduler.js';
-import { dispatchLodGenerate } from './lodMount.js';
+import { dispatchLodGenerate, getLodMount } from './lodMount.js';
 import { evalPredStr } from './dsl/eval.js';
 import { computeRelativeDrift } from './economyEngine.js';
+import { resolveEffectivePredicate, readGlobalDslSwitch } from './dsl/aiPredControl.js';
 // ── §四·6 定稿常量 ───────────────────────────────────────────────────────────
 /** promote 每拍硬上限（§四·6 定稿值·seeded 排序后取前 N） */
 export const LOD_PROMOTE_BUDGET = 8;
 /** 条件④ 连续偏离拍数门槛（§四·6 定稿值 N=3） */
 export const LOD_DRIFT_N = 3;
-/** 敏感度缩放下限（漂移率乘子·sens=-1 → ×0.5·防过度钝化） */
-const DRIFT_SENS_LO = 0.5;
-/** 敏感度缩放上限（漂移率乘子·sens=+1 → ×1.5·防过度放大） */
-const DRIFT_SENS_HI = 1.5;
+// ── LOD-B2 opt-in 谓词解析 ────────────────────────────────────────────────────
+/**
+ * 从模块绑定策略单条目解析 LOD 触发谓词（纯·三态 Tier A/B/null）。
+ * Tier A: 有 触发谓词 → 直接返回。
+ * Tier B: 有 监测轴 AND 触发阈值 → 合成 '漂移.{监测轴} {触发阈值}'。
+ * 否则 → null（实体永远全态·不参与漂移评估·不 demote）。
+ */
+export function resolveLodPredicate(策略) {
+    if (!策略)
+        return null;
+    if (策略.触发谓词)
+        return 策略.触发谓词;
+    if (策略.监测轴 && 策略.触发阈值)
+        return `漂移.${策略.监测轴} ${策略.触发阈值}`;
+    return null;
+}
+// ── LOD-B2 泛型轴解析辅助 ────────────────────────────────────────────────────
+/**
+ * 从 DSL 谓词串中提取 漂移.<轴名> 路径的轴名集合（去重·纯）。
+ * 用于确定 buildLodDriftCtx 需要填充哪些漂移命名空间键。
+ */
+function extractDriftAxes(predStr) {
+    const re = /漂移\.([\p{L}\p{N}_]+)/gu;
+    const axes = [];
+    let m;
+    while ((m = re.exec(predStr)) !== null) {
+        if (m[1])
+            axes.push(m[1]);
+    }
+    return [...new Set(axes)];
+}
+/**
+ * 经 LOD挂载注册表[模块键].读数值轴 读取 nodeKey 对应轴值（零 switch·注册表驱动·纯）。
+ * 未注册模块/无 reader/轴未定义 → undefined（fail-closed·调用方视为漂移=0）。
+ */
+function resolveAxisValue(s, nodeKey, axis) {
+    const 模块键 = s.LOD表[nodeKey]?.模块键;
+    if (!模块键)
+        return undefined;
+    return getLodMount(模块键)?.读数值轴?.(s, nodeKey, axis);
+}
 // ── LOD-B2.5 · 辅助纯函数 ────────────────────────────────────────────────────
 /**
- * 从 模块绑定策略 中解析节点的敏感度（纯·只读）。
- * key '*' = 全模块默认；per-module key 优先；缺省 = 0（无 bias）。
- * 结果 clamp 至 [-1,1]。
- */
-export function resolveSensitivity(preset, nodeKey) {
-    const strategy = preset?.模块绑定策略;
-    if (!strategy)
-        return 0;
-    const perModule = strategy[nodeKey]?.敏感度;
-    if (perModule !== undefined)
-        return Math.max(-1, Math.min(1, perModule));
-    const global = strategy['*']?.敏感度;
-    if (global !== undefined)
-        return Math.max(-1, Math.min(1, global));
-    return 0;
-}
-/**
- * 从 模块绑定策略 中解析节点的触发谓词（纯·只读）。
- * per-module key 优先；'*' = 全模块默认；两者均无 → undefined（条件④ fail-closed·不参与）。
- */
-export function resolveTriggerPred(preset, nodeKey) {
-    const strategy = preset?.模块绑定策略;
-    if (!strategy)
-        return undefined;
-    const perModule = strategy[nodeKey]?.触发谓词;
-    if (perModule !== undefined)
-        return perModule;
-    return strategy['*']?.触发谓词;
-}
-/**
  * 构造 LOD 触发谓词专用 DslContext（纯·只读·排外路径）。
- * 命名空间：全局（拍计数/纪元分钟）· LOD态（粗=0/实体=1）· 漂移（资源紧张度·sensMultiplier 缩放）。
- * NPC 命名空间（属性/技能/账户/自定义变量）不注入（LOD 节点=地点键·非 NPC）。
- * 漂移.资源紧张度 = computeRelativeDrift(currentFactor, baseline) × clamp(1+sens×0.5, LO, HI)
- * baseline=undefined（首拍）→ 漂移=0（谓词 fail-closed）。
+ * 命名空间：全局（拍计数/纪元分钟）· LOD态（粗=0/实体=1）· 漂移（各轴值）。
+ * 轴值 = computeRelativeDrift(resolveAxisValue(...), baseline[轴])·原始小数·不 ×100。
+ * baseline 缺/轴解析不到 → 漂移[轴]=0（fail-closed·谓词不触发）。
  */
-function buildLodDriftCtx(state, nodeKey, locs, baseline, sensitivity) {
+function buildLodDriftCtx(state, nodeKey, axes, baselines) {
     const 全局 = {
         拍计数: state._tick?.拍计数 ?? 0,
         纪元分钟: state.世界?.纪元分钟 ?? 0,
@@ -72,10 +86,17 @@ function buildLodDriftCtx(state, nodeKey, locs, baseline, sensitivity) {
             }
         }
     }
-    const curFactor = computeResourceFactor(nodeKey, locs);
-    const rawDrift = baseline !== undefined ? computeRelativeDrift(curFactor, baseline) : 0;
-    const sensMultiplier = Math.max(DRIFT_SENS_LO, Math.min(DRIFT_SENS_HI, 1 + sensitivity * 0.5));
-    const 漂移 = { 资源紧张度: rawDrift * sensMultiplier };
+    const 漂移 = {};
+    for (const axis of axes) {
+        const baseline = baselines?.[axis];
+        if (baseline === undefined) {
+            漂移[axis] = 0; // 无基线 → fail-closed
+        }
+        else {
+            const curVal = resolveAxisValue(state, nodeKey, axis) ?? baseline;
+            漂移[axis] = computeRelativeDrift(curVal, baseline);
+        }
+    }
     return { 全局, LOD态: LOD态Rec, 漂移 };
 }
 /**
@@ -91,7 +112,7 @@ export function seededSortKey(seed, tick, nodeKey) {
 }
 // ── 主入口 ────────────────────────────────────────────────────────────────────
 /**
- * LOD 调度相位（registry 模型·B2.5 动态阈值 + seeded 排序 + 条件④）。
+ * LOD 调度相位（registry 模型·B2 opt-in 漂移 + seeded 排序 + 条件④）。
  * 由 tick.ts runPhase('LOD调度') 调用；亦可由单元测试直接调用。
  *
  * @param s            当前（已 structuredClone）RootState（in-place 修改）
@@ -99,7 +120,7 @@ export function seededSortKey(seed, tick, nodeKey) {
  * @param currentTick  当前拍计数（s._tick?.拍计数 ?? 0）
  * @param prevLocCtxs  前一拍实体位置上下文（三条件 detectLodTrigger 用）；
  *                     tick 正路传 undefined → 三条件路径退化为 no-op（无跨拍历史存储·B3+）
- * @param preset       玩法预设（可选·缺省=退化 no-op）
+ * @param preset       玩法预设（可选·缺省=退化 no-op·无触发声明实体永全态）
  */
 export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
     // ── 双保险 guard：空 LOD表 → 提前 return·零 state 写·零 RNG draw ──────
@@ -133,14 +154,14 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
                 },
             ]))
             : undefined);
+    // ── AI 谓词控制层（预计算·整拍常量）────────────────────────────────────
+    const _aiState = s['$AI创作状态'];
+    const _aiGlobal = readGlobalDslSwitch(s._系统?.功能开关表 ?? {});
     const promoteCandidates = [];
-    // 非 PC-present 节点的 drift 计数更新（延迟写，避免 pass 1 中途污染 LOD表）
     const driftCounterUpdates = [];
     for (const nodeKey of Object.keys(s.LOD表)) {
-        if (!locs[nodeKey])
-            continue; // LOD-B4b: NPC 键跳过
-        const nodeRegion = locRegion(nodeKey, locs) ?? nodeKey;
         const sortKey = seededSortKey(rngSeed, currentTick, nodeKey);
+        const nodeRegion = locRegion(nodeKey, locs) ?? nodeKey;
         // PC 在场检测
         let pcPresent = false;
         for (const [, pcLocKey] of pcLocMap) {
@@ -150,43 +171,65 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
                 break;
             }
         }
+        // 解析有效谓词（Tier A / Tier B / null = 不参与）
+        const rawStrat = preset?.模块绑定策略?.[nodeKey] ?? preset?.模块绑定策略?.['*'];
+        const rawPred = resolveLodPredicate(rawStrat);
         if (pcPresent) {
             promoteCandidates.push({ nodeKey, sortKey });
             // 促升时重置漂移计数和基线（节点进入实体态·重建基线）
             const entry = s.LOD表[nodeKey];
             if (entry) {
-                driftCounterUpdates.push({
-                    nodeKey,
-                    newCount: 0,
-                    newBaseline: computeResourceFactor(nodeKey, locs),
-                });
+                if (rawPred !== null) {
+                    const axes = extractDriftAxes(rawPred);
+                    const newBaseline = {};
+                    for (const axis of axes) {
+                        const val = resolveAxisValue(s, nodeKey, axis);
+                        if (val !== undefined)
+                            newBaseline[axis] = val;
+                    }
+                    driftCounterUpdates.push({ nodeKey, newCount: 0, newBaseline });
+                }
+                else {
+                    driftCounterUpdates.push({ nodeKey, newCount: 0 });
+                }
             }
         }
         else {
-            // 条件④：谓词驱动连续偏离计数（仅更新计数·不推 promoteCandidates）
+            // 非 PC-present：条件④ opt-in 漂移计数更新
             const entry = s.LOD表[nodeKey];
             if (!entry)
                 continue;
-            const baseline = entry.漂移基线值;
+            const baselines = entry.漂移基线值;
             const currentCount = entry.连续偏离计数 ?? 0;
             let newCount;
             let newBaseline;
-            if (baseline === undefined) {
-                // 首拍：初始化基线值，漂移=0，计数=0
-                newBaseline = computeResourceFactor(nodeKey, locs);
+            if (rawPred === null) {
+                // 无触发声明 → 不参与漂移·归零任何旧计数（清理残余）
                 newCount = 0;
             }
             else {
-                // 谓词驱动：作者声明触发轴（fail-closed：无谓词 → false → 归零）
-                const triggerPred = resolveTriggerPred(preset, nodeKey);
-                if (triggerPred) {
-                    const sensitivity = resolveSensitivity(preset, nodeKey);
-                    const ctx = buildLodDriftCtx(s, nodeKey, locs, baseline, sensitivity);
-                    // 真/假二值·无滞回区间
-                    newCount = evalPredStr(triggerPred, ctx) ? currentCount + 1 : 0;
+                const axes = extractDriftAxes(rawPred);
+                if (!baselines || Object.keys(baselines).length === 0) {
+                    // 首拍或基线缺失：初始化 per-axis 基线·漂移=0→fail-closed
+                    newCount = 0;
+                    if (axes.length > 0) {
+                        const initBaseline = {};
+                        for (const axis of axes) {
+                            const val = resolveAxisValue(s, nodeKey, axis);
+                            if (val !== undefined)
+                                initBaseline[axis] = val;
+                        }
+                        if (Object.keys(initBaseline).length > 0)
+                            newBaseline = initBaseline;
+                    }
                 }
                 else {
-                    newCount = 0; // 无触发谓词·条件④ 不参与该节点
+                    // AI override 凌驾（仅当 rawPred 非 null）
+                    const activePred = resolveEffectivePredicate(`lod:${nodeKey}`, rawPred, _aiGlobal, undefined, // LOD 无作者底线控制表
+                    _aiState?.条目AI控制表, _aiState?.谓词override表);
+                    // 构造 DslContext 并评估谓词（真+1/假→归零·无滞回）
+                    const ctx = buildLodDriftCtx(s, nodeKey, axes, baselines);
+                    newCount = evalPredStr(activePred, ctx) ? currentCount + 1 : 0;
                 }
             }
             driftCounterUpdates.push({
@@ -215,21 +258,38 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
             entry.漂移基线值 = newBaseline;
         }
     }
-    // ── Pass 4: 执行 promote / demote（所有候选均来自 PC 在场·无 drift 候选）──
+    // ── Pass 4: 执行 promote / demote（所有候选均来自 PC 在场）────────────────
     for (const { nodeKey } of toPromote) {
         promoteNode(s, nodeKey, rngSeed);
         dispatchLodGenerate(s, nodeKey, rngSeed); // B3: lodMount seam
-        // 促升后重置偏离计数（重新开始漂移监测）
+        // 促升后重置偏离计数 + 重建基线
         const entry = s.LOD表[nodeKey];
         if (entry) {
             delete entry.连续偏离计数;
-            entry.漂移基线值 = computeResourceFactor(nodeKey, locs);
+            const rawStrat = preset?.模块绑定策略?.[nodeKey] ?? preset?.模块绑定策略?.['*'];
+            const pred = resolveLodPredicate(rawStrat);
+            if (pred !== null) {
+                const axes = extractDriftAxes(pred);
+                if (axes.length > 0) {
+                    const newBaseline = {};
+                    for (const axis of axes) {
+                        const val = resolveAxisValue(s, nodeKey, axis);
+                        if (val !== undefined)
+                            newBaseline[axis] = val;
+                    }
+                    if (Object.keys(newBaseline).length > 0)
+                        entry.漂移基线值 = newBaseline;
+                }
+            }
+            else {
+                delete entry.漂移基线值;
+            }
         }
     }
-    // 未促升节点 → tryDemoteNode
+    // 未促升节点 → tryDemoteNode（地图地点节点·非 locs 节点由父区域管理·不独立 demote）
     for (const nodeKey of Object.keys(s.LOD表)) {
         if (!locs[nodeKey])
-            continue;
+            continue; // NPC/org LOD条目由 dispatchLodGenerate 管理·不独立 demote
         if (!promotedSet.has(nodeKey)) {
             tryDemoteNode(s, nodeKey, currentTick, preset);
         }
@@ -266,14 +326,28 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
                 triggerPromoteCount++;
             }
             else if (result.condition === '连续偏离') {
-                // 条件④ 触发：promote PC 当前区域 + 重置偏离计数
+                // 条件④ 触发：promote PC 当前区域 + 重置偏离计数 + 重建基线
                 const region = locRegion(curCtx.locKey, locs) ?? curCtx.locKey;
                 promoteNode(s, region, rngSeed);
                 triggerPromoteCount++;
                 const lodEntry = s.LOD表[pcLocKey];
                 if (lodEntry) {
                     delete lodEntry.连续偏离计数;
-                    lodEntry.漂移基线值 = computeResourceFactor(pcLocKey, locs);
+                    const rawStrat = preset?.模块绑定策略?.[pcLocKey] ?? preset?.模块绑定策略?.['*'];
+                    const pred = resolveLodPredicate(rawStrat);
+                    if (pred !== null) {
+                        const axes = extractDriftAxes(pred);
+                        if (axes.length > 0) {
+                            const newBaseline = {};
+                            for (const axis of axes) {
+                                const val = resolveAxisValue(s, pcLocKey, axis);
+                                if (val !== undefined)
+                                    newBaseline[axis] = val;
+                            }
+                            if (Object.keys(newBaseline).length > 0)
+                                lodEntry.漂移基线值 = newBaseline;
+                        }
+                    }
                 }
             }
         }
