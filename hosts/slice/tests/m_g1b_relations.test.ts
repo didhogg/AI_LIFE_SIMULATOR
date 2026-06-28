@@ -10,12 +10,12 @@
 import { describe, it, expect } from 'vitest';
 import { runTick } from '@ai-life-sim/core/engine/tick';
 import { RootSchema } from '@ai-life-sim/core';
-import {
-  autoCompleteRelations,
-  COLOC_BASE,
-  JITTER_MAX,
-  MAX_RELATION_DEGREE,
-} from '@ai-life-sim/core/engine/relationGraph';
+import { autoCompleteRelations } from '@ai-life-sim/core/engine/relationGraph';
+import { FORMULA_REGISTRY } from '@ai-life-sim/core/engine/formulaRegistry';
+
+const COLOC_BASE          = FORMULA_REGISTRY['rel_coloc_base'].defaultValue;
+const JITTER_MAX          = FORMULA_REGISTRY['rel_jitter_max'].defaultValue;
+const MAX_RELATION_DEGREE = FORMULA_REGISTRY['rel_max_degree'].defaultValue;
 import { buildWorld, PC, NPC_WANG, NPC_HONG, LOC_KEY, SAVE_SEED } from '../fixture/world.js';
 
 // ── ① 共址生成边 ──────────────────────────────────────────────────────────────

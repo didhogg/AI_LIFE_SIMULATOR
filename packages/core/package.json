@@ -50,6 +50,7 @@
     "./engine/currencyRegistry": "./engine/currencyRegistry.ts",
     "./engine/cognitionProjection": "./engine/cognitionProjection.ts",
     "./engine/economyEngine": "./engine/economyEngine.ts",
+    "./engine/formulaRegistry": "./engine/formulaRegistry.ts",
     "./engine/toolExecutor": "./engine/toolExecutor.ts",
     "./schema/toolLibrary": "./schema/toolLibrary.ts",
     "./schema/mediaLibrary": "./schema/mediaLibrary.ts",

@@ -7,9 +7,11 @@ import {
   applyDriftCandidate,
   computeDecayFactor,
   hasActiveWar,
-  ECONOMY_PRICE_CLAMP_LO,
-  ECONOMY_PRICE_CLAMP_HI,
 } from '@ai-life-sim/core/engine/economyEngine';
+import { FORMULA_REGISTRY } from '@ai-life-sim/core/engine/formulaRegistry';
+
+const ECONOMY_PRICE_CLAMP_LO = FORMULA_REGISTRY['economy_price_clamp_lo'].defaultValue;
+const ECONOMY_PRICE_CLAMP_HI = FORMULA_REGISTRY['economy_price_clamp_hi'].defaultValue;
 import { buildWorld, SAVE_SEED, EXPECTED_NET_ASSET } from '../fixture/world.js';
 import { assertConservation } from '@ai-life-sim/core/engine/conservation';
 import { getNetAsset } from '@ai-life-sim/core/engine/netAsset';

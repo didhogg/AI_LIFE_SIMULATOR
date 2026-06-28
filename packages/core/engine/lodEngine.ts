@@ -42,16 +42,16 @@ export function materializeCoarseNode(
   const node = s.NPC[nodeKey];
   if (!node) return;
 
-  // 派生缺省属性（体质/智慧/感知/魅力/心理 → [lo,hi] 中段范围·可配）
-  const _lo       = resolveFormula('lod_attr_range_lo', formulaConfig);
-  const _hi       = resolveFormula('lod_attr_range_hi', formulaConfig);
-  const _attrInit = resolveFormula('lod_attr_init',     formulaConfig);
-  node.属性 ??= { 体质: _attrInit, 智慧: _attrInit, 感知: _attrInit, 魅力: _attrInit, 心理: _attrInit };
-  node.属性.体质 = mapRange(lodRng(seed, nodeKey, '体质'), _lo, _hi);
-  node.属性.智慧 = mapRange(lodRng(seed, nodeKey, '智慧'), _lo, _hi);
-  node.属性.感知 = mapRange(lodRng(seed, nodeKey, '感知'), _lo, _hi);
-  node.属性.魅力 = mapRange(lodRng(seed, nodeKey, '魅力'), _lo, _hi);
-  node.属性.心理 = mapRange(lodRng(seed, nodeKey, '心理'), _lo, _hi);
+  // 派生属性（体质/智慧/感知/魅力/心理 → [lo,hi] 中段范围·可配）
+  const _lo = resolveFormula('lod_attr_range_lo', formulaConfig);
+  const _hi = resolveFormula('lod_attr_range_hi', formulaConfig);
+  node.属性 = {
+    体质: mapRange(lodRng(seed, nodeKey, '体质'), _lo, _hi),
+    智慧: mapRange(lodRng(seed, nodeKey, '智慧'), _lo, _hi),
+    感知: mapRange(lodRng(seed, nodeKey, '感知'), _lo, _hi),
+    魅力: mapRange(lodRng(seed, nodeKey, '魅力'), _lo, _hi),
+    心理: mapRange(lodRng(seed, nodeKey, '心理'), _lo, _hi),
+  };
 }
 
 // ── P2-3: newsToCognition ─────────────────────────────────────────────────────

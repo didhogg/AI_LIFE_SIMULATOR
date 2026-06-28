@@ -15,12 +15,6 @@ import { type 玩法预设Type } from '../schema/preset.js';
 import { fixedPow, v1 } from './math/fixed.js';
 import { resolveFormula, type FormulaResolveConfig } from './formulaRegistry.js';
 
-// ── 常量 ─────────────────────────────────────────────────────────────────────
-
-export const ECONOMY_PRICE_CLAMP_LO = 0.5;
-export const ECONOMY_PRICE_CLAMP_HI = 3.0;
-export const ECONOMY_DRIFT_THRESHOLD = 0.2; // 漂移超 20% 触发候选基线写入
-
 // ── P3-3 · 修正系数衰减（闭式·锚拍号·禁逐拍累积）──────────────────────────────
 
 /**

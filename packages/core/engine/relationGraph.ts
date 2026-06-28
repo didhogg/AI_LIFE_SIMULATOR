@@ -8,12 +8,6 @@ import type { RootState } from '../schema/index.js';
 import { rngFor } from './rng.js';
 import { resolveFormula, FORMULA_REGISTRY, type FormulaResolveConfig } from './formulaRegistry.js';
 
-// ── 装配期边权常量（单一真相源 = formulaRegistry 默认值·不再手写数字）──────────
-export const COLOC_BASE          = FORMULA_REGISTRY['rel_coloc_base'].defaultValue;
-export const ORG_BONUS           = FORMULA_REGISTRY['rel_org_bonus'].defaultValue;
-export const JITTER_MAX          = FORMULA_REGISTRY['rel_jitter_max'].defaultValue;
-export const REL_TRUST           = FORMULA_REGISTRY['rel_trust'].defaultValue;
-export const MAX_RELATION_DEGREE = FORMULA_REGISTRY['rel_max_degree'].defaultValue;
 
 /** 正典无向端点对键（NPC 键字典序小的在前·null-byte 分隔·防碰撞） */
 function pairKey(a: string, b: string): string {

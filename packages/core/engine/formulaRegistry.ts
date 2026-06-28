@@ -1,6 +1,6 @@
 // F1/F2 · 公式/参数 override substrate
 //
-// F1: 43 具名公式点注册表（默认值 = 当前硬编码·零重定基守卫）
+// F1: 42 具名公式点注册表（默认值 = 当前硬编码·零重定基守卫）
 // F2: resolveEffectiveFormula — 双轨 override 解析器
 //     优先级：① enabled=false → 默认（全局锁闭）
 //             ② 玩家 DSL 串（$AI创作状态.公式override表） → evalExpr；非法串 fail-safe 回默认
@@ -15,7 +15,7 @@ import { fixedExp } from './math/fixed.js';
 import { evalExpr, type DslContext } from './dsl/eval.js';
 import { tryParseExpr } from './dsl/parser.js';
 
-// ── F1: 公式点 key 列表（39 点·一次性建底座） ─────────────────────────────────────
+// ── F1: 公式点 key 列表（42 点） ──────────────────────────────────────────────────
 
 export const FORMULA_POINT_KEYS = [
   // tick.ts — R1 社会动力学 13 + 记忆衰减 + 缺失回退魔数
@@ -52,10 +52,9 @@ export const FORMULA_POINT_KEYS = [
   'belief_certainty_perception_default',
   'belief_certainty_default',
   'belief_certainty_secret',
-  // lodEngine.ts — LOD 粗节点属性实体化范围 + 初始化缺省
+  // lodEngine.ts — LOD 粗节点属性实体化范围
   'lod_attr_range_lo',
   'lod_attr_range_hi',
-  'lod_attr_init',
   // economyEngine.ts — 价格钳制 + 漂移阈值
   'economy_price_clamp_lo',
   'economy_price_clamp_hi',
@@ -123,7 +122,6 @@ export const FORMULA_REGISTRY: Readonly<Record<FormulaPointKey, FormulaPointDesc
   // ── lodEngine.ts ──────────────────────────────────────────────────────────────
   lod_attr_range_lo:                   { key: 'lod_attr_range_lo',                   defaultValue: 20,                       description: 'LOD 粗节点属性实体化下界',          fingerprint: true  },
   lod_attr_range_hi:                   { key: 'lod_attr_range_hi',                   defaultValue: 60,                       description: 'LOD 粗节点属性实体化上界',          fingerprint: true  },
-  lod_attr_init:                       { key: 'lod_attr_init',                       defaultValue: 10,                       description: 'LOD 粗节点属性对象初始化缺省值',    fingerprint: true  },
   // ── economyEngine.ts ──────────────────────────────────────────────────────────
   economy_price_clamp_lo:              { key: 'economy_price_clamp_lo',              defaultValue: 0.5,                      description: '有效价格修正系数钳制下界',           fingerprint: true  },
   economy_price_clamp_hi:              { key: 'economy_price_clamp_hi',              defaultValue: 3.0,                      description: '有效价格修正系数钳制上界',           fingerprint: true  },

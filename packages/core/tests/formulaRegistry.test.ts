@@ -109,9 +109,6 @@ describe('F5-1 default values match hardcoded constants', () => {
   test('lod_attr_range_hi default = 60', () => {
     expect(resolveFormula('lod_attr_range_hi')).toBe(60);
   });
-  test('lod_attr_init default = 10', () => {
-    expect(resolveFormula('lod_attr_init')).toBe(10);
-  });
   test('economy_price_clamp_lo default = 0.5', () => {
     expect(resolveFormula('economy_price_clamp_lo')).toBe(0.5);
   });
@@ -154,8 +151,8 @@ describe('F5-2 registry completeness', () => {
     }
   });
 
-  test('total formula point count = 43', () => {
-    expect(FORMULA_POINT_KEYS.length).toBe(43);
+  test('total formula point count = 42', () => {
+    expect(FORMULA_POINT_KEYS.length).toBe(42);
   });
 });
 
@@ -202,13 +199,6 @@ describe('F5-3 preset numeric override', () => {
     expect(resolveFormula('belief_certainty_secret', config)).toBe(95);
   });
 
-  test('lod_attr_init preset override takes effect', () => {
-    const config: FormulaResolveConfig = {
-      presetNumbers: { lod_attr_init: 5 },
-      enabled: true,
-    };
-    expect(resolveFormula('lod_attr_init', config)).toBe(5);
-  });
 });
 
 // ── F5-4: DSL 串 override（玩家路径） ──────────────────────────────────────────

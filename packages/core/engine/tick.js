@@ -79,8 +79,6 @@ const SCENE_PROPAGATION_COEFF = {
     '低': 0.7, // 密室效应：低社交开放度→事件私密性→二跳传播衰减
 };
 // ── G2-1 全动力学参数（SEIR×IC×LT · Granovetter78 · Centola-Macy · Bass stub）──────
-// HOP_DECAY alias — preserves backward compat with RIPPLE_DECAY (same numeric value)
-const HOP_DECAY = RIPPLE_DECAY; // 0.5 per hop distortion decay
 // IC 边类型速率（Independent Cascade · 边类型→基础传播率 [0,1]）
 // 规则：icEdgeProb(type, trust=100) = 1.0 for any type → trust=100 恒确定性通过（向后兼容）
 const EDGE_TYPE_IC_RATE = {
@@ -105,8 +103,6 @@ const BASS_Q_DEFAULT = 0.0; // fallback when TickInput.bassQ undefined
 // ── G2-2 传播系数参数 ─────────────────────────────────────────────────────────
 /** 资源紧张度对传播的最大抑制系数（紧张度100 → 传播强度×(1-0.5)=0.5） */
 const RESOURCE_SUPPRESSION_MAX = 0.5;
-/** 组织信道广播衰减（与 HOP_DECAY 同量纲·每次组织中继再乘一次） */
-const ORG_CHANNEL_DECAY = HOP_DECAY; // 0.5 — 组织信道中继强度折半
 // ── G2-3 S2 矫诏真伪门参数 ────────────────────────────────────────────────────
 /** 矫诏消息（伪诏）官方信道可信度折半系数（G2-3 S2·硬编·非 preset 可配） */
 const FAKE_EDICT_CREDIBILITY_FACTOR = 0.5;
@@ -813,7 +809,7 @@ function computeConflictAbsorption(archive, obsKey, targetKey, imp, fp) {
  *   - TODO(G2-3): 层级延迟（沿 层级/隶属 边跳数 × delay）；当前同拍交付。
  * 跳 4（Bass 外部点火·G2-2）：pExt>0 时媒体广播独立触发所有未覆盖 NPC。
  *   - 触发概率：pExt（[0,1]·seeded·逐 NPC 独立滚）。
- *   - 写入强度：imp.强度 × HOP_DECAY（同二跳量级）。
+ *   - 写入强度：imp.强度 × _rippleDecay（同二跳量级）。
  *   - pExt=0 → 此阶段跳过（向后兼容·G2-1 所有测试不受影响）。
  * 资源抑制：二跳/三跳/四跳强度均乘 computeResourceFactor（一跳确定性不受影响）。
  * covert（可见性='隐秘'）= 全跳跳过。

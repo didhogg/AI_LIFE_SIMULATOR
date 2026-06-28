@@ -8,6 +8,7 @@ import { buildWorld, SAVE_SEED, PC, NPC_WANG, NPC_HONG, EXPECTED_NET_ASSET } fro
 import { assertConservation } from '@ai-life-sim/core/engine/conservation';
 import { getNetAsset } from '@ai-life-sim/core/engine/netAsset';
 import { runTick } from '@ai-life-sim/core/engine/tick';
+import { FORMULA_REGISTRY } from '@ai-life-sim/core/engine/formulaRegistry';
 // ── 辅助 ────────────────────────────────────────────────────────────────────
 const COARSE_KEY = 'coarse_node_01';
 const COARSE_KEY_B = 'coarse_node_02';
@@ -318,5 +319,64 @@ describe('F6 · 300 拍 soak', () => {
         expect(s1.LOD表[COARSE_SOAK2]?.档位).toBe(s2.LOD表[COARSE_SOAK2]?.档位);
         expect(s1.NPC[COARSE_SOAK2].属性.体质).toBe(s2.NPC[COARSE_SOAK2].属性.体质);
         expect(JSON.stringify(s1.认知档案[NPC_WANG]?.[COARSE_SOAK2])).toBe(JSON.stringify(s2.认知档案[NPC_WANG]?.[COARSE_SOAK2]));
+    });
+});
+// ── F7 · F3 自证: playerDsl → materializeCoarseNode 实际引擎输出变化 ──────────
+describe('F7 · F3 自证: playerDsl → materializeCoarseNode 引擎输出', () => {
+    const SEED_F7 = 42;
+    const NODE_F7 = 'f7_coarse';
+    function makeNodeState() {
+        const s = buildWorld();
+        s.NPC[NODE_F7] = NpcSchema.parse({ 姓名: NODE_F7, 位置: '' });
+        return s;
+    }
+    it('F7-1 无 override → 所有属性落在默认 [20,60] 区间', () => {
+        const s = makeNodeState();
+        materializeCoarseNode(s, NODE_F7, SEED_F7);
+        const attrs = s.NPC[NODE_F7].属性;
+        for (const v of Object.values(attrs)) {
+            expect(v).toBeGreaterThanOrEqual(20);
+            expect(v).toBeLessThanOrEqual(60);
+        }
+    });
+    it('F7-2 playerDsl lod_attr_range_lo=90/hi=100 → 所有属性落在 [90,100]（override 有效）', () => {
+        const config = {
+            playerDsl: { lod_attr_range_lo: '90', lod_attr_range_hi: '100' },
+            enabled: true,
+            ctx: {},
+        };
+        const s = makeNodeState();
+        materializeCoarseNode(s, NODE_F7, SEED_F7, config);
+        const attrs = s.NPC[NODE_F7].属性;
+        for (const v of Object.values(attrs)) {
+            expect(v).toBeGreaterThanOrEqual(90);
+            expect(v).toBeLessThanOrEqual(100);
+        }
+    });
+    it('F7-3 重放逐位恒等（同 seed+config 两次结果完全一致）', () => {
+        const config = {
+            playerDsl: { lod_attr_range_lo: '90', lod_attr_range_hi: '100' },
+            enabled: true,
+            ctx: {},
+        };
+        const s1 = makeNodeState();
+        materializeCoarseNode(s1, NODE_F7, SEED_F7, config);
+        const s2 = makeNodeState();
+        materializeCoarseNode(s2, NODE_F7, SEED_F7, config);
+        expect(s1.NPC[NODE_F7].属性).toEqual(s2.NPC[NODE_F7].属性);
+    });
+    it('F7-4 enabled=false → override 被全局锁闭·回默认 [20,60] 区间', () => {
+        const config = {
+            playerDsl: { lod_attr_range_lo: '90', lod_attr_range_hi: '100' },
+            enabled: false,
+            ctx: {},
+        };
+        const s = makeNodeState();
+        materializeCoarseNode(s, NODE_F7, SEED_F7, config);
+        const attrs = s.NPC[NODE_F7].属性;
+        for (const v of Object.values(attrs)) {
+            expect(v).toBeGreaterThanOrEqual(20);
+            expect(v).toBeLessThanOrEqual(60);
+        }
     });
 });
