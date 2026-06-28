@@ -72,7 +72,7 @@ const 特质条目Schema = z.object({
   强度: z.number().default(0),
   稀有度: z.string().default(''),
   已觉醒: z.boolean().default(true),
-  效果: 特质效果Schema.default({}),
+  效果: 特质效果Schema.optional(),
   // Step 4·黄金窗口预埋·schema-only：本体不可逆子类实例（灵根/血脉等）携带此 flag，
   // 轻伤等可治愈项不带（§十一 防过度标记）。缺省即 undefined，既有存档零迁移。
   不可逆: 不可逆Schema.optional(),
@@ -116,14 +116,14 @@ const 技能条目Schema = z.object({
   等级: z.number().int().min(0).max(10).default(0),
   类别: z.string().default('通用'), // 开放串
   来源: z.string().default(''),
-  施放: 技能施放Schema.default({}),
+  施放: 技能施放Schema.optional(),
 });
 
 const 物品条目Schema = z.object({
   数量: z.number().int().min(0).default(1),
   重要级别: z.string().default('普通'),
   类别: z.string().default(''),
-  效果: 修饰通道引用Schema.default({}),
+  效果: 修饰通道引用Schema.optional(),
   到期: z.number().int().default(0), // 绝对纪元分钟；0 = 永久
   遗失保护: z.boolean().default(false),
   可携意象: z.array(意象条目Schema).default([]), // 6.29
@@ -201,7 +201,7 @@ const 学业概况Schema = z.object({
 });
 
 const 学业Schema = z.object({
-  学籍: 学籍Schema.default({}),
+  学籍: 学籍Schema.optional(),
   在修科目: z.record(actor记录键Schema, z.object({
     发生时间: z.number().int().default(0), // 绝对纪元分钟
     备注: z.string().default(''),
@@ -214,7 +214,7 @@ const 学业Schema = z.object({
   })).default({}),
   学历档案: z.record(actor记录键Schema, 学历档案条目Schema).default({}),
   资质证书: z.record(actor记录键Schema, 资质证书条目Schema).default({}),
-  学业概况: 学业概况Schema.default({}),
+  学业概况: 学业概况Schema.optional(),
 });
 
 const 任职条目Schema = z.object({

@@ -14,7 +14,8 @@
 // B6 defer：接入导入闸/运行时管线 fire；DSL 串 clamp 语义取严（需 DSL 求值器）
 // TODO(B6-Step5)：导入闸接入时消费 preset.ts per_key_策略 声明；当前全局取严语义不变。
 
-export type K5DeltaOp = 'set' | 'add' | 'sub' | 'clamp' | 'lock';
+export const K5_DELTA_OPS = ['set', 'add', 'sub', 'clamp', 'lock'] as const;
+export type K5DeltaOp = typeof K5_DELTA_OPS[number];
 
 export type K5DeltaEntry = {
   readonly path: string;
