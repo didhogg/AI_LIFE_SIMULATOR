@@ -895,6 +895,57 @@ describe('4.4 Org layer', () => {
   });
 });
 
+describe('R7 · 组织实体条目 5 子树 顶层 opt-in', () => {
+  it('空组织实体 parse → 财务 === undefined', () => {
+    const parsed = 组织实体Schema.parse({ org: {} });
+    expect(parsed['org']!.财务).toBeUndefined();
+  });
+  it('空组织实体 parse → 用工 === undefined', () => {
+    const parsed = 组织实体Schema.parse({ org: {} });
+    expect(parsed['org']!.用工).toBeUndefined();
+  });
+  it('空组织实体 parse → 治理 === undefined', () => {
+    const parsed = 组织实体Schema.parse({ org: {} });
+    expect(parsed['org']!.治理).toBeUndefined();
+  });
+  it('空组织实体 parse → 军事 === undefined', () => {
+    const parsed = 组织实体Schema.parse({ org: {} });
+    expect(parsed['org']!.军事).toBeUndefined();
+  });
+  it('空组织实体 parse → 信念 === undefined', () => {
+    const parsed = 组织实体Schema.parse({ org: {} });
+    expect(parsed['org']!.信念).toBeUndefined();
+  });
+  it('accessor 读回退: 财务显式 {} → 叶子 default 生效（本期净利=0）', () => {
+    const parsed = 组织实体Schema.parse({ org: { 财务: {} } });
+    expect(parsed['org']!.财务?.本期净利 ?? 0).toBe(0);
+  });
+  it('accessor 读回退: 用工显式 {} → 叶子 default 生效（产能系数=1）', () => {
+    const parsed = 组织实体Schema.parse({ org: { 用工: {} } });
+    expect(parsed['org']!.用工?.产能系数 ?? 1).toBe(1);
+  });
+  it('accessor 读回退: 治理显式 {} → 叶子 default 生效（追随者规模=0）', () => {
+    const parsed = 组织实体Schema.parse({ org: { 治理: {} } });
+    expect(parsed['org']!.治理?.追随者规模 ?? 0).toBe(0);
+  });
+  it('accessor 读回退: 军事显式 {} → 叶子 default 生效（补给=100）', () => {
+    const parsed = 组织实体Schema.parse({ org: { 军事: {} } });
+    expect(parsed['org']!.军事?.补给 ?? 100).toBe(100);
+  });
+  it('accessor 读回退: 信念显式 {} → 叶子 default 生效（官方体系=\'\'）', () => {
+    const parsed = 组织实体Schema.parse({ org: { 信念: {} } });
+    expect(parsed['org']!.信念?.官方体系 ?? '').toBe('');
+  });
+  it('项目档内 财务 absent → undefined', () => {
+    const parsed = 组织实体Schema.parse({ org: { 项目档: { 进展树: {} } } });
+    expect(parsed['org']!.项目档?.财务).toBeUndefined();
+  });
+  it('项目档内 用工 absent → undefined', () => {
+    const parsed = 组织实体Schema.parse({ org: { 项目档: { 进展树: {} } } });
+    expect(parsed['org']!.项目档?.用工).toBeUndefined();
+  });
+});
+
 describe('4.5 Global layer', () => {
   // ── 最小开局状态 ──────────────────────────────────────────────────────────────
   it('valid empty parse (minimal state)', () => {
