@@ -161,6 +161,7 @@ describe('F4 · 信号单调性 + 钳制', () => {
         const preset = makePreset({ 资源紧张度权重: 0, 供需权重: 0, 战时修正权重: 0.5 });
         const sPeace = baseStateWithPrice(0, 0);
         const sWar = baseStateWithPrice(0, 0);
+        sWar.战争状态 ??= {}; // R6 opt-in
         sWar.战争状态['war_01'] = { 战争名: '测试战争', 参战方: [], 战争目标: '', 状态: '交战' };
         expect(deriveEffectivePrice(sWar, preset, REGION_ID, CATEGORY_A))
             .toBeGreaterThanOrEqual(deriveEffectivePrice(sPeace, preset, REGION_ID, CATEGORY_A));
@@ -168,6 +169,7 @@ describe('F4 · 信号单调性 + 钳制', () => {
     it('F4-4 极端正信号 → 有效价格不超 HI × 基线（上钳制）', () => {
         const preset = makePreset({ 资源紧张度权重: 0.9, 供需权重: 0.9, 战时修正权重: 0.9 });
         const s = baseStateWithPrice(100, 100);
+        s.战争状态 ??= {}; // R6 opt-in
         s.战争状态['w'] = { 战争名: '极限战', 参战方: [], 战争目标: '', 状态: '交战' };
         const p = deriveEffectivePrice(s, preset, REGION_ID, CATEGORY_A);
         expect(p).toBeLessThanOrEqual(Math.ceil(BASE_PRICE * ECONOMY_PRICE_CLAMP_HI));
@@ -182,9 +184,11 @@ describe('F4 · 信号单调性 + 钳制', () => {
         const sNone = RootSchema.parse({});
         expect(hasActiveWar(sNone)).toBe(false);
         const sWar = RootSchema.parse({});
+        sWar.战争状态 ??= {}; // R6 opt-in
         sWar.战争状态['w1'] = { 战争名: 'w', 参战方: [], 战争目标: '', 状态: '交战' };
         expect(hasActiveWar(sWar)).toBe(true);
         const sCease = RootSchema.parse({});
+        sCease.战争状态 ??= {}; // R6 opt-in
         sCease.战争状态['w1'] = { 战争名: 'w', 参战方: [], 战争目标: '', 状态: '停战' };
         expect(hasActiveWar(sCease)).toBe(false);
     });
@@ -223,7 +227,7 @@ describe('F5 · 漂移候选再基线（P14）', () => {
         const preset = makePreset({ 资源紧张度权重: 0.9 });
         const s = buildWorld();
         applyDriftCandidate(s, preset, 'nonexistent_region', '品类');
-        expect(s.地图.区域物价['nonexistent_region']?.['品类']?.候选基线).toBeUndefined();
+        expect(s.地图?.区域物价?.['nonexistent_region']?.['品类']?.候选基线).toBeUndefined();
     });
 });
 // ── F6 · 300 拍 soak 守恒持续成立 + 双跑逐位恒等 ─────────────────────────────

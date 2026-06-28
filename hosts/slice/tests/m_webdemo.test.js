@@ -417,7 +417,7 @@ describe('D3 NSFW 物理隔离', () => {
             FINGERPRINT_PRESET_FIELDS.length +
             FINGERPRINT_SNAPSHOT_FIELDS.length +
             FINGERPRINT_EXCLUDED_FIELDS.length;
-        expect(total).toBe(88);
+        expect(total).toBe(89);
     });
     it('schemaKeys=53 不变（demo 不新增 schema 字段·指纹守恒）', () => {
         expect(Object.keys(RootSchema.shape).length).toBe(54);

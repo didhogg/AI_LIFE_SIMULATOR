@@ -11,25 +11,29 @@
 //
 // 稳定性：纯内容派生·不含菜单序号/计数·同菜单重渲染 → 同 id
 // 确定性六禁继承：禁 Date.now/Math.random/localeCompare/裸 JSON.stringify/NFC normalize
-import { extractMoneyAmounts, isCanonicalUnit, prepareNarrative, } from './text/chineseNumber.js';
+import { CANONICAL_UNITS, extractMoneyAmountsFor, prepareNarrative, } from './text/chineseNumber.js';
 import { hashCanonical } from './rng.js';
 // ── 语义键工具 ──────────────────────────────────────────────────────────────────
 /**
  * salientArgs 规范化（Batch 3 chineseNumber+CANONICAL_UNITS 归一·禁第二解析路径）。
  *
- * 优先：货币金额 → 提取全部规范单位金额 → 排序 → 归一为「N文」格式
+ * 优先：货币金额 → 提取全部规范单位金额 → 排序 → 归一为「N{baseCurrency}」格式
  * 回退：非货币文本 → prepareNarrative（NFKC+空白折叠）后 trim
+ *
+ * registry 未传时使用默认值（baseCurrency='文'·零重定基）。
  */
-function canonicalizeSalientArgs(raw) {
+function canonicalizeSalientArgs(raw, registry) {
     if (!raw || !raw.trim())
         return '';
     const prepared = prepareNarrative(raw);
-    // 货币金额（规范单位：文/文钱 → 统一输出为「N文」）
-    const amounts = extractMoneyAmounts(prepared);
+    const canonicalUnits = registry?.canonicalUnits ?? CANONICAL_UNITS;
+    const baseCurrency = registry?.baseCurrency ?? '文';
+    // 货币金额（规范单位 → 统一输出为「N{baseCurrency}」）
+    const amounts = extractMoneyAmountsFor(prepared, canonicalUnits);
     const canonical = amounts
-        .filter(a => isCanonicalUnit(a.unit))
+        .filter(a => canonicalUnits.has(a.unit))
         .sort((a, b) => a.value - b.value)
-        .map(a => `${a.value}文`)
+        .map(a => `${a.value}${baseCurrency}`)
         .join('+');
     if (canonical)
         return canonical;
@@ -39,9 +43,11 @@ function canonicalizeSalientArgs(raw) {
 /**
  * 为单个菜单选项构建语义键（基础键·不含碰撞尾缀）。
  * 纯函数 — 无随机·无 Date·无副作用。
+ *
+ * registry 未传时使用默认值（零重定基）。
  */
-export function buildOptionId(verb, targetEntityId, salientArgs) {
-    const canonical = canonicalizeSalientArgs(salientArgs);
+export function buildOptionId(verb, targetEntityId, salientArgs, registry) {
+    const canonical = canonicalizeSalientArgs(salientArgs, registry);
     return canonical
         ? `${verb}:${targetEntityId}:${canonical}`
         : `${verb}:${targetEntityId}`;
@@ -63,10 +69,10 @@ export function buildOptionId(verb, targetEntityId, salientArgs) {
  *   - 不包含序号/计数·纯内容派生
  *   - 同菜单同内容重渲染 → 恒相同 id
  */
-export function buildMenuOptionIds(options) {
+export function buildMenuOptionIds(options, registry) {
     // Step 1: 预计算每个选项的基础键 + 规范化语义字段哈希
     const annotated = options.map(opt => {
-        const canonicalSalient = canonicalizeSalientArgs(opt.salientArgs);
+        const canonicalSalient = canonicalizeSalientArgs(opt.salientArgs, registry);
         const baseKey = canonicalSalient
             ? `${opt.verb}:${opt.targetEntityId}:${canonicalSalient}`
             : `${opt.verb}:${opt.targetEntityId}`;

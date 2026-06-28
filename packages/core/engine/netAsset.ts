@@ -20,10 +20,14 @@ export const BASE_CURRENCY = '文';
  *     Each record value is a covenant key → look up 全局.约定库[key].条款[0].标的.
  *     String-literal 标的 that parses to a finite number is used; otherwise 0.
  *     DSL v1.0 expression objects are deferred (return 0).
+ *
+ * baseCurrency: optional override; defaults to BASE_CURRENCY ('文'). Pass
+ *   state.货币系统?.基准币种 (via buildCurrencyRegistry) for custom-currency worlds.
  */
-export function getNetAsset(acct: 账户Type, 全局?: 全局Type): number {
-  const 持有 = acct.持有[BASE_CURRENCY] ?? 0;
-  const 储蓄 = acct.储蓄[BASE_CURRENCY] ?? 0;
+export function getNetAsset(acct: 账户Type, 全局?: 全局Type, baseCurrency?: string): number {
+  const bc = baseCurrency ?? BASE_CURRENCY;
+  const 持有 = acct.持有[bc] ?? 0;
+  const 储蓄 = acct.储蓄[bc] ?? 0;
   const 存货  = acct.资产
     .filter(a => a.类别 === '存货')
     .reduce((s, a) => s + a.数量 * a.成本价, 0);

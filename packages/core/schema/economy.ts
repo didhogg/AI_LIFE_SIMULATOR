@@ -9,6 +9,7 @@ const 币种定义Schema = z.object({
   量词: z.string().default(''),
   单位: z.string().default(''),
   符号: z.string().default(''),
+  别称: z.array(z.string()).optional(), // 别称/同义单位（如 '文' 的别称 ['文钱']·引擎从注册表派生 canonicalUnits）
   时代适用: z.string().default(''), // era 锚定（非公历年份，防 Date.now）
   地域适用: z.array(z.string()).default([]),
   对基准汇率: z.number().min(0).default(1),

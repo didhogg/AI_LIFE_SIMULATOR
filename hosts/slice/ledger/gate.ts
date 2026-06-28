@@ -14,14 +14,16 @@
 // 绝不 fail-open；绝不默认 from=主角 兜底。
 import { TickProposalSchema, type TickProposal } from './proposalSchema.js';
 import {
-  extractMoneyAmounts,
-  isCanonicalUnit,
+  CANONICAL_UNITS,
+  extractMoneyAmountsFor,
+  isCanonicalUnitIn,
   prepareNarrative,
   RE_CHANGE_GIVING,
   RE_DEBT,
   RE_ADVANCE,
   RE_TOTAL,
 } from '@ai-life-sim/core/engine/text/chineseNumber';
+import type { CurrencyRegistry } from '@ai-life-sim/core/engine/currencyRegistry';
 
 // ── 闸① 结构校验 ──────────────────────────────────────────────────────────────
 export type StructuralResult =
@@ -51,6 +53,11 @@ export function gateStructural(rawJson: string): StructuralResult {
 export interface GateContext {
   /** 实体键 → 在叙事文本中可识别的别名列表（名字/称谓等）。 */
   entities?: Array<{ key: string; aliases: string[] }>;
+  /**
+   * 当前世界的币种单位注册表（由 buildCurrencyRegistry(state.货币系统) 派生）。
+   * 不传则使用默认值（CANONICAL_UNITS={'文','文钱'}·零重定基）。
+   */
+  currencyRegistry?: CurrencyRegistry;
 }
 
 // ── 闸③ 覆盖性结果 ────────────────────────────────────────────────────────────
@@ -82,11 +89,15 @@ export function gateCoverage(
   const norm = prepareNarrative(narrative);
 
   // ── 金额抽取（M2.5/M2.6，内部已归一）───────────────────────────────────────
-  const amounts = extractMoneyAmounts(norm);
+  const canonicalUnits = context?.currencyRegistry?.canonicalUnits ?? CANONICAL_UNITS;
+  const unconfirmedUnitChars = context?.currencyRegistry?.unconfirmedUnitChars;
+  const amounts = unconfirmedUnitChars
+    ? extractMoneyAmountsFor(norm, canonicalUnits, unconfirmedUnitChars)
+    : extractMoneyAmountsFor(norm, canonicalUnits);
   if (amounts.length === 0) return { covered: true };
 
   // ── a. 单位不可确认（M2.6）──────────────────────────────────────────────────
-  const unconfirmed = amounts.filter(a => !isCanonicalUnit(a.unit));
+  const unconfirmed = amounts.filter(a => !isCanonicalUnitIn(a.unit, canonicalUnits));
   if (unconfirmed.length > 0) {
     return { covered: false, missing: [], degraded: false, reason: '单位不可确认' };
   }

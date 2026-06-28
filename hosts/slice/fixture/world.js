@@ -100,7 +100,7 @@ const 秘密库 = {
 //        组织实体/关系网 additive-only·不改 PC/NPC_WANG/NPC_HONG 字段·m_p7tier2 恒等。
 export function buildWorld() {
     const raw = RootSchema.parse({
-        世界: {},  // R6 opt-in: initialize 世界 so tick can advance 纪元分钟
+        世界: {}, // R6 opt-in: initialize 世界 so tick can advance 纪元分钟
         全局: {
             地点: {
                 [LOC_KEY]: { 名称: LOC_NAME, 描述: "清河镇运河边第一家落脚处，往来客商多、消息杂。" },

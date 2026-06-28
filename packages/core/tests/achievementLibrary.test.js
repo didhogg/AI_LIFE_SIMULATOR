@@ -359,7 +359,7 @@ describe('成就库 · 守恒门', () => {
             FINGERPRINT_PRESET_FIELDS.length +
             FINGERPRINT_SNAPSHOT_FIELDS.length +
             FINGERPRINT_EXCLUDED_FIELDS.length;
-        expect(total).toBe(88);
+        expect(total).toBe(89);
     });
     it('命名空间枚举 = 32 項（18+剥离①六库+剥离②选项集）', () => {
         expect(命名空间枚举.length).toBe(32);
