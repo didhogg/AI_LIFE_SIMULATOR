@@ -102,7 +102,7 @@ const 用工Schema = z.object({
   岗位: z.record(z.string(), z.object({
     人数: z.number().int().min(0).default(0),
     月薪: z.number().min(0).default(0),
-    技能等级: z.string().default('初级'),
+    技能等级: z.string().default(''), // 初级/中级/高级…；'' = 无预设（reader ?? '初级'）
   })).default({}),
   人力成本: z.number().min(0).default(0),
   产能系数: z.number().min(0).default(1),
@@ -217,7 +217,7 @@ export const 组织关系网Schema = z.record(
     关系值: z.number().min(-100).max(100).default(0),
     约定引用键: z.string().default(''),     // 约定库键（E5·条约一等公民化）
     // C2-0 additive seam: typed org edge (三类组织边·C2-2 seeding 时写入)
-    边类型: z.enum(['隶属', '层级', '外交']).optional(),
+    边类型: z.string().optional(), // 隶属/层级/外交…；作者可扩·引擎按 '层级'/'隶属' 处理层级广播
   }),
 ).default({});
 

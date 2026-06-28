@@ -75,8 +75,8 @@ export const SystemSchema = z.object({
     // 内容分级 已迁至 $玩家偏好.内容分级（英文化·P0-1 fix·migrate.ts migrate内容分级位置）
   }).passthrough().default({}),
   事件来源权重: z.object({
-    事件包: z.number().min(0).max(100).default(50),
-    AI自发: z.number().min(0).max(100).default(50),
+    事件包: z.number().min(0).max(100).default(0), // 0 = 无预设（reader ?? 50·见 migrate.ts:924）
+    AI自发: z.number().min(0).max(100).default(0), // 0 = 无预设（reader ?? 50）
     // 事件密度调制钩子（GW·schema-only·机制实装 P0-7·此处仅字段占位）
     外部密度系数: z.number().min(0).max(10).optional(),
   }).default({}),
