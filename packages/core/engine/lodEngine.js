@@ -8,7 +8,7 @@
 // 红线：rng.ts/gate.ts/conservation.ts/computeDelta.ts/fixed.ts 函数体零 diff。
 // schemaKeys=54 守恒（不新增顶层 key）。
 import { rngFor } from './rng.js';
-import { writeImpressionMax, CHRONICLE_PUBLIC_THRESHOLD } from './tick.js';
+import { writeImpressionMax } from './tick.js';
 import { resolveFormula } from './formulaRegistry.js';
 // ── 四元盐：seed·tick=0·channel·rerollSalt=0
 // tick=0: 粗节点实体化与拍号无关（幂等·跨存档一致）
@@ -107,4 +107,4 @@ export function isCoarseNode(s, key) {
     return s.LOD表?.[key]?.档位 === '粗';
 }
 // ── 辅助：计算新闻量级是否达到公共知识阈值 ────────────────────────────────────
-export const NEWS_CHRONICLE_THRESHOLD = CHRONICLE_PUBLIC_THRESHOLD;
+export const NEWS_CHRONICLE_THRESHOLD = resolveFormula('chronicle_public_threshold');

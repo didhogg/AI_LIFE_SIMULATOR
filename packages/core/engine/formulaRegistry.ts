@@ -1,6 +1,6 @@
 // F1/F2 · 公式/参数 override substrate
 //
-// F1: 42 具名公式点注册表（默认值 = 当前硬编码·零重定基守卫）
+// F1: 44 具名公式点注册表（默认值 = 当前硬编码·零重定基守卫）
 // F2: resolveEffectiveFormula — 双轨 override 解析器
 //     优先级：① enabled=false → 默认（全局锁闭）
 //             ② 玩家 DSL 串（$AI创作状态.公式override表） → evalExpr；非法串 fail-safe 回默认
@@ -16,7 +16,7 @@ import { evalExpr, type DslContext } from './dsl/eval.js';
 import { tryParseExpr } from './dsl/parser.js';
 import { MINUTES_PER_MONTH, MINUTES_PER_YEAR } from './time.js';
 
-// ── F1: 公式点 key 列表（43 点） ──────────────────────────────────────────────────
+// ── F1: 公式点 key 列表（44 点） ──────────────────────────────────────────────────
 
 export const FORMULA_POINT_KEYS = [
   // tick.ts — R1 社会动力学 13 + 记忆衰减 + 缺失回退魔数
@@ -61,8 +61,9 @@ export const FORMULA_POINT_KEYS = [
   'economy_price_clamp_hi',
   'economy_drift_threshold',
   'economy_decay_rate',
-  // crossDomain.ts — 跨域利息年度分钟（日历锚定·结账公式分母）
+  // crossDomain.ts — 跨域利息年度分钟 + 增长指数
   'cross_domain_year_minutes',
+  'cross_domain_growth_exponent',
   // relationGraph.ts — 装配期关系图常量
   'rel_coloc_base',
   'rel_org_bonus',
@@ -131,6 +132,7 @@ export const FORMULA_REGISTRY: Readonly<Record<FormulaPointKey, FormulaPointDesc
   economy_decay_rate:                  { key: 'economy_decay_rate',                  defaultValue: 0,                        description: '经济修正衰减率全局缺省（per-rule rule.衰减率 优先）', fingerprint: true  },
   // ── crossDomain.ts ────────────────────────────────────────────────────────────
   cross_domain_year_minutes:           { key: 'cross_domain_year_minutes',           defaultValue: MINUTES_PER_YEAR,         description: '跨域利息年度分钟（商业年·12×30×1440）', fingerprint: true  },
+  cross_domain_growth_exponent:        { key: 'cross_domain_growth_exponent',        defaultValue: 1,                        description: '跨域利息时间增长指数（1=单利·<1次线性·>1超线性）', fingerprint: true  },
   // ── relationGraph.ts ──────────────────────────────────────────────────────────
   rel_coloc_base:                      { key: 'rel_coloc_base',                      defaultValue: 30,                       description: '装配期共址基底强度',               fingerprint: true  },
   rel_org_bonus:                       { key: 'rel_org_bonus',                       defaultValue: 30,                       description: '装配期同组织叠加增量',             fingerprint: true  },

@@ -10,7 +10,7 @@
 
 import type { RootState } from '../schema/index.js';
 import { rngFor } from './rng.js';
-import { writeImpressionMax, CHRONICLE_PUBLIC_THRESHOLD, type ImpressionEntry } from './tick.js';
+import { writeImpressionMax, type ImpressionEntry } from './tick.js';
 import { resolveFormula, type FormulaResolveConfig } from './formulaRegistry.js';
 
 // ── 四元盐：seed·tick=0·channel·rerollSalt=0
@@ -153,4 +153,4 @@ export function isCoarseNode(s: RootState, key: string): boolean {
 }
 
 // ── 辅助：计算新闻量级是否达到公共知识阈值 ────────────────────────────────────
-export const NEWS_CHRONICLE_THRESHOLD = CHRONICLE_PUBLIC_THRESHOLD;
+export const NEWS_CHRONICLE_THRESHOLD = resolveFormula('chronicle_public_threshold');

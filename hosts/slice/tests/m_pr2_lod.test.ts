@@ -8,7 +8,6 @@ import {
   newsToCognition,
   triggerLodGate,
   isCoarseNode,
-  NEWS_CHRONICLE_THRESHOLD,
   type NewsEntry,
 } from '@ai-life-sim/core/engine/lodEngine';
 import { buildWorld, SAVE_SEED, PC, NPC_WANG, NPC_HONG, EXPECTED_NET_ASSET } from '../fixture/world.js';

@@ -44,8 +44,6 @@ function _buildTickFP(config) {
     };
 }
 // ── C2-5 感知消费参数 ──────────────────────────────────────────────────────────
-/** 编年史公共知识阈值：factFragment.量级 ≥ 此值且有一手观测者才入 _编年史。exported for lodEngine. */
-export const CHRONICLE_PUBLIC_THRESHOLD = 50;
 /** 情绪维度映射表（由 factFragment.维度+Δ方向派生·禁写死标签名） */
 const EMOTION_DIMENSION_MAP = {
     '生命': { pos: '震惊', neg: '悲恸', coeff: 1.0 },
@@ -1126,7 +1124,7 @@ function applyAppraisal(s, nowEpochMin, fp) {
 }
 /**
  * 编年史入册：扫认知档案本拍新印象中公共 factFragment
- * （来源类型='一手观测' + 量级≥CHRONICLE_PUBLIC_THRESHOLD）→ 去重后追加 全局._编年史。
+ * （来源类型='一手观测' + 量级≥chronicle_public_threshold 公式点值）→ 去重后追加 全局._编年史。
  * covert 事件 propagateRipple 已过滤（无一手观测→天然零命中·知情门自动生效）。
  * 序号单调递增（M3_FORWARD_ONLY 守卫·引擎直写 _ 前缀字段·不走 computeDelta）。
  */

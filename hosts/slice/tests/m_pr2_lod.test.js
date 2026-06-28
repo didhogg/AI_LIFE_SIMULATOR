@@ -3,7 +3,7 @@
 // 确定性·seeded·禁 Date.now/Math.random
 import { describe, it, expect } from 'vitest';
 import { RootSchema, NpcSchema } from '@ai-life-sim/core';
-import { materializeCoarseNode, newsToCognition, triggerLodGate, isCoarseNode, NEWS_CHRONICLE_THRESHOLD, } from '@ai-life-sim/core/engine/lodEngine';
+import { materializeCoarseNode, newsToCognition, triggerLodGate, isCoarseNode, } from '@ai-life-sim/core/engine/lodEngine';
 import { buildWorld, SAVE_SEED, PC, NPC_WANG, NPC_HONG, EXPECTED_NET_ASSET } from '../fixture/world.js';
 import { assertConservation } from '@ai-life-sim/core/engine/conservation';
 import { getNetAsset } from '@ai-life-sim/core/engine/netAsset';

@@ -8,6 +8,7 @@
 //   → 纯字符串字典序即得稳定全序（globalTick 左补零·保单调性）
 //
 // 红线: 禁 Date.now / Math.random / 裸 JSON.stringify / localeCompare
+import { fixedPow } from './math/fixed.js';
 import { resolveFormula, type FormulaResolveConfig } from './formulaRegistry.js';
 
 // ── 三元定序键（跨域同拍序键·D3·6.54）──────────────────────────────────────────
@@ -111,12 +112,14 @@ export function crossDomainOneShot(
   const { domainId, durationMin } = interval;
   const _yearMin = resolveFormula('cross_domain_year_minutes', formulaConfig);
   const yearFraction = durationMin / _yearMin;
+  const growthExp = resolveFormula('cross_domain_growth_exponent', formulaConfig);
   const settlements: CrossDomainSettlement[] = [];
 
   for (const asset of assets) {
     // 域籍匹配：明确声明 domainId 或未声明（母域视为目标域）
     if (asset.domainId !== undefined && asset.domainId !== domainId) continue;
-    const interest = asset.amount * asset.annualRate * yearFraction;
+    // growthExp=1（缺省单利）走直接乘·避免 fixedExp(fixedLn(x)) 近似误差·0 重定基
+    const interest = asset.amount * asset.annualRate * (growthExp === 1 ? yearFraction : fixedPow(yearFraction, growthExp));
     const totalDelta = asset.amount + interest;
     settlements.push({
       entityKey:  asset.entityKey,

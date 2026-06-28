@@ -121,6 +121,9 @@ describe('F5-1 default values match hardcoded constants', () => {
   test('cross_domain_year_minutes default = 518400', () => {
     expect(resolveFormula('cross_domain_year_minutes')).toBe(518400);
   });
+  test('cross_domain_growth_exponent default = 1', () => {
+    expect(resolveFormula('cross_domain_growth_exponent')).toBe(1);
+  });
   test('rel_coloc_base default = 30', () => {
     expect(resolveFormula('rel_coloc_base')).toBe(30);
   });
@@ -151,8 +154,8 @@ describe('F5-2 registry completeness', () => {
     }
   });
 
-  test('total formula point count = 43', () => {
-    expect(FORMULA_POINT_KEYS.length).toBe(43);
+  test('total formula point count = 44', () => {
+    expect(FORMULA_POINT_KEYS.length).toBe(44);
   });
 });
 
