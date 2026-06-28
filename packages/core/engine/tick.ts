@@ -14,7 +14,7 @@ import type { RootState } from '../schema/index.js';
 import { assertConservation } from './conservation.js';
 import { getNetAsset } from './netAsset.js';
 import { decayStep } from './time.js';
-import { fixedPow, fixedExp } from './math/fixed.js';
+import { fixedPow } from './math/fixed.js';
 import { rngFor } from './rng.js';
 import { runProposalGate } from './proposal/index.js';
 import type { ProposalGateResult } from './proposal/index.js';
@@ -89,11 +89,6 @@ function _buildTickFP(config: FormulaResolveConfig): TickFormulaParams {
   };
 }
 
-// ── 涟漪参数 ──────────────────────────────────────────────────────────────────
-const RIPPLE_DECAY          = 0.5;  // 二跳强度乘子（一跳强度 × 信任/100 × RIPPLE_DECAY）
-const RIPPLE_MIN            = 1;    // 低于此阈值不写入认知档案（防噪）
-const REL_RIPPLE_THRESHOLD  = 50;   // Phase 6 关系触发：|强度|×信任/100 达此阈值才发射
-
 // ── C2-5 感知消费参数 ──────────────────────────────────────────────────────────
 /** 编年史公共知识阈值：factFragment.量级 ≥ 此值且有一手观测者才入 _编年史。exported for lodEngine. */
 export const CHRONICLE_PUBLIC_THRESHOLD = 50;
@@ -104,16 +99,7 @@ const EMOTION_DIMENSION_MAP: Record<string, { pos: string; neg: string; coeff: n
   '关系': { pos: '信任感', neg: '警惕', coeff: 0.5 },
 };
 
-/** 二手转述淡化系数（fixedExp(-ln2)≈0.5·确定性·no Math.exp） */
-const INDIRECT_APPRAISAL_FACTOR = fixedExp(-0.6931471805599453);
-
-/** 未知维度默认情绪强度系数 */
-const UNKNOWN_DIM_COEFF = 0.3;
-
 // ── 空间层参数（G1·区域图距离 + 人口密度调制 + 场景传播系数） ─────────────────────
-const REGION_HOP_DECAY    = 0.7;   // 跨区域每跳衰减乘子（确定性常量）
-const SPATIAL_FACTOR_MIN  = 0.1;   // 空间因子下界（防近零）
-const SPATIAL_FACTOR_MAX  = 1.5;   // 空间因子上界（密集区加成上限）
 // 人口规模字符串 → 密度调制系数（目标区越密 → 传播越广）
 const POPULATION_DENSITY_FACTOR: Record<string, number> = {
   '超大型': 1.3,
@@ -140,8 +126,6 @@ const EDGE_TYPE_IC_RATE: Record<string, number> = {
   '点头之交': 0.4, '路人': 0.35,
   '桥接': 0.4,
 };
-const IC_RATE_DEFAULT = 0.8; // unknown type fallback
-
 // 复杂传播标签集（Centola-Macy）：需要 W ≥ θ_i 条桥才能采纳
 // 简单传播（默认）：单条通过的桥即可（W ≥ 1）
 const COMPLEX_CONTAGION_LABELS = new Set<string>([
@@ -154,20 +138,6 @@ const COMPLEX_CONTAGION_LABELS = new Set<string>([
 // 运行时由 TickInput.bassP/bassQ 覆盖；缺省保持零·向后兼容 G2-1 所有现有测试
 const BASS_P_DEFAULT = 0.0; // fallback when TickInput.bassP undefined
 const BASS_Q_DEFAULT = 0.0; // fallback when TickInput.bassQ undefined
-
-// ── G2-2 传播系数参数 ─────────────────────────────────────────────────────────
-/** 资源紧张度对传播的最大抑制系数（紧张度100 → 传播强度×(1-0.5)=0.5） */
-const RESOURCE_SUPPRESSION_MAX = 0.5;
-
-// ── G2-3 S2 矫诏真伪门参数 ────────────────────────────────────────────────────
-/** 矫诏消息（伪诏）官方信道可信度折半系数（G2-3 S2·硬编·非 preset 可配） */
-const FAKE_EDICT_CREDIBILITY_FACTOR = 0.5;
-
-// ── G2-3 S3 SEIR 冲突吸收参数 ─────────────────────────────────────────────────
-/** 接收者已有对立真印象的强度阈值（≥此值视为 SEIR R态·已免疫） */
-const SEIR_CONFLICT_ABSORPTION_THRESHOLD = 30;
-/** 矫诏消息遭遇 R态 接收者时的冲突吸收衰减系数 */
-const SEIR_CONFLICT_ABSORPTION_FACTOR = 0.5;
 
 // ── 结算序 ────────────────────────────────────────────────────────────────────
 
@@ -422,7 +392,7 @@ export function runTick(state: RootState, input: TickInput): TickResult {
     );
   });
 
-  // Phase 6 · 关系触发 — G1a 发射端：|强度|×信任/100 ≥ REL_RIPPLE_THRESHOLD 的关系推候选涟漪
+  // Phase 6 · 关系触发 — G1a 发射端：|强度|×信任/100 ≥ _fp.relRippleThreshold 的关系推候选涟漪
   // C2-3: 全体 actor 均可发射（不仅 PC）；emit factFragment 载荷（有锚·关系维度）
   runPhase('关系触发', () => {
     const tickNumber = s._tick?.拍计数 ?? 0;
@@ -575,7 +545,7 @@ export function runTick(state: RootState, input: TickInput): TickResult {
   });
 
   // Phase 感知情绪化 · C2-5: 扫认知档案本拍新印象 → 含 factFragment 的条目映射为情绪栈 Δ
-  // 维度/Δ方向派生情绪名·取 max 防回路·二手转述 INDIRECT_APPRAISAL_FACTOR 淡化（确定性）
+  // 维度/Δ方向派生情绪名·取 max 防回路·二手转述 fp.indirectAppraisalFactor 淡化（确定性）
   runPhase('感知情绪化', () => {
     applyAppraisal(s, nowEpochMin, _fp);
   });
@@ -819,16 +789,16 @@ function computeSpatialFactor(
   obs2Loc: string,
   locs: LocRecord,
   graph: RegionGraph | undefined,
-  fp?: TickFormulaParams,
+  fp: TickFormulaParams,
 ): number {
   if (!targetRegion || !graph || !obs2Loc) return 1;
   const obs2Region = locRegion(obs2Loc, locs);
   if (!obs2Region || obs2Region === targetRegion) return 1;
   const hops = bfsRegionHops(targetRegion, obs2Region, graph);
   if (hops <= 0) return 1;
-  const _hopDecay = fp?.regionHopDecay ?? REGION_HOP_DECAY;
-  const _sfMin = fp?.spatialFactorMin ?? SPATIAL_FACTOR_MIN;
-  const _sfMax = fp?.spatialFactorMax ?? SPATIAL_FACTOR_MAX;
+  const _hopDecay = fp.regionHopDecay;
+  const _sfMin = fp.spatialFactorMin;
+  const _sfMax = fp.spatialFactorMax;
   const hopFactor = fixedPow(_hopDecay, hops);
   const density = POPULATION_DENSITY_FACTOR[locs[targetRegion]?.人口规模 ?? ''] ?? 1.0;
   return Math.min(_sfMax, Math.max(_sfMin, hopFactor * density));
@@ -843,8 +813,8 @@ function computeSpatialFactor(
  * 不变式：trust=100 时恒 1.0（对任意 rate）→ 确定性通过（向后兼容 G1a 所有现有测试）。
  * trust=0 时 = rate（纯边类型下界）。
  */
-function icEdgeProb(relType: string, trust: number, fp?: TickFormulaParams): number {
-  const _defaultRate = fp?.icRateDefault ?? IC_RATE_DEFAULT;
+function icEdgeProb(relType: string, trust: number, fp: TickFormulaParams): number {
+  const _defaultRate = fp.icRateDefault;
   const rate = EDGE_TYPE_IC_RATE[relType] ?? _defaultRate;
   return rate + (trust / 100) * (1 - rate);
 }
@@ -866,8 +836,8 @@ function isComplexContagion(label: string, ff?: { 维度?: string }): boolean {
  * 返回值表示：复杂采纳需要的最少独立桥数。
  * 默认体质=10 → θ_i=2；体质=1 → θ_i=1；体质≥15 → θ_i=3。
  */
-function deriveThresholdCount(npc: { 属性?: Record<string, number> | undefined } | undefined, fp?: TickFormulaParams): number {
-  const _defaultPhysique = fp?.defaultPhysique ?? 10;
+function deriveThresholdCount(npc: { 属性?: Record<string, number> | undefined } | undefined, fp: TickFormulaParams): number {
+  const _defaultPhysique = fp.defaultPhysique;
   const 体质 = npc?.属性?.['体质'] ?? _defaultPhysique;
   if (体质 <= 4) return 1;
   if (体质 <= 12) return 2;
@@ -886,14 +856,14 @@ function bassFactor(pExt: number, qWom: number, knownFraction: number): number {
 /**
  * 资源紧张度 → 传播抑制因子（G2-2）。
  * 取目标地点所在「区域级」祖先节点的 区域资源紧张度（[0,100]）。
- * 紧张度 0 → factor=1.0；紧张度 100 → factor=1-RESOURCE_SUPPRESSION_MAX=0.5。
+ * 紧张度 0 → factor=1.0；紧张度 100 → factor=1−_fp.resourceSuppressionMax（默认 0.5）。
  * 无区域 / 无字段 → 1.0（不抑制·兼容现有所有测试）。
  */
 export function computeResourceFactor(locKey: string, locs: LocRecord, fp?: TickFormulaParams): number {
   if (!locKey) return 1.0;
   const region = locRegion(locKey, locs);
   if (!region) return 1.0;
-  const _suppMax = fp?.resourceSuppressionMax ?? RESOURCE_SUPPRESSION_MAX;
+  const _suppMax = fp?.resourceSuppressionMax ?? FORMULA_REGISTRY['resource_suppression_max'].defaultValue;
   const tension = locs[region]?.区域资源紧张度 ?? 0;
   const suppression = (tension / 100) * _suppMax;
   return Math.max(1.0 - suppression, 1.0 - _suppMax);
@@ -969,13 +939,13 @@ function computeConflictAbsorption(
   obsKey: string,
   targetKey: string,
   imp: { 矫诏?: boolean | undefined; 标签: string; 极性: string },
-  fp?: TickFormulaParams,
+  fp: TickFormulaParams,
 ): number {
   if (imp.矫诏 !== true) return 1.0;
   const oppositePolarity = imp.极性 === '正' ? '负' : imp.极性 === '负' ? '正' : '';
   if (!oppositePolarity) return 1.0;
-  const _absThreshold = fp?.seirConflictAbsorptionThreshold ?? SEIR_CONFLICT_ABSORPTION_THRESHOLD;
-  const _absFactor = fp?.seirConflictAbsorptionFactor ?? SEIR_CONFLICT_ABSORPTION_FACTOR;
+  const _absThreshold = fp.seirConflictAbsorptionThreshold;
+  const _absFactor = fp.seirConflictAbsorptionFactor;
   const existingImps = archive[obsKey]?.[targetKey]?.印象 ?? [];
   const hasStrongOpposing = existingImps.some(
     e => e.标签 === imp.标签 && e.极性 === oppositePolarity && e.强度 >= _absThreshold,
@@ -1007,11 +977,11 @@ function propagateRipple(
   rerollSalt: number,
   pExt: number,    // G2-2: Bass 外部点火系数（TickInput.bassP）；0 = 无媒体广播
   bassQ: number,   // G2-2: Bass 口碑系数（TickInput.bassQ）；0 = 无口碑项
-  fp?: TickFormulaParams, // F4: 公式点参数结构体（undefined=使用模块级常量）
+  fp: TickFormulaParams,
 ): void {
-  const _rippleDecay = fp?.rippleDecay ?? RIPPLE_DECAY;
-  const _rippleMin   = fp?.rippleMin   ?? RIPPLE_MIN;
-  const _fakeFactor0 = fp?.fakeEdictCredibilityFactor ?? FAKE_EDICT_CREDIBILITY_FACTOR;
+  const _rippleDecay = fp.rippleDecay;
+  const _rippleMin   = fp.rippleMin;
+  const _fakeFactor0 = fp.fakeEdictCredibilityFactor;
   const pending = s.$涟漪候选;
   if (!pending || Object.keys(pending).length === 0) return;
 
@@ -1165,8 +1135,8 @@ function propagateRipple(
       // ── 跳 3：组织信道（G2-2·官方信道·沿 所属组织 广播·忠诚度调制）─────────
       // 跳1观测者所属的每个组织 → 组织内其他成员均收到广播（同拍交付·确定性）。
       // 传播力 ⊥ 真实性（内容可信度/narrativeFrame 在叙事层·此处仅传播强度）。
-      // G2-3 S2: 矫诏=true → FAKE_EDICT_CREDIBILITY_FACTOR 折半·来源标注 (矫诏)。
-      // G2-3 S3: 矫诏=true + 接收者已有对立真印象(R态) → 额外 SEIR_CONFLICT_ABSORPTION_FACTOR。
+      // G2-3 S2: 矫诏=true → fp.fakeEdictCredibilityFactor 折半·来源标注 (矫诏)。
+      // G2-3 S3: 矫诏=true + 接收者已有对立真印象(R态) → 额外 fp.seirConflictAbsorptionFactor。
       // G2-3 S1: 层级延迟 → 子组织成员按深度概率性接收（orgChildGraph.size=0 完全跳过·0重定基）。
       const presentSet = new Set(presentKeys);
       const orgCovered = new Set<string>(); // 组织信道已写入键（防重）
@@ -1182,7 +1152,7 @@ function propagateRipple(
           const members = getOrgMemberKeys(npcs, orgKey, orgExclude);
           for (const memKey of members) {
             // 忠诚度调制（$真实值 [0-100]；缺省 50）
-            const loyalty = npcs[memKey]?.忠诚[orgKey]?.$真实值 ?? (fp?.defaultLoyalty ?? 50);
+            const loyalty = npcs[memKey]?.忠诚[orgKey]?.$真实值 ?? fp.defaultLoyalty;
             // G2-3 S3: 冲突吸收（非矫诏消息直接 1.0·零影响·向后兼容）
             const conflictFactor = computeConflictAbsorption(s.认知档案, memKey, targetKey, imp, fp);
             const orgStrength = imp.强度 * _rippleDecay * (loyalty / 100) * resourceFactor * fakeFactor * conflictFactor;
@@ -1218,7 +1188,7 @@ function propagateRipple(
                   rerollSalt, icRound++,
                 );
                 if (roll >= rollBound) continue; // 本拍未到达
-                const subLoyalty = npcs[subMemKey]?.忠诚[orgKey]?.$真实值 ?? (fp?.defaultLoyalty ?? 50);
+                const subLoyalty = npcs[subMemKey]?.忠诚[orgKey]?.$真实值 ?? fp.defaultLoyalty;
                 const subConflictFactor = computeConflictAbsorption(s.认知档案, subMemKey, targetKey, imp, fp);
                 const subOrgStrength = imp.强度 * _rippleDecay * (subLoyalty / 100) * resourceFactor * fakeFactor * subConflictFactor;
                 if (subOrgStrength < _rippleMin) continue;
@@ -1330,11 +1300,11 @@ export type ImpressionEntry = {
 /**
  * 情绪栈回写（appraisal）：扫认知档案本拍新印象（获知时间===nowEpochMin·含 factFragment）
  * → 按维度/Δ方向派生情绪名 → 写 NPC.情绪栈（取 max·防回路膨胀）。
- * 二手转述 INDIRECT_APPRAISAL_FACTOR 淡化（fixedExp(-ln2)≈0.5·确定性·no Math.exp）。
+ * 二手转述 fp.indirectAppraisalFactor 淡化（fixedExp(-ln2)≈0.5·确定性·no Math.exp）。
  */
-function applyAppraisal(s: RootState, nowEpochMin: number, fp?: TickFormulaParams): void {
-  const _unknownDimCoeff = fp?.unknownDimCoeff ?? UNKNOWN_DIM_COEFF;
-  const _indirectFactor = fp?.indirectAppraisalFactor ?? INDIRECT_APPRAISAL_FACTOR;
+function applyAppraisal(s: RootState, nowEpochMin: number, fp: TickFormulaParams): void {
+  const _unknownDimCoeff = fp.unknownDimCoeff;
+  const _indirectFactor = fp.indirectAppraisalFactor;
   for (const [observerKey, targetMap] of Object.entries(s.认知档案)) {
     const npc = s.NPC[observerKey];
     if (!npc) continue;
@@ -1389,11 +1359,11 @@ function applyAppraisal(s: RootState, nowEpochMin: number, fp?: TickFormulaParam
  * covert 事件 propagateRipple 已过滤（无一手观测→天然零命中·知情门自动生效）。
  * 序号单调递增（M3_FORWARD_ONLY 守卫·引擎直写 _ 前缀字段·不走 computeDelta）。
  */
-function appendToChronicle(s: RootState, nowEpochMin: number, fp?: TickFormulaParams): void {
+function appendToChronicle(s: RootState, nowEpochMin: number, fp: TickFormulaParams): void {
   const 编年史 = s.全局?._编年史;
   if (!编年史) return;
 
-  const _chronicleThreshold = fp?.chroniclePublicThreshold ?? CHRONICLE_PUBLIC_THRESHOLD;
+  const _chronicleThreshold = fp.chroniclePublicThreshold;
 
   // 公共事件去重：key=`${主体}:${维度}`（同拍同 actor 同维度合并一条）
   type EvData = {
