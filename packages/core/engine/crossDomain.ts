@@ -8,6 +8,7 @@
 //   → 纯字符串字典序即得稳定全序（globalTick 左补零·保单调性）
 //
 // 红线: 禁 Date.now / Math.random / 裸 JSON.stringify / localeCompare
+import { resolveFormula, type FormulaResolveConfig } from './formulaRegistry.js';
 
 // ── 三元定序键（跨域同拍序键·D3·6.54）──────────────────────────────────────────
 
@@ -93,7 +94,7 @@ export interface CrossDomainOneShot {
   settlements: CrossDomainSettlement[];
 }
 
-const MINUTES_PER_YEAR = 518400; // 12 × 43200（同 time.ts·不跨 import）
+const MINUTES_PER_YEAR = 518400; // 12 × 43200（同 time.ts·不跨 import·默认值与 formulaRegistry 同步）
 
 /**
  * 跨域资金一次性结账（封存域解封时调用）。
@@ -107,9 +108,11 @@ const MINUTES_PER_YEAR = 518400; // 12 × 43200（同 time.ts·不跨 import）
 export function crossDomainOneShot(
   interval: SupplementInterval,
   assets:   readonly DomainAssetEntry[],
+  formulaConfig?: FormulaResolveConfig,
 ): CrossDomainOneShot {
   const { domainId, durationMin } = interval;
-  const yearFraction = durationMin / MINUTES_PER_YEAR;
+  const _yearMin = resolveFormula('cross_domain_year_minutes', formulaConfig);
+  const yearFraction = durationMin / _yearMin;
   const settlements: CrossDomainSettlement[] = [];
 
   for (const asset of assets) {

@@ -12,7 +12,8 @@
 // 零指纹：投影读不影响任何判定·不进 hashJudgmentBundle（R7-b 并列）
 // 红线：gate.ts/rng.ts/conservation.ts/computeDelta.ts/fixed.ts/propagateRipple 函数体零 diff
 import { isCrossDomainAccess } from './lodScheduler.js';
-// ── 常量 ──────────────────────────────────────────────────────────────────────
+import { resolveFormula } from './formulaRegistry.js';
+// ── 常量（公式点注册表默认值·与 formulaRegistry 同步） ───────────────────────────
 /** P5-2: 同场（co-location）临时高导通加成 */
 const COLOCATION_BOOST = 30;
 /** P5-4: 声望乘子分母（人望[-100,100] / PRESTIGE_SCALE = ±0.5 offset） */
@@ -34,9 +35,12 @@ const ACCESS_MIN = 1;
  *   ⑤ P5-3a 跨域 gate：impression.factFragment.来源世界域 ≠ observerDomain → 过滤
  *   ⑥ P5-3b 访问阈值：_factFragment种子库.访问阈值 > access → 对应维度印象过滤
  */
-export function projectCognition(state, observerKey, scope = {}) {
+export function projectCognition(state, observerKey, scope = {}, formulaConfig) {
+    const _colocBoost = resolveFormula('colocation_boost', formulaConfig);
+    const _prestigeScale = resolveFormula('prestige_scale', formulaConfig);
+    const _accessMin = resolveFormula('access_min', formulaConfig);
     const observerDomain = _activeDomainId(state);
-    const minStr = scope.minStrength ?? ACCESS_MIN;
+    const minStr = scope.minStrength ?? _accessMin;
     const observerArchive = state.认知档案?.[observerKey];
     if (!observerArchive) {
         return { observerKey, baseline: {}, observerDomain };
@@ -56,7 +60,7 @@ export function projectCognition(state, observerKey, scope = {}) {
         const coLocated = !!observerLoc && !!targetLoc && observerLoc === targetLoc;
         // P5-4: 声望乘子（目标 声誉.人望 ∈ [-100,100] → 乘子 ∈ [0.5,1.5]）
         const prestige = state.NPC[targetKey]?.声誉?.人望 ?? 0;
-        const prestigeMul = 1.0 + prestige / PRESTIGE_SCALE;
+        const prestigeMul = 1.0 + prestige / _prestigeScale;
         // Base conductance 仅统计同域印象（跨域印象不贡献 access·existence-opaque）
         const sameDomainImps = cogEntry.印象.filter(imp => {
             if (imp.factFragment?.来源世界域 && observerDomain) {
@@ -68,7 +72,7 @@ export function projectCognition(state, observerKey, scope = {}) {
         // 了解度 = P5-5 investigation 输出面（buildInvestigationDelta 写此字段）
         const baseStrength = Math.max(maxImpStr, cogEntry.了解度);
         const boostedStr = coLocated
-            ? Math.min(100, baseStrength + COLOCATION_BOOST)
+            ? Math.min(100, baseStrength + _colocBoost)
             : baseStrength;
         const access = Math.max(0, Math.min(100, Math.round(boostedStr * prestigeMul)));
         // P5-3b: 访问阈值门（从 _factFragment种子库 按目标主体读取阈值）
@@ -128,8 +132,10 @@ export function projectCognition(state, observerKey, scope = {}) {
  *
  * 下次调用 projectCognition 时，conductance 提升（了解度→baseStrength 升 → access 升）。
  */
-export function buildInvestigationDelta(observerKey, targetKey, boostAmount) {
-    const clamped = Math.min(30, Math.max(1, Math.round(boostAmount)));
+export function buildInvestigationDelta(observerKey, targetKey, boostAmount, formulaConfig) {
+    const _boostMin = resolveFormula('investigation_boost_min', formulaConfig);
+    const _boostMax = resolveFormula('investigation_boost_max', formulaConfig);
+    const clamped = Math.min(_boostMax, Math.max(_boostMin, Math.round(boostAmount)));
     return [{
             path: `认知档案.${observerKey}.${targetKey}.了解度`,
             op: 'add',

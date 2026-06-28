@@ -36,9 +36,58 @@ import type { 成就条目Type } from '../schema/achievementLibrary.js';
 import type { 物品定义条目Type } from '../schema/itemLibrary.js';
 import { seedExtensionParams } from './extensionParams.js';
 import { deriveExtensionParamPaths } from '../loader/modWhitelist.js';
+import { resolveFormula, type FormulaResolveConfig, FORMULA_REGISTRY } from './formulaRegistry.js';
 
 // ── 环形缓冲上限 ──────────────────────────────────────────────────────────────
 const TICK_LOG_MAX = 8;
+
+// ── F1/F4: tick 内公式点已解析参数结构体 ─────────────────────────────────────────
+// 在 runTick 入口一次性从 formulaRegistry 解析，线程化传入所有内部函数。
+// 未传 fp 的外部直接调用（如 computeResourceFactor 单元测试）回退到模块级常量。
+interface TickFormulaParams {
+  rippleDecay: number;
+  rippleMin: number;
+  relRippleThreshold: number;
+  chroniclePublicThreshold: number;
+  indirectAppraisalFactor: number;
+  unknownDimCoeff: number;
+  regionHopDecay: number;
+  spatialFactorMin: number;
+  spatialFactorMax: number;
+  icRateDefault: number;
+  resourceSuppressionMax: number;
+  fakeEdictCredibilityFactor: number;
+  seirConflictAbsorptionThreshold: number;
+  seirConflictAbsorptionFactor: number;
+  memoryRecencyRate: number;
+  defaultPhysique: number;
+  defaultLoyalty: number;
+  defaultSpanMinutes: number;
+}
+
+function _buildTickFP(config: FormulaResolveConfig): TickFormulaParams {
+  const r = (k: Parameters<typeof resolveFormula>[0]) => resolveFormula(k, config);
+  return {
+    rippleDecay:                       r('ripple_decay'),
+    rippleMin:                         r('ripple_min'),
+    relRippleThreshold:                r('rel_ripple_threshold'),
+    chroniclePublicThreshold:          r('chronicle_public_threshold'),
+    indirectAppraisalFactor:           r('indirect_appraisal_factor'),
+    unknownDimCoeff:                   r('unknown_dim_coeff'),
+    regionHopDecay:                    r('region_hop_decay'),
+    spatialFactorMin:                  r('spatial_factor_min'),
+    spatialFactorMax:                  r('spatial_factor_max'),
+    icRateDefault:                     r('ic_rate_default'),
+    resourceSuppressionMax:            r('resource_suppression_max'),
+    fakeEdictCredibilityFactor:        r('fake_edict_credibility_factor'),
+    seirConflictAbsorptionThreshold:   r('seir_conflict_absorption_threshold'),
+    seirConflictAbsorptionFactor:      r('seir_conflict_absorption_factor'),
+    memoryRecencyRate:                 r('memory_recency_rate'),
+    defaultPhysique:                   r('default_physique'),
+    defaultLoyalty:                    r('default_loyalty'),
+    defaultSpanMinutes:                r('default_span_minutes'),
+  };
+}
 
 // ── 涟漪参数 ──────────────────────────────────────────────────────────────────
 const RIPPLE_DECAY          = 0.5;  // 二跳强度乘子（一跳强度 × 信任/100 × RIPPLE_DECAY）
@@ -197,6 +246,10 @@ export interface TickInput {
   /** 聚合内容包 AI控制策略（完整键→boolean·false=锁死·true=明示允许）。
    *  undefined → 全交玩家+全局开关决定（等价于无作者底线·退化至两层）。 */
   作者AI控制表?: Readonly<Record<string, boolean>> | undefined;
+  // ── F4: 公式系数预设覆盖（来自 resolve()·瞬态·不进 RootSchema）─────────────────────
+  /** 作者预设公式数字 override（FormulaPointKey → number）。
+   *  undefined / {} → 全公式点使用默认值（零重定基守卫）。 */
+  formulaPresetConfig?: Readonly<Partial<Record<string, number>>> | undefined;
 }
 
 export interface TickResult {
@@ -219,17 +272,30 @@ export function runTick(state: RootState, input: TickInput): TickResult {
 
   // [2] DSL AI 创作层控制参数（三层·拍入口一次性读取·纯读不写）
   const _dslGlobal = readGlobalDslSwitch(s._系统.功能开关表 as Record<string, unknown>);
-  const _dslState = s.$AI创作状态 as { 谓词override表?: Record<string, string>; 条目AI控制表?: Record<string, boolean> } | undefined;
+  const _dslState = s.$AI创作状态 as { 谓词override表?: Record<string, string>; 条目AI控制表?: Record<string, boolean>; 公式override表?: Record<string, string> } | undefined;
   const _dslOverride = _dslState?.谓词override表;
   const _dslPlayerCtrl = _dslState?.条目AI控制表;
   const _dslAuthorCtrl = input.作者AI控制表;
+
+  // [2b] F4: 公式参数一次性解析（预设数字 + 玩家 DSL·零重定基当无 override）
+  const _formulaConfigBase: { enabled: true; ctx: Record<string, never> } = { enabled: true, ctx: {} };
+  const _formulaConfig: FormulaResolveConfig = Object.assign(
+    _formulaConfigBase,
+    input.formulaPresetConfig !== undefined
+      ? { presetNumbers: input.formulaPresetConfig as unknown as FormulaResolveConfig['presetNumbers'] }
+      : undefined,
+    _dslState?.公式override表 !== undefined
+      ? { playerDsl: _dslState.公式override表 }
+      : undefined,
+  ) as FormulaResolveConfig;
+  const _fp = _buildTickFP(_formulaConfig);
 
   // [3] 幂等检查 — tickId 已全量结算则直接返回
   if (s._系统.已结算标记[input.tickId]?.即时分量 === 1) {
     return { state: s, settledPhases: [], matureSeeds: [] };
   }
 
-  const spanMin     = input.spanMinutes ?? (s.世界?._本拍跨度 ?? 43200);
+  const spanMin     = input.spanMinutes ?? (s.世界?._本拍跨度 ?? _fp.defaultSpanMinutes);
   const nowEpochMin = s.世界?.纪元分钟 ?? 0;
 
   // C2-4 拍前已故集合（原始 state 快照·防跨拍重复发射死亡涟漪）
@@ -369,7 +435,7 @@ export function runTick(state: RootState, input: TickInput): TickResult {
       for (const rel of npc.关系) {
         if (!rel.对象键) continue;
         const score = Math.abs(rel.强度) * (rel.信任 / 100);
-        if (score < REL_RIPPLE_THRESHOLD) continue;
+        if (score < _fp.relRippleThreshold) continue;
         const 量级 = Math.min(100, Math.round(score));
         emitRipple(s.$涟漪候选, rel.对象键, {
           标签:     rel.类型 || '关系',
@@ -486,16 +552,16 @@ export function runTick(state: RootState, input: TickInput): TickResult {
       }
       npc.意象 = npc.意象.filter(img => img.强度 > 0);
     }
-    // L-13: 记忆召回权重 recency 衰减（0.995/拍·调用方传入·fixedPow 确定性·禁 Math.pow）
-    const MEMORY_RECENCY_RATE = 0.995;
+    // L-13: 记忆召回权重 recency 衰减（可配·fixedPow 确定性·禁 Math.pow）
+    const _memRecencyRate = _fp.memoryRecencyRate;
     for (const mem of s.工作记忆 ?? []) {
       if (mem.权重 > 0) {
-        mem.权重 = decayStep(mem.权重, 0, 0, MEMORY_RECENCY_RATE);
+        mem.权重 = decayStep(mem.权重, 0, 0, _memRecencyRate);
       }
     }
     for (const mem of s.长期归档 ?? []) {
       if (mem.权重 > 0) {
-        mem.权重 = decayStep(mem.权重, 0, 0, MEMORY_RECENCY_RATE);
+        mem.权重 = decayStep(mem.权重, 0, 0, _memRecencyRate);
       }
     }
   });
@@ -509,19 +575,20 @@ export function runTick(state: RootState, input: TickInput): TickResult {
       s, nowEpochMin, rngSeed, rngTick, rngSalt,
       input.bassP ?? BASS_P_DEFAULT,   // G2-2: Bass 外部点火系数
       input.bassQ ?? BASS_Q_DEFAULT,   // G2-2: Bass 口碑系数
+      _fp,                             // F4: 公式点参数结构体
     );
   });
 
   // Phase 感知情绪化 · C2-5: 扫认知档案本拍新印象 → 含 factFragment 的条目映射为情绪栈 Δ
   // 维度/Δ方向派生情绪名·取 max 防回路·二手转述 INDIRECT_APPRAISAL_FACTOR 淡化（确定性）
   runPhase('感知情绪化', () => {
-    applyAppraisal(s, nowEpochMin);
+    applyAppraisal(s, nowEpochMin, _fp);
   });
 
   // Phase 编年史入册 · C2-5: 公共知识 factFragment（≥1 一手观测·量级≥阈值）→ 全局._编年史
   // covert 事件 propagateRipple 已滤（无一手观测→自然零命中·知情门天然生效）
   runPhase('编年史入册', () => {
-    appendToChronicle(s, nowEpochMin);
+    appendToChronicle(s, nowEpochMin, _fp);
   });
 
   // Phase 8.5 · 媒介拍末取材 — E4·6.55: 涟漪先落账后·媒介通道拍末采样落账
@@ -757,15 +824,19 @@ function computeSpatialFactor(
   obs2Loc: string,
   locs: LocRecord,
   graph: RegionGraph | undefined,
+  fp?: TickFormulaParams,
 ): number {
   if (!targetRegion || !graph || !obs2Loc) return 1;
   const obs2Region = locRegion(obs2Loc, locs);
   if (!obs2Region || obs2Region === targetRegion) return 1;
   const hops = bfsRegionHops(targetRegion, obs2Region, graph);
   if (hops <= 0) return 1;
-  const hopFactor = fixedPow(REGION_HOP_DECAY, hops);
+  const _hopDecay = fp?.regionHopDecay ?? REGION_HOP_DECAY;
+  const _sfMin = fp?.spatialFactorMin ?? SPATIAL_FACTOR_MIN;
+  const _sfMax = fp?.spatialFactorMax ?? SPATIAL_FACTOR_MAX;
+  const hopFactor = fixedPow(_hopDecay, hops);
   const density = POPULATION_DENSITY_FACTOR[locs[targetRegion]?.人口规模 ?? ''] ?? 1.0;
-  return Math.min(SPATIAL_FACTOR_MAX, Math.max(SPATIAL_FACTOR_MIN, hopFactor * density));
+  return Math.min(_sfMax, Math.max(_sfMin, hopFactor * density));
 }
 
 // ── G2-1 动力学辅助函数 ──────────────────────────────────────────────────────
@@ -777,8 +848,9 @@ function computeSpatialFactor(
  * 不变式：trust=100 时恒 1.0（对任意 rate）→ 确定性通过（向后兼容 G1a 所有现有测试）。
  * trust=0 时 = rate（纯边类型下界）。
  */
-function icEdgeProb(relType: string, trust: number): number {
-  const rate = EDGE_TYPE_IC_RATE[relType] ?? IC_RATE_DEFAULT;
+function icEdgeProb(relType: string, trust: number, fp?: TickFormulaParams): number {
+  const _defaultRate = fp?.icRateDefault ?? IC_RATE_DEFAULT;
+  const rate = EDGE_TYPE_IC_RATE[relType] ?? _defaultRate;
   return rate + (trust / 100) * (1 - rate);
 }
 
@@ -799,8 +871,9 @@ function isComplexContagion(label: string, ff?: { 维度?: string }): boolean {
  * 返回值表示：复杂采纳需要的最少独立桥数。
  * 默认体质=10 → θ_i=2；体质=1 → θ_i=1；体质≥15 → θ_i=3。
  */
-function deriveThresholdCount(npc: { 属性?: Record<string, number> | undefined } | undefined): number {
-  const 体质 = npc?.属性?.['体质'] ?? 10;
+function deriveThresholdCount(npc: { 属性?: Record<string, number> | undefined } | undefined, fp?: TickFormulaParams): number {
+  const _defaultPhysique = fp?.defaultPhysique ?? 10;
+  const 体质 = npc?.属性?.['体质'] ?? _defaultPhysique;
   if (体质 <= 4) return 1;
   if (体质 <= 12) return 2;
   return 3;
@@ -821,13 +894,14 @@ function bassFactor(pExt: number, qWom: number, knownFraction: number): number {
  * 紧张度 0 → factor=1.0；紧张度 100 → factor=1-RESOURCE_SUPPRESSION_MAX=0.5。
  * 无区域 / 无字段 → 1.0（不抑制·兼容现有所有测试）。
  */
-export function computeResourceFactor(locKey: string, locs: LocRecord): number {
+export function computeResourceFactor(locKey: string, locs: LocRecord, fp?: TickFormulaParams): number {
   if (!locKey) return 1.0;
   const region = locRegion(locKey, locs);
   if (!region) return 1.0;
+  const _suppMax = fp?.resourceSuppressionMax ?? RESOURCE_SUPPRESSION_MAX;
   const tension = locs[region]?.区域资源紧张度 ?? 0;
-  const suppression = (tension / 100) * RESOURCE_SUPPRESSION_MAX;
-  return Math.max(1.0 - suppression, 1.0 - RESOURCE_SUPPRESSION_MAX);
+  const suppression = (tension / 100) * _suppMax;
+  return Math.max(1.0 - suppression, 1.0 - _suppMax);
 }
 
 /**
@@ -900,15 +974,18 @@ function computeConflictAbsorption(
   obsKey: string,
   targetKey: string,
   imp: { 矫诏?: boolean | undefined; 标签: string; 极性: string },
+  fp?: TickFormulaParams,
 ): number {
   if (imp.矫诏 !== true) return 1.0;
   const oppositePolarity = imp.极性 === '正' ? '负' : imp.极性 === '负' ? '正' : '';
   if (!oppositePolarity) return 1.0;
+  const _absThreshold = fp?.seirConflictAbsorptionThreshold ?? SEIR_CONFLICT_ABSORPTION_THRESHOLD;
+  const _absFactor = fp?.seirConflictAbsorptionFactor ?? SEIR_CONFLICT_ABSORPTION_FACTOR;
   const existingImps = archive[obsKey]?.[targetKey]?.印象 ?? [];
   const hasStrongOpposing = existingImps.some(
-    e => e.标签 === imp.标签 && e.极性 === oppositePolarity && e.强度 >= SEIR_CONFLICT_ABSORPTION_THRESHOLD,
+    e => e.标签 === imp.标签 && e.极性 === oppositePolarity && e.强度 >= _absThreshold,
   );
-  return hasStrongOpposing ? SEIR_CONFLICT_ABSORPTION_FACTOR : 1.0;
+  return hasStrongOpposing ? _absFactor : 1.0;
 }
 
 /**
@@ -935,7 +1012,11 @@ function propagateRipple(
   rerollSalt: number,
   pExt: number,    // G2-2: Bass 外部点火系数（TickInput.bassP）；0 = 无媒体广播
   bassQ: number,   // G2-2: Bass 口碑系数（TickInput.bassQ）；0 = 无口碑项
+  fp?: TickFormulaParams, // F4: 公式点参数结构体（undefined=使用模块级常量）
 ): void {
+  const _rippleDecay = fp?.rippleDecay ?? RIPPLE_DECAY;
+  const _rippleMin   = fp?.rippleMin   ?? RIPPLE_MIN;
+  const _fakeFactor0 = fp?.fakeEdictCredibilityFactor ?? FAKE_EDICT_CREDIBILITY_FACTOR;
   const pending = s.$涟漪候选;
   if (!pending || Object.keys(pending).length === 0) return;
 
@@ -984,7 +1065,7 @@ function propagateRipple(
       if (covert) continue; // 隐秘 → 后续各跳同样跳过
 
       // 资源抑制因子（G2-2·目标地点区域·二跳+组织信道+Bass点火均适用）
-      const resourceFactor = computeResourceFactor(targetLoc, locs);
+      const resourceFactor = computeResourceFactor(targetLoc, locs, fp);
 
       // Bass F(t)：当前拍开始前已知该标签的 NPC 比例（G2-2·从 认知档案 读取）
       let knownFraction = 0.0;
@@ -1023,9 +1104,9 @@ function propagateRipple(
           if (npcs[obs2]?.存活状态 === '已故') continue;
 
           const obs2Loc = npcs[obs2]?.位置 ?? '';
-          const sfactor = computeSpatialFactor(targetRegion, obs2Loc, locs, regionGraph);
-          const strength2 = imp.强度 * HOP_DECAY * (rel.信任 / 100) * sfactor * sceneCoeff * bf * resourceFactor;
-          if (strength2 < RIPPLE_MIN) continue;
+          const sfactor = computeSpatialFactor(targetRegion, obs2Loc, locs, regionGraph, fp);
+          const strength2 = imp.强度 * _rippleDecay * (rel.信任 / 100) * sfactor * sceneCoeff * bf * resourceFactor;
+          if (strength2 < _rippleMin) continue;
 
           const bucket = hop2Map.get(obs2) ?? [];
           bucket.push({ obs1, strength2, relType: rel.类型, trust: rel.信任 });
@@ -1039,7 +1120,7 @@ function propagateRipple(
         // IC 检定：每条桥独立概率触发
         const passing: Array<{ obs1: string; strength2: number }> = [];
         for (const cand of candidates) {
-          const prob = icEdgeProb(cand.relType, cand.trust);
+          const prob = icEdgeProb(cand.relType, cand.trust, fp);
           if (prob >= 1.0) {
             // trust=100（或极高信任强类型）→ 确定性通过·不消耗 RNG
             passing.push({ obs1: cand.obs1, strength2: cand.strength2 });
@@ -1061,7 +1142,7 @@ function propagateRipple(
 
         // LT 门槛（Centola-Macy）
         if (complex) {
-          const θi = deriveThresholdCount(npcs[obs2]);
+          const θi = deriveThresholdCount(npcs[obs2], fp);
           if (W < θi) continue; // 未达复杂传播阈值 → 不写入
         } else {
           if (W === 0) continue; // 简单传播：至少一桥通过
@@ -1095,7 +1176,7 @@ function propagateRipple(
       const presentSet = new Set(presentKeys);
       const orgCovered = new Set<string>(); // 组织信道已写入键（防重）
       const fakeEdict = imp.矫诏 === true; // G2-3 S2
-      const fakeFactor = fakeEdict ? FAKE_EDICT_CREDIBILITY_FACTOR : 1.0;
+      const fakeFactor = fakeEdict ? _fakeFactor0 : 1.0;
       for (const obs1 of presentKeys) {
         if (npcs[obs1]?.存活状态 === '已故') continue;
         const obs1Npc = npcs[obs1];
@@ -1106,11 +1187,11 @@ function propagateRipple(
           const members = getOrgMemberKeys(npcs, orgKey, orgExclude);
           for (const memKey of members) {
             // 忠诚度调制（$真实值 [0-100]；缺省 50）
-            const loyalty = npcs[memKey]?.忠诚[orgKey]?.$真实值 ?? 50;
+            const loyalty = npcs[memKey]?.忠诚[orgKey]?.$真实值 ?? (fp?.defaultLoyalty ?? 50);
             // G2-3 S3: 冲突吸收（非矫诏消息直接 1.0·零影响·向后兼容）
-            const conflictFactor = computeConflictAbsorption(s.认知档案, memKey, targetKey, imp);
-            const orgStrength = imp.强度 * ORG_CHANNEL_DECAY * (loyalty / 100) * resourceFactor * fakeFactor * conflictFactor;
-            if (orgStrength < RIPPLE_MIN) continue;
+            const conflictFactor = computeConflictAbsorption(s.认知档案, memKey, targetKey, imp, fp);
+            const orgStrength = imp.强度 * _rippleDecay * (loyalty / 100) * resourceFactor * fakeFactor * conflictFactor;
+            if (orgStrength < _rippleMin) continue;
             writeImpressionMax(s.认知档案, memKey, targetKey, {
               标签:     imp.标签,
               极性:     imp.极性,
@@ -1142,10 +1223,10 @@ function propagateRipple(
                   rerollSalt, icRound++,
                 );
                 if (roll >= rollBound) continue; // 本拍未到达
-                const subLoyalty = npcs[subMemKey]?.忠诚[orgKey]?.$真实值 ?? 50;
-                const subConflictFactor = computeConflictAbsorption(s.认知档案, subMemKey, targetKey, imp);
-                const subOrgStrength = imp.强度 * ORG_CHANNEL_DECAY * (subLoyalty / 100) * resourceFactor * fakeFactor * subConflictFactor;
-                if (subOrgStrength < RIPPLE_MIN) continue;
+                const subLoyalty = npcs[subMemKey]?.忠诚[orgKey]?.$真实值 ?? (fp?.defaultLoyalty ?? 50);
+                const subConflictFactor = computeConflictAbsorption(s.认知档案, subMemKey, targetKey, imp, fp);
+                const subOrgStrength = imp.强度 * _rippleDecay * (subLoyalty / 100) * resourceFactor * fakeFactor * subConflictFactor;
+                if (subOrgStrength < _rippleMin) continue;
                 writeImpressionMax(s.认知档案, subMemKey, targetKey, {
                   标签:     imp.标签,
                   极性:     imp.极性,
@@ -1183,8 +1264,8 @@ function propagateRipple(
           );
           const triggerProb = Math.min(pExt, 1.0) * 100;
           if (roll >= triggerProb) continue;
-          const bassStrength = imp.强度 * HOP_DECAY * resourceFactor;
-          if (bassStrength < RIPPLE_MIN) continue;
+          const bassStrength = imp.强度 * _rippleDecay * resourceFactor;
+          if (bassStrength < _rippleMin) continue;
           writeImpressionMax(s.认知档案, npcKey, targetKey, {
             标签:     imp.标签,
             极性:     imp.极性,
@@ -1256,7 +1337,9 @@ export type ImpressionEntry = {
  * → 按维度/Δ方向派生情绪名 → 写 NPC.情绪栈（取 max·防回路膨胀）。
  * 二手转述 INDIRECT_APPRAISAL_FACTOR 淡化（fixedExp(-ln2)≈0.5·确定性·no Math.exp）。
  */
-function applyAppraisal(s: RootState, nowEpochMin: number): void {
+function applyAppraisal(s: RootState, nowEpochMin: number, fp?: TickFormulaParams): void {
+  const _unknownDimCoeff = fp?.unknownDimCoeff ?? UNKNOWN_DIM_COEFF;
+  const _indirectFactor = fp?.indirectAppraisalFactor ?? INDIRECT_APPRAISAL_FACTOR;
   for (const [observerKey, targetMap] of Object.entries(s.认知档案)) {
     const npc = s.NPC[observerKey];
     if (!npc) continue;
@@ -1268,7 +1351,7 @@ function applyAppraisal(s: RootState, nowEpochMin: number): void {
 
         const ff = imp.factFragment;
         const dimEntry = EMOTION_DIMENSION_MAP[ff.维度];
-        const dimCoeff = dimEntry?.coeff ?? UNKNOWN_DIM_COEFF;
+        const dimCoeff = dimEntry?.coeff ?? _unknownDimCoeff;
         // 情绪名/极性由 factFragment.维度+Δ方向派生（禁写死标签名）
         const emotionName = dimEntry
           ? (ff.Δ方向 >= 0 ? dimEntry.pos : dimEntry.neg)
@@ -1277,8 +1360,8 @@ function applyAppraisal(s: RootState, nowEpochMin: number): void {
           ? (ff.Δ方向 >= 0 ? '正' : '负')
           : imp.极性;
 
-        // 淡化：二手转述走 INDIRECT_APPRAISAL_FACTOR（fixedExp 确定性口径）
-        const directFactor = imp.来源类型 === '一手观测' ? 1.0 : INDIRECT_APPRAISAL_FACTOR;
+        // 淡化：二手转述走 indirectAppraisalFactor（fixedExp 确定性口径）
+        const directFactor = imp.来源类型 === '一手观测' ? 1.0 : _indirectFactor;
         const intensity = Math.min(100, Math.round(ff.量级 * dimCoeff * directFactor));
         if (intensity <= 0) continue;
 
@@ -1311,9 +1394,11 @@ function applyAppraisal(s: RootState, nowEpochMin: number): void {
  * covert 事件 propagateRipple 已过滤（无一手观测→天然零命中·知情门自动生效）。
  * 序号单调递增（M3_FORWARD_ONLY 守卫·引擎直写 _ 前缀字段·不走 computeDelta）。
  */
-function appendToChronicle(s: RootState, nowEpochMin: number): void {
+function appendToChronicle(s: RootState, nowEpochMin: number, fp?: TickFormulaParams): void {
   const 编年史 = s.全局?._编年史;
   if (!编年史) return;
+
+  const _chronicleThreshold = fp?.chroniclePublicThreshold ?? CHRONICLE_PUBLIC_THRESHOLD;
 
   // 公共事件去重：key=`${主体}:${维度}`（同拍同 actor 同维度合并一条）
   type EvData = {
@@ -1329,7 +1414,7 @@ function appendToChronicle(s: RootState, nowEpochMin: number): void {
         if (imp.获知时间 !== nowEpochMin) continue;
         if (imp.来源类型 !== '一手观测') continue;
         const ff = imp.factFragment;
-        if (ff.量级 < CHRONICLE_PUBLIC_THRESHOLD) continue;
+        if (ff.量级 < _chronicleThreshold) continue;
 
         const evKey = `${ff.主体}:${ff.维度}`;
         if (!publicEvents.has(evKey)) {

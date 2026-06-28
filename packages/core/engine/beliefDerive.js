@@ -4,9 +4,10 @@
 //   trackPath='narrative' → 叙事召回路径 → 不进指纹（同 Batch 1 lore 叙事注入路径）
 // 铁律: 纯函数·同入参同输出·不修改入参·零副作用
 // ── 推理规则（可配·零 Math 超越函数）───────────────────────────────────────────────
-const TRUST_STRENGTH_THRESHOLD = 60;
+const TRUST_STRENGTH_THRESHOLD = 60; // 默认值·与 formulaRegistry 同步
 const NEGATIVE_POLARITIES = ['负', '中负'];
 const POSITIVE_POLARITIES = ['正', '中正'];
+import { resolveFormula } from './formulaRegistry.js';
 /**
  * P–R–B 信念派生（纯函数）。
  *
@@ -17,7 +18,8 @@ const POSITIVE_POLARITIES = ['正', '中正'];
  * @param povKey  POV 实体键
  * @param trackPath  R7-b 路径标记（默认 'narrative'·叙事召回不进指纹）
  */
-export function deriveBeliefState(cogArchive, filteredSecrets, povKey, trackPath = 'narrative') {
+export function deriveBeliefState(cogArchive, filteredSecrets, povKey, trackPath = 'narrative', formulaConfig) {
+    const _trustThreshold = resolveFormula('belief_trust_threshold', formulaConfig);
     const 感知 = [];
     const 推理 = [];
     const 信念 = [];
@@ -39,7 +41,7 @@ export function deriveBeliefState(cogArchive, filteredSecrets, povKey, trackPath
     }
     // ── R（推理层）：强印象 → 单步推断 ────────────────────────────────────────────────
     for (const p of 感知) {
-        if (p.certainty <= TRUST_STRENGTH_THRESHOLD)
+        if (p.certainty <= _trustThreshold)
             continue;
         const polarityMatch = p.fact.match(/（(.+)·强度/);
         if (!polarityMatch)

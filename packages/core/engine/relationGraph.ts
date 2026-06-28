@@ -6,6 +6,7 @@
 // additive-only：不覆盖已有 NPC.关系[] 条目·不新增 schema 顶层键。
 import type { RootState } from '../schema/index.js';
 import { rngFor } from './rng.js';
+import { resolveFormula, type FormulaResolveConfig } from './formulaRegistry.js';
 
 // ── 装配期边权常量 ────────────────────────────────────────────────────────────
 export const COLOC_BASE          = 30;  // 共址基底强度贡献
@@ -38,7 +39,14 @@ export function autoCompleteRelations(
   state:         RootState,
   worldSeed:     number,
   presetVersion: number = 0,
+  formulaConfig?: FormulaResolveConfig,
 ): RootState {
+  const _colocBase  = resolveFormula('rel_coloc_base',    formulaConfig);
+  const _orgBonus   = resolveFormula('rel_org_bonus',     formulaConfig);
+  const _jitterMax  = resolveFormula('rel_jitter_max',    formulaConfig);
+  const _relTrust   = resolveFormula('rel_trust',         formulaConfig);
+  const _maxDegree  = resolveFormula('rel_max_degree',    formulaConfig);
+  const _depthDef   = resolveFormula('rel_depth_default', formulaConfig);
   const npcEntries = Object.entries(state.NPC);
   if (npcEntries.length < 2) return state;
 
@@ -106,11 +114,11 @@ export function autoCompleteRelations(
 
   for (const [pk, { a, b, colocated, sameOrg }] of candidates) {
     let strength = 0;
-    if (colocated) strength += COLOC_BASE;
-    if (sameOrg)   strength += ORG_BONUS;
+    if (colocated) strength += _colocBase;
+    if (sameOrg)   strength += _orgBonus;
     // seeded 抖动：channel = 装配:关系:<正典对键>，tick=0(装配期哨兵)，salt=presetVersion
     const roll   = rngFor(worldSeed, 0, `装配:关系:${pk}`, presetVersion);
-    const jitter = Math.round((roll / 99) * JITTER_MAX);
+    const jitter = Math.round((roll / 99) * _jitterMax);
     strength     = Math.min(100, strength + jitter);
     if (strength <= 0) continue;
     edges.push({ a, b, strength, 类型: sameOrg ? '组织同袍' : '共处', pk });
@@ -129,7 +137,7 @@ export function autoCompleteRelations(
   for (const edge of edges) {
     const da = degree.get(edge.a) ?? 0;
     const db = degree.get(edge.b) ?? 0;
-    if (da >= MAX_RELATION_DEGREE || db >= MAX_RELATION_DEGREE) continue;
+    if (da >= _maxDegree || db >= _maxDegree) continue;
     finalEdges.push(edge);
     degree.set(edge.a, da + 1);
     degree.set(edge.b, db + 1);
@@ -139,7 +147,7 @@ export function autoCompleteRelations(
   for (const { a, b, strength, 类型 } of finalEdges) {
     const npcA = state.NPC[a];
     const npcB = state.NPC[b];
-    const base = { 类型, 强度: strength, 极性: '中', 信任: REL_TRUST, 深度: 20 };
+    const base = { 类型, 强度: strength, 极性: '中', 信任: _relTrust, 深度: Math.round(_depthDef) };
     if (npcA && !npcA.关系.some(r => r.对象键 === b)) {
       npcA.关系.push({ 对象键: b, ...base });
     }

@@ -357,4 +357,7 @@ export const $metaSchema = z.object({
 export const $AI创作状态Schema = z.object({
     谓词override表: z.record(z.string(), z.string()).optional(),
     条目AI控制表: z.record(z.string(), z.boolean()).optional(),
+    // F3: 玩家公式 override 表（仿谓词override表·进存档·不进指纹·$ 前缀 M3 排除·撤销=回上一拍）
+    // 键 = FormulaPointKey；值 = DSL v1.0 公式串（evalExpr 求值·fail-safe 回默认）
+    公式override表: z.record(z.string(), z.string()).optional(),
 }).optional();

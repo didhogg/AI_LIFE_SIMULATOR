@@ -46,9 +46,11 @@ type CogArchive = Record<string, CogEntry>;
 type FilteredSecret = { 母题: string; 严重度: number; 暴露度: number };
 
 // ── 推理规则（可配·零 Math 超越函数）───────────────────────────────────────────────
-const TRUST_STRENGTH_THRESHOLD = 60;
+const TRUST_STRENGTH_THRESHOLD = 60; // 默认值·与 formulaRegistry 同步
 const NEGATIVE_POLARITIES = ['负', '中负'] as const;
 const POSITIVE_POLARITIES = ['正', '中正'] as const;
+
+import { resolveFormula, type FormulaResolveConfig } from './formulaRegistry.js';
 
 /**
  * P–R–B 信念派生（纯函数）。
@@ -65,7 +67,9 @@ export function deriveBeliefState(
   filteredSecrets: Record<string, FilteredSecret>,
   povKey: string,
   trackPath: BeliefTrackPath = 'narrative',
+  formulaConfig?: FormulaResolveConfig,
 ): BeliefState {
+  const _trustThreshold = resolveFormula('belief_trust_threshold', formulaConfig);
   const 感知: Perception[] = [];
   const 推理: Reasoning[] = [];
   const 信念: Belief[] = [];
@@ -87,7 +91,7 @@ export function deriveBeliefState(
 
   // ── R（推理层）：强印象 → 单步推断 ────────────────────────────────────────────────
   for (const p of 感知) {
-    if (p.certainty <= TRUST_STRENGTH_THRESHOLD) continue;
+    if (p.certainty <= _trustThreshold) continue;
     const polarityMatch = p.fact.match(/（(.+)·强度/);
     if (!polarityMatch) continue;
     const pol = polarityMatch[1] ?? '';

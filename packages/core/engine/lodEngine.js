@@ -9,6 +9,7 @@
 // schemaKeys=52 守恒（不新增顶层 key）。
 import { rngFor } from './rng.js';
 import { writeImpressionMax, CHRONICLE_PUBLIC_THRESHOLD } from './tick.js';
+import { resolveFormula } from './formulaRegistry.js';
 // ── 四元盐：seed·tick=0·channel·rerollSalt=0
 // tick=0: 粗节点实体化与拍号无关（幂等·跨存档一致）
 // rerollSalt=0: 基础属性不随普通重掷变化
@@ -26,17 +27,19 @@ function mapRange(v, lo, hi) {
  * - 用 rngFor 四元盐派生缺省属性（确定性·禁 Math.random）
  * - LOD-B4b: LOD档位 已迁至 LOD表·本函数不再读写 LOD状态·由调用方写 LOD表[npcKey].档位
  */
-export function materializeCoarseNode(s, nodeKey, seed) {
+export function materializeCoarseNode(s, nodeKey, seed, formulaConfig) {
     const node = s.NPC[nodeKey];
     if (!node)
         return;
-    // 派生缺省属性（体质/智慧/感知/魅力/心理 → [20,60] 中段范围）
+    // 派生缺省属性（体质/智慧/感知/魅力/心理 → [lo,hi] 中段范围·可配）
+    const _lo = resolveFormula('lod_attr_range_lo', formulaConfig);
+    const _hi = resolveFormula('lod_attr_range_hi', formulaConfig);
     node.属性 ??= { 体质: 10, 智慧: 10, 感知: 10, 魅力: 10, 心理: 10 };
-    node.属性.体质 = mapRange(lodRng(seed, nodeKey, '体质'), 20, 60);
-    node.属性.智慧 = mapRange(lodRng(seed, nodeKey, '智慧'), 20, 60);
-    node.属性.感知 = mapRange(lodRng(seed, nodeKey, '感知'), 20, 60);
-    node.属性.魅力 = mapRange(lodRng(seed, nodeKey, '魅力'), 20, 60);
-    node.属性.心理 = mapRange(lodRng(seed, nodeKey, '心理'), 20, 60);
+    node.属性.体质 = mapRange(lodRng(seed, nodeKey, '体质'), _lo, _hi);
+    node.属性.智慧 = mapRange(lodRng(seed, nodeKey, '智慧'), _lo, _hi);
+    node.属性.感知 = mapRange(lodRng(seed, nodeKey, '感知'), _lo, _hi);
+    node.属性.魅力 = mapRange(lodRng(seed, nodeKey, '魅力'), _lo, _hi);
+    node.属性.心理 = mapRange(lodRng(seed, nodeKey, '心理'), _lo, _hi);
 }
 /**
  * 新闻纯认知层写入（in-place·调用方须已 structuredClone）。

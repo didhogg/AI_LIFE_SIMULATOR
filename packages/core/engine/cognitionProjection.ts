@@ -15,8 +15,9 @@
 import type { RootState } from '../schema/index.js';
 import type { ImpressionEntry } from './tick.js';
 import { isCrossDomainAccess } from './lodScheduler.js';
+import { resolveFormula, type FormulaResolveConfig } from './formulaRegistry.js';
 
-// ── 常量 ──────────────────────────────────────────────────────────────────────
+// ── 常量（公式点注册表默认值·与 formulaRegistry 同步） ───────────────────────────
 
 /** P5-2: 同场（co-location）临时高导通加成 */
 const COLOCATION_BOOST = 30;
@@ -87,9 +88,13 @@ export function projectCognition(
   state: RootState,
   observerKey: string,
   scope: CognitionScope = {},
+  formulaConfig?: FormulaResolveConfig,
 ): CognitionProjection {
+  const _colocBoost    = resolveFormula('colocation_boost', formulaConfig);
+  const _prestigeScale = resolveFormula('prestige_scale',   formulaConfig);
+  const _accessMin     = resolveFormula('access_min',       formulaConfig);
   const observerDomain = _activeDomainId(state);
-  const minStr = scope.minStrength ?? ACCESS_MIN;
+  const minStr = scope.minStrength ?? _accessMin;
 
   const observerArchive = state.认知档案?.[observerKey];
   if (!observerArchive) {
@@ -115,7 +120,7 @@ export function projectCognition(
 
     // P5-4: 声望乘子（目标 声誉.人望 ∈ [-100,100] → 乘子 ∈ [0.5,1.5]）
     const prestige = state.NPC[targetKey]?.声誉?.人望 ?? 0;
-    const prestigeMul = 1.0 + prestige / PRESTIGE_SCALE;
+    const prestigeMul = 1.0 + prestige / _prestigeScale;
 
     // Base conductance 仅统计同域印象（跨域印象不贡献 access·existence-opaque）
     const sameDomainImps = cogEntry.印象.filter(imp => {
@@ -128,7 +133,7 @@ export function projectCognition(
     // 了解度 = P5-5 investigation 输出面（buildInvestigationDelta 写此字段）
     const baseStrength = Math.max(maxImpStr, cogEntry.了解度);
     const boostedStr = coLocated
-      ? Math.min(100, baseStrength + COLOCATION_BOOST)
+      ? Math.min(100, baseStrength + _colocBoost)
       : baseStrength;
     const access = Math.max(0, Math.min(100, Math.round(boostedStr * prestigeMul)));
 
@@ -197,8 +202,11 @@ export function buildInvestigationDelta(
   observerKey: string,
   targetKey: string,
   boostAmount: number,
+  formulaConfig?: FormulaResolveConfig,
 ): Array<{ path: string; op: 'add'; value: number }> {
-  const clamped = Math.min(30, Math.max(1, Math.round(boostAmount)));
+  const _boostMin = resolveFormula('investigation_boost_min', formulaConfig);
+  const _boostMax = resolveFormula('investigation_boost_max', formulaConfig);
+  const clamped = Math.min(_boostMax, Math.max(_boostMin, Math.round(boostAmount)));
   return [{
     path: `认知档案.${observerKey}.${targetKey}.了解度`,
     op: 'add' as const,

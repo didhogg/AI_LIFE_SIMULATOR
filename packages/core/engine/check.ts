@@ -2,6 +2,7 @@
 // No Math.random(), no Date.now(), no global reads.
 // DC偏置 is caller-computed (决议6.38): 难度系数组.检定DC偏移 × $玩家偏好.写实程度.
 import { assertFinite } from './assertFinite.js';
+import { resolveFormula, type FormulaResolveConfig } from './formulaRegistry.js';
 
 // ── 6.45 拓扑 + 宿主类型 ───────────────────────────────────────────────────
 /** 检定拓扑: 即掷 = instant roll (P0); 骰池 = pre-rolled pool consumed at action (P2). */
@@ -78,6 +79,7 @@ export interface CheckOutput {
 export function resolveAttribute(
   配方条目: 属性配方,
   属性轴数据: Record<string, number>,
+  formulaConfig?: FormulaResolveConfig,
 ): number {
   // ── 拓扑 dispatch ────────────────────────────────────────────────────────
   const 拓扑 = 配方条目.拓扑 ?? '即掷';
@@ -108,7 +110,8 @@ export function resolveAttribute(
     0,
   );
 
-  const 属性项 = (主 + 副合计) / 2;
+  const _divisor = resolveFormula('attr_combine_divisor', formulaConfig);
+  const 属性项 = (主 + 副合计) / _divisor;
   assertFinite(属性项, 'resolveAttribute.属性项');
   return 属性项;
 }
@@ -137,7 +140,7 @@ function classifyTier(M: number, 切分表: 切分界): 检定档 {
  * Gate ②: TODO(P0-6) — assertFinite on the 余量M / 公式值 before writing to the
  *   涟漪/state delta (第⑤闸入账前). Clamp logic + second gate live in P0-6.
  */
-export function check(input: CheckInput): CheckOutput {
+export function check(input: CheckInput, formulaConfig?: FormulaResolveConfig): CheckOutput {
   const { 基线, 熟练, 等级, 属性项, 情境修正, DC偏置, rawU, 切分表 } = input;
   // input.判定骰型: P0 恒等直通 — rawU used as-is; d20 snap-to-face 归 P1
 
@@ -157,8 +160,10 @@ export function check(input: CheckInput): CheckOutput {
   assertFinite(切分表.败下限,   'check.切分表.败下限');
 
   // ── Formula ────────────────────────────────────────────────────────────────
+  const _profCoeff  = resolveFormula('check_proficiency_coeff', formulaConfig);
+  const _levelCoeff = resolveFormula('check_level_coeff',       formulaConfig);
   const 修正合计 = 情境修正.reduce((sum, c) => sum + c.数值, 0);
-  const 公式值Raw = 基线 + 熟练 * 0.4 + 等级 * 3 + 属性项 + 修正合计 - DC偏置;
+  const 公式值Raw = 基线 + 熟练 * _profCoeff + 等级 * _levelCoeff + 属性项 + 修正合计 - DC偏置;
   assertFinite(公式值Raw, 'check.公式值Raw');
   const 公式值 = Math.max(0, Math.min(100, 公式值Raw));
   assertFinite(公式值, 'check.公式值');

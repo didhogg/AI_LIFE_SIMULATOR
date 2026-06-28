@@ -13,6 +13,7 @@
 import { type RootState } from '../schema/index.js';
 import { type 玩法预设Type } from '../schema/preset.js';
 import { fixedPow, v1 } from './math/fixed.js';
+import { resolveFormula, type FormulaResolveConfig } from './formulaRegistry.js';
 
 // ── 常量 ─────────────────────────────────────────────────────────────────────
 
@@ -64,6 +65,7 @@ export function deriveEffectivePrice(
   preset: 玩法预设Type | undefined,
   regionId: string,
   category: string,
+  formulaConfig?: FormulaResolveConfig,
 ): number {
   const rule = preset?.经济生成规则;
   const stateBase = state.地图?.区域物价?.[regionId]?.[category]?.基准价 ?? 0;
@@ -88,10 +90,12 @@ export function deriveEffectivePrice(
     (rule.供需权重 ?? 0) * supply +
     (rule.战时修正权重 ?? 0) * wartime;
 
+  const _clampLo = resolveFormula('economy_price_clamp_lo', formulaConfig);
+  const _clampHi = resolveFormula('economy_price_clamp_hi', formulaConfig);
   const correctionFactor = v1.clamp(
     1 + rawCorrection * decayFactor,
-    ECONOMY_PRICE_CLAMP_LO,
-    ECONOMY_PRICE_CLAMP_HI,
+    _clampLo,
+    _clampHi,
   );
 
   return Math.round(baseline * correctionFactor);
@@ -127,6 +131,7 @@ export function applyDriftCandidate(
   preset: 玩法预设Type | undefined,
   regionId: string,
   category: string,
+  formulaConfig?: FormulaResolveConfig,
 ): void {
   const rule = preset?.经济生成规则;
   if (!rule) return;
@@ -135,9 +140,10 @@ export function applyDriftCandidate(
   const stateBaseline = entry?.基准价 ?? 0;
   if (stateBaseline === 0) return;
 
-  const effective = deriveEffectivePrice(state, preset, regionId, category);
+  const effective = deriveEffectivePrice(state, preset, regionId, category, formulaConfig);
   const drift = computeRelativeDrift(effective, stateBaseline);
-  if (drift <= ECONOMY_DRIFT_THRESHOLD) return;
+  const _driftThreshold = resolveFormula('economy_drift_threshold', formulaConfig);
+  if (drift <= _driftThreshold) return;
 
   // 写入候选基线（additive·optional 字段·不触发 schemaKey 增长）
   // stateBaseline > 0 implies 地图?.区域物价 exists; guard satisfies TypeScript.

@@ -12,6 +12,7 @@
 import {} from '../schema/index.js';
 import {} from '../schema/preset.js';
 import { fixedPow, v1 } from './math/fixed.js';
+import { resolveFormula } from './formulaRegistry.js';
 // ── 常量 ─────────────────────────────────────────────────────────────────────
 export const ECONOMY_PRICE_CLAMP_LO = 0.5;
 export const ECONOMY_PRICE_CLAMP_HI = 3.0;
@@ -53,7 +54,7 @@ export function hasActiveWar(state) {
  * @param category   品类键（与 区域物价[regionId] 的内层键一致）
  * @returns 有效价格整数（Math.round·与 基准价 同单位）
  */
-export function deriveEffectivePrice(state, preset, regionId, category) {
+export function deriveEffectivePrice(state, preset, regionId, category, formulaConfig) {
     const rule = preset?.经济生成规则;
     const stateBase = state.地图?.区域物价?.[regionId]?.[category]?.基准价 ?? 0;
     if (!rule)
@@ -72,7 +73,9 @@ export function deriveEffectivePrice(state, preset, regionId, category) {
     const rawCorrection = (rule.资源紧张度权重 ?? 0) * tension +
         (rule.供需权重 ?? 0) * supply +
         (rule.战时修正权重 ?? 0) * wartime;
-    const correctionFactor = v1.clamp(1 + rawCorrection * decayFactor, ECONOMY_PRICE_CLAMP_LO, ECONOMY_PRICE_CLAMP_HI);
+    const _clampLo = resolveFormula('economy_price_clamp_lo', formulaConfig);
+    const _clampHi = resolveFormula('economy_price_clamp_hi', formulaConfig);
+    const correctionFactor = v1.clamp(1 + rawCorrection * decayFactor, _clampLo, _clampHi);
     return Math.round(baseline * correctionFactor);
 }
 // ── P3-4 · 漂移候选再基线（additive·不回写预设·不 bump 预设版本）──────────────
@@ -99,7 +102,7 @@ export function computeRelativeDrift(cur, baseline) {
  * @param regionId  区域节点键
  * @param category  品类键
  */
-export function applyDriftCandidate(state, preset, regionId, category) {
+export function applyDriftCandidate(state, preset, regionId, category, formulaConfig) {
     const rule = preset?.经济生成规则;
     if (!rule)
         return;
@@ -107,9 +110,10 @@ export function applyDriftCandidate(state, preset, regionId, category) {
     const stateBaseline = entry?.基准价 ?? 0;
     if (stateBaseline === 0)
         return;
-    const effective = deriveEffectivePrice(state, preset, regionId, category);
+    const effective = deriveEffectivePrice(state, preset, regionId, category, formulaConfig);
     const drift = computeRelativeDrift(effective, stateBaseline);
-    if (drift <= ECONOMY_DRIFT_THRESHOLD)
+    const _driftThreshold = resolveFormula('economy_drift_threshold', formulaConfig);
+    if (drift <= _driftThreshold)
         return;
     // 写入候选基线（additive·optional 字段·不触发 schemaKey 增长）
     // stateBaseline > 0 implies 地图?.区域物价 exists; guard satisfies TypeScript.
