@@ -52,7 +52,7 @@ export const 地点条目Schema = z.object({
     可达性: z.string().default(''), // '' = 无预设（引擎 ?? '自由通行'）
     探索度: z.number().min(0).max(100).default(0),
     意象: z.array(意象条目Schema).default([]), // 6.29 统一制式
-    产出: 产出Schema.default({}),
+    产出: 产出Schema.optional(),
     // 据点设施 🧮 派生镜像（filter 组织实体.网点 by 地点键），不存储
     控制度: z.number().min(0).max(100).default(0),
     情报度: z.number().min(0).max(100).default(0),

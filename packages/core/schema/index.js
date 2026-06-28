@@ -128,7 +128,7 @@ export const RootSchema = z.object({
     受治理键空间注册表: 受治理键空间注册表Schema.optional(),
     键空间归并表: 归并表Schema.optional(), // S1b·别名→规范键·区别于 preset.归并表(S4b·判定面·进指纹)
     调用类型注册表: 调用类型注册表Schema,
-    Ring2在途调用信封: Ring2在途调用信封Schema,
+    Ring2在途调用信封: Ring2在途调用信封Schema.optional(),
     // 4.9 $ layer (AI-invisible)
     $运气: $运气Schema,
     $寿命预期: $寿命预期Schema,

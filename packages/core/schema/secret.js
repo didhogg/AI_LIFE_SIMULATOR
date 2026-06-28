@@ -9,7 +9,7 @@ const 受众选择器 = z.string();
 const 涉事方条目Schema = z.object({
     实体键: z.string().default(''),
     // 严格五类：一个实体在同一秘密中仅一角色；多角色拆多条 涉事方 条目
-    角色: z.enum(['主谋', '共犯', '受害者', '目标', '见证']).default('见证'),
+    角色: z.string().default(''),
 });
 const 已暴露线索条目Schema = z.object({
     线索: z.string().default(''),
@@ -69,7 +69,7 @@ export const 约定子类型Schema = z.discriminatedUnion('类型', [
     z.object({
         类型: z.literal('条件挂起'),
         触发条件: z.string().optional(), // 开放串谓词；满足时激活
-        失败策略: z.enum(['跳过', '欠账', '作废']).optional(), // 缺省=跳过+落未履约事件
+        失败策略: z.string().optional(), // 缺省=跳过+落未履约事件
     }),
 ]);
 const 约定库条目Schema = z.object({
@@ -88,7 +88,7 @@ const 约定库条目Schema = z.object({
     // 挂靠时钟域：约定推进所依赖的时钟域（缺省母域·D1）
     挂靠时钟域: z.string().optional(),
     // 目标失效回退：缔约目标实体失效后处理（可后补赋值）
-    目标失效回退: z.enum(['作废', '法定序列']).optional(),
+    目标失效回退: z.string().optional(),
 });
 // ══════════════════════════════════════════
 // 继承包（通用接管载荷）
@@ -96,7 +96,7 @@ const 约定库条目Schema = z.object({
 const 继承包Schema = z.object({
     候选: z.array(z.object({
         NPC键: z.string().default(''),
-        权限级别: z.string().default('全权限'), // 全权限/仅商权+共事记忆/自身背景…
+        权限级别: z.string().default(''), // 全权限/仅商权+共事记忆/自身背景…；'' = 无预设（reader ?? '全权限'）
         白名单: z.array(z.string()).default([]), // 可抓取字段列表
     })).default([]),
     抓取载荷: z.record(z.string(), z.unknown()).default({}),
@@ -108,7 +108,7 @@ const 继承包Schema = z.object({
 // ══════════════════════════════════════════
 const 双亲边Schema = z.object({
     parent_id: z.string().default(''),
-    边类型: z.string().default('血亲'), // 开放串：血亲/领养/过继/继养
+    边类型: z.string().default(''), // 开放串：血亲/领养/过继/继养；'' = 无预设（reader ?? '血亲'）
 });
 const 家族树节点Schema = z.object({
     双亲边: z.array(双亲边Schema).default([]),
@@ -152,7 +152,7 @@ export const 编年史条目Schema = z.object({
     结果摘要行: z.string().default(''),
     关联实体键: z.array(z.string()).default([]),
     事件id: z.string().optional(),
-    重要等级: z.string().default('重要'), // 路人/次要/重要/核心（同 NpcSchema.重要等级）
+    重要等级: z.string().default(''), // 路人/次要/重要/核心；'' = 无预设（reader ?? '重要'·同 NpcSchema.重要等级）
     媒介附件: 媒介附件Schema.optional(),
 });
 // ══════════════════════════════════════════
@@ -195,8 +195,8 @@ export const factFragment种子条目Schema = z.object({
 export const 全局Schema = z.object({
     秘密库: z.record(z.string(), 秘密库条目Schema).default({}),
     约定库: z.record(z.string(), 约定库条目Schema).default({}),
-    继承包: 继承包Schema.default({}),
-    家族树: 家族树Schema.default({}),
+    继承包: 继承包Schema.optional(),
+    家族树: 家族树Schema.optional(),
     _覆写日志: z.array(覆写日志条目Schema).default([]),
     _作弊标记: z.boolean().default(false), // 本周目不可逆
     _编年史: z.array(编年史条目Schema).default([]), // append-only 既成事实记录

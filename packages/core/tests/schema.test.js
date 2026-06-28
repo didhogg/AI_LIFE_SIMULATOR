@@ -857,10 +857,10 @@ describe('4.5 Global layer', () => {
             })).not.toThrow();
         }
     });
-    it('invalid: 涉事方.角色 非枚举值', () => {
+    it('valid: 涉事方.角色 开放串（widened·任意值合法）', () => {
         expect(全局Schema.safeParse({
             秘密库: { s: { 涉事方: [{ 实体键: 'npc_x', 角色: '其他' }] } },
-        }).success).toBe(false);
+        }).success).toBe(true);
     });
     it('valid: 知情名单 来源选择器 absent (可空)', () => {
         expect(() => 全局Schema.parse({
@@ -927,10 +927,10 @@ describe('4.5 Global layer', () => {
             },
         })).not.toThrow();
     });
-    it('invalid: 目标失效回退 非枚举值', () => {
+    it('valid: 目标失效回退 开放串（widened·任意值合法）', () => {
         expect(全局Schema.safeParse({
             约定库: { p: { 目标失效回退: '随便处理' } },
-        }).success).toBe(false);
+        }).success).toBe(true);
     });
     // ── 条款 标的 DSL v1.0（P0-1 Batch B）─────────────────────────────────────────
     it('条款.标的: absent (optional·零迁移)', () => {
@@ -973,7 +973,7 @@ describe('4.5 Global layer', () => {
     });
     it('valid: 继承包 世界遗产白名单 absent', () => {
         const g = 全局Schema.parse({ 继承包: {} });
-        expect(g.继承包.世界遗产白名单).toBeUndefined();
+        expect(g.继承包?.世界遗产白名单).toBeUndefined();
     });
     // ── 家族树（6.27/6.30）────────────────────────────────────────────────────────
     it('valid 家族树 DAG node', () => {
@@ -1781,8 +1781,12 @@ describe('4.8 Memory / Schedule layer', () => {
     it('Ring2在途调用信封: 调用世代 非整数拒收', () => {
         expect(Ring2在途调用信封Schema.safeParse({ 调用世代: 1.5 }).success).toBe(false);
     });
-    it('Ring2在途调用信封: RootSchema 挂载确认', () => {
+    it('Ring2在途调用信封: RootSchema 挂载确认（optional·absent=undefined）', () => {
         const res = RootSchema.parse({});
+        expect(res.Ring2在途调用信封).toBeUndefined();
+    });
+    it('Ring2在途调用信封: 显式提供 {} 时字段可访问', () => {
+        const res = RootSchema.parse({ Ring2在途调用信封: {} });
         expect(res.Ring2在途调用信封).toBeDefined();
         expect(res.Ring2在途调用信封.调用世代).toBeUndefined();
     });

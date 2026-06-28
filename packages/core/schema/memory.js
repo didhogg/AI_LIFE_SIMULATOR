@@ -20,7 +20,7 @@ export const 记忆条目Schema = z.object({
     摘要: z.string().default(''),
     涉及人物: z.string().default(''),
     涉及地点: z.string().default(''),
-    重要度: z.string().default('普通'), // 普通/重要/命运
+    重要度: z.string().default(''), // 普通/重要/命运；'' = 无预设（reader ?? '普通'）
     关联地点: z.array(z.string()).default([]),
     关联物品: z.array(z.string()).default([]),
     关联意象: z.array(z.string()).default([]),
@@ -39,7 +39,7 @@ export const 记忆条目Schema = z.object({
         起因事件id: z.string().default(''),
         关联种子id: z.string().default(''),
         导致后果: z.string().default(''),
-    }).default({}),
+    }).optional(),
     // ── 对撞③ 姓名知识分轨（⊥ 认知档案，记忆条目粒度）──────────────────────────────────
     mentioned_known_names: z.array(z.string()).optional(),
     mentioned_visual_refs: z.array(z.string()).optional(),
@@ -98,7 +98,7 @@ export const 行动卡库Schema = z.record(z.string(), 行动卡条目Schema).de
 // 共享基础字段（所有渠道共用）
 const 播报基础 = z.object({
     播报id: z.string().default(''),
-    重要度: z.string().default('普通'),
+    重要度: z.string().default(''), // 普通/重要/命运；'' = 无预设（reader ?? '普通'）
     发生时间: z.number().int().default(0),
     // P0 预埋·行为实现在 P1：缺省视为挂起；AI 仅可提案，硬闯由引擎第④闸按白名单终裁
     打断级别: z.enum(['挂起', '闪念', '硬闯']).optional(),
@@ -239,7 +239,7 @@ export const Ring2在途调用信封Schema = z.object({
     // P6 重试预算绑世代（6.76续）: swipe=新世代→重置计数=0·同世代自动退回 ≤1 次重试
     // 消费点：P0-8 叙事质量二审 retry 判断：同世代重试计数 ≥1 时不再重试·直接降级
     重试计数: z.number().int().min(0).default(0),
-}).default({});
+});
 // ══════════════════════════════════════════
 // K6 pack_id 命名空间正则（批⑤·Step 1·接 6.59 IM3 白名单·蛇形小写起头）
 // 适用范围：非空 pack_id 校验；空串 '' 作合法哨兵（D2 不预收）

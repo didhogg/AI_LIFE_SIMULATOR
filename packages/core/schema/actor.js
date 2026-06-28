@@ -416,7 +416,7 @@ export const NpcSchema = z.object({
     // 秘密索引 🧮 派生（filter 全局.秘密库），不存储
     // ── LOD 与生成 ──
     // LOD-B4b: LOD档位 已迁移至 LOD表[npcKey].档位（migrate.ts backfillLodTableNpcState）
-    重要等级: z.string().default('路人'), // 路人/次要/重要/核心
+    重要等级: z.string().default(''), // 路人/次要/重要/核心；'' = 无预设（engine/migration 显式写入）
     召回权重: z.number().min(0).max(100).default(50),
     意象: z.array(意象条目Schema).default([]), // 公共印象（6.29）
     作息: 作息Schema.optional(),
