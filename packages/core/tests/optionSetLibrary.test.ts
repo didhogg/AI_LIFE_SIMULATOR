@@ -434,7 +434,7 @@ describe('选项集库 · 守恒门', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length,
-    ).toBe(88);
+    ).toBe(89);
   });
 
   it('命名空间枚举 = 32 項（含选项集）', () => {

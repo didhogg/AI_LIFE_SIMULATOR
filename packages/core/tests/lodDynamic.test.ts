@@ -573,7 +573,7 @@ describe('D-10: 守恒门', () => {
       + FINGERPRINT_PRESET_FIELDS.length
       + FINGERPRINT_SNAPSHOT_FIELDS.length
       + FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(88);
+    expect(total).toBe(89);
   });
 
   it('LOD_DRIFT_N = 3 / LOD_PROMOTE_BUDGET = 8', () => {

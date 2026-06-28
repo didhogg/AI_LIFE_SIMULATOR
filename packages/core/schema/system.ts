@@ -63,15 +63,16 @@ export const SystemSchema = z.object({
     }).partial(),
   ).optional(),
   功能开关表: z.object({
-    认知迷雾: z.boolean().default(true),
+    // 玩家运行态可开可关·非中性叶去 default → 三层 resolver 提供有效值
+    认知迷雾: z.boolean().optional(),                                           // 渲染UX·不进判定面·作者出厂=true
     上帝视角: z.boolean().default(false),
     // 6.75 新增开关
     观战模式: z.boolean().default(false),
-    舞台追踪: z.enum(['自动按场景', '强制开', '关']).default('自动按场景'),
-    二审严格度: z.number().int().min(0).max(100).default(50),
+    舞台追踪: z.enum(['自动按场景', '强制开', '关']).optional(),               // 渲染UX·不进判定面·作者出厂='自动按场景'
+    二审严格度: z.number().int().min(0).max(100).optional(),                   // 作者出厂=50·玩家override住$层不进指纹
     // open-ended: keys reference library dimension keys; passthrough allows mod injection
     二审维度开关: z.record(z.string(), z.boolean()).default({}),
-    观战推进模式: z.enum(['手动步进', '自动连播', '快播到事件']).default('手动步进'),
+    观战推进模式: z.enum(['手动步进', '自动连播', '快播到事件']).optional(),   // 渲染UX·不进判定面·作者出厂='手动步进'
     // 内容分级 已迁至 $玩家偏好.内容分级（英文化·P0-1 fix·migrate.ts migrate内容分级位置）
   }).passthrough().default({}),
   事件来源权重: z.object({

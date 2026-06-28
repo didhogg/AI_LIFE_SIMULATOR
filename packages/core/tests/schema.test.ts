@@ -100,6 +100,7 @@ import {
   是JS保留键,
   受治理路径Schema,
   受治理句柄Schema,
+  $玩家偏好Schema,
 } from '../schema/index.js';
 import { classifyTopKey, deriveWritableWhitelist } from '../schema/whitelistDryRun.js';
 import { backfill货币账户PerEntity } from '../migration/migrate.js';
@@ -115,6 +116,7 @@ import {
 } from '../schema/toolLibrary.js';
 import { 种族模板Schema } from '../schema/preset.js';
 import { backfillPhaseL1b } from '../migration/migrate.js';
+import { resolveEffectiveSwitch } from '../engine/dsl/featureSwitchControl.js';
 
 // ══════════════════════════════════════════
 // (a) Per-layer parse tests
@@ -155,15 +157,15 @@ describe('4.1 System layer', () => {
   it('unknown keys rejected in strict mode', () => {
     expect(SystemSchema.strict().safeParse({ unknownField: 'x' }).success).toBe(false);
   });
-  // 6.75 功能开关表 新增开关
-  it('功能开关表: 默认值正确', () => {
+  // 6.75 功能开关表 新增开关（非中性叶已去 default → undefined·三层 resolver 提供有效值）
+  it('功能开关表: 中性叶默认值不变·非中性叶去 default=undefined', () => {
     const res = SystemSchema.parse({});
-    expect(res.功能开关表.认知迷雾).toBe(true);
-    expect(res.功能开关表.上帝视角).toBe(false);
-    expect(res.功能开关表.观战模式).toBe(false);
-    expect(res.功能开关表.舞台追踪).toBe('自动按场景');
-    expect(res.功能开关表.二审严格度).toBe(50);
-    expect(res.功能开关表.二审维度开关).toEqual({});
+    expect(res.功能开关表.认知迷雾).toBeUndefined();      // 去 default·作者出厂=true 住内容包
+    expect(res.功能开关表.上帝视角).toBe(false);          // 中性 false·不变
+    expect(res.功能开关表.观战模式).toBe(false);          // 中性 false·不变
+    expect(res.功能开关表.舞台追踪).toBeUndefined();      // 去 default·作者出厂='自动按场景' 住内容包
+    expect(res.功能开关表.二审严格度).toBeUndefined();    // 去 default·作者出厂=50 住内容包
+    expect(res.功能开关表.二审维度开关).toEqual({});      // 中性 {}·不变
   });
   it('功能开关表: 舞台追踪 接受合法枚举值', () => {
     const r1 = SystemSchema.parse({ 功能开关表: { 舞台追踪: '强制开' } });
@@ -190,10 +192,10 @@ describe('4.1 System layer', () => {
     const res = SystemSchema.parse({ 功能开关表: { mod_自定义特性: true } });
     expect((res.功能开关表 as Record<string, unknown>)['mod_自定义特性']).toBe(true);
   });
-  // 6.76 观战推进模式（第5开关）
-  it('功能开关表: 观战推进模式 默认=手动步进', () => {
+  // 6.76 观战推进模式（第5开关·非中性叶已去 default）
+  it('功能开关表: 观战推进模式 absent=undefined（去 default）', () => {
     const res = SystemSchema.parse({});
-    expect(res.功能开关表.观战推进模式).toBe('手动步进');
+    expect(res.功能开关表.观战推进模式).toBeUndefined();
   });
   it('功能开关表: 观战推进模式 三值全合法', () => {
     for (const v of ['手动步进', '自动连播', '快播到事件'] as const) {
@@ -3063,13 +3065,13 @@ describe('P0-1 minimum empty state', () => {
     const state = RootSchema.parse({});
     expect(state._叙事设置.人称.视角锁定).toBe('锁定单一宿主');
   });
-  it('empty state: _系统.功能开关表 has all 6.75/6.76 defaults', () => {
+  it('empty state: _系统.功能开关表 中性叶有默认·非中性叶=undefined', () => {
     const state = RootSchema.parse({});
-    expect(state._系统.功能开关表.观战模式).toBe(false);
-    expect(state._系统.功能开关表.舞台追踪).toBe('自动按场景');
-    expect(state._系统.功能开关表.二审严格度).toBe(50);
-    expect(state._系统.功能开关表.二审维度开关).toEqual({});
-    expect(state._系统.功能开关表.观战推进模式).toBe('手动步进');
+    expect(state._系统.功能开关表.观战模式).toBe(false);        // 中性·不变
+    expect(state._系统.功能开关表.舞台追踪).toBeUndefined();    // 去 default·三层 resolver 提供
+    expect(state._系统.功能开关表.二审严格度).toBeUndefined();  // 去 default·三层 resolver 提供
+    expect(state._系统.功能开关表.二审维度开关).toEqual({});    // 中性·不变
+    expect(state._系统.功能开关表.观战推进模式).toBeUndefined(); // 去 default·三层 resolver 提供
   });
   it('empty state: 世界域 defaults to {}', () => {
     const state = RootSchema.parse({});
@@ -3081,6 +3083,71 @@ describe('P0-1 minimum empty state', () => {
   });
   it('活跃区间条目Schema: 起始纪元分钟 允许负值（无 .min(0)）', () => {
     expect(活跃区间条目Schema.safeParse({ 起始纪元分钟: -1 }).success).toBe(true);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// 功能开关三层 resolver + $玩家偏好.功能开关override表
+// ══════════════════════════════════════════════════════════════
+
+describe('resolveEffectiveSwitch · 三层 resolver', () => {
+  it('玩家override最高主权：覆盖作者默认', () => {
+    // 认知迷雾: 中性=false, 作者出厂=true, 玩家关掉
+    expect(resolveEffectiveSwitch('认知迷雾', false, true, { '认知迷雾': false })).toBe(false);
+  });
+
+  it('玩家override最高主权：覆盖中性回退', () => {
+    expect(resolveEffectiveSwitch('认知迷雾', false, undefined, { '认知迷雾': true })).toBe(true);
+  });
+
+  it('无玩家override时落作者出厂默认（逐位恒等）', () => {
+    expect(resolveEffectiveSwitch('认知迷雾', false, true, {})).toBe(true);
+    expect(resolveEffectiveSwitch('舞台追踪', '', '自动按场景', {})).toBe('自动按场景');
+    expect(resolveEffectiveSwitch('二审严格度', 0, 50, {})).toBe(50);
+    expect(resolveEffectiveSwitch('观战推进模式', '', '手动步进', {})).toBe('手动步进');
+  });
+
+  it('无玩家override且无作者默认时落中性回退（fail-safe）', () => {
+    expect(resolveEffectiveSwitch('认知迷雾', false, undefined, undefined)).toBe(false);
+    expect(resolveEffectiveSwitch('舞台追踪', '', undefined, undefined)).toBe('');
+    expect(resolveEffectiveSwitch('二审严格度', 0, undefined, undefined)).toBe(0);
+  });
+
+  it('纯函数确定性：相同输入多次调用结果逐位恒等', () => {
+    const r1 = resolveEffectiveSwitch('认知迷雾', false, true, { '认知迷雾': false });
+    const r2 = resolveEffectiveSwitch('认知迷雾', false, true, { '认知迷雾': false });
+    expect(r1).toBe(r2);
+  });
+
+  it('玩家override表有其他键时不影响目标键', () => {
+    expect(resolveEffectiveSwitch('认知迷雾', false, true, { '舞台追踪': '关' })).toBe(true);
+  });
+});
+
+describe('$玩家偏好 功能开关override表', () => {
+  it('功能开关override表 absent → 解析成功', () => {
+    const res = $玩家偏好Schema.parse({});
+    expect(res.功能开关override表).toBeUndefined();
+  });
+
+  it('功能开关override表 写入布尔值覆盖', () => {
+    const res = $玩家偏好Schema.parse({ 功能开关override表: { '认知迷雾': false } });
+    expect(res.功能开关override表?.['认知迷雾']).toBe(false);
+  });
+
+  it('功能开关override表 写入枚举串覆盖', () => {
+    const res = $玩家偏好Schema.parse({ 功能开关override表: { '舞台追踪': '强制开', '观战推进模式': '自动连播' } });
+    expect(res.功能开关override表?.['舞台追踪']).toBe('强制开');
+    expect(res.功能开关override表?.['观战推进模式']).toBe('自动连播');
+  });
+
+  it('功能开关override表 写入数字覆盖二审严格度', () => {
+    const res = $玩家偏好Schema.parse({ 功能开关override表: { '二审严格度': 80 } });
+    expect(res.功能开关override表?.['二审严格度']).toBe(80);
+  });
+
+  it('FINGERPRINT_EXCLUDED_FIELDS 包含 功能开关override表', () => {
+    expect((FINGERPRINT_EXCLUDED_FIELDS as readonly string[]).includes('功能开关override表')).toBe(true);
   });
 });
 

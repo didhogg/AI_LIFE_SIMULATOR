@@ -103,6 +103,9 @@ export const $玩家偏好Schema = z.object({
     启用: z.boolean().default(false),
     触发模式: z.enum(['场景预判', '失败兜底']).default('失败兜底'),
   }).default({}),
+  // 🎚️ 玩家运行态功能开关覆盖（仿 $AI创作状态.谓词override表·进存档·不进指纹·$ 前缀排除写·撤销=回上一拍）
+  // 键=功能开关表字段名·值=玩家覆盖值·优先级最高（高于作者出厂默认）
+  功能开关override表: z.record(z.string(), z.unknown()).optional(),
   // DP 动态提示词（GW·schema-only·偏好层·fire defer B6 DP拉取管线）
   // $玩家偏好 不在 BUNDLE/PRESET/SNAPSHOT 任一取材组 = 隐性排除·指纹不变；
   // EXCLUDED 文档条目 defer B6-Step7（effect包活线合法开 fingerprintManifest.ts 时顺手补）。
