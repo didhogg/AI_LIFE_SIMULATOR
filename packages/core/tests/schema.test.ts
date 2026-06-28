@@ -4441,3 +4441,50 @@ describe('actor 子树级 opt-in · NpcSchema 10 个子树 optional', () => {
     expect(npc.属性?.智慧).toBe(10);
   });
 });
+
+// ── R5 · 货币系统 顶层 opt-in 机制验证 ──────────────────────────────────────────────
+describe('R5 · 货币系统 顶层 opt-in（RootSchema.optional()）', () => {
+  const EMPTY_ROOT = RootSchema.parse({});
+
+  it('空存档 parse → 货币系统 === undefined（不注入默认骨架）', () => {
+    expect(EMPTY_ROOT.货币系统).toBeUndefined();
+  });
+
+  it('显式提供 {} → 货币系统已定义·内部叶子 default 生效', () => {
+    const r = RootSchema.parse({ 货币系统: {} });
+    expect(r.货币系统).toBeDefined();
+    expect(r.货币系统?.基准币种).toBe('');
+    expect(r.货币系统?.市场状态?.激活).toBe(false);
+    expect(r.货币系统?.市场状态?.大盘景气).toBe(50);
+    expect(r.货币系统?.账户).toEqual({});
+    expect(r.货币系统?.换汇登记).toEqual([]);
+  });
+
+  it('accessor 读回退：基准币种 ?? "" == 改前 root.货币系统.基准币种 default', () => {
+    const ccy = EMPTY_ROOT.货币系统?.基准币种 ?? '';
+    expect(ccy).toBe('');
+  });
+
+  it('accessor 读回退：账户 ?? {} == 改前 root.货币系统.账户 default', () => {
+    const accounts = EMPTY_ROOT.货币系统?.账户 ?? {};
+    expect(accounts).toEqual({});
+  });
+
+  it('accessor 读回退：市场状态.激活 ?? false == 改前 default', () => {
+    const activated = EMPTY_ROOT.货币系统?.市场状态?.激活 ?? false;
+    expect(activated).toBe(false);
+  });
+
+  it('accessor 读回退：市场状态.大盘景气 ?? 50 == 改前 default', () => {
+    const prosperity = EMPTY_ROOT.货币系统?.市场状态?.大盘景气 ?? 50;
+    expect(prosperity).toBe(50);
+  });
+
+  it('显式子树传入时叶子 default 仍生效', () => {
+    const r = RootSchema.parse({ 货币系统: { 基准币种: '两', 市场状态: { 激活: true } } });
+    expect(r.货币系统?.基准币种).toBe('两');
+    expect(r.货币系统?.市场状态?.激活).toBe(true);
+    expect(r.货币系统?.市场状态?.大盘景气).toBe(50);
+    expect(r.货币系统?.账户).toEqual({});
+  });
+});

@@ -3914,14 +3914,14 @@ describe('L-1/L-6 · 性格五轴 facet optional 子结构', () => {
         const res = NpcSchema.safeParse({ 性格五轴: { 开放: 60, 尽责: 70, 外向: 50, 宜人: 80, 神经质: 20 } });
         expect(res.success).toBe(true);
         if (res.success)
-            expect(res.data.性格五轴.facet).toBeUndefined();
+            expect(res.data.性格五轴?.facet).toBeUndefined();
     });
     it('valid: NPC 五轴含 facet 键值对', () => {
         const res = NpcSchema.safeParse({ 性格五轴: { 开放: 60, 尽责: 70, 外向: 50, 宜人: 80, 神经质: 20,
                 facet: { '信任感': 65, '坦诚度': 72 } } });
         expect(res.success).toBe(true);
         if (res.success)
-            expect(res.data.性格五轴.facet?.['信任感']).toBe(65);
+            expect(res.data.性格五轴?.facet?.['信任感']).toBe(65);
     });
     it('invalid: facet 值超出 0-100 范围', () => {
         const res = NpcSchema.safeParse({ 性格五轴: { 开放: 50, 尽责: 50, 外向: 50, 宜人: 50, 神经质: 50,
@@ -4052,5 +4052,70 @@ describe('L-9 · 动词Option基础Schema precond + effect_decls', () => {
             const r = schema.safeParse({ precond: ['test'], effect_decls: ['path.a'] });
             expect(r.success, `${name} should accept precond+effect_decls`).toBe(true);
         }
+    });
+});
+// ── actor 子树级 opt-in · NpcSchema 10 个子树 .optional() 机制验证 ─────────────────
+describe('actor 子树级 opt-in · NpcSchema 10 个子树 optional', () => {
+    const EMPTY_NPC = NpcSchema.parse({});
+    it('空 NPC parse → 10 个子树均为 undefined（序列化不注入骨架）', () => {
+        expect(EMPTY_NPC.属性).toBeUndefined();
+        expect(EMPTY_NPC.派生).toBeUndefined();
+        expect(EMPTY_NPC.行动点).toBeUndefined();
+        expect(EMPTY_NPC.性格五轴).toBeUndefined();
+        expect(EMPTY_NPC.体征).toBeUndefined();
+        expect(EMPTY_NPC.学业).toBeUndefined();
+        expect(EMPTY_NPC.职业).toBeUndefined();
+        expect(EMPTY_NPC.目标).toBeUndefined();
+        expect(EMPTY_NPC.声誉).toBeUndefined();
+        expect(EMPTY_NPC.作息).toBeUndefined();
+    });
+    it('属性 accessor 回退值 == 改前 leaf default', () => {
+        const _attr = EMPTY_NPC.属性 ?? { 体质: 10, 智慧: 10, 感知: 10, 魅力: 10, 心理: 10 };
+        expect(_attr.体质).toBe(10);
+        expect(_attr.智慧).toBe(10);
+        expect(_attr.感知).toBe(10);
+        expect(_attr.魅力).toBe(10);
+        expect(_attr.心理).toBe(10);
+    });
+    it('派生 accessor 回退值 == 改前 leaf default', () => {
+        const _der = EMPTY_NPC.派生 ?? { HP: 100, HP上限: 100, 精力: 100, 精力上限: 100, 颜值: 50 };
+        expect(_der.HP).toBe(100);
+        expect(_der.HP上限).toBe(100);
+        expect(_der.精力).toBe(100);
+        expect(_der.精力上限).toBe(100);
+        expect(_der.颜值).toBe(50);
+    });
+    it('行动点 accessor 回退值 == 改前 leaf default', () => {
+        const _ap = EMPTY_NPC.行动点 ?? { 当前: 15, 上限: 15 };
+        expect(_ap.当前).toBe(15);
+        expect(_ap.上限).toBe(15);
+    });
+    it('性格五轴 accessor 回退值 == 改前 leaf default', () => {
+        const _ocean = EMPTY_NPC.性格五轴 ?? { 开放: 50, 尽责: 50, 外向: 50, 宜人: 50, 神经质: 50 };
+        expect(_ocean.开放).toBe(50);
+        expect(_ocean.尽责).toBe(50);
+        expect(_ocean.外向).toBe(50);
+        expect(_ocean.宜人).toBe(50);
+        expect(_ocean.神经质).toBe(50);
+    });
+    it('声誉 accessor 回退值 == 改前 leaf default', () => {
+        const _rep = EMPTY_NPC.声誉 ?? { 人望: 0, 知名度: 0, 极性: '', 标签: '' };
+        expect(_rep.人望).toBe(0);
+        expect(_rep.知名度).toBe(0);
+        expect(_rep.极性).toBe('');
+        expect(_rep.标签).toBe('');
+    });
+    it('目标 accessor 回退值 == 改前 leaf default', () => {
+        const _goal = EMPTY_NPC.目标 ?? { 长期: [], 短期: [] };
+        expect(Array.isArray(_goal.长期)).toBe(true);
+        expect(_goal.长期).toHaveLength(0);
+        expect(Array.isArray(_goal.短期)).toBe(true);
+        expect(_goal.短期).toHaveLength(0);
+    });
+    it('子树明确提供时仍可正常解析·叶子 default 生效', () => {
+        const npc = NpcSchema.parse({ 属性: { 体质: 75 } });
+        expect(npc.属性).toBeDefined();
+        expect(npc.属性?.体质).toBe(75);
+        expect(npc.属性?.智慧).toBe(10);
     });
 });

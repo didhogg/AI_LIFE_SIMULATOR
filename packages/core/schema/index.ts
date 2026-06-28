@@ -169,7 +169,7 @@ export const RootSchema = z.object({
   赛事实例: 赛事实例Schema,
 
   // 4.7 Economy
-  货币系统: 货币系统Schema.default({}),
+  货币系统: 货币系统Schema.optional(),
 
   // 4.8 Memory / Schedule
   工作记忆: 工作记忆Schema,
