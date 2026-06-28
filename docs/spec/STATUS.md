@@ -1,5 +1,5 @@
 <!-- 执行状态看 STATUS.md，任务清单看 bugs.md。 -->
-# code HEAD=0710758（feat: PR-5 access场/认知投影接缝）· 前=6d5080e（feat: PR-4 LOD调度器P15-P21+穿越契约T5）· 前=af7b7b2（docs: PR-3回填）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-25/PR-5
+# code HEAD=5370088（feat: 币种单位泛化 substrate·消灭「文」三焊死·test 5605）· 前=152b20c（feat: 功能开关表三层玩家主权配置·test 5562）| 焊死状态=已正式焊死 @ a7c3f69（Notion 審計签收 2026-06-19） | 更新=2026-06-28/币种泛化
 
 > 状态真相源。换窗口只读 §1+§2。规格详情查 bugs.md / P06 handbook。
 > 维护协议：完结项勾掉+标 commit+test 数；下游里程碑完成→查 §4→把上游编号从 §3 移入 §1；刷新文件头 HEAD。
@@ -8,6 +8,15 @@
 
 ## §1 NOW（依赖序=做序·ready·非焊敏感）
 
+- [x] 币种单位泛化 substrate · 消灭「文」三焊死 · commit=5370088 · test=5562→5605(+43·141 files·零回归)
+  - engine/currencyRegistry.ts（新）: CurrencyRegistry 接口 + DEFAULT_CURRENCY_REGISTRY + buildCurrencyRegistry(货币系统?) 纯函数
+  - schema/economy.ts 币种定义Schema 内层：别称?: string[] optional（schemaKeys=54 守恒·内层字段·非顶层键）
+  - aohp.ts:canonicalizeSalientArgs — `\${a.value}文` → `\${a.value}\${baseCurrency}`（registry?.baseCurrency ?? '文'·零重定基）
+  - netAsset.ts:getNetAsset — 新增可选第三参 baseCurrency?（默认 BASE_CURRENCY='文'·向后兼容）
+  - chineseNumber.ts — extractMoneyAmountsFor/isCanonicalUnitIn 可参数化（旧接口保留·零重定基）
+  - hosts/slice/ledger/gate.ts: GateContext 扩展 currencyRegistry?·gateCoverage 读注册表
+  - tests/currencyRegistry.test.ts（新·43 tests·R1~R8）
+  - 守恒表：schemaKeys=54 / BUNDLE=21 / manifest=89 / 红线 diff=0 / 黄金向量 5c1d0233/63b3e729/db10d5c7 逐位恒等 / 六禁=0 / REPLAY-01=24 / C2=17
 - [x] G1 · 元层开关走组边界专项 test · commit=18c8576 · test=2544
 - [x] L-15 · 物品/角色三态不可逆状态机（enum+谓词+Gate③-L15） · commit=b72b1d1 · test=2565
 - [x] G-a · 13命名空间 reconcile（reconcile-only·无commit·无真漏·无新enum）
@@ -905,15 +914,15 @@ P2完成              → I-b-盐3(第三盐+离场契约指纹), offstageSettle
 
 ---
 
-## 快速参考：关键指标基线（HEAD=9a09c29·C2-3 C·2026-06-24）
+## 快速参考：关键指标基线（HEAD=5370088·币种单位泛化·2026-06-28）
 
 | 指标 | 值 |
 |------|-----|
-| test | 3819（84 test files） |
-| tsc | 28（core baseline·actor.ts/tick.ts 0 新增） |
+| test | 5605（141 test files） |
+| tsc | 10 pre-existing（core baseline·0 新增） |
 | lint | 220 errors（baseline·勿新增） |
-| schemaKeys | 52 |
-| 指纹 | 85（fingerprintManifest BUNDLE20/PRESET11/SNAP5/EXCL49=85条目·C2-2 动词选项集哈希 PRESET10→11） |
+| schemaKeys | 54 |
+| 指纹 | 89（fingerprintManifest·BUNDLE21/PRESET11/SNAP5/EXCL52） |
 | REPLAY-01 | 24 |
 | C2 chaos | 17 |
 | 黄金向量 | 5c1d0233 / 63b3e729 / db10d5c7（逐位恒等·勿重生成·Option B確認済）|
