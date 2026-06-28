@@ -132,7 +132,7 @@ function classifyTier(M: number, 切分表: 切分界): 检定档 {
 /**
  * Pure deterministic check function.
  *
- * 公式值 = clamp(基线 + 熟练×0.4 + 等级×3 + 属性项 + Σ情境修正 − DC偏置, 0, 100)
+ * 公式值 = clamp(基线 + 熟练×check_proficiency_coeff + 等级×check_level_coeff + 属性项 + Σ情境修正 − DC偏置, 0, 100)
  * M     = 公式值 − rawU
  * tier  ← classifyTier(M, 切分表)   ← read from preset data, never hardcoded here
  *

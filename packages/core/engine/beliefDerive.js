@@ -4,7 +4,6 @@
 //   trackPath='narrative' → 叙事召回路径 → 不进指纹（同 Batch 1 lore 叙事注入路径）
 // 铁律: 纯函数·同入参同输出·不修改入参·零副作用
 // ── 推理规则（可配·零 Math 超越函数）───────────────────────────────────────────────
-const TRUST_STRENGTH_THRESHOLD = 60; // 默认值·与 formulaRegistry 同步
 const NEGATIVE_POLARITIES = ['负', '中负'];
 const POSITIVE_POLARITIES = ['正', '中正'];
 import { resolveFormula } from './formulaRegistry.js';
@@ -20,6 +19,9 @@ import { resolveFormula } from './formulaRegistry.js';
  */
 export function deriveBeliefState(cogArchive, filteredSecrets, povKey, trackPath = 'narrative', formulaConfig) {
     const _trustThreshold = resolveFormula('belief_trust_threshold', formulaConfig);
+    const _perceptionCertaintyDefault = resolveFormula('belief_certainty_perception_default', formulaConfig);
+    const _beliefCertaintyDefault = resolveFormula('belief_certainty_default', formulaConfig);
+    const _secretCertainty = resolveFormula('belief_certainty_secret', formulaConfig);
     const 感知 = [];
     const 推理 = [];
     const 信念 = [];
@@ -34,7 +36,7 @@ export function deriveBeliefState(cogArchive, filteredSecrets, povKey, trackPath
                 感知.push({
                     subjectKey: targetKey,
                     fact: `${imp.标签}（${imp.极性 ?? '中'}·强度${imp.强度 ?? 0}）`,
-                    certainty: imp.强度 ?? 0,
+                    certainty: imp.强度 ?? _perceptionCertaintyDefault,
                 });
             }
         }
@@ -71,7 +73,7 @@ export function deriveBeliefState(cogArchive, filteredSecrets, povKey, trackPath
                 信念.push({
                     subjectKey: targetKey,
                     content: `他以为 ${targetKey} 是${imp.标签}的`,
-                    certainty: imp.强度 ?? 50,
+                    certainty: imp.强度 ?? _beliefCertaintyDefault,
                     trackPath,
                 });
             }
@@ -82,7 +84,7 @@ export function deriveBeliefState(cogArchive, filteredSecrets, povKey, trackPath
         信念.push({
             subjectKey: id,
             content: `知晓秘密 ${id}：${secret.母题}（暴露度${secret.暴露度}）`,
-            certainty: 80,
+            certainty: _secretCertainty,
             trackPath,
         });
     }

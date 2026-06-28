@@ -94,11 +94,23 @@ describe('F5-1 default values match hardcoded constants', () => {
   test('belief_trust_threshold default = 60', () => {
     expect(resolveFormula('belief_trust_threshold')).toBe(60);
   });
+  test('belief_certainty_perception_default default = 0', () => {
+    expect(resolveFormula('belief_certainty_perception_default')).toBe(0);
+  });
+  test('belief_certainty_default default = 50', () => {
+    expect(resolveFormula('belief_certainty_default')).toBe(50);
+  });
+  test('belief_certainty_secret default = 80', () => {
+    expect(resolveFormula('belief_certainty_secret')).toBe(80);
+  });
   test('lod_attr_range_lo default = 20', () => {
     expect(resolveFormula('lod_attr_range_lo')).toBe(20);
   });
   test('lod_attr_range_hi default = 60', () => {
     expect(resolveFormula('lod_attr_range_hi')).toBe(60);
+  });
+  test('lod_attr_init default = 10', () => {
+    expect(resolveFormula('lod_attr_init')).toBe(10);
   });
   test('economy_price_clamp_lo default = 0.5', () => {
     expect(resolveFormula('economy_price_clamp_lo')).toBe(0.5);
@@ -142,8 +154,8 @@ describe('F5-2 registry completeness', () => {
     }
   });
 
-  test('total formula point count = 39', () => {
-    expect(FORMULA_POINT_KEYS.length).toBe(39);
+  test('total formula point count = 43', () => {
+    expect(FORMULA_POINT_KEYS.length).toBe(43);
   });
 });
 
@@ -172,6 +184,30 @@ describe('F5-3 preset numeric override', () => {
       enabled: true,
     };
     expect(resolveFormula('ripple_decay', config)).toBe(0.5);
+  });
+
+  test('belief_certainty_default preset override takes effect', () => {
+    const config: FormulaResolveConfig = {
+      presetNumbers: { belief_certainty_default: 70 },
+      enabled: true,
+    };
+    expect(resolveFormula('belief_certainty_default', config)).toBe(70);
+  });
+
+  test('belief_certainty_secret preset override takes effect', () => {
+    const config: FormulaResolveConfig = {
+      presetNumbers: { belief_certainty_secret: 95 },
+      enabled: true,
+    };
+    expect(resolveFormula('belief_certainty_secret', config)).toBe(95);
+  });
+
+  test('lod_attr_init preset override takes effect', () => {
+    const config: FormulaResolveConfig = {
+      presetNumbers: { lod_attr_init: 5 },
+      enabled: true,
+    };
+    expect(resolveFormula('lod_attr_init', config)).toBe(5);
   });
 });
 

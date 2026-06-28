@@ -46,7 +46,6 @@ type CogArchive = Record<string, CogEntry>;
 type FilteredSecret = { 母题: string; 严重度: number; 暴露度: number };
 
 // ── 推理规则（可配·零 Math 超越函数）───────────────────────────────────────────────
-const TRUST_STRENGTH_THRESHOLD = 60; // 默认值·与 formulaRegistry 同步
 const NEGATIVE_POLARITIES = ['负', '中负'] as const;
 const POSITIVE_POLARITIES = ['正', '中正'] as const;
 
@@ -69,7 +68,10 @@ export function deriveBeliefState(
   trackPath: BeliefTrackPath = 'narrative',
   formulaConfig?: FormulaResolveConfig,
 ): BeliefState {
-  const _trustThreshold = resolveFormula('belief_trust_threshold', formulaConfig);
+  const _trustThreshold             = resolveFormula('belief_trust_threshold',              formulaConfig);
+  const _perceptionCertaintyDefault = resolveFormula('belief_certainty_perception_default', formulaConfig);
+  const _beliefCertaintyDefault     = resolveFormula('belief_certainty_default',            formulaConfig);
+  const _secretCertainty            = resolveFormula('belief_certainty_secret',             formulaConfig);
   const 感知: Perception[] = [];
   const 推理: Reasoning[] = [];
   const 信念: Belief[] = [];
@@ -83,7 +85,7 @@ export function deriveBeliefState(
         感知.push({
           subjectKey: targetKey,
           fact: `${imp.标签}（${imp.极性 ?? '中'}·强度${imp.强度 ?? 0}）`,
-          certainty: imp.强度 ?? 0,
+          certainty: imp.强度 ?? _perceptionCertaintyDefault,
         });
       }
     }
@@ -117,7 +119,7 @@ export function deriveBeliefState(
         信念.push({
           subjectKey: targetKey,
           content: `他以为 ${targetKey} 是${imp.标签}的`,
-          certainty: imp.强度 ?? 50,
+          certainty: imp.强度 ?? _beliefCertaintyDefault,
           trackPath,
         });
       }
@@ -129,7 +131,7 @@ export function deriveBeliefState(
     信念.push({
       subjectKey: id,
       content: `知晓秘密 ${id}：${secret.母题}（暴露度${secret.暴露度}）`,
-      certainty: 80,
+      certainty: _secretCertainty,
       trackPath,
     });
   }

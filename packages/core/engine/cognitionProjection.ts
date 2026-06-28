@@ -2,7 +2,7 @@
 // PR-5 · access 场 / 认知投影接缝（认知投影层 ⊥ 真相实体层）
 //
 // P5-1  projectCognition          — 纯函数·只读·零指纹·零写
-// P5-2  co-location 临时高导通    — 同场 +COLOCATION_BOOST·读时计算·不落状态
+// P5-2  co-location 临时高导通    — 同场 +colocation_boost 公式点值·读时计算·不落状态
 // P5-3  covert gate               — 跨域 access=0·访问阈值门·existence-opaque
 // P5-4  声望导通乘子              — 声誉.人望 → conductance 调制·闭式·确定性
 // P5-5  buildInvestigationDelta   — investigation 归约为 了解度 K5 delta（走五道闸）
@@ -17,17 +17,6 @@ import type { ImpressionEntry } from './tick.js';
 import { isCrossDomainAccess } from './lodScheduler.js';
 import { resolveFormula, type FormulaResolveConfig } from './formulaRegistry.js';
 
-// ── 常量（公式点注册表默认值·与 formulaRegistry 同步） ───────────────────────────
-
-/** P5-2: 同场（co-location）临时高导通加成 */
-const COLOCATION_BOOST = 30;
-
-/** P5-4: 声望乘子分母（人望[-100,100] / PRESTIGE_SCALE = ±0.5 offset） */
-const PRESTIGE_SCALE = 200;
-
-/** P5-1: 投影最低强度阈值（低于此不出现在 baseline 切片） */
-const ACCESS_MIN = 1;
-
 // ── 公共接口 ──────────────────────────────────────────────────────────────────
 
 /** 投影过滤范围 */
@@ -36,7 +25,7 @@ export interface CognitionScope {
   targetKeys?: string[];
   /** 维度过滤（空/undefined = 不过滤维度）— scope 降维（只看某些 factFragment.维度） */
   dimensions?: string[];
-  /** 最低印象强度过滤（缺省=ACCESS_MIN） */
+  /** 最低印象强度过滤（缺省=access_min 公式点默认值） */
   minStrength?: number;
 }
 
@@ -79,7 +68,7 @@ export interface CognitionProjection {
  * 投影管道（顺序）：
  *   ① 读 认知档案[observerKey] → 全量已知目标集
  *   ② scope 降维（targetKeys · dimensions · minStrength）
- *   ③ P5-2 co-location 加成（同场 +COLOCATION_BOOST）
+ *   ③ P5-2 co-location 加成（同场 +colocation_boost 公式点值）
  *   ④ P5-4 声望乘子（目标 声誉.人望 ∈ [-100,100] → ×[0.5,1.5]）
  *   ⑤ P5-3a 跨域 gate：impression.factFragment.来源世界域 ≠ observerDomain → 过滤
  *   ⑥ P5-3b 访问阈值：_factFragment种子库.访问阈值 > access → 对应维度印象过滤

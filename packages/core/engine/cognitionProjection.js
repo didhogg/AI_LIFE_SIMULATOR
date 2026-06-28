@@ -13,13 +13,6 @@
 // 红线：gate.ts/rng.ts/conservation.ts/computeDelta.ts/fixed.ts/propagateRipple 函数体零 diff
 import { isCrossDomainAccess } from './lodScheduler.js';
 import { resolveFormula } from './formulaRegistry.js';
-// ── 常量（公式点注册表默认值·与 formulaRegistry 同步） ───────────────────────────
-/** P5-2: 同场（co-location）临时高导通加成 */
-const COLOCATION_BOOST = 30;
-/** P5-4: 声望乘子分母（人望[-100,100] / PRESTIGE_SCALE = ±0.5 offset） */
-const PRESTIGE_SCALE = 200;
-/** P5-1: 投影最低强度阈值（低于此不出现在 baseline 切片） */
-const ACCESS_MIN = 1;
 // ── P5-1/P5-2/P5-3/P5-4 核心实装 ─────────────────────────────────────────────
 /**
  * 认知投影：给定 (观察者, scope) → 返回该 actor 当前有权感知的事实切片。
@@ -30,7 +23,7 @@ const ACCESS_MIN = 1;
  * 投影管道（顺序）：
  *   ① 读 认知档案[observerKey] → 全量已知目标集
  *   ② scope 降维（targetKeys · dimensions · minStrength）
- *   ③ P5-2 co-location 加成（同场 +COLOCATION_BOOST）
+ *   ③ P5-2 co-location 加成（同场 +colocation_boost 公式点值）
  *   ④ P5-4 声望乘子（目标 声誉.人望 ∈ [-100,100] → ×[0.5,1.5]）
  *   ⑤ P5-3a 跨域 gate：impression.factFragment.来源世界域 ≠ observerDomain → 过滤
  *   ⑥ P5-3b 访问阈值：_factFragment种子库.访问阈值 > access → 对应维度印象过滤

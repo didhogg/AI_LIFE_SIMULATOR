@@ -1,11 +1,11 @@
 import { rngFor } from './rng.js';
-import { resolveFormula } from './formulaRegistry.js';
-// ── 装配期边权常量 ────────────────────────────────────────────────────────────
-export const COLOC_BASE = 30; // 共址基底强度贡献
-export const ORG_BONUS = 30; // 同组织叠加增量（共址+组织 = 60 ≥ Phase6 阈值 50）
-export const JITTER_MAX = 10; // seeded 抖动上限（[0, JITTER_MAX]·仅共址 max=40 < 50）
-export const REL_TRUST = 100; // 装配期生成边信任度（共址/共组织→最大信任）
-export const MAX_RELATION_DEGREE = 10; // 每 NPC 最大关系边数（超出按强度降序确定性裁剪）
+import { resolveFormula, FORMULA_REGISTRY } from './formulaRegistry.js';
+// ── 装配期边权常量（单一真相源 = formulaRegistry 默认值·不再手写数字）──────────
+export const COLOC_BASE = FORMULA_REGISTRY['rel_coloc_base'].defaultValue;
+export const ORG_BONUS = FORMULA_REGISTRY['rel_org_bonus'].defaultValue;
+export const JITTER_MAX = FORMULA_REGISTRY['rel_jitter_max'].defaultValue;
+export const REL_TRUST = FORMULA_REGISTRY['rel_trust'].defaultValue;
+export const MAX_RELATION_DEGREE = FORMULA_REGISTRY['rel_max_degree'].defaultValue;
 /** 正典无向端点对键（NPC 键字典序小的在前·null-byte 分隔·防碰撞） */
 function pairKey(a, b) {
     return a < b ? `${a}\x00${b}` : `${b}\x00${a}`;

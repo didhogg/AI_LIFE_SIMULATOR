@@ -94,13 +94,11 @@ export interface CrossDomainOneShot {
   settlements: CrossDomainSettlement[];
 }
 
-const MINUTES_PER_YEAR = 518400; // 12 × 43200（同 time.ts·不跨 import·默认值与 formulaRegistry 同步）
-
 /**
  * 跨域资金一次性结账（封存域解封时调用）。
  *
  * 算法（律 Y 离散换算）:
- *   interest = principal × annualRate × (durationMin / MINUTES_PER_YEAR)
+ *   interest = principal × annualRate × (durationMin / cross_domain_year_minutes)
  *
  * 仅结算 domainId 匹配（或未声明域籍的母域资产在跨域上下文中视为需要结算）的条目。
  * 纯函数·无 IO·无副作用。

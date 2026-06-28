@@ -1,6 +1,6 @@
 // F1/F2 · 公式/参数 override substrate
 //
-// F1: 39 具名公式点注册表（默认值 = 当前硬编码·零重定基守卫）
+// F1: 43 具名公式点注册表（默认值 = 当前硬编码·零重定基守卫）
 // F2: resolveEffectiveFormula — 双轨 override 解析器
 //     优先级：① enabled=false → 默认（全局锁闭）
 //             ② 玩家 DSL 串（$AI创作状态.公式override表） → evalExpr；非法串 fail-safe 回默认
@@ -44,11 +44,15 @@ export const FORMULA_POINT_KEYS = [
     'access_min',
     'investigation_boost_min',
     'investigation_boost_max',
-    // beliefDerive.ts — 信念推理阈值（叙事层·不进指纹）
+    // beliefDerive.ts — 信念推理阈值 + 确信度缺省（叙事层·不进指纹）
     'belief_trust_threshold',
-    // lodEngine.ts — LOD 粗节点属性实体化范围
+    'belief_certainty_perception_default',
+    'belief_certainty_default',
+    'belief_certainty_secret',
+    // lodEngine.ts — LOD 粗节点属性实体化范围 + 初始化缺省
     'lod_attr_range_lo',
     'lod_attr_range_hi',
+    'lod_attr_init',
     // economyEngine.ts — 价格钳制 + 漂移阈值
     'economy_price_clamp_lo',
     'economy_price_clamp_hi',
@@ -98,9 +102,13 @@ export const FORMULA_REGISTRY = {
     investigation_boost_max: { key: 'investigation_boost_max', defaultValue: 30, description: 'investigation 了解度提升上限', fingerprint: true },
     // ── beliefDerive.ts ───────────────────────────────────────────────────────────
     belief_trust_threshold: { key: 'belief_trust_threshold', defaultValue: 60, description: '信念推理信任强度阈值（叙事层）', fingerprint: false },
+    belief_certainty_perception_default: { key: 'belief_certainty_perception_default', defaultValue: 0, description: '感知层确信度缺省（强度缺失时·叙事层）', fingerprint: false },
+    belief_certainty_default: { key: 'belief_certainty_default', defaultValue: 50, description: '信念层印象确信度缺省（强度缺失时·叙事层）', fingerprint: false },
+    belief_certainty_secret: { key: 'belief_certainty_secret', defaultValue: 80, description: '知情秘密信念确信度（叙事层）', fingerprint: false },
     // ── lodEngine.ts ──────────────────────────────────────────────────────────────
     lod_attr_range_lo: { key: 'lod_attr_range_lo', defaultValue: 20, description: 'LOD 粗节点属性实体化下界', fingerprint: true },
     lod_attr_range_hi: { key: 'lod_attr_range_hi', defaultValue: 60, description: 'LOD 粗节点属性实体化上界', fingerprint: true },
+    lod_attr_init: { key: 'lod_attr_init', defaultValue: 10, description: 'LOD 粗节点属性对象初始化缺省值', fingerprint: true },
     // ── economyEngine.ts ──────────────────────────────────────────────────────────
     economy_price_clamp_lo: { key: 'economy_price_clamp_lo', defaultValue: 0.5, description: '有效价格修正系数钳制下界', fingerprint: true },
     economy_price_clamp_hi: { key: 'economy_price_clamp_hi', defaultValue: 3.0, description: '有效价格修正系数钳制上界', fingerprint: true },

@@ -6,7 +6,7 @@
 // P2-4  triggerLodGate         — POV 接触粗节点 → materialize（拍内去重）
 //
 // 红线：rng.ts/gate.ts/conservation.ts/computeDelta.ts/fixed.ts 函数体零 diff。
-// schemaKeys=52 守恒（不新增顶层 key）。
+// schemaKeys=54 守恒（不新增顶层 key）。
 
 import type { RootState } from '../schema/index.js';
 import { rngFor } from './rng.js';
@@ -43,9 +43,10 @@ export function materializeCoarseNode(
   if (!node) return;
 
   // 派生缺省属性（体质/智慧/感知/魅力/心理 → [lo,hi] 中段范围·可配）
-  const _lo = resolveFormula('lod_attr_range_lo', formulaConfig);
-  const _hi = resolveFormula('lod_attr_range_hi', formulaConfig);
-  node.属性 ??= { 体质: 10, 智慧: 10, 感知: 10, 魅力: 10, 心理: 10 };
+  const _lo       = resolveFormula('lod_attr_range_lo', formulaConfig);
+  const _hi       = resolveFormula('lod_attr_range_hi', formulaConfig);
+  const _attrInit = resolveFormula('lod_attr_init',     formulaConfig);
+  node.属性 ??= { 体质: _attrInit, 智慧: _attrInit, 感知: _attrInit, 魅力: _attrInit, 心理: _attrInit };
   node.属性.体质 = mapRange(lodRng(seed, nodeKey, '体质'), _lo, _hi);
   node.属性.智慧 = mapRange(lodRng(seed, nodeKey, '智慧'), _lo, _hi);
   node.属性.感知 = mapRange(lodRng(seed, nodeKey, '感知'), _lo, _hi);
