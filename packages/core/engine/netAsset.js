@@ -1,4 +1,5 @@
-export const BASE_CURRENCY = '文';
+import { DEFAULT_CURRENCY_REGISTRY } from './currencyRegistry.js';
+export const BASE_CURRENCY = DEFAULT_CURRENCY_REGISTRY.baseCurrency;
 /**
  * Net asset for a single account.
  *

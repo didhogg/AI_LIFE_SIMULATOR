@@ -35,7 +35,7 @@ export function buildCurrencyRegistry(货币系统) {
                 canonicalUnits.add(alias);
         }
     }
-    else if (baseCurrency === '文') {
+    else if (baseCurrency === DEFAULT_CURRENCY_REGISTRY.baseCurrency) {
         // Default alias for the standard Chinese coin (zero rebase)
         canonicalUnits.add('文钱');
     }

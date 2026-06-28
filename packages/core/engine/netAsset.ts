@@ -8,8 +8,9 @@
 // 单一真相源：core 权威·hosts/slice/ledger/netAsset.ts 重导出此实现。
 import type { 账户Type } from '../schema/economy.js';
 import type { 全局Type, 约定库条目Type } from '../schema/secret.js';
+import { DEFAULT_CURRENCY_REGISTRY } from './currencyRegistry.js';
 
-export const BASE_CURRENCY = '文';
+export const BASE_CURRENCY = DEFAULT_CURRENCY_REGISTRY.baseCurrency;
 
 /**
  * Net asset for a single account.

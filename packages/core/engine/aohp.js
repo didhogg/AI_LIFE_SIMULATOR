@@ -13,6 +13,7 @@
 // 确定性六禁继承：禁 Date.now/Math.random/localeCompare/裸 JSON.stringify/NFC normalize
 import { CANONICAL_UNITS, extractMoneyAmountsFor, prepareNarrative, } from './text/chineseNumber.js';
 import { hashCanonical } from './rng.js';
+import { DEFAULT_CURRENCY_REGISTRY } from './currencyRegistry.js';
 // ── 语义键工具 ──────────────────────────────────────────────────────────────────
 /**
  * salientArgs 规范化（Batch 3 chineseNumber+CANONICAL_UNITS 归一·禁第二解析路径）。
@@ -27,7 +28,7 @@ function canonicalizeSalientArgs(raw, registry) {
         return '';
     const prepared = prepareNarrative(raw);
     const canonicalUnits = registry?.canonicalUnits ?? CANONICAL_UNITS;
-    const baseCurrency = registry?.baseCurrency ?? '文';
+    const baseCurrency = registry?.baseCurrency ?? DEFAULT_CURRENCY_REGISTRY.baseCurrency;
     // 货币金额（规范单位 → 统一输出为「N{baseCurrency}」）
     const amounts = extractMoneyAmountsFor(prepared, canonicalUnits);
     const canonical = amounts

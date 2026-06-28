@@ -18,6 +18,7 @@ import {
   prepareNarrative,
 } from './text/chineseNumber.js';
 import { hashCanonical } from './rng.js';
+import { DEFAULT_CURRENCY_REGISTRY } from './currencyRegistry.js';
 import type { CurrencyRegistry } from './currencyRegistry.js';
 
 // ── 接口定义 ───────────────────────────────────────────────────────────────────
@@ -53,7 +54,7 @@ function canonicalizeSalientArgs(raw: string | undefined, registry?: CurrencyReg
 
   const prepared = prepareNarrative(raw);
   const canonicalUnits = registry?.canonicalUnits ?? CANONICAL_UNITS;
-  const baseCurrency = registry?.baseCurrency ?? '文';
+  const baseCurrency = registry?.baseCurrency ?? DEFAULT_CURRENCY_REGISTRY.baseCurrency;
 
   // 货币金额（规范单位 → 统一输出为「N{baseCurrency}」）
   const amounts = extractMoneyAmountsFor(prepared, canonicalUnits);

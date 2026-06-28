@@ -233,13 +233,15 @@ export function extractMoneyAmountsFor(
     }
   }
 
-  // 段② 不可确认单位
-  const re2 = new RegExp(`([${VALID_CHARS}]+)\\s*([${unconfirmedUnitChars}]+)`, 'g');
-  for (const m of norm.matchAll(re2)) {
-    if (coveredStarts.has(m.index!)) continue;
-    const value = parseChineseAmount(m[1]!);
-    if (value !== null && value > 0) {
-      results.push({ value, unit: m[2]! });
+  // 段② 不可确认单位（空串时跳过，避免正则 [character class] 为空出错）
+  if (unconfirmedUnitChars) {
+    const re2 = new RegExp(`([${VALID_CHARS}]+)\\s*([${unconfirmedUnitChars}]+)`, 'g');
+    for (const m of norm.matchAll(re2)) {
+      if (coveredStarts.has(m.index!)) continue;
+      const value = parseChineseAmount(m[1]!);
+      if (value !== null && value > 0) {
+        results.push({ value, unit: m[2]! });
+      }
     }
   }
 
