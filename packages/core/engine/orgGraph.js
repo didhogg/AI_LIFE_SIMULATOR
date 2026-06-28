@@ -3,7 +3,7 @@ import { 组织实体Schema } from '../schema/org.js';
 /** 从 组织实体[*].别名键 构建 aliasKey → canonicalKey 映射表 */
 function buildAliasMap(state) {
     const map = new Map();
-    for (const [canonical, org] of Object.entries(state.组织实体)) {
+    for (const [canonical, org] of Object.entries(state.组织实体 ?? {})) {
         if (org.别名键) {
             for (const alias of org.别名键) {
                 if (alias && alias !== canonical) {
@@ -16,6 +16,7 @@ function buildAliasMap(state) {
 }
 /** §八① — 向 state.组织实体 注入幽灵节点（潜在节点·占位形态·additive） */
 function ensureGhostOrg(state, orgKey) {
+    state.组织实体 ??= {};
     if (state.组织实体[orgKey])
         return; // 已存在，无需创建
     // 通过 zod 解析获取全部 defaults 填充
@@ -55,7 +56,7 @@ export function resolveOrgNodes(state) {
         }
     }
     // ── 2. 收集 组织关系网 两端 org 键 ──
-    for (const edge of Object.values(state.组织关系网)) {
+    for (const edge of Object.values(state.组织关系网 ?? {})) {
         const a = aliasMap.get(edge.A组织) ?? edge.A组织;
         const b = aliasMap.get(edge.B组织) ?? edge.B组织;
         if (a)

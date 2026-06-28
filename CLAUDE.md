@@ -1,8 +1,55 @@
-# CLAUDE.md — AI 文游人生模拟器 · 交接窗口（2026-06-19 20:54 更新）
+# CLAUDE.md — AI 文游人生模拟器 · 交接窗口（2026-06-25 22:30 更新）
+
+> **当前前线 = 预设瘦身 arc（厚预设 → 真相⊥定义⊥装配 三层分离）。**最新基线 commit **b4682a7 · test 4280**（底座-2b 规则库双轨·全门绿）。下一步 = **阶段C 破坏式纵向迁移**（prompt 已发·见下「★ 当前前线」节）。
+> ⚠ 本文件下半 §0~§10 = **前序 P0-6 收官窗口背景（test 2571·2026-06-19）**，同一 repo（golden/schemaKeys 52 一致）、仍是地基，但**非当前前线**；动引擎前按真相源重核，勿当现态。
 
 > 本窗在 E-e/⊕/Phase L 收官基础上，再完成 **S3 写卡口（fbef62d·test 2536）+ G-a 命名空间 reconcile（reconcile-only·无 commit）+ Phase D 语义闸 Step（⑤L3 人称闸 + ②R6 能力集对齐·commit 3040f53·test 2540）**；并对 **Phase F（跳过·consumer-blocked）/ Phase H（验签+外链+子域·只读侦察·全 defer）/ Phase I（模态+盐·只读侦察·I-a 部分完结·余 defer）** 做了 triage。两个 Notion 页面（P0-6 主战场 + 补漏清单）已同步。本文件是新窗口的完整接续上下文。
 > **纪律铁律：一次一 Step · 侦察（读only·回报不猜）→ 拍板 → 实装 → commit 落地才在 Notion 勾。无 consumer / 拍板前 prevent fire。**
 > **单一状态真相源 = repo `docs/spec/STATUS.md`（四段：§1 NOW / §2 WELD QUEUE / §3 BLOCKED / §4 UNBLOCK HOOKS）。状态查 STATUS.md 的行（带 commit+证据），不 grep 重侦察。换窗口开场只读 §1 NOW + §2 WELD QUEUE，不重载 bug.md/handbook 全文。bug.md/handbook 降级为「规格详情」，STATUS.md 是「状态」。完结即在 STATUS.md 回填；完成下游里程碑 → 查 §4 UNBLOCK HOOKS → 把上游编号从 §3 移入 §1（替代「向上翻旧账」）。若 `docs/spec/STATUS.md` 尚不存在，先跑 Notion「STATUS 总线」规则手册页 §E 的 CC prompt 建档。维护协议 + 泳道分类律 + 反向钩子初始映射见该页。**
+
+---
+
+## ★ 当前前线 · 预设瘦身 arc（2026-06-25）
+
+> 以下是**当前活跃工作**。下方 §0~§10 为前序 P0-6 窗口背景（test 2571），作地基查阅，非现态。
+
+### A · arc 目标（三层分离）
+把臃肿「厚预设」拆成正交三层：
+- **真相层** = `RootSchema`（运行态·**52 键守恒**·schema/index.ts）— 不动。
+- **定义层** = `内容包库` record<pack_id, 内容包>（preset/contentPack.ts）+ `规则库` record<rule_id, 规则条目>（preset/ruleLibrary.ts）。
+- **装配层** = `薄清单`{packs[], rules?[], 基底版本?} + `resolve()`（preset/resolve.ts）。
+
+### B · 已完成里程碑（含 test 数）
+test 链：A0 **4161**（dd9c986）→ A1 **4191**（58d9c83）→ A2 **4222**（f64dc44·内容包库+薄清单+resolve 双轨）→ **底座-2b 4280**（b4682a7·+58·规则库双轨）。
+- 底座-0~1 ✅ 脚手架 / 种子视图（seedView.ts·剥 default+递归 optional+ZodObject.passthrough fail-open）。
+- 底座-2 ✅ **内容包库 + 薄清单 + resolve()**：内容包.模块种子 by `RootSchema.shape` key（**fail-closed**·顶层键∉shape 拒）·resolve 三层（①单包 key===pack_id/semver/轨道一致性 ②computeLoadOrder 自环·依赖被拒·冲突b端→墓碑 ③聚合生效中内容包集哈希）·新轨(种子视图解析)⊥旧轨叠加(直接 deepMerge·等价基准)·**双轨逐表等价已证**。
+- 底座-2b ✅ **规则库**（b4682a7）：规则面=12 规则表+归并表（各 optional·种子视图组合）·规则条目={规则元数据+规则面}·`resolve(manifest,library,ruleLib?)` 第三参 optional·规则路径 gated（不传=规则成品{}·**零行为变化**·保双轨等价）·复用 computeLoadOrder·**双轨×13+整包全绿·新 resolve.ts 已逐层审计通过**。
+- 底座-3 / -4 ✅（详 master list）。
+- **门常量**：schemaKeys **52** 守恒（内容包库/规则库属装配层·不进 RootSchema）·BUNDLE/manifest **21/86** 不变·黄金向量 **5c1d0233 / 63b3e729 / db10d5c7 逐位恒等·勿重生成**·tsc 预存错误 12（非本轮引入）·红线 diff 0。
+
+### C · 关键文件路径
+- `packages/core/src/preset/resolve.ts`（薄清单+resolve·双轨·~320 行·**dormant·不接 runTick·不进生产路径**·待阶段C 转正）
+- `packages/core/src/preset/contentPack.ts`（内容包元数据 / 内容包库 record<pack_id> / 运行种子校验 fail-closed 顶层键）
+- `packages/core/src/preset/ruleLibrary.ts`（规则元数据 / 规则面 / 规则条目 / 规则库·rule_id 正则 `/^[a-z][a-z0-9_]*$/`）
+- `packages/core/src/preset/seedView.ts`（种子视图·剥 default / 递归 optional / passthrough）
+- `packages/core/src/preset/preset.ts`（**厚预设 玩法预设Schema:471-585**·阶段C 待切·13 规则字段+内容字段内联·家境装配包黑洞 :345）
+- `packages/core/src/schema/index.ts`（RootSchema·52 键）/ `memory.ts`（mod条目 / computeLoadOrder / 墓碑库）/ `governedKeySpace.ts`（命名空间枚举 13 项 / 受治理句柄Schema:78 / 注册表:127 / 仲裁策略:151·**成员闸 fail-open·留 P0-6**）/ `actor.ts`（NpcSchema:397·立绘:419/声线:422/物品:444）/ `map.ts`（地图Schema·地点/战役/区域物价）
+- `loader/modGraph.ts`（computeLoadOrder）/ `loader/semver.ts`（satisfies）/ `interfaces/contentPackHash.ts`（聚合生效中内容包集哈希）
+
+### D · 跨模块引用教义（LOCKED·靶向逐模块查时用）
+- **三桶**：① 已是指针（by-ID string·不动·至多升 typed-Ref）② 内联定义（→抽 additive 冰箱模块一次+宿主存 Ref·**无破坏式 PR**）③ 真行为耦合（靶向手术·actor 勘查=0）。
+- **两图绝不混**：装载图（computeLoadOrder·**无环**·自环=墓碑）⊥ 引用图（条目 Ref·**允许环**·**惰性读时** against `成品`·不进加载序·悬空→墓碑/null 守 AA3）。**惰性加载 = LOCKED**（指针精准指向单条目）。
+- actor.ts 已勘查（表A/表B 在 Notion 靶向页）：truth 层 .default 正确（剥 default 是种子视图的活）·`_幕后行动种子.类型` enum:515（报仇/告发/逃离/结盟/趋附/探查/流转潜伏）= **硬伤待改**（去枚举→作者意图条目）·factFragment 在认知档案层（truth⊥cognition·不动）。
+
+### E · 下一步（顺序锁定·用户已拍）
+1. **阶段C 破坏式纵向迁移**（prompt 已发·待 CC 回报）：C1 un-dormant resolve()→生产路径 + 删厚预设已双轨迁字段（13 规则字段→规则库 / 内容字段→内容包库·preset.ts:471-585）/ C2 migration_version+1 + 确定性 shim（厚→薄·round-trip 逐位等价）+ 判定面 golden 逐位恒等（**移动=STOP**）/ C3 红线 additive-only / C4 删家境装配包黑洞（preset.ts:345·z.array(z.unknown())·**verify-then-delete**·兄弟黑洞仅报告）。
+2. **第 0 件 additive 泛型指针原语**（阶段C 后）：`引用(命名空间)` 工厂（受治理句柄Schema + brand）+ 命名空间→冰箱绑定表 + `解引用(ref, 成品)` 惰性解析器（复用 governedKeySpace·打开 P0-6 成员闸）。一次建好·后续冰箱接入 = 建 record + 宿主加一行。
+3. **冰箱模块簇**（②桶·additive·no-破坏）：媒体库（吸 立绘:419 / 视觉锚定特征:421 / 声线:422）/ option_set库 / 工具库(TOOL) / 物品库 / 成就库。
+4. **靶向逐模块查**（迁移后·actor 为样板）：每模块出 表A（拆出建库）+ 表B（改 Ref 引用）·残留真手术(③桶)≈0。
+5. **待用户拍板**：actor 里程碑定性（作者模板→成就库引用 vs 涌现去重复）/ 案底.记录派生可行性 / 关系网双存核查 / LOD 阶段B 阈值 / 幕后种子 enum 去枚举落点。
+
+### F · 红线（同 §6·恒定）
+fnv1a32 / canonicalize / hashPresetFingerprint / fingerprintManifest / gate.ts / rng.ts（含盐通道）/ fixed.ts / computeDelta.ts / conservation.ts = 只读·禁改函数体。确定性六禁：Date.now / new Date / Math.random / window / document。黄金向量勿重生成。
 
 ---
 
@@ -21,7 +68,7 @@
 - **P0-6 冻结接口清单**（notion-54·原 notion-67 占位不可解·用此 URL 或搜标题）— 命名空间 reconcile / 6.74 作者签名 / DSL v1 文法 / 确定性六禁 / AA4 defer 登记处
 - **V4.1 修订决议**（口径回写处）／ **动词表 V批设计** ／ 官方源码核验 ／ 社区教程参考
 
-## 2 · 当前进度快照
+## 2 · 当前进度快照（前序 arc·test 2571·已被瘦身 arc 超越·现态见顶部「★ 当前前线」节）
 基线（post-M纵切·**commit b72b1d1+M-a/M-b**）：**test 2571 · tsc 28（CC 环境报 30·含 2 预存于非改动文件）· lint 220 errors · schemaKeys 52 · 指纹 84（fingerprintManifest 17 条目）· REPLAY-01 24 · C2 17 · 红线 diff 空**。黄金向量 5c1d0233 / 63b3e729 / db10d5c7（C2 chaos 校验和·逐位恒等·勿重生成）。
 test 进度链：2480（⊕-4+FU a0d0389）→ 2502（L Step1 ab3bb14·+22）→ 2528（L Step2 3294a23·+26）→ 2532（E-e a67dee3·+4）→ 2536（S3 写卡口 fbef62d·+4）→ 2540（Phase D 3040f53·+4）→ 2544（G1 18c8576·+4）→ 2565（L-15 b72b1d1·+21）→ **2571（M-a mIntegration·+6）**。
 
@@ -39,7 +86,7 @@ test 进度链：2480（⊕-4+FU a0d0389）→ 2502（L Step1 ab3bb14·+22）→
 - **导入闸 Phase E 侧全清**：E-a（K1/K4/K6 活线 4d55b5f）+ E-e（键名冻结 enforcement a67dee3·mod墓碑原因 enum 加'冻结键改名'第7位·复用 writeM2Tombstone）；E-b M2 / E-c C6 / E-d K5 经提案闸 ⊕-3 已 fire。
 
 ## 3 · Phase L 仍 deferred 项（各阶段·本批不碰）
-L-13（recency 并入统一衰减·依赖 L-1/L-6+P0-3）/ L-14（历法权威表·P0-3）/ **L-15 三态状态机（原标 P0-4 未建）/ L-19 任务显式状态机（P0-4·依赖 L-9）** ← ⚠ **CC Phase I 侦察显示 engine/stateMachine.ts 已完整实装（非 stub·dispatch 全落·BASE/MODAL_STATES 齐）·L-15/L-19 可能已可解锁·下轮 re-triage** / L-16 叙事校验闸组边界（P0-8）/ L-17 effect 4 类+白名单（P0-4·依赖 L-9）/ L-18 纠偏模态内步骤（P0-8）/ L-20 校验闸盐隔离（P0-5·= I-b G6）/ L-21 重要度冻结进指纹（依赖 L-4·碰 fingerprint）/ L-24 结构修复（P0-8）/ L-26 最小矛盾子集闭环（P0-8）/ L-27 前置条件代码化（依赖 L-9）/ L-28 语义判（P0-8）/ L-29 两模式指派（P0-8）/ L-30 可完成性算法（P0-10）。阻塞链：L-4→L-21 ／ L-9→L-17·L-19·L-27 ／ L-1·L-6→L-13。
+L-13（recency 并入统���衰减·依赖 L-1/L-6+P0-3）/ L-14（历法权威表·P0-3）/ **L-15 三态状态机（原标 P0-4 未建）/ L-19 任务显式状态机（P0-4·依赖 L-9）** ← ⚠ **CC Phase I 侦察显示 engine/stateMachine.ts 已完整实装（非 stub·dispatch 全落·BASE/MODAL_STATES 齐）·L-15/L-19 可能已可解锁·下轮 re-triage** / L-16 叙事校验闸组边界（P0-8）/ L-17 effect 4 类+白名单（P0-4·依赖 L-9）/ L-18 纠偏模态内步骤（P0-8）/ L-20 校验闸盐隔离（P0-5·= I-b G6）/ L-21 重要度冻结进指纹（依赖 L-4·碰 fingerprint）/ L-24 结构修复（P0-8）/ L-26 最小矛盾子集闭环（P0-8）/ L-27 前置条件代码化（依赖 L-9）/ L-28 语义判（P0-8）/ L-29 两模式指派（P0-8）/ L-30 可完成性算法（P0-10）。阻塞链：L-4→L-21 ／ L-9→L-17·L-19·L-27 ／ L-1·L-6→L-13。
 
 ## 4 · 执行序与下一步
 **执行序（字母≠Wave序）：C→E→F→G→D→H→I→J→K → Phase M 纵切体检。**
@@ -84,7 +131,7 @@ B1✅ K1 两段式加载 / B2✅ K4墓碑+K6 / B3✅ semver / B4✅ effect哈希
 - **S3 拍板**：写卡口 = 纯观测 fail-open·挂 migrate semver 批后·扫 7 区·不阻断迁移（defense-in-depth·靠后）。
 - **Phase D 拍板（3040f53）**：① L3 放导入闸层·与 checkS3WriteGate 同族·**fail-open**·MigLog 两级（error/warn）。② R6 **按 lore.ts 为准**补 toolCapability.json_schema·**纯类型·executor 仍 stub·零行为变更**。③ **DSL text parser（string→AST）defer 出 P0-6**（拍板3）= 共同解锁器（解锁 ① lore谓词 / ③ Y13 / D-b 层C）·v1 文法已冻·S-1 向后兼容。Defer 内容已登记排程。
 - **Phase H 拍板（全 defer·park）**：crypto 路径三选一〔A node:crypto WebCrypto(async·碰六禁②) / B noble-ed25519(sync·引 npm dep) / **C 完全归 hosts（core 守零依赖·最干净·my lean）**〕— 选定前 verifySignature 不落 P0-6·且唯一 caller（导入闸）= hosts/tavern P1 未建→选哪条都不解锁 now·**park 不强决**。⑥ stripSensitiveKeysForExport 纯函数 **defer**（常量已锁=唯一 weld 面已结·无 consumer〔hosts 导出管线 P0-9/P0-11〕·后补零迁移无窗口压力·先实装=预埋错返工）。
-- **Phase I 拍板**：① **rng.ts additive-only 第三盐 = 不授权·park 到 P2**（consumer offstageSettler 是 P2 stub·选授权亦无 now-value·rng.ts 是确定性脊柱·无活 consumer 先动=过早冻结+碰红线风险·待 P2 时连同 ④出厂离场契约进指纹 作一个 fingerprint-扩取材批 + 黄金向量重生成一并做）。② **G1 元层开关走组边界 test = 断言机制不命名**（用 stateMachine.ts 既有 SMEvent '元层写入' 操作标签·不硬编新语义串〔抢话/视角/观战/二审 的 canonical 串待 consumer 定·过早命名=冻结风险〕·只验 FIFO 入队→指令组边界 flush 机制）。
+- **Phase I 拍板**：① **rng.ts additive-only 第三盐 = 不授权·park 到 P2**（consumer offstageSettler 是 P2 stub·选授权亦无 now-value·rng.ts 是确定性脊柱·无活 consumer 先动=过早冻结+碰红线风险·待 P2 时连同 ④出厂离场契约进指纹 作一个 fingerprint-扩取材批 + 黄金向量重生成一并做）。② **G1 元层开关走组边界 test = 断言机制不命名**（用 stateMachine.ts 既有 SMEvent '元层写入' 操作标签·不硬编新语义串〔抢话/视角/观战/二审 的 canonical 串待 consumer 定·过早命名=冻���风险〕·只验 FIFO 入队→指令组边界 flush 机制）。
 - **L 系列拍板**（保留）：L-4 importance=复用`权重`/L-1·L-6 五轴+facet?/L-2b 当时快照=字段白名单子集/L-3b 世界圣经=复用`_lore知识库`/L-7 激活阈值入指纹排除/L-8 越界类型 enum 扩展/L-9 precond?+effect_decls? 不扩 side_effects/L-10 复用 NPC模板 slot/L-23 纯架构隔离 defer P0-11。
 - **提案闸拍板**（保留）：clamp 不进 computeDelta（orchestrator 一次性 clampLedger+setAtPath 单次写）/ 墓碑写=候选B reject-only（M2 pre-check 在提案闸·writeM2Tombstone 留导入闸）/ E-e 键名冻结→导入闸 Phase E-e。
 

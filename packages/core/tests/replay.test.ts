@@ -78,7 +78,7 @@ describe('REPLAY-01 · 场景一 · 悔棋后旧任务迟到', () => {
     // Live state after undo: player switches NSFW on (simulates change post-undo)
     const liveAfterUndo = {
       ...recorded,
-      $玩家偏好: { ...recorded.$玩家偏好, NSFW降级模型: { 启用: true, 触发模式: '失败兜底' as const } },
+      $玩家偏好: { ...recorded.$玩家偏好!, NSFW降级模型: { 启用: true, 触发模式: '失败兜底' as const } },
     };
 
     const result = replayTick(makeInput(entry, {

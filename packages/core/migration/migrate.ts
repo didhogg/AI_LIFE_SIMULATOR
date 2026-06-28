@@ -1097,18 +1097,9 @@ export function backfillPackId(raw: Record<string, unknown>): Record<string, unk
 // migration_version bump 仅在至少一个新 key 缺失时触发（确定性·字段级检测）。
 
 export function migrateS1S1b(raw: Record<string, unknown>): Record<string, unknown> {
-  const hasS1  = '受治理键空间注册表' in raw;
-  const hasS1b = '键空间归并表' in raw;
-  if (hasS1 && hasS1b) return raw;  // 幂等：两键均存在 → no-op
-
-  const sys    = asRec(raw['_系统']);
-  const newSys = { ...sys, migration_version: asNum(sys['migration_version']) + 1 };
-  return {
-    ...raw,
-    ...(hasS1  ? {} : { 受治理键空间注册表: {} }),
-    ...(hasS1b ? {} : { 键空间归并表: {} }),
-    _系统: newSys,
-  };
+  // R6 opt-in: 受治理键空间注册表 / 键空间归并表 are now optional (T1 free wins).
+  // Absent = undefined = semantically empty. No forced materialization needed.
+  return raw;
 }
 
 // ── backfill 货币账户 per-entity（B5.6·账本迁移批） ─────────────────────────────
@@ -1332,7 +1323,7 @@ export function checkS3WriteGate(state: RootState, log: MigLog[]): void {
   const areas: Array<[string, object]> = [
     ['NPC',           state.NPC],
     ['已故NPC归档',   state.已故NPC归档],
-    ['组织实体',      state.组织实体],
+    ['组织实体',      state.组织实体 ?? {}],
     ['mod注册表',     state.mod注册表],
     ['_mod墓碑库',    state._mod墓碑库 ?? {}],
     ['调用类型注册表', state.调用类型注册表],
@@ -1390,7 +1381,7 @@ export function checkL3PersonGate(state: RootState, log: MigLog[]): void {
 //   · 绝不 throw；绝不 mutate state；重放定格（同输入→同 log 输出）
 // 挂点：G-b populate 之后·deriveModAwareWhitelist 之前
 export function checkS6UnregisteredHandlerRefs(state: RootState, log: MigLog[]): void {
-  const keys = state.受治理键空间注册表.键条目 ?? [];
+  const keys = state.受治理键空间注册表?.键条目 ?? [];
   const sideEffectSet = new Set(
     keys.filter(e => e.命名空间 === 'sideEffect句柄' && e.停用 !== true).map(e => e.规范键),
   );
@@ -1467,7 +1458,7 @@ export function checkS6UnregisteredHandlerRefs(state: RootState, log: MigLog[]):
 //   · registry 仅有 'mod包' 条目（pack_id auto-enroll）→ 直接返回
 //   · 绝不 throw；绝不 mutate state；迭代按字典序保证重放恒等
 export function checkGoverneRegistryMembership(state: RootState, log: MigLog[]): void {
-  const entries = state.受治理键空间注册表.键条目 ?? [];
+  const entries = state.受治理键空间注册表?.键条目 ?? [];
   if (entries.length === 0) return; // fast exit: registry empty = fail-open
 
   // Only activate when registry has non-'mod包' entries (governed keys, not just pack_id auto-enrollments)
@@ -1524,7 +1515,7 @@ export function checkGoverneRegistryMembership(state: RootState, log: MigLog[]):
 // fast-exit: '母题' 命名空间在 registry 中无条目 → 直接返回（fail-open）
 // 绝不 throw；绝不 mutate state；迭代 sorted keys 保证重放恒等。
 export function checkMotifRegistration(state: RootState, log: MigLog[]): void {
-  const entries = state.受治理键空间注册表.键条目 ?? [];
+  const entries = state.受治理键空间注册表?.键条目 ?? [];
   const motifEntries = entries.filter(e => e.命名空间 === '母题');
   if (motifEntries.length === 0) return; // fast exit: no motif registry → fail-open
 
@@ -1600,7 +1591,7 @@ export function checkMotifRegistration(state: RootState, log: MigLog[]): void {
 // 迭代 sorted keys 保证重放恒等（C4）。
 export function checkDisabledRuleKeyRefs(state: RootState, log: MigLog[]): void {
   const HANDLER_NS = new Set(['sideEffect句柄', 'cascade句柄', '拦截器句柄'] as const);
-  const entries = state.受治理键空间注册表.键条目 ?? [];
+  const entries = state.受治理键空间注册表?.键条目 ?? [];
   const disabledKeys = new Set(
     entries.filter(e => e.停用 === true && !HANDLER_NS.has(e.命名空间 as 'sideEffect句柄' | 'cascade句柄' | '拦截器句柄'))
       .map(e => e.规范键),
@@ -1652,7 +1643,7 @@ export function checkDisabledRuleKeyRefs(state: RootState, log: MigLog[]): void 
 // 空串哨兵（''）跳过校验（与 D2/D4 降级非拒收口径统一）
 // 绝不 throw；绝不 mutate state；迭代 sorted keys 保证重放恒等。
 export function checkPackIdAliases(state: RootState, log: MigLog[]): void {
-  const entries = state.受治理键空间注册表.键条目 ?? [];
+  const entries = state.受治理键空间注册表?.键条目 ?? [];
   const pkgEntries = entries.filter(e => e.命名空间 === 'mod包');
   if (pkgEntries.length === 0) return; // fast exit: no mod包 registry → fail-open
 
@@ -1799,13 +1790,13 @@ export function migrate(input: unknown): MigrateResult {
   // fail 行为：拒绝该条 mod 变更，不 crash 全局（与 semver/K6 同形）；多条违例合并为一条诊断串（确定性排序）。
   {
     const frozenKeys = new Set<string>(
-      (state.受治理键空间注册表.键条目 ?? [])
+      (state.受治理键空间注册表?.键条目 ?? [])
         .filter((e) => e.不可变 === true)
         .map((e) => e.规范键),
     );
     if (frozenKeys.size > 0) {
       const violators = new Map<string, string[]>(); // modKey → violated aliases
-      for (const entry of (state.键空间归并表.归并条目 ?? [])) {
+      for (const entry of (state.键空间归并表?.归并条目 ?? [])) {
         if (frozenKeys.has(entry.别名) && entry.来源包 !== undefined && entry.来源包 in state.mod注册表) {
           const list = violators.get(entry.来源包) ?? [];
           list.push(entry.别名);
@@ -1835,9 +1826,10 @@ export function migrate(input: unknown): MigrateResult {
   // C1: onConflict callback logs G-c仲裁 warn for losing mods (降级非拒收)
   // Runs after E-e (tombstone passes complete) so only accepted mods contribute.
   {
+    const currentReg = state.受治理键空间注册表 ?? {};
     const populated = populateGoverneKeyRegistry(
       state.mod注册表,
-      state.受治理键空间注册表,
+      currentReg,
       (key, ns, winner, loser) => {
         log.push({
           level: 'warn',
@@ -1846,7 +1838,7 @@ export function migrate(input: unknown): MigrateResult {
         });
       },
     );
-    if (populated !== state.受治理键空间注册表) {
+    if (populated !== currentReg) {
       state = { ...state, 受治理键空间注册表: populated };
     }
   }

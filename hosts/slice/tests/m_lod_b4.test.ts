@@ -59,6 +59,7 @@ function makeMapState(): RootState {
     },
   }) as RootState;
   // LOD-B4b: NPC 粗态记录在 LOD表
+  s.LOD表 ??= {};  // R6 opt-in
   (s.LOD表 as Record<string, unknown>)[NPC_KEY] = { 模块键: NPC_KEY, 档位: '粗' };
   return s;
 }

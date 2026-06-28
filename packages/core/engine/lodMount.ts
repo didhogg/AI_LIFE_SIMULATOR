@@ -97,7 +97,7 @@ export function dispatchLodGenerate(
   nodeKey: string,
   seed: number,
 ): void {
-  const 占位 = s.LOD表[nodeKey]?.占位形态;
+  const 占位 = s.LOD表?.[nodeKey]?.占位形态;
 
   for (const descriptor of _registry.values()) {
     const entityKeys = descriptor.索引器(s, nodeKey);
@@ -146,12 +146,13 @@ export const NPC_LOD_DESCRIPTOR: LodMountDescriptor<typeof NpcSchema> = {
   // LOD-B4b: 读 LOD表[k].档位 而非 NPC[k].LOD档位
   索引器: (s, nodeKey) =>
     Object.keys(s.NPC).filter(
-      (k) => s.NPC[k]?.位置 === nodeKey && s.LOD表[k]?.档位 === '粗',
+      (k) => s.NPC[k]?.位置 === nodeKey && s.LOD表?.[k]?.档位 === '粗',
     ),
   写入目标: () => {
     /* NPC 生成器已 in-place via materializeCoarseNode·此处 no-op */
   },
   生成器: (_占位, seed, ctx) => {
+    ctx.s.LOD表 ??= {};
     if (ctx.s.LOD表[ctx.entityKey]?.档位 !== '粗') return;
     materializeCoarseNode(ctx.s, ctx.entityKey, seed);
     // LOD-B4b: 调用方负责写 LOD表 档位

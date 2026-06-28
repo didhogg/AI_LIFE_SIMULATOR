@@ -89,6 +89,7 @@ function buildLodWorld() {
     },
   });
   // LOD-B4b: NPC 粗态记录在 LOD表（不在 NpcSchema·非地点键·调度器跳过）
+  s.LOD表 ??= {};  // R6 opt-in
   (s.LOD表 as Record<string, unknown>)[NPC_COARSE_1] = { 模块键: NPC_COARSE_1, 档位: '粗' };
   (s.LOD表 as Record<string, unknown>)[NPC_COARSE_2] = { 模块键: NPC_COARSE_2, 档位: '粗' };
   return s;

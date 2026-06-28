@@ -536,7 +536,7 @@ describe('migrate() integration — G-b populate via migrate()', () => {
         const { migrate } = await import('../migration/migrate.js');
         const { state } = migrate({});
         // Empty mod registry → only hand-crafted entries (none in default state)
-        const entries = state.受治理键空间注册表.键条目 ?? [];
+        const entries = state.受治理键空间注册表?.键条目 ?? [];
         expect(entries).toHaveLength(0);
     });
     it('mod with pack_id in state → pack_id enrolled in mod包 namespace after migrate', async () => {
@@ -559,7 +559,7 @@ describe('migrate() integration — G-b populate via migrate()', () => {
             },
         };
         const { state } = migrate(input);
-        const pkgEntry = (state.受治理键空间注册表.键条目 ?? [])
+        const pkgEntry = (state.受治理键空间注册表?.键条目 ?? [])
             .find(e => e.规范键 === 'test_pkg' && e.命名空间 === 'mod包');
         expect(pkgEntry).toBeDefined();
         expect(pkgEntry.来源包).toBe('test_pkg');

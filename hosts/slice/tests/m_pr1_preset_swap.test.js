@@ -130,8 +130,9 @@ describe('PR1-F2 · 段链完整', () => {
     });
     it('chainValid=true — 难度指纹变化也触发新段', () => {
         const s0 = makeState();
-        const r1 = swapPreset(s0, PRESET_A); // default fingerprint A
-        const r2 = swapPreset(r1.state, PRESET_B); // different difficulty group → new fp
+        const r1 = swapPreset(s0, PRESET_A); // default fingerprint A (no resolvedRules → {})
+        // 难度系数组 已迁入规则库·需由调用方通过 resolvedRules 显式传入
+        const r2 = swapPreset(r1.state, PRESET_B, {}, { 难度系数组: PRESET_B.难度系数组 });
         expect(r2.openedNewSegment).toBe(true);
         expect(r2.chainValid).toBe(true);
     });

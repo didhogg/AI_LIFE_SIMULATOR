@@ -70,8 +70,8 @@ export function swapPreset(state, newPreset, opts = {}, resolvedRules) {
     }
     // ③ 卸旧预设命名空间
     const registryAfterUnload = oldPresetId
-        ? removePresetFromRegistry(state.受治理键空间注册表, oldPresetId)
-        : state.受治理键空间注册表;
+        ? removePresetFromRegistry(state.受治理键空间注册表 ?? {}, oldPresetId)
+        : (state.受治理键空间注册表 ?? {});
     // ⑤ 指纹分段（复用 segment.ts·F-c·禁第二实现）
     // exactOptionalPropertyTypes 安全：undefined 不显式赋值，仅在有值时加入对象
     const segParams = {
@@ -146,7 +146,7 @@ export function unloadPreset(state, presetId) {
             k,
             v.玩法预设引用 === presetId ? { ...v, 玩法预设引用: '' } : v,
         ])),
-        受治理键空间注册表: removePresetFromRegistry(state.受治理键空间注册表, presetId),
+        受治理键空间注册表: removePresetFromRegistry(state.受治理键空间注册表 ?? {}, presetId),
     };
 }
 // ── 内部ヘルパー（not exported·防外部依赖积累） ────────────────────────────────
@@ -170,7 +170,7 @@ function removePresetFromRegistry(registry, presetId) {
  *   S6 = 加载时查未注册串；本函数 = 卸载前查会变孤儿的串）。
  */
 function findDanglingRefs(state, presetId) {
-    const presetHandleKeys = new Set((state.受治理键空间注册表.键条目 ?? [])
+    const presetHandleKeys = new Set((state.受治理键空间注册表?.键条目 ?? [])
         .filter((e) => e.来源包 === presetId)
         .map((e) => e.规范键));
     if (presetHandleKeys.size === 0)

@@ -7,10 +7,12 @@
 import { computeLoadOrder } from '../../loader/modGraph.js';
 import { satisfies } from '../../loader/semver.js';
 import { 聚合生效中内容包集哈希 } from '../../interfaces/contentPackHash.js';
+import { 薄清单Schema } from './contentPack.js';
 // 剥离③ 裸标量类型（dormant·optional·unknown·test 侧验具体形态）
 import { 种子视图 } from './seedView.js';
 import { RootSchema } from '../../schema/index.js';
 import { 是JS保留键 } from '../../schema/governedKeySpace.js';
+export { 薄清单Schema };
 // ── 确定性深合并（无 Date/random/副作用·对象递归展开·数组/叶节点后载覆盖） ───
 function deepMerge(base, next) {
     if (typeof base === 'object' && base !== null && !Array.isArray(base) &&

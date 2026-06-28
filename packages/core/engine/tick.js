@@ -710,6 +710,8 @@ function getOrgMemberKeys(npcs, orgKey, excludeKeys) {
  */
 function buildOrgChildGraph(orgNet) {
     const children = new Map();
+    if (!orgNet)
+        return children;
     for (const edge of Object.values(orgNet)) {
         if (edge.边类型 !== '层级' && edge.边类型 !== '隶属')
             continue;
@@ -782,7 +784,7 @@ bassQ) {
     if (!pending || Object.keys(pending).length === 0)
         return;
     const npcs = s.NPC;
-    const locs = s.地图.地点;
+    const locs = s.地图?.地点 ?? {};
     const hasMap = Object.keys(locs).length > 0;
     const regionGraph = hasMap ? buildRegionGraph(locs) : undefined;
     // G2-3 S1: 组织层级图（一次性构建·default fixture 无 层级/隶属 边 → 空图 → S1 路径跳过）

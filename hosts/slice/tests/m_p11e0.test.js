@@ -22,7 +22,7 @@ describe('E0 InMemoryArchiveStore — 構築・読取・書込', () => {
         const { header } = store.load();
         expect(header.seed).toBe(SAVE_SEED);
         expect(header.RULE_VERSION).toBe(ARCHIVE_RULE_VERSION);
-        expect(header.schemaKeys).toBe(52);
+        expect(header.schemaKeys).toBe(54);
     });
     it('load() が初期状態を返す（turn=0）', () => {
         const state = buildWorld();
@@ -95,7 +95,7 @@ describe('E0 InMemoryArchiveStore — 構築・読取・書込', () => {
         const store = new InMemoryArchiveStore(SAVE_SEED, buildWorld(), INITIAL_BALANCES);
         const h = store.getHeader();
         expect(h.RULE_VERSION).toBe(ARCHIVE_RULE_VERSION);
-        expect(h.schemaKeys).toBe(52);
+        expect(h.schemaKeys).toBe(54);
     });
     it('save() 後も header は変わらない（seed/RULE_VERSION 不変）', () => {
         const store = new InMemoryArchiveStore(SAVE_SEED, buildWorld(), INITIAL_BALANCES);
@@ -113,10 +113,10 @@ describe('E1 LLM 输出隔离断言 — 指纹/黄金向量不受 LLM 影响', (
             FINGERPRINT_PRESET_FIELDS.length +
             FINGERPRINT_SNAPSHOT_FIELDS.length +
             FINGERPRINT_EXCLUDED_FIELDS.length;
-        expect(total).toBe(86);
+        expect(total).toBe(88);
     });
-    it('schemaKeys=52 守恒（探雷轮で新 schema フィールドなし）', () => {
-        expect(Object.keys(RootSchema.shape).length).toBe(52);
+    it('schemaKeys=53 守恒（探雷轮で新 schema フィールドなし）', () => {
+        expect(Object.keys(RootSchema.shape).length).toBe(54);
     });
     it('canonicalize は同一 state に対して同一結果を返す（確定性）', () => {
         const state = buildWorld();

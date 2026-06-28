@@ -13,7 +13,7 @@ export interface AssembledCall {
 // Gate is computed live on every call — never cached. Condition is hardcoded:
 // both 内容分级==='community' AND 允许玩家覆盖===true must hold simultaneously.
 function overrideAllowed(state: RootState, entry: 叙事调用条目Type): boolean {
-  return state.$玩家偏好.内容分级 === 'community' && entry.允许玩家覆盖SystemPrompt === true;
+  return state.$玩家偏好?.内容分级 === 'community' && entry.允许玩家覆盖SystemPrompt === true;
 }
 
 export function assembleNarrativeCall(
@@ -85,10 +85,10 @@ export function selectNarrativeModel(
   opts: NsfwRouteOpts,
   keyChecker?: KeyValidityChecker,
 ): ModelRouteDecision {
-  const pref = state.$玩家偏好.NSFW降级模型;
+  const pref = state.$玩家偏好?.NSFW降级模型;
 
   // 关态：永不切模型（keyChecker 不调用——关态无需 live 校验）
-  if (!pref.启用) {
+  if (!pref?.启用) {
     return {
       modelKey: null,
       routedVia: 'default',
@@ -97,7 +97,7 @@ export function selectNarrativeModel(
   }
 
   // 硬约束②: 目标 key 必须在 $模型画像 中已配置（静态配置检查）
-  const targetKey = state.$预算控制台.NSFW降级目标模型键;
+  const targetKey = state.$预算控制台?.NSFW降级目标模型键;
   if (!targetKey || !(targetKey in state.$模型画像)) {
     const missing = targetKey ?? '(未设置)';
     return {
@@ -153,7 +153,7 @@ export function selectNarrativeModel(
 // exported: injectable in tests via assembleTickRoute's sceneDetector param.
 // Condition: 内容分级∈{explicit,community} AND intentTags contains an nsfw/explicit marker.
 export function isNsfwScene(state: RootState, intentTags: string[]): boolean {
-  const rating = state.$玩家偏好.内容分级;
+  const rating = state.$玩家偏好?.内容分级;
   if (rating !== 'explicit' && rating !== 'community') return false;
   return intentTags.some(t => t === 'nsfw' || t === 'explicit' || t.includes('-nsfw') || t.includes('-explicit'));
 }

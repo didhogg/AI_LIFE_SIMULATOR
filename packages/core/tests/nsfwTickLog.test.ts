@@ -112,7 +112,7 @@ describe('N-2 · live 偏好 ⊥ tick_log 冻结路由', () => {
     const liveState = {
       ...recorded,
       $玩家偏好: {
-        ...recorded.$玩家偏好,
+        ...recorded.$玩家偏好!,
         NSFW降级模型: { 启用: true, 触发模式: '失败兜底' as const },
       },
     };
@@ -136,7 +136,7 @@ describe('N-2 · live 偏好 ⊥ tick_log 冻结路由', () => {
       ...recorded,
       _tick: { ...recorded._tick, id: 'tick-new' },
       $玩家偏好: {
-        ...recorded.$玩家偏好,
+        ...recorded.$玩家偏好!,
         NSFW降级模型: { 启用: true, 触发模式: '失败兜底' as const },
       },
     };
@@ -172,7 +172,7 @@ describe('N-2 · live 偏好 ⊥ tick_log 冻结路由', () => {
     // Player turns off NSFW switch
     const liveOff = {
       ...recorded,
-      $玩家偏好: { ...recorded.$玩家偏好, NSFW降级模型: { 启用: false, 触发模式: '失败兜底' as const } },
+      $玩家偏好: { ...recorded.$玩家偏好!, NSFW降级模型:{ 启用: false, 触发模式: '失败兜底' as const } },
     };
 
     const oldEntry = liveOff._系统.tick_log.find(e => e.tick_id === 'tick-preempt2')!;

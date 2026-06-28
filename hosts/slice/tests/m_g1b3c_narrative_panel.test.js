@@ -148,11 +148,11 @@ describe('T8 指纹84 / schemaKeys52 守恒', () => {
     it('SNAPSHOT_FIELDS = 5', () => {
         expect(FINGERPRINT_SNAPSHOT_FIELDS.length).toBe(5);
     });
-    it('EXCLUDED_FIELDS = 49', () => {
-        expect(FINGERPRINT_EXCLUDED_FIELDS.length).toBe(49);
+    it('EXCLUDED_FIELDS = 50', () => {
+        expect(FINGERPRINT_EXCLUDED_FIELDS.length).toBe(51);
     });
-    it('schemaKeys = 52', () => {
+    it('schemaKeys = 53', () => {
         const keys = Object.keys(RootSchema.shape);
-        expect(keys.length).toBe(52);
+        expect(keys.length).toBe(54);
     });
 });

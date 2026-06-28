@@ -219,12 +219,12 @@ describe('恒等门 — 指纹85 / schemaKeys52 守恒', () => {
             ...FINGERPRINT_SNAPSHOT_FIELDS,
             ...FINGERPRINT_EXCLUDED_FIELDS,
         ]);
-        expect(allKeys.size).toBe(86);
+        expect(allKeys.size).toBe(88);
     });
     it('RootSchema 顶层 keyCount 仍为 52', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const shape = RootSchema._def.shape();
-        expect(Object.keys(shape).length).toBe(52);
+        expect(Object.keys(shape).length).toBe(54);
     });
     it('buildWorld() state 通过 RootSchema 校验', () => {
         const state = buildWorld();

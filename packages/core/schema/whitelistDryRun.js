@@ -135,7 +135,10 @@ export function deriveWritableWhitelist() {
         const layer = classifyTopKey(key);
         walkSchema(schema, key, layer, results);
     }
-    return results;
+    // FIX-2: 扩展参数 退出静态白名单（post-filter）。
+    // walkSchema 对 ZodRecord 产生 .扩展参数 record 节点 + .扩展参数.{id} 叶通配。
+    // 去除后，写入须凭 deriveExtensionParamPaths 的具体声明路径授权（引用即授权）。
+    return results.filter(e => !/\.扩展参数(\.|$)/.test(e.path));
 }
 // Verb target paths for dry-run check (c): 通用×4 + 语义×15 + 兜底×1 = 20 total.
 // Each probe must be exact-match reachable in deriveWritableWhitelist() as writable.

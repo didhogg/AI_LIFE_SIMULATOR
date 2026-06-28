@@ -43,9 +43,6 @@ import { SnapshotRingBuffer, assertClosedAccount, RING_K } from "./engine/snapsh
 import { rewindTick } from "./engine/rewind.js";
 import { filterSecretsForPOV } from "@ai-life-sim/core/engine/knowledgeFilter";
 import { DEFAULT_NEAR_K } from "@ai-life-sim/core/prompt/callRegistry";
-import { registerProductionLodMounts } from "@ai-life-sim/core/engine/lodMount";
-// ── LOD 生产挂载（B4·引导阶段·幂等）────────────────────────────────────────────
-registerProductionLodMounts();
 // ── P7-3 事务保真单例 ─────────────────────────────────────────────────────────
 const ticketStore = new TicketStore(); // Z5 工单库 / 3d irreversible 防护
 const committedEvents = new Set(); // 6.67 幂等键集（eventId → 不双落账）

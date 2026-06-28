@@ -284,7 +284,7 @@ export function assemblePrompt(state: RootState, opts: AssembleOptions): {
 
   // 近 K 拍叙事历史（预算超限时已截断）
   if (activeRecentHistory.length > 0) {
-    userParts.push('', '【近期叙事】');
+    userParts.push('', '【更早剧情】');
     activeRecentHistory.forEach((h, i) => userParts.push(`${i + 1}. ${h}`));
   }
 

@@ -41,7 +41,7 @@ export function autoCompleteRelations(state, worldSeed, presetVersion = 0) {
             if (!m.组织键)
                 continue;
             // §九: 幽灵节点（占位形态=有）→ 不进传播/不计票；已解散 → 停中继
-            const org = state.组织实体[m.组织键];
+            const org = state.组织实体?.[m.组织键];
             if (org?.占位形态)
                 continue; // 潜在节点：§九 悬空防护
             if (org?.状态 === '已解散')

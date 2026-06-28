@@ -338,7 +338,7 @@ export const _mod墓碑库Schema = z.record(记录键Schema, mod墓碑条目Sche
 // 对撞纪律：clamp/错误收集复用 P0-5 fixed.ts 同一份实现，禁第二实现
 // 黄金窗口预埋（P0-6 焊死前·schema-only）：以下新字段全可空，老档零迁移；
 // 本批不接线 — agent_delta/money_delta/flags_add 与 deltas[] 的取代/共存关系留给 P0-6 接线时裁定。
-const intervention_pack_delta条目Schema = z.object({
+export const intervention_pack_delta条目Schema = z.object({
     // 目标路径·Step 6(6.59) add-constraint：形态 refine（归一非空∧非JS保留键∧符合命名正则）
     // ·存储仍 string·零迁移·fail-open（registry 成员级校验留 P0-6 导入闸）
     path: 受治理路径Schema,

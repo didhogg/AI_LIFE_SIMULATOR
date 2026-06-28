@@ -2284,7 +2284,7 @@ describe('4.9 $ layer', () => {
     expect(res.success).toBe(true);
   });
   it('valid: $玩家偏好 empty defaults', () => {
-    const res = RootSchema.shape.$玩家偏好.parse({});
+    const res = RootSchema.shape.$玩家偏好.unwrap().parse({});
     expect(res.母题权重).toEqual({});
     expect(res.写实度权重).toBe(50);
     expect(res.事件偏好权重).toEqual({});
@@ -2302,7 +2302,7 @@ describe('4.9 $ layer', () => {
     expect(RootSchema.shape.$玩家偏好.safeParse({ 写实程度: 0.5 }).success).toBe(true);
   });
   it('valid: $玩家偏好 写实程度 defaults to 0.5', () => {
-    const res = RootSchema.shape.$玩家偏好.parse({});
+    const res = RootSchema.shape.$玩家偏好.unwrap().parse({});
     expect(res.写实程度).toBe(0.5);
   });
   it('invalid: $玩家偏好 写实程度 > 1', () => {
@@ -2326,8 +2326,8 @@ describe('4.9 $ layer', () => {
     expect($天命重掷券Schema.safeParse({ 剩余张数: -1 }).success).toBe(false);
   });
   it('RootSchema: 空状态 parse 后含 $天命重掷券 且剩余张数=0', () => {
-    const state = RootSchema.parse({});
-    expect(state.$天命重掷券.剩余张数).toBe(0);
+    const s = RootSchema.shape.$天命重掷券.unwrap().parse({});
+    expect(s.剩余张数).toBe(0);
   });
   // 3. $模型画像 禁词表 (6.41)
   it('$模型画像: entry with 禁词表 → valid', () => {
@@ -2380,7 +2380,7 @@ describe('4.9 $ layer', () => {
 
   // ── 缺口一·舞台状态?（G10·6.75）──────────────────────────────────────────────
   it('$会话状态: 舞台状态 absent (optional)', () => {
-    const res = RootSchema.shape.$会话状态.parse({});
+    const res = RootSchema.shape.$会话状态.unwrap().parse({});
     expect(res.舞台状态).toBeUndefined();
   });
   it('$会话状态: 舞台状态 valid record(实体键→record(属性键→值))', () => {
@@ -2402,7 +2402,7 @@ describe('4.9 $ layer', () => {
 
   // ── 缺口二·舞台可比较属性?（6.75）────────────────────────────────────────────
   it('$会话状态: 舞台可比较属性 absent (optional)', () => {
-    expect(RootSchema.shape.$会话状态.parse({}).舞台可比较属性).toBeUndefined();
+    expect(RootSchema.shape.$会话状态.unwrap().parse({}).舞台可比较属性).toBeUndefined();
   });
   it('$会话状态: 舞台可比较属性 valid string[]（参与几何判定的属性键声明）', () => {
     expect(RootSchema.shape.$会话状态.safeParse({
@@ -2415,7 +2415,7 @@ describe('4.9 $ layer', () => {
 
   // ── 缺口三确认·演出层草稿计数（发现D 已对齐）────────────────────────────────
   it('$会话状态: 演出层草稿计数 字段存在且默认0', () => {
-    const res = RootSchema.shape.$会话状态.parse({});
+    const res = RootSchema.shape.$会话状态.unwrap().parse({});
     expect(res.演出层草稿计数).toBe(0);
   });
 
@@ -2479,7 +2479,7 @@ describe('4.9 $ layer', () => {
 
   // ── 缺口五·重试策略?（6.67·$预算控制台）────────────────────────────────────
   it('$预算控制台: 重试策略 absent (optional)', () => {
-    expect(RootSchema.shape.$预算控制台.parse({}).重试策略).toBeUndefined();
+    expect(RootSchema.shape.$预算控制台.unwrap().parse({}).重试策略).toBeUndefined();
   });
   it('$预算控制台: 重试策略 valid（覆盖注册表出厂默认值）', () => {
     expect(RootSchema.shape.$预算控制台.safeParse({
@@ -2510,7 +2510,7 @@ describe('4.9 $ layer', () => {
 
   // ── P0-1 调批字段（$预算控制台·全入指纹排除名单）──────────────────────────────
   it('$预算控制台: 采样覆盖层 absent (optional)', () => {
-    expect(RootSchema.shape.$预算控制台.parse({}).采样覆盖层).toBeUndefined();
+    expect(RootSchema.shape.$预算控制台.unwrap().parse({}).采样覆盖层).toBeUndefined();
   });
   it('$预算控制台: 采样覆盖层 valid (按调用类型覆盖采样参数)', () => {
     expect(RootSchema.shape.$预算控制台.safeParse({
@@ -2523,7 +2523,7 @@ describe('4.9 $ layer', () => {
     }).success).toBe(false);
   });
   it('$预算控制台: 切片预算覆盖层 absent (optional)', () => {
-    expect(RootSchema.shape.$预算控制台.parse({}).切片预算覆盖层).toBeUndefined();
+    expect(RootSchema.shape.$预算控制台.unwrap().parse({}).切片预算覆盖层).toBeUndefined();
   });
   it('$预算控制台: 切片预算覆盖层 valid', () => {
     expect(RootSchema.shape.$预算控制台.safeParse({
@@ -2531,7 +2531,7 @@ describe('4.9 $ layer', () => {
     }).success).toBe(true);
   });
   it('$预算控制台: 渲染模式覆盖 absent (optional)', () => {
-    expect(RootSchema.shape.$预算控制台.parse({}).渲染模式覆盖).toBeUndefined();
+    expect(RootSchema.shape.$预算控制台.unwrap().parse({}).渲染模式覆盖).toBeUndefined();
   });
   it('$预算控制台: 渲染模式覆盖 三枚举值均合法', () => {
     for (const v of ['直读流', '占位整达', '静默'] as const) {
@@ -2791,14 +2791,14 @@ describe('4.10 Preset layer', () => {
   });
   // P0-5 $会话状态.演出层草稿计数 防回归断言（发现D: 原「本拍重掷序号」改名）
   it('$会话状态: 含 演出层草稿计数 字段，默认=0', () => {
-    const state = RootSchema.parse({});
-    expect(state.$会话状态.演出层草稿计数).toBe(0);
+    const s = RootSchema.shape.$会话状态.unwrap().parse({});
+    expect(s.演出层草稿计数).toBe(0);
   });
   it('$会话状态: 既有字段未受影响（最后交互时间戳/未读播报数/崩溃恢复指针）', () => {
-    const res = RootSchema.parse({});
-    expect(res.$会话状态.最后交互时间戳).toBe(0);
-    expect(res.$会话状态.未读播报数).toBe(0);
-    expect(res.$会话状态.崩溃恢复指针).toBe('');
+    const res = RootSchema.shape.$会话状态.unwrap().parse({});
+    expect(res.最后交互时间戳).toBe(0);
+    expect(res.未读播报数).toBe(0);
+    expect(res.崩溃恢复指针).toBe('');
   });
   it('$会话状态: 演出层草稿计数拒绝负值', () => {
     expect(RootSchema.shape.$会话状态.safeParse({ 演出层草稿计数: -1 }).success).toBe(false);
@@ -3008,8 +3008,8 @@ describe('P0-1x B 缺口字段', () => {
 
   // ── 缺口8·$meta.周目谱系 节点 父快照拍号?/分支原因?（6.47）─────────────────
   it('周目谱系: 父快照拍号 absent (optional)', () => {
-    const res = RootSchema.parse({});
-    expect(res.$meta.周目谱系).toEqual({});
+    const res = RootSchema.shape.$meta.unwrap().parse({});
+    expect(res.周目谱系).toEqual({});
   });
   it('周目谱系: 节点 父快照拍号 + 分支原因 valid', () => {
     expect(RootSchema.shape.$meta.safeParse({
@@ -3534,7 +3534,7 @@ describe('B-1 lore 知识库 · BLUEPRINT_KEYS 一致性', () => {
 // ── P0-1 Fix3 · $玩家偏好.内容分级 + RootSchemaStrict community gate ─────────────────
 describe('P0-1 Fix3 · $玩家偏好.内容分级 enum 英文化', () => {
   it('默认值为 off', () => {
-    const r = RootSchema.shape.$玩家偏好.parse({});
+    const r = RootSchema.shape.$玩家偏好.unwrap().parse({});
     expect(r.内容分级).toBe('off');
   });
   it('接受 off / light / explicit / community', () => {
@@ -3956,22 +3956,22 @@ describe('B5·S1+S1b · RootSchema 挂载 · 整体可空·零迁移', () => {
   it('键空间归并表 存在于 RootSchema.shape', () => {
     expect('键空间归并表' in RootSchema.shape).toBe(true);
   });
-  it('整体可空：RootSchema.parse({}) 后两键均存在且为空表', () => {
+  it('整体可空：RootSchema.parse({}) 后两键均为 undefined（T1 opt-in）', () => {
     const state = RootSchema.parse({});
-    expect(state.受治理键空间注册表).toEqual({});
-    expect(state.键空间归并表).toEqual({});
+    expect(state.受治理键空间注册表).toBeUndefined();
+    expect(state.键空间归并表).toBeUndefined();
   });
   it('整体可空：带合法 S1 数据 parse 通过', () => {
     const state = RootSchema.parse({
       受治理键空间注册表: { 键条目: [{ 规范键: 'CNY', 命名空间: '币种' }] },
     });
-    expect(state.受治理键空间注册表.键条目).toHaveLength(1);
+    expect(state.受治理键空间注册表!.键条目).toHaveLength(1);
   });
   it('整体可空：带合法 S1b 数据 parse 通过', () => {
     const state = RootSchema.parse({
       键空间归并表: { 归并条目: [{ 别名: '文钱', 规范键: '文', 命名空间: '单位' }] },
     });
-    expect(state.键空间归并表.归并条目).toHaveLength(1);
+    expect(state.键空间归并表!.归并条目).toHaveLength(1);
   });
   it('🛡️ 隐性排除：受治理键空间注册表 不在 FINGERPRINT_BUNDLE_MEMBERS', () => {
     expect(FINGERPRINT_BUNDLE_MEMBERS as readonly string[]).not.toContain('受治理键空间注册表');

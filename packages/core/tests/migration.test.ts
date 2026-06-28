@@ -721,7 +721,7 @@ describe('播报队列 tagged union 迁移映射', () => {
       },
     };
     const result = migrate(oldSave);
-    const 队列 = result.state['仲裁器'].播报队列 as Array<Record<string, unknown>>;
+    const 队列 = result.state['仲裁器']!.播报队列 as Array<Record<string, unknown>>;
     expect(队列.length).toBe(2);
     expect(队列[0]!['渠道']).toBe('系统');
     expect(队列[0]!['内容']).toBe('事件爆发！');
@@ -730,7 +730,7 @@ describe('播报队列 tagged union 迁移映射', () => {
 
   it('空播报队列 → 迁移后仍为空数组', () => {
     const result = migrate(richV31);
-    const 队列 = result.state['仲裁器'].播报队列 as unknown[];
+    const 队列 = result.state['仲裁器']!.播报队列 as unknown[];
     expect(Array.isArray(队列)).toBe(true);
     expect(队列.length).toBe(0);
   });
@@ -747,24 +747,24 @@ describe('migrate内容分级位置 · 内容分级旧中文值映射', () => {
 
   it('旧值 关 → off，移至 $玩家偏好.内容分级', () => {
     const result = migrate(makeV41WithOldRating('关'));
-    expect(result.state.$玩家偏好.内容分级).toBe('off');
+    expect(result.state.$玩家偏好!.内容分级).toBe('off');
     expect((result.state._系统.功能开关表 as Record<string, unknown>)['内容分级']).toBeUndefined();
   });
   it('旧值 SFW → light', () => {
     const result = migrate(makeV41WithOldRating('SFW'));
-    expect(result.state.$玩家偏好.内容分级).toBe('light');
+    expect(result.state.$玩家偏好!.内容分级).toBe('light');
   });
   it('旧值 NSFW → explicit', () => {
     const result = migrate(makeV41WithOldRating('NSFW'));
-    expect(result.state.$玩家偏好.内容分级).toBe('explicit');
+    expect(result.state.$玩家偏好!.内容分级).toBe('explicit');
   });
   it('旧值 community → community', () => {
     const result = migrate(makeV41WithOldRating('community'));
-    expect(result.state.$玩家偏好.内容分级).toBe('community');
+    expect(result.state.$玩家偏好!.内容分级).toBe('community');
   });
-  it('旧 功能开关表 中无 内容分级 → $玩家偏好.内容分级 defaults to off', () => {
+  it('旧 功能开关表 中无 内容分级 → $玩家偏好 absent，accessor ?? off', () => {
     const result = migrate({ _系统版本: '4.1' });
-    expect(result.state.$玩家偏好.内容分级).toBe('off');
+    expect(result.state.$玩家偏好?.内容分级 ?? 'off').toBe('off');
   });
   it('幂等：$玩家偏好 已有 内容分级 时不覆盖', () => {
     const input: Record<string, unknown> = {
@@ -773,11 +773,11 @@ describe('migrate内容分级位置 · 内容分级旧中文值映射', () => {
       $玩家偏好: { 内容分级: 'explicit' },
     };
     const result = migrate(input);
-    expect(result.state.$玩家偏好.内容分级).toBe('explicit');
+    expect(result.state.$玩家偏好!.内容分级).toBe('explicit');
   });
   it('未知旧值 fallback → off', () => {
     const result = migrate(makeV41WithOldRating('some-unknown'));
-    expect(result.state.$玩家偏好.内容分级).toBe('off');
+    expect(result.state.$玩家偏好!.内容分级).toBe('off');
   });
 });
 
@@ -986,15 +986,16 @@ describe('B5·S1+S1b · migrateS1S1b 迁移函数', () => {
     _系统版本: '4.1',
   };
 
-  it('老档（无 S1/S1b 键）→ 迁移后两键均存在', () => {
+  it('老档（无 S1/S1b 键）→ S1S1b no-op（T1 opt-in·两键 absent）', () => {
     const result = migrateS1S1b(baseRaw);
-    expect('受治理键空间注册表' in result).toBe(true);
-    expect('键空间归并表' in result).toBe(true);
+    expect(result).toBe(baseRaw); // reference equality: no write
+    expect('受治理键空间注册表' in result).toBe(false);
+    expect('键空间归并表' in result).toBe(false);
   });
 
-  it('老档→新档：migration_version +1', () => {
+  it('老档→新档：migration_version 不变（S1S1b no-op）', () => {
     const result = migrateS1S1b(baseRaw);
-    expect(asNum(asRec(result['_系统'])['migration_version'])).toBe(11);
+    expect(asNum(asRec(result['_系统'])['migration_version'])).toBe(10);
   });
 
   it('幂等：二次迁移 no-op（migration_version 不再 +1）', () => {
@@ -1021,19 +1022,21 @@ describe('B5·S1+S1b · migrateS1S1b 迁移函数', () => {
     expect(asNum(asRec(result['_系统'])['migration_version'])).toBe(10);
   });
 
-  it('只缺 S1：单键迁移 migration_version +1，S1b 不覆盖', () => {
+  it('只缺 S1：S1S1b no-op，键空间归并表 原值保留，version 不变', () => {
     const rawWithS1bOnly = { ...baseRaw, 键空间归并表: { 归并条目: [] } };
     const result = migrateS1S1b(rawWithS1bOnly);
-    expect('受治理键空间注册表' in result).toBe(true);
-    expect(asNum(asRec(result['_系统'])['migration_version'])).toBe(11);
+    expect(result).toBe(rawWithS1bOnly); // reference equality: no write
+    expect('受治理键空间注册表' in result).toBe(false);
+    expect(asNum(asRec(result['_系统'])['migration_version'])).toBe(10);
     // 既存 S1b 内容保持不变
     expect(asRec(result['键空间归并表'])['归并条目']).toEqual([]);
   });
 
-  it('🛡️ migrate() 输出包含 S1/S1b 键（全量迁移链覆盖）', () => {
+  it('🛡️ migrate() 输出 S1/S1b 键 absent（T1 opt-in·accessor 处理 undefined）', () => {
     const { state } = migrate(richV31);
-    expect('受治理键空间注册表' in state).toBe(true);
-    expect('键空间归并表' in state).toBe(true);
+    // R6: S1/S1b are opt-in; absent from empty-mod saves
+    expect(state.受治理键空间注册表).toBeUndefined();
+    expect(state.键空间归并表).toBeUndefined();
   });
 
   it('🛡️ 迁移幂等：migrate(migrate(rich)).state deepEqual migrate(rich).state', () => {

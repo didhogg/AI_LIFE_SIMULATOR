@@ -22,7 +22,7 @@ function makeState(overrides = {}) {
 // ── Schema · 字段存在性 ───────────────────────────────────────────────────────
 describe('NSFW降级模型 · schema 字段', () => {
     it('$玩家偏好.NSFW降级模型 默认值：启用=false, 触发模式=失败兜底', () => {
-        const r = RootSchema.shape.$玩家偏好.parse({});
+        const r = RootSchema.shape.$玩家偏好.unwrap().parse({});
         expect(r.NSFW降级模型.启用).toBe(false);
         expect(r.NSFW降级模型.触发模式).toBe('失败兜底');
     });
@@ -37,11 +37,11 @@ describe('NSFW降级模型 · schema 字段', () => {
         }).success).toBe(false);
     });
     it('$预算控制台.NSFW降级目标模型键 absent → undefined', () => {
-        const r = RootSchema.shape.$预算控制台.parse({});
+        const r = RootSchema.shape.$预算控制台.unwrap().parse({});
         expect(r.NSFW降级目标模型键).toBeUndefined();
     });
     it('$预算控制台.NSFW降级目标模型键 present → 字符串', () => {
-        const r = RootSchema.shape.$预算控制台.parse({ NSFW降级目标模型键: 'gemini-ultra' });
+        const r = RootSchema.shape.$预算控制台.unwrap().parse({ NSFW降级目标模型键: 'gemini-ultra' });
         expect(r.NSFW降级目标模型键).toBe('gemini-ultra');
     });
 });

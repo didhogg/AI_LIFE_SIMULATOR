@@ -51,8 +51,8 @@ export function 创建引用(ns, handle) {
 //   · 无递归解析·单步 record 查找·允许引用图成环（与装载图 computeLoadOrder 正交）
 //
 // 安全铁律（P0 + P0-6 member-gate 已落地）：
-// · 绑定表查找 + 冰箱条目查找均走 own-property guard
-// · 原型链成员（constructor/toString/valueOf/__proto__ 等）→ null，不泄漏原型对象
+//   · 绑定表查找 + 冰箱条目查找均走 own-property guard
+//   · 原型链成员（constructor/toString/valueOf/__proto__ 等）→ null，不泄漏原型对象
 export function 解引用(ref, 成品, opts = {}) {
     // own-property guard：防止 ref.__ns 命中原型链（如 constructor）
     const binding = Object.prototype.hasOwnProperty.call(冰箱绑定表, ref.__ns)

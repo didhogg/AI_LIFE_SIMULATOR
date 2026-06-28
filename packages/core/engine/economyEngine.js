@@ -112,6 +112,9 @@ export function applyDriftCandidate(state, preset, regionId, category) {
     if (drift <= ECONOMY_DRIFT_THRESHOLD)
         return;
     // 写入候选基线（additive·optional 字段·不触发 schemaKey 增长）
+    // stateBaseline > 0 implies 地图?.区域物价 exists; guard satisfies TypeScript.
+    if (!state.地图?.区域物价)
+        return;
     if (!state.地图.区域物价[regionId]) {
         state.地图.区域物价[regionId] = {};
     }

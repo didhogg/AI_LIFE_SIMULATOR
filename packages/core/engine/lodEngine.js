@@ -69,7 +69,7 @@ export function newsToCognition(s, news, observers, nowEpochMin) {
     for (const observerKey of observers) {
         const observer = s.NPC[observerKey];
         // 跳过不存在或仍为粗节点的观察者（粗节点无完整认知层）
-        if (!observer || s.LOD表[observerKey]?.档位 === '粗')
+        if (!observer || s.LOD表?.[observerKey]?.档位 === '粗')
             continue;
         writeImpressionMax(s.认知档案, observerKey, news.主体, entry);
     }
@@ -86,6 +86,7 @@ export function newsToCognition(s, news, observers, nowEpochMin) {
  * - 无接触 / 已实体化 / 无 LOD表 条目 → no-op
  */
 export function triggerLodGate(s, contactKeys, seed) {
+    s.LOD表 ??= {};
     const done = new Set();
     for (const key of contactKeys) {
         if (done.has(key))
@@ -99,7 +100,7 @@ export function triggerLodGate(s, contactKeys, seed) {
 }
 // ── 辅助：判断 NPC 是否为粗节点（LOD-B4b: 读 LOD表·不读 NPC.LOD档位）──────────
 export function isCoarseNode(s, key) {
-    return s.LOD表[key]?.档位 === '粗';
+    return s.LOD表?.[key]?.档位 === '粗';
 }
 // ── 辅助：计算新闻量级是否达到公共知识阈值 ────────────────────────────────────
 export const NEWS_CHRONICLE_THRESHOLD = CHRONICLE_PUBLIC_THRESHOLD;

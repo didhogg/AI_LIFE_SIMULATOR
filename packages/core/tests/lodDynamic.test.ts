@@ -36,7 +36,7 @@ import {
 } from '../engine/lodMount.js';
 import { projectStateCtx } from '../engine/dsl/stateCtx.js';
 import { computeResourceFactor } from '../engine/tick.js';
-import { RootSchema, BLUEPRINT_KEYS } from '../schema/index.js';
+import { RootSchema, BLUEPRINT_KEYS, type RootState } from '../schema/index.js';
 import {
   FINGERPRINT_BUNDLE_MEMBERS,
   FINGERPRINT_PRESET_FIELDS,
@@ -63,9 +63,12 @@ const JUDGMENT_BASE = {
 
 /** 最小可用 state */
 function makeBase() {
-  return RootSchema.parse({
+  const s = RootSchema.parse({
     $玩家偏好: { 内容分级: 'off', NSFW降级模型: { 启用: false } },
+    地图: {},
   });
+  s.LOD表 ??= {};
+  return s as RootState & { 地图: NonNullable<RootState['地图']>; LOD表: NonNullable<RootState['LOD表']> };
 }
 
 /**
@@ -85,7 +88,7 @@ function makeStateWithLod(opts: {
   const entry: Record<string, unknown> = { 模块键, 档位 };
   if (连续偏离计数 !== undefined) entry['连续偏离计数'] = 连续偏离计数;
   if (漂移基线值 !== undefined) entry['漂移基线值'] = 漂移基线值;
-  s.LOD表[nodeKey] = entry as Parameters<typeof scheduleLodPhase>[0]['LOD表'][string];
+  s.LOD表[nodeKey] = entry as NonNullable<RootState['LOD表']>[string];
   return s;
 }
 
@@ -397,7 +400,7 @@ describe('D-6: per-tick promote ≤8 seeded 排序', () => {
       };
       s.LOD表[nodeKey] = {
         模块键: nodeKey, 档位: '粗',
-      } as Parameters<typeof scheduleLodPhase>[0]['LOD表'][string];
+      } as NonNullable<RootState['LOD表']>[string];
     }
     (s._席位表 as unknown as Record<string, unknown>) = {
       本机: { 焦点角色键: 'pc1' },
@@ -423,7 +426,7 @@ describe('D-6: per-tick promote ≤8 seeded 排序', () => {
         };
         s.LOD表[nodeKey] = {
           模块键: nodeKey, 档位: '粗',
-        } as Parameters<typeof scheduleLodPhase>[0]['LOD表'][string];
+        } as NonNullable<RootState['LOD表']>[string];
       }
       (s._席位表 as unknown as Record<string, unknown>) = {
         本机: { 焦点角色键: 'pc1' },

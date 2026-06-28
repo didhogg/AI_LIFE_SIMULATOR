@@ -175,8 +175,8 @@ describe('C2-T SK-3 · 全程 20 拍长程 soak（含死亡+关系·全程守恒
 });
 // ── SK-4 · 黄金向量不漂移（C2-5 新阶段对标准 50 拍无 RNG draw · 不影响向量）───
 describe('C2-T SK-4 · SETTLEMENT_PHASES + 标准 50 拍不漂移验证', () => {
-    it('SETTLEMENT_PHASES 含 14 个阶段', () => {
-        expect(SETTLEMENT_PHASES).toHaveLength(14);
+    it('SETTLEMENT_PHASES 含 17 个阶段（含 B2 LOD调度 + P8-a 成就解锁 + P9-2 扩展参数播种）', () => {
+        expect(SETTLEMENT_PHASES).toHaveLength(17);
     });
     it('标准 50 拍（无死亡·无手注涟漪）→ schema 合法·守恒不破·感知消费均 no-op', () => {
         let s = buildWorld();

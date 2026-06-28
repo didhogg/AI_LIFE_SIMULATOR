@@ -40,7 +40,7 @@ function makeState(overrides: {
 
 describe('NSFW降级模型 · schema 字段', () => {
   it('$玩家偏好.NSFW降级模型 默认值：启用=false, 触发模式=失败兜底', () => {
-    const r = RootSchema.shape.$玩家偏好.parse({});
+    const r = RootSchema.shape.$玩家偏好.unwrap().parse({});
     expect(r.NSFW降级模型.启用).toBe(false);
     expect(r.NSFW降级模型.触发模式).toBe('失败兜底');
   });
@@ -55,11 +55,11 @@ describe('NSFW降级模型 · schema 字段', () => {
     }).success).toBe(false);
   });
   it('$预算控制台.NSFW降级目标模型键 absent → undefined', () => {
-    const r = RootSchema.shape.$预算控制台.parse({});
+    const r = RootSchema.shape.$预算控制台.unwrap().parse({});
     expect(r.NSFW降级目标模型键).toBeUndefined();
   });
   it('$预算控制台.NSFW降级目标模型键 present → 字符串', () => {
-    const r = RootSchema.shape.$预算控制台.parse({ NSFW降级目标模型键: 'gemini-ultra' });
+    const r = RootSchema.shape.$预算控制台.unwrap().parse({ NSFW降级目标模型键: 'gemini-ultra' });
     expect(r.NSFW降级目标模型键).toBe('gemini-ultra');
   });
 });
@@ -73,8 +73,8 @@ describe('NSFW降级模型 · 指纹排除（拨动不进盐）', () => {
     const s1 = makeState({ 启用: false, 触发模式: '失败兜底' });
     const s2 = makeState({ 启用: true, 触发模式: '场景预判' });
     // Both parse successfully (schema accepts all values)
-    expect(s1.$玩家偏好.NSFW降级模型.启用).toBe(false);
-    expect(s2.$玩家偏好.NSFW降级模型.启用).toBe(true);
+    expect(s1.$玩家偏好!.NSFW降级模型.启用).toBe(false);
+    expect(s2.$玩家偏好!.NSFW降级模型.启用).toBe(true);
     // The exclusion is enforced by FINGERPRINT_EXCLUDED_FIELDS + property test Gate B.
     // Assertion: the field name IS in the exclusion list (structural check via schema parse).
     expect(s1.$玩家偏好).toHaveProperty('NSFW降级模型');
@@ -82,8 +82,8 @@ describe('NSFW降级模型 · 指纹排除（拨动不进盐）', () => {
   it('NSFW降级目标模型键 变→ 指纹不变', () => {
     const s1 = makeState({ 目标模型键: 'a', 画像有目标: false });
     const s2 = makeState({ 目标模型键: 'b', 画像有目标: false });
-    expect(s1.$预算控制台.NSFW降级目标模型键).toBe('a');
-    expect(s2.$预算控制台.NSFW降级目标模型键).toBe('b');
+    expect(s1.$预算控制台!.NSFW降级目标模型键).toBe('a');
+    expect(s2.$预算控制台!.NSFW降级目标模型键).toBe('b');
     // Both are in FINGERPRINT_EXCLUDED_FIELDS — Gate B property loop covers this.
   });
 });

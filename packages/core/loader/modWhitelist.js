@@ -90,10 +90,12 @@ export function deriveExtensionParamPaths(state, itemLib) {
                 if (!Object.prototype.hasOwnProperty.call(itemDef.变量模板, varKey))
                     continue;
                 // 生成确定性绝对路径（per-实例 × per-声明键·不使用通配符）
+                const varDecl = itemDef.变量模板[varKey]; // FIX-1: 声明元数据供 runProposalGate 类型守门
                 paths.push({
                     path: `NPC.${npcKey}.物品.${itemKey}.扩展参数.${varKey}`,
                     layer: 'writable',
                     kind: 'open-string',
+                    ...(varDecl !== undefined ? { decl: varDecl } : {}),
                 });
             }
         }

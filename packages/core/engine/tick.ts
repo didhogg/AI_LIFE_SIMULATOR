@@ -687,7 +687,7 @@ export function runTick(state: RootState, input: TickInput): TickResult {
 
 // ── 空间层辅助（G1·区域图跳数 + 人口密度调制） ────────────────────────────────
 
-export type LocRecord = RootState['地图']['地点'];
+export type LocRecord = NonNullable<RootState['地图']>['地点'];
 export type RegionGraph = Map<string, Set<string>>;
 
 /** 给定地点键，沿父节点链（最多 16 层）找最近「区域级」祖先节点键；含自身。 */
@@ -856,6 +856,7 @@ function getOrgMemberKeys(
  */
 function buildOrgChildGraph(orgNet: RootState['组织关系网']): Map<string, Set<string>> {
   const children = new Map<string, Set<string>>();
+  if (!orgNet) return children;
   for (const edge of Object.values(orgNet)) {
     if (edge.边类型 !== '层级' && edge.边类型 !== '隶属') continue;
     const parent = edge.B组织;
@@ -939,7 +940,7 @@ function propagateRipple(
   if (!pending || Object.keys(pending).length === 0) return;
 
   const npcs = s.NPC;
-  const locs = s.地图.地点;
+  const locs = s.地图?.地点 ?? {};
   const hasMap = Object.keys(locs).length > 0;
   const regionGraph = hasMap ? buildRegionGraph(locs) : undefined;
 

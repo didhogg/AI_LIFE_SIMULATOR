@@ -108,7 +108,7 @@ export function newsToCognition(
   for (const observerKey of observers) {
     const observer = s.NPC[observerKey];
     // 跳过不存在或仍为粗节点的观察者（粗节点无完整认知层）
-    if (!observer || s.LOD表[observerKey]?.档位 === '粗') continue;
+    if (!observer || s.LOD表?.[observerKey]?.档位 === '粗') continue;
     writeImpressionMax(s.认知档案, observerKey, news.主体, entry);
   }
 
@@ -131,6 +131,7 @@ export function triggerLodGate(
   contactKeys: readonly string[],
   seed: number,
 ): void {
+  s.LOD表 ??= {};
   const done = new Set<string>();
   for (const key of contactKeys) {
     if (done.has(key)) continue;
@@ -143,7 +144,7 @@ export function triggerLodGate(
 
 // ── 辅助：判断 NPC 是否为粗节点（LOD-B4b: 读 LOD表·不读 NPC.LOD档位）──────────
 export function isCoarseNode(s: RootState, key: string): boolean {
-  return s.LOD表[key]?.档位 === '粗';
+  return s.LOD表?.[key]?.档位 === '粗';
 }
 
 // ── 辅助：计算新闻量级是否达到公共知识阈值 ────────────────────────────────────

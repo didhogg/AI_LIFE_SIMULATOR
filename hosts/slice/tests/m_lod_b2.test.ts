@@ -34,9 +34,11 @@ import {
 
 /** 最小可用 state（RootSchema 解析默认值·LOD表={}） */
 function makeBase() {
-  return RootSchema.parse({
+  const s = RootSchema.parse({
     $玩家偏好: { 内容分级: 'off', NSFW降级模型: { 启用: false } },
   });
+  s.LOD表 ??= {};  // R6 opt-in: initialize LOD表 for test writes
+  return s;
 }
 
 /**
@@ -469,7 +471,7 @@ describe('B2-10 · tick 集成 空 LOD表 精确 no-op', () => {
       $玩家偏好: { 内容分级: 'off', NSFW降级模型: { 启用: false } },
     });
     const { state: s1 } = runTick(s0, { tickId: 'b2-noop-1', spanMinutes: 1440 });
-    expect(Object.keys(s1.LOD表)).toHaveLength(0);
+    expect(Object.keys(s1.LOD表 ?? {})).toHaveLength(0);
   });
 
   it('runTick 空 LOD表 → LOD表 仍为空（地图地点无 LOD 写入）', () => {
@@ -484,7 +486,7 @@ describe('B2-10 · tick 集成 空 LOD表 精确 no-op', () => {
       },
     } as typeof s0.地图;
     const { state: s1 } = runTick(s0, { tickId: 'b2-noop-2', spanMinutes: 1440 });
-    expect(Object.keys(s1.LOD表)).toHaveLength(0);
+    expect(Object.keys(s1.LOD表 ?? {})).toHaveLength(0);
   });
 
   it('runTick 空 LOD表 → settledPhases 含 LOD调度', () => {

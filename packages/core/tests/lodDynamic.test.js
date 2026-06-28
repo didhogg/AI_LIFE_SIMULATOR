@@ -44,9 +44,12 @@ const JUDGMENT_BASE = {
 };
 /** 最小可用 state */
 function makeBase() {
-    return RootSchema.parse({
+    const s = RootSchema.parse({
         $玩家偏好: { 内容分级: 'off', NSFW降级模型: { 启用: false } },
+        地图: {},
     });
+    s.LOD表 ??= {};
+    return s;
 }
 /**
  * 构造含 LOD表 entry + 地图地点的测试 state。

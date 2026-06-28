@@ -43,9 +43,11 @@ import type { RootState } from '@ai-life-sim/core';
 // ── fixture helpers ───────────────────────────────────────────────────────────
 
 function makeBase(): RootState {
-  return RootSchema.parse({
+  const s = RootSchema.parse({
     $玩家偏好: { 内容分级: 'off', NSFW降级模型: { 启用: false } },
   }) as RootState;
+  s.LOD表 ??= {};  // R6 opt-in
+  return s;
 }
 
 /**

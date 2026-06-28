@@ -10,6 +10,7 @@ import { isLegalCharTransition, isLegalItemTransition } from '../../interfaces/i
 import { checkM2Violation } from '../../interfaces/authGate.js';
 import { checkC6SeatScope } from '../../interfaces/seatScope.js';
 import { mergeInterventionDeltas } from '../../interfaces/interventionMerge.js';
+import { validateExtensionEntry } from '../extensionParams.js';
 import { clampLedger } from '../math/ledger.js';
 import { computeDelta, setAtPath, ComputeDeltaError } from './computeDelta.js';
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -80,15 +81,18 @@ export function runProposalGate(rawEnvelope, state, seatId, 授权源, packs, ex
         if (!isWhitelisted(path, whitelist)) {
             return { ok: false, gate: '②-whitelist', reason: `路径「${path}」不在白名单`, state: snapshot };
         }
-        // Gate②-a.1: P9-3 扩展参数声明缩减闸（当 extraWhitelistPaths 含声明条目时 fail-closed）
-        // 静态通配符已授权全体 扩展参数 键·但写入须以已声明键为准（防写入未声明键）。
-        // 当 extraWhitelistPaths 提供且含 扩展参数 条目时，路径必须精确命中；否则 fail-closed 拒写。
+        // Gate②-a.1: P9-3 扩展参数声明缩减闸（defense-in-depth·FIX-2 后 Gate②-a 已覆盖主路径）
+        // FIX-2 post-filter 已剔除静态通配符·只有 extraWhitelistPaths 具体路径可授权。
+        // FIX-1 类型守门：set op 须与声明类型匹配（value 在前·完整 decl 传入·fail-closed）。
         if (extraWhitelistPaths &&
             extraWhitelistPaths.some(e => e.path.includes('扩展参数')) &&
             isItemExtensionParamPath(path)) {
-            const declaredExact = extraWhitelistPaths.some(e => e.layer === 'writable' && e.path === path);
-            if (!declaredExact) {
+            const declaredEntry = extraWhitelistPaths.find(e => e.layer === 'writable' && e.path === path);
+            if (!declaredEntry) {
                 return { ok: false, gate: '②-whitelist', reason: `扩展参数键「${path}」未在变量模板中声明`, state: snapshot };
+            }
+            if (op === 'set' && declaredEntry.decl != null && !validateExtensionEntry(value, declaredEntry.decl)) {
+                return { ok: false, gate: '②-whitelist', reason: '扩展参数值类型与模板声明不符', state: snapshot };
             }
         }
         // Gate②-b: C6 seat scope check — only for NPC.* top-level paths.

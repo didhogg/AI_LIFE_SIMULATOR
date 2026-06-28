@@ -38,9 +38,11 @@ export class TransferWorklist {
         return records;
     }
 }
-
 // ── Z3 条目级双向核销 ──────────────────────────────────────────────────────────
-
+/**
+ * Z3 无血统拒收 + all-or-nothing 预验 + 6.67 幂等防护。
+ * 预验通过后才执行；任一条件失败整组不落账。
+ */
 export function commitWithLineage(transfers, balances, committedEvents) {
     // Z3a: 无血统拒收
     for (const t of transfers) {
@@ -48,13 +50,13 @@ export function commitWithLineage(transfers, balances, committedEvents) {
             throw new Error(`Z3 无血统拒收: (${t.from}→${t.to} amount=${t.amount})`);
         }
     }
-    // 6.67: 幂等防护
+    // 6.67: 幂等防护 — 同 eventId 不双落账
     for (const t of transfers) {
         if (committedEvents.has(t.eventId)) {
             throw new Error(`6.67 重复 eventId=${t.eventId} 已落账·幂等防护拒收`);
         }
     }
-    // Z3 all-or-nothing: 预演克隆 Map
+    // Z3 all-or-nothing: 在克隆 Map 上预演，全部通过才执行（严格余额检查·不 clamp）
     const preview = new Map(balances);
     for (const t of transfers) {
         const avail = preview.get(t.from) ?? 0;
@@ -64,19 +66,21 @@ export function commitWithLineage(transfers, balances, committedEvents) {
         preview.set(t.from, avail - t.amount);
         preview.set(t.to, (preview.get(t.to) ?? 0) + t.amount);
     }
-    // 预验通过 → 原子执行
+    // 预验全通过 → 原子执行
     const wl = new TransferWorklist();
     wl.load(transfers.map(t => ({ from: t.from, to: t.to, amount: t.amount, reason: t.reason })));
     const records = wl.commit(balances);
-    for (const t of transfers) committedEvents.add(t.eventId);
+    for (const t of transfers)
+        committedEvents.add(t.eventId);
     return records;
 }
-
+/**
+ * Z3 未消耗打回：提案每条目必须在 committed 列表中出现，否则 throw。
+ * 用于校验「LLM 提案单 = 事务组，不得部分执行」。
+ */
 export function assertFullProposalConsumed(proposal, committed) {
     for (const p of proposal) {
-        const found = committed.some(
-            c => c.from === p.from && c.to === p.to && c.amount === p.amount,
-        );
+        const found = committed.some(c => c.from === p.from && c.to === p.to && c.amount === p.amount);
         if (!found) {
             throw new Error(`Z3 提案条目未消耗·打回: (${p.from}→${p.to} amount=${p.amount})`);
         }

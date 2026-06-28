@@ -136,7 +136,7 @@ describe('G2-②·§八① 幽灵节点', () => {
         },
       },
     });
-    expect(s0.组织实体['org_totally_unknown']).toBeUndefined();
+    expect(s0.组织实体?.['org_totally_unknown']).toBeUndefined();
     const s1 = resolveOrgNodes(s0);
     // resolveOrgNodes 应为悬空 org 创建幽灵节点
     expect(s1.组织实体['org_totally_unknown']).toBeDefined();
@@ -346,7 +346,7 @@ describe('G2-⑥·resolveOrgNodes 幂等 + 边界', () => {
   it('空世界无 org 引用 → resolveOrgNodes 无副作用', () => {
     const s0 = RootSchema.parse({});
     const s1 = resolveOrgNodes(s0);
-    expect(Object.keys(s1.组织实体).length).toBe(0);
+    expect(Object.keys(s1.组织实体 ?? {}).length).toBe(0);
   });
 
   it('组织实体 additive-only：已有 org 条目字段不被 resolveOrgNodes 覆盖', () => {

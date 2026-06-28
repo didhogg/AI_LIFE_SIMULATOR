@@ -37,10 +37,10 @@ export const LOD_WARM_WINDOW_DEFAULT = 3;
  * - 写 checkpoint：LOD表[nodeKey].档位 = '实体'（原子转换·惰性建条目）
  */
 export function promoteNode(state: RootState, nodeKey: string, seed: number): void {
-  if (state.LOD表[nodeKey]?.档位 === '实体') return; // 幂等
-
+  if (state.LOD表?.[nodeKey]?.档位 === '实体') return; // 幂等
   const loc = state.地图?.地点?.[nodeKey];
   if (!loc) return; // 不存在节点 → no-op
+  state.LOD表 ??= {};
 
   // 物化该区域下的粗节点 NPC（LOD-B4b: 读 LOD表·写 LOD表）
   for (const npcKey of Object.keys(state.NPC)) {
@@ -67,7 +67,8 @@ export function promoteNode(state: RootState, nodeKey: string, seed: number): vo
  * - 写 LOD表[nodeKey].档位='粗'，清空 保温到期拍号（原子转换）
  */
 export function demoteNode(state: RootState, nodeKey: string, preset?: 玩法预设Type): void {
-  if (state.LOD表[nodeKey]?.档位 !== '实体') return; // 幂等（含 undefined）
+  if (state.LOD表?.[nodeKey]?.档位 !== '实体') return; // 幂等（含 undefined）
+  state.LOD表 ??= {};
 
   // 离开再聚合（P14·复用 PR-3 applyDriftCandidate）
   if (preset?.经济生成规则) {
@@ -108,6 +109,7 @@ export function startWarmWindow(
   preset?: 玩法预设Type,
 ): void {
   if (!state.地图?.地点?.[nodeKey]) return; // guard: loc must exist
+  state.LOD表 ??= {};
   if (!state.LOD表[nodeKey]) {
     const entry: LOD态条目 = { 模块键: nodeKey, 档位: '粗' };
     state.LOD表[nodeKey] = entry;
@@ -120,7 +122,7 @@ export function startWarmWindow(
  * 返回 true = 在窗口内，不应 demote；false = 已超窗或无窗口。
  */
 export function checkWarmWindow(state: RootState, nodeKey: string, currentTick: number): boolean {
-  const expiry = state.LOD表[nodeKey]?.保温到期拍号;
+  const expiry = state.LOD表?.[nodeKey]?.保温到期拍号;
   return expiry !== undefined && currentTick <= expiry;
 }
 

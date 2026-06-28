@@ -97,7 +97,7 @@ export const RootSchema = z.object({
     _叙事设置: NarrativeSettingSchema.default({}),
     _状态机: StateMachineSchema.default({}),
     // 4.2 World
-    世界: 世界Schema.default({}),
+    世界: 世界Schema.optional(),
     世界域: 世界域Schema,
     // 4.3 Actor
     // 席位表替代旧镜头焦点角色字符串指针（6.53 C1·P0-1·迁移映射见 migrate.ts）
@@ -106,14 +106,14 @@ export const RootSchema = z.object({
     已故NPC归档: 已故NPC归档Schema,
     认知档案: 认知档案Schema,
     // 4.4 Org
-    组织实体: 组织实体Schema,
-    组织关系网: 组织关系网Schema,
+    组织实体: 组织实体Schema.optional(),
+    组织关系网: 组织关系网Schema.optional(),
     // 4.5 Global (secret / pact / family / inheritance)
-    全局: 全局Schema.default({}),
+    全局: 全局Schema.optional(),
     // 4.6 Map / War
-    地图: 地图Schema.default({}),
-    战争状态: 战争状态Schema,
-    赛事实例: 赛事实例Schema,
+    地图: 地图Schema.optional(),
+    战争状态: 战争状态Schema.optional(),
+    赛事实例: 赛事实例Schema.optional(),
     // 4.7 Economy
     货币系统: 货币系统Schema.optional(),
     // 4.8 Memory / Schedule
@@ -121,12 +121,12 @@ export const RootSchema = z.object({
     长期归档: 长期归档Schema,
     日程: 日程Schema,
     行动卡库: 行动卡库Schema,
-    仲裁器: 仲裁器Schema.default({}),
+    仲裁器: 仲裁器Schema.optional(),
     mod注册表: mod注册表Schema,
     _mod墓碑库: _mod墓碑库Schema.optional(), // K4·B2·S1·只读审计层·可空·S3 写入
     // B5·S1/S1b: 新顶层 key·整体可空·不进任何 fingerprint 数组（隐性排除）·registry 成员级 fire defer B6
-    受治理键空间注册表: 受治理键空间注册表Schema.default({}),
-    键空间归并表: 归并表Schema.default({}), // S1b·别名→规范键·区别于 preset.归并表(S4b·判定面·进指纹)
+    受治理键空间注册表: 受治理键空间注册表Schema.optional(),
+    键空间归并表: 归并表Schema.optional(), // S1b·别名→规范键·区别于 preset.归并表(S4b·判定面·进指纹)
     调用类型注册表: 调用类型注册表Schema,
     Ring2在途调用信封: Ring2在途调用信封Schema,
     // 4.9 $ layer (AI-invisible)
@@ -135,43 +135,43 @@ export const RootSchema = z.object({
     $聆听心声触发: $聆听心声触发Schema,
     $浮现记忆ID: $浮现记忆IDSchema,
     $涟漪候选: $涟漪候选Schema,
-    $RP暂存: $RP暂存Schema.default({}),
-    $隐藏记忆库: $隐藏记忆库Schema.default({}),
-    $流速: $流速Schema.default({}),
-    $战斗暂存: $战斗暂存Schema.default({}),
-    $玩家偏好: $玩家偏好Schema.default({}),
-    $会话状态: $会话状态Schema.default({}),
-    $预算控制台: $预算控制台Schema.default({}),
+    $RP暂存: $RP暂存Schema.optional(),
+    $隐藏记忆库: $隐藏记忆库Schema.optional(),
+    $流速: $流速Schema.optional(),
+    $战斗暂存: $战斗暂存Schema.optional(),
+    $玩家偏好: $玩家偏好Schema.optional(),
+    $会话状态: $会话状态Schema.optional(),
+    $预算控制台: $预算控制台Schema.optional(),
     $模型画像: $模型画像Schema,
     $沉浸模式: $沉浸模式Schema,
-    $天命重掷券: $天命重掷券Schema.default({}),
+    $天命重掷券: $天命重掷券Schema.optional(),
     $存档种子: $存档种子Schema,
     $生图配置: $生图配置Schema,
     $语音配置: $语音配置Schema,
     $RAG配置: $RAG配置Schema,
     _存档头: 存档头Schema.default({}),
-    $meta: $metaSchema.default({}),
+    $meta: $metaSchema.optional(),
     // 4.X Module 15 — lore 知识库（世界恒真知识层·AI 只读·零迁移可空）
     _lore知识库: lore知识库Schema.optional(),
     // 对撞⑥ 易失态（快照外·崩溃即弃·不进重放·不进 U1 迁移面）
     $临时会话: 临时会话Schema,
     // LOD-B1: LOD调度表（additive·dormant·不进指纹（隐性排外）·B2 接调度器）
-    LOD表: LOD表Schema,
+    LOD表: LOD表Schema.optional(),
     // DSL-AI: 玩家运行态 AI 谓词覆盖（进存档·不进指纹·$ 前缀排除写·铁律①②③）
-    $AI创作状态: $AI创作状态Schema,
+    $AI创作状态: $AI创作状态Schema.optional(),
 });
 // Strict root schema — cross-field constraints not expressible within individual sub-schemas.
 // Separate from RootSchema to preserve ZodObject type (RootSchema.shape.xxx access intact).
 // Used by P0-6 import gate and schema tests. Parse with RootSchema first, then validate here.
 export const RootSchemaStrict = RootSchema.superRefine((root, ctx) => {
     // community gate: 允许玩家覆盖SystemPrompt === true requires 内容分级 === 'community'
-    if (root.$玩家偏好.内容分级 !== 'community') {
-        for (const [key, entry] of Object.entries(root.调用类型注册表)) {
+    if ((root.$玩家偏好?.内容分级 ?? '默认档') !== 'community') {
+        for (const [key, entry] of Object.entries(root.调用类型注册表 ?? {})) {
             if (entry.允许玩家覆盖SystemPrompt === true) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
                     path: ['调用类型注册表', key, '允许玩家覆盖SystemPrompt'],
-                    message: `非 community 档不可开启 SystemPrompt 覆盖（当前内容分级: ${root.$玩家偏好.内容分级}）`,
+                    message: `非 community 档不可开启 SystemPrompt 覆盖（当前内容分级: ${root.$玩家偏好?.内容分级 ?? '默认档'}）`,
                 });
             }
         }

@@ -14,9 +14,6 @@ export const NARRATIVE_CALL_TYPES = {
     玩家代理回复: '玩家代理回复', // schema memory.ts 已冻结具名·对白
     小剧场: '小剧场', // schema memory.ts 已冻结具名·场景式
 };
-// ── 当拍 AOHP 约束（F0·B-E2-01·不进指纹·R7-b）──────────────────────────────────
-// ProposalConstraint: { transfers?: [{from,to,amount}], items?: [{id,quantity}] }
-// 调用方从 callRegistry.ts 导入类型；JS 端无需重复声明接口。
 // ── 调用类型注册表（可插拔数据项·禁写死 K 值·禁内联 prompt 串）────────────────────
 export const CALL_TYPE_REGISTRY = {
     开场白叙事: {

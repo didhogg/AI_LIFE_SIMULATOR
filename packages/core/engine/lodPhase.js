@@ -61,7 +61,7 @@ function extractDriftAxes(predStr) {
  * 未注册模块/无 reader/轴未定义 → undefined（fail-closed·调用方视为漂移=0）。
  */
 function resolveAxisValue(s, nodeKey, axis) {
-    const 模块键 = s.LOD表[nodeKey]?.模块键;
+    const 模块键 = s.LOD表?.[nodeKey]?.模块键;
     if (!模块键)
         return undefined;
     return getLodMount(模块键)?.读数值轴?.(s, nodeKey, axis);
@@ -124,8 +124,10 @@ export function seededSortKey(seed, tick, nodeKey) {
  */
 export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
     // ── 双保险 guard：空 LOD表 → 提前 return·零 state 写·零 RNG draw ──────
-    if (Object.keys(s.LOD表).length === 0)
+    if (Object.keys(s.LOD表 ?? {}).length === 0)
         return;
+    if (!s.LOD表)
+        return; // TypeScript narrowing (logically unreachable after above guard)
     const locs = s.地图?.地点 ?? {};
     const nowEpochMin = s.世界?.纪元分钟 ?? 0;
     // ── 当前年号标签 ─────────────────────────────────────────────────────────
@@ -159,7 +161,7 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
     const _aiGlobal = readGlobalDslSwitch(s._系统?.功能开关表 ?? {});
     const promoteCandidates = [];
     const driftCounterUpdates = [];
-    for (const nodeKey of Object.keys(s.LOD表)) {
+    for (const nodeKey of Object.keys(s.LOD表 ?? {})) {
         const sortKey = seededSortKey(rngSeed, currentTick, nodeKey);
         const nodeRegion = locRegion(nodeKey, locs) ?? nodeKey;
         // PC 在场检测
@@ -287,7 +289,7 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
         }
     }
     // 未促升节点 → tryDemoteNode（地图地点节点·非 locs 节点由父区域管理·不独立 demote）
-    for (const nodeKey of Object.keys(s.LOD表)) {
+    for (const nodeKey of Object.keys(s.LOD表 ?? {})) {
         if (!locs[nodeKey])
             continue; // NPC/org LOD条目由 dispatchLodGenerate 管理·不独立 demote
         if (!promotedSet.has(nodeKey)) {

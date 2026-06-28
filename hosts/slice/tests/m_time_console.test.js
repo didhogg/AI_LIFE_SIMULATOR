@@ -201,12 +201,12 @@ describe('T7 指纹 84 / schemaKeys 52 守恒', () => {
             FINGERPRINT_PRESET_FIELDS.length +
             FINGERPRINT_SNAPSHOT_FIELDS.length +
             FINGERPRINT_EXCLUDED_FIELDS.length;
-        expect(total).toBe(86);
+        expect(total).toBe(88);
     });
-    it('schemaKeys = 52', () => {
+    it('schemaKeys = 53', () => {
         const schema = RootSchema;
         const keys = Object.keys(schema.shape);
-        expect(keys.length).toBe(52);
+        expect(keys.length).toBe(54);
     });
     it('step 后 state 通过 RootSchema 验证', () => {
         const tc = new TimeController(SAVE_SEED, buildWorld());

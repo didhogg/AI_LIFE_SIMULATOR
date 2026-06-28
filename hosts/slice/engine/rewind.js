@@ -12,8 +12,8 @@ export function rewindTick(ring, index, header) {
         balances: new Map(Object.entries(snap.balances)),
         tick: snap.tick,
         tick_log: [...snap.tick_log],
-        observationTable: [...snap.observationTable],  // P7-4b: 还原拍前观测值表
-        pendingQueue: [...snap.pendingQueue],            // P7-4b: 还原拍前挂起命中队列
+        observationTable: [...snap.observationTable], // P7-4b: 还原拍前观测值表（防漂移）
+        pendingQueue: [...snap.pendingQueue], // P7-4b: 还原拍前挂起命中队列（防漂移）
         header: bumpSalt(header), // 全局回滚计数器 +1，不回滚
     };
 }

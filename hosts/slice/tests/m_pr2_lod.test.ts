@@ -25,6 +25,7 @@ const SEED = SAVE_SEED; // 42
 /** 在已 parse 的 state 上挂载粗节点 */
 function addCoarseNode(s: ReturnType<typeof RootSchema.parse>, key: string, locKey = ''): void {
   s.NPC[key] = NpcSchema.parse({ 姓名: key, 位置: locKey });
+  s.LOD表 ??= {};  // R6 opt-in
   (s.LOD表 as Record<string, unknown>)[key] = { 模块键: key, 档位: '粗' };
 }
 
@@ -257,7 +258,7 @@ describe('F5 · 默认 fixture 零漂移', () => {
   it('F5-1 基准 fixture 无粗节点（LOD表 无 档位=粗 条目）', () => {
     const s = baseState();
     for (const k of Object.keys(s.NPC)) {
-      expect(s.LOD表[k]?.档位).not.toBe('粗');
+      expect(s.LOD表?.[k]?.档位).not.toBe('粗');
     }
   });
 
@@ -300,6 +301,7 @@ describe('F6 · 300 拍 soak', () => {
     let s = buildWorld();
     // 预置粗节点
     s.NPC[COARSE_SOAK] = NpcSchema.parse({ 姓名: '背景人物', 位置: '' });
+    s.LOD表 ??= {};  // R6 opt-in
     (s.LOD表 as Record<string, unknown>)[COARSE_SOAK] = { 模块键: COARSE_SOAK, 档位: '粗' };
 
     const news: NewsEntry = {
@@ -361,6 +363,7 @@ describe('F6 · 300 拍 soak', () => {
     function runSoak(): ReturnType<typeof RootSchema.parse> {
       let s = buildWorld();
       s.NPC[COARSE_SOAK2] = NpcSchema.parse({ 姓名: 'BG', 位置: '' });
+      s.LOD表 ??= {};  // R6 opt-in
       (s.LOD表 as Record<string, unknown>)[COARSE_SOAK2] = { 模块键: COARSE_SOAK2, 档位: '粗' };
       const news: NewsEntry = { 主体: COARSE_SOAK2, 标签: '谣言', 极性: '负', 强度: 40, 维度: '关系', Δ方向: -1, 量级: 55, 来源: 'soak2' };
       for (let tick = 0; tick < RUNS; tick++) {

@@ -9,7 +9,8 @@ import type { ModRegistry } from '../../loader/modGraph.js';
 import { satisfies } from '../../loader/semver.js';
 import { 聚合生效中内容包集哈希 } from '../../interfaces/contentPackHash.js';
 import type { mod墓碑原因Type } from '../../schema/memory.js';
-import type { 内容包条目Type, 内容包库Type } from './contentPack.js';
+import { 薄清单Schema } from './contentPack.js';
+import type { 薄清单, 内容包条目Type, 内容包库Type } from './contentPack.js';
 import type { 规则条目Type, 规则面Type, 规则库Type } from './ruleLibrary.js';
 import type { UI条目Type, UI库Type } from './uiLibrary.js';
 import type { 工具条目Type, 工具库Type } from '../../schema/toolLibrary.js';
@@ -37,32 +38,9 @@ import { RootSchema } from '../../schema/index.js';
 import { 是JS保留键 } from '../../schema/governedKeySpace.js';
 
 // ── 入参 ────────────────────────────────────────────────────────────────────────
-/** 薄清单 = 引用包列表（按引用顺序）+ 可选基底版本（默认 '4.1.0'） */
-export interface 薄清单 {
-  packs: string[];        // 引用顺序 pack_id 列表（优先级无声明则按顺序后载覆盖先载）
-  rules?: string[];       // 规则引用列表（按引用顺序·后列覆盖先载·底座-2b）
-  ui?: string[];          // UI引用列表（UI_ID 列表·装配层·渲染面·不进 hashJudgmentBundle）
-  tools?: string[];         // 工具引用列表（工具ID 列表·装配层·路由面·不进 hashJudgmentBundle）
-  achievements?: string[];  // 成就引用列表（成就ID 列表·装配层·定义层·不进 hashJudgmentBundle）
-  items?: string[];         // 物品引用列表（物品ID 列表·装配层·定义层·不进 hashJudgmentBundle）
-  media?: string[];         // 媒体引用列表（媒体ID 列表·装配层·渲染面+传播面·不进 hashJudgmentBundle）
-  学业制式?: string[];      // 学业制式引用列表（学业制式ID 列表·装配层·定义层·不进 hashJudgmentBundle）
-  职级体系?: string[];      // 职级体系引用列表（职级体系ID 列表·装配层·定义层·不进 hashJudgmentBundle）
-  实体模板?: string[];      // 实体模板引用列表（实体模板ID 列表·装配层·黑洞面·不进 hashJudgmentBundle）
-  文风?: string[];          // 文风引用列表（文风ID 列表·装配层·渲染面 opaque·不进 hashJudgmentBundle）
-  二审维度?: string[];      // 二审维度引用列表（二审维度ID 列表·装配层·事实层·不进 hashJudgmentBundle）
-  小剧场剧本?: string[];    // 小剧场剧本引用列表（剧本ID 列表·装配层·渲染面 opaque·不进 hashJudgmentBundle）
-  选项集?: string[];        // 选项集引用列表（选项集ID 列表·装配层·动词选项条目 by-set·不进 hashJudgmentBundle）
-  // ── 剥离③ 新增引用列表（additive · dormant） ──────────────────────────────────────
-  种族模板?: string[];      // 种族模板引用列表（种族ID 列表·进 hashJudgmentBundle 投影·dormant）
-  战术包?: string[];        // 战术包引用列表（战术包ID 列表·不进 hashJudgmentBundle·dormant）
-  叙事分发?: string[];      // 叙事分发引用列表（分发ID 列表·不进 hashJudgmentBundle·dormant）
-  母题词汇?: string[];      // 母题词汇引用列表（词汇ID 列表·不进 hashJudgmentBundle·dormant）
-  母题配额?: string[];      // 母题配额引用列表（配额ID 列表·进 hashJudgmentBundle 投影·dormant）
-  离场演化契约?: string[];  // 离场演化契约引用列表（契约ID 列表·不进 hashJudgmentBundle·dormant·P2 consumer）
-  社会角色?: string[];      // 社会角色引用列表（角色ID 列表·不进存档·不进 hashJudgmentBundle·dormant）
-  基底版本?: string;        // 用于 基底契约 semver 校验（默认 '4.1.0'）
-}
+// 薄清单 单一权威已迁至 contentPack.ts · 本地导入后 re-export 向后兼容（PR-5d）
+export type { 薄清单 };
+export { 薄清单Schema };
 
 // ── 产出 ────────────────────────────────────────────────────────────────────────
 export interface 墓碑条目 {

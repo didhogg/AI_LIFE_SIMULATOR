@@ -28,7 +28,7 @@ describe('Community gate · ① dirty archive 加载自愈', () => {
 
   it('migrate 后 $玩家偏好.内容分级 仍为 off（未被篡改）', () => {
     const { state } = migrate(DIRTY_SAVE);
-    expect(state.$玩家偏好.内容分级).toBe('off');
+    expect(state.$玩家偏好!.内容分级).toBe('off');
   });
 
   it('migrate 后 log 包含至少一条 warn 指向 允许玩家覆盖SystemPrompt', () => {
