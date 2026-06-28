@@ -340,24 +340,24 @@ describe('P8-b-0 · E2E 落账 — 五 op 经复用链端到端', () => {
   const r = runTick(BASE, { tickId: TICK_ID('e2e-ops'), achievements: lib });
 
   it('add: 属性.智慧 80+10=90', () => {
-    expect(r.state.NPC['npc_a']?.属性.智慧).toBe(90);
+    expect(r.state.NPC['npc_a']?.属性?.智慧).toBe(90);
   });
   it('sub: 属性.感知 50-5=45', () => {
-    expect(r.state.NPC['npc_a']?.属性.感知).toBe(45);
+    expect(r.state.NPC['npc_a']?.属性?.感知).toBe(45);
   });
   it('set: 属性.体质 → 60', () => {
-    expect(r.state.NPC['npc_a']?.属性.体质).toBe(60);
+    expect(r.state.NPC['npc_a']?.属性?.体质).toBe(60);
   });
   it('clamp op: 属性.魅力 不写（APPLY_OPS 不含 clamp）', () => {
-    expect(r.state.NPC['npc_a']?.属性.魅力).toBe(30); // 未变
+    expect(r.state.NPC['npc_a']?.属性?.魅力).toBe(30); // 未变
   });
   it('lock op: 属性.心理 不写·不污染为 undefined（APPLY_OPS 不含 lock）', () => {
-    expect(r.state.NPC['npc_a']?.属性.心理).toBe(50); // 未变
-    expect(r.state.NPC['npc_a']?.属性.心理).not.toBeUndefined();
+    expect(r.state.NPC['npc_a']?.属性?.心理).toBe(50); // 未变
+    expect(r.state.NPC['npc_a']?.属性?.心理).not.toBeUndefined();
   });
   it('npc_b（未解锁）属性全不变', () => {
-    expect(r.state.NPC['npc_b']?.属性.智慧).toBe(30);
-    expect(r.state.NPC['npc_b']?.属性.感知).toBe(50);
+    expect(r.state.NPC['npc_b']?.属性?.智慧).toBe(30);
+    expect(r.state.NPC['npc_b']?.属性?.感知).toBe(50);
   });
 });
 
@@ -418,7 +418,7 @@ describe('P8-b-3 · safeParse 跳过·不抛·其余照常', () => {
     expect(() => {
       r = runTick(BASE, { tickId: TICK_ID('parse-skip'), achievements: lib });
     }).not.toThrow();
-    expect(r?.state.NPC['npc_a']?.属性.智慧).toBe(87); // 80+7=87（畸形跳过·合法落账）
+    expect(r?.state.NPC['npc_a']?.属性?.智慧).toBe(87); // 80+7=87（畸形跳过·合法落账）
   });
 
   it('null 元素跳过·不抛', () => {
@@ -432,7 +432,7 @@ describe('P8-b-3 · safeParse 跳过·不抛·其余照常', () => {
     expect(() => {
       r = runTick(BASE, { tickId: TICK_ID('null-skip'), achievements: lib });
     }).not.toThrow();
-    expect(r?.state.NPC['npc_a']?.属性.智慧).toBe(83);
+    expect(r?.state.NPC['npc_a']?.属性?.智慧).toBe(83);
   });
 });
 
@@ -467,7 +467,7 @@ describe('P8-b-4 · M3 硬排除：$/_ 首段路径被拒', () => {
     };
     const r = runTick(BASE, { tickId: TICK_ID('m3-dollar'), achievements: lib });
     // $ 路径被拒·合法后果照常落账
-    expect(r.state.NPC['npc_a']?.属性.智慧).toBe(82); // +2
+    expect(r.state.NPC['npc_a']?.属性?.智慧).toBe(82); // +2
   });
 });
 
@@ -486,8 +486,8 @@ describe('P8-b-5 · scope 隔离·多 NPC·后果不串', () => {
       }),
     };
     const r = runTick(BASE, { tickId: TICK_ID('scope-iso'), achievements: lib });
-    expect(r.state.NPC['npc_a']?.属性.智慧).toBe(90); // npc_a 解锁 ach_a → +10
-    expect(r.state.NPC['npc_b']?.属性.智慧).toBe(40); // npc_b 解锁 ach_b → +10
+    expect(r.state.NPC['npc_a']?.属性?.智慧).toBe(90); // npc_a 解锁 ach_a → +10
+    expect(r.state.NPC['npc_b']?.属性?.智慧).toBe(40); // npc_b 解锁 ach_b → +10
     // npc_a 不会执行 ach_b 后果（ach_b 条件对 npc_a 为 false）
     // npc_b 不会执行 ach_a 后果（ach_a 条件对 npc_b 为 false）
   });
@@ -505,13 +505,13 @@ describe('P8-b-6 · 幂等/重放：同成就跨拍重复·后果仅首拍执行
 
   it('第一拍解锁·属性.智慧 +5', () => {
     const r1 = runTick(BASE, { tickId: TICK_ID('idem-t1'), achievements: lib });
-    expect(r1.state.NPC['npc_a']?.属性.智慧).toBe(85); // 80+5
+    expect(r1.state.NPC['npc_a']?.属性?.智慧).toBe(85); // 80+5
   });
 
   it('第二拍（已解锁）→ 后果不重复执行·属性.智慧 不再 +5', () => {
     const r1 = runTick(BASE, { tickId: TICK_ID('idem-r1'), achievements: lib });
     const r2 = runTick(r1.state, { tickId: TICK_ID('idem-r2'), achievements: lib });
-    expect(r2.state.NPC['npc_a']?.属性.智慧).toBe(85); // 仍 85·不再 +5
+    expect(r2.state.NPC['npc_a']?.属性?.智慧).toBe(85); // 仍 85·不再 +5
   });
 
   it('双跑逐位恒等（确定性）', () => {
@@ -532,7 +532,7 @@ describe('P8-b-7 · 解锁后果引用 空/undefined → 零 state 写·phase �
     };
     const r = runTick(BASE, { tickId: TICK_ID('noop-empty-ach'), achievements: lib });
     expect(r.state.NPC['npc_a']?.成就).toHaveProperty('no_conseq');
-    expect(r.state.NPC['npc_a']?.属性.智慧).toBe(80); // 属性不变
+    expect(r.state.NPC['npc_a']?.属性?.智慧).toBe(80); // 属性不变
     expect(r.settledPhases).toContain('成就解锁');
   });
 
@@ -542,7 +542,7 @@ describe('P8-b-7 · 解锁后果引用 空/undefined → 零 state 写·phase �
     };
     const r = runTick(BASE, { tickId: TICK_ID('noop-undef-ach'), achievements: lib });
     expect(r.state.NPC['npc_a']?.成就).toHaveProperty('undef_conseq');
-    expect(r.state.NPC['npc_a']?.属性.智慧).toBe(80);
+    expect(r.state.NPC['npc_a']?.属性?.智慧).toBe(80);
   });
 });
 
@@ -563,7 +563,7 @@ describe('P8-b-8 · 原型污染 guard', () => {
     expect(() => {
       r = runTick(BASE, { tickId: TICK_ID('proto-path'), achievements: lib });
     }).not.toThrow();
-    expect(r?.state.NPC['npc_a']?.属性.智慧).toBe(83); // 合法后果落账
+    expect(r?.state.NPC['npc_a']?.属性?.智慧).toBe(83); // 合法后果落账
     // Object.prototype 未被污染
     expect((Object.prototype as Record<string, unknown>)['poisoned']).toBeUndefined();
   });
@@ -595,8 +595,8 @@ describe('P8-b-9 · 金向量 G0 · 后果执行确定性', () => {
     };
     const r1 = runTick(BASE, { tickId: TICK_ID('g0-1'), achievements: lib });
     const r2 = runTick(BASE, { tickId: TICK_ID('g0-2'), achievements: lib });
-    expect(r1.state.NPC['npc_a']?.属性.智慧).toBe(81);
-    expect(r2.state.NPC['npc_a']?.属性.智慧).toBe(81);
+    expect(r1.state.NPC['npc_a']?.属性?.智慧).toBe(81);
+    expect(r2.state.NPC['npc_a']?.属性?.智慧).toBe(81);
     expect(r1.settledPhases).toEqual(r2.settledPhases);
   });
 

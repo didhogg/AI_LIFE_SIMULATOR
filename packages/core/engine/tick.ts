@@ -799,7 +799,7 @@ function isComplexContagion(label: string, ff?: { 维度?: string }): boolean {
  * 返回值表示：复杂采纳需要的最少独立桥数。
  * 默认体质=10 → θ_i=2；体质=1 → θ_i=1；体质≥15 → θ_i=3。
  */
-function deriveThresholdCount(npc: { 属性?: Record<string, number> } | undefined): number {
+function deriveThresholdCount(npc: { 属性?: Record<string, number> | undefined } | undefined): number {
   const 体质 = npc?.属性?.['体质'] ?? 10;
   if (体质 <= 4) return 1;
   if (体质 <= 12) return 2;

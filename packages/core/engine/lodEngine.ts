@@ -41,6 +41,7 @@ export function materializeCoarseNode(
   if (!node) return;
 
   // 派生缺省属性（体质/智慧/感知/魅力/心理 → [20,60] 中段范围）
+  node.属性 ??= { 体质: 10, 智慧: 10, 感知: 10, 魅力: 10, 心理: 10 };
   node.属性.体质 = mapRange(lodRng(seed, nodeKey, '体质'), 20, 60);
   node.属性.智慧 = mapRange(lodRng(seed, nodeKey, '智慧'), 20, 60);
   node.属性.感知 = mapRange(lodRng(seed, nodeKey, '感知'), 20, 60);

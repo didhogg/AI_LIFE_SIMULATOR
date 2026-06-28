@@ -289,7 +289,7 @@ export function executeTraversal(
   if (attrMap) {
     const entries = Object.entries(attrMap);
     if (entries.length > 0) {
-      const attrs = pc.属性 as Record<string, number>;
+      const attrs = (pc.属性 ?? {}) as Record<string, number>;
       for (const [oldKey, newKey] of entries) {
         if (oldKey in attrs && oldKey !== newKey) {
           attrs[newKey] = attrs[oldKey] ?? 0;

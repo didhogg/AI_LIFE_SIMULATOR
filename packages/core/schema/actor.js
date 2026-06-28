@@ -366,10 +366,10 @@ export const NpcSchema = z.object({
     视觉锚定特征: z.record(actor记录键Schema, z.string()).optional(), // 生图提示词锚定特征表（开放键值对）
     声线: z.string().optional(), // RVC 声线模型 ID
     // ── 数值面 ──
-    属性: 属性Schema.default({}),
-    派生: 派生Schema.default({}),
-    行动点: 行动点Schema.default({}),
-    性格五轴: 性格五轴Schema.default({}),
+    属性: 属性Schema.optional(),
+    派生: 派生Schema.optional(),
+    行动点: 行动点Schema.optional(),
+    性格五轴: 性格五轴Schema.optional(),
     // 性格标签 🧮 派生（五轴阈值映射），不存储
     特质: z.record(actor记录键Schema, 特质条目Schema).default({}),
     情绪栈: z.array(情绪条目Schema).default([]),
@@ -382,15 +382,15 @@ export const NpcSchema = z.object({
         受伤部位: z.string().default(''),
         后遗症: z.string().default(''),
     })).default({}),
-    体征: 体征Schema.default({}),
+    体征: 体征Schema.optional(),
     // ── 资产与社会面 ──
     物品: z.record(actor记录键Schema, 物品条目Schema).default({}),
     衣物: z.record(actor记录键Schema, 衣物槽Schema).default({}),
     爱好: z.record(actor记录键Schema, 爱好条目Schema).default({}),
     信念: z.record(actor记录键Schema, 信念条目Schema).default({}),
-    学业: 学业Schema.default({}),
-    职业: 职业Schema.default({}),
-    目标: 目标Schema.default({}),
+    学业: 学业Schema.optional(),
+    职业: 职业Schema.optional(),
+    目标: 目标Schema.optional(),
     居留身份: z.array(居留身份条目Schema).default([]),
     头衔: z.array(z.string()).default([]),
     称号: z.string().default(''),
@@ -404,7 +404,7 @@ export const NpcSchema = z.object({
         描述: z.string().default(''),
     })).default({}),
     业力: z.number().default(0),
-    声誉: 声誉Schema.default({}),
+    声誉: 声誉Schema.optional(),
     婚姻: z.array(婚姻条目Schema).default([]),
     // ── 关系与组织 ──
     // 6.65 W4·强度跌破门槛 → 转 L2 归档摘要、不留活跃边；边数上限住预设
@@ -419,7 +419,7 @@ export const NpcSchema = z.object({
     重要等级: z.string().default('路人'), // 路人/次要/重要/核心
     召回权重: z.number().min(0).max(100).default(50),
     意象: z.array(意象条目Schema).default([]), // 公共印象（6.29）
-    作息: 作息Schema.default({}),
+    作息: 作息Schema.optional(),
     当前作息模式: z.string().default('常态'),
     履历: z.array(z.string()).default([]), // 滚动短句
     登场契约: 登场契约Schema.optional(),

@@ -299,9 +299,11 @@ describe('T8 POV 投影 6 组字段 · 数据层纯只读', () => {
     expect(typeof pp.totalBias).toBe('number');
     // ⑤ 已知物品
     expect(typeof npc?.物品).toBe('object');
-    // ⑥ 已知目标
-    expect(Array.isArray(npc?.目标?.长期)).toBe(true);
-    expect(Array.isArray(npc?.目标?.短期)).toBe(true);
+    // ⑥ 已知目标（目标 optional·若存在则为数组）
+    const 长期 = npc?.目标?.长期;
+    const 短期 = npc?.目标?.短期;
+    expect(长期 == null || Array.isArray(长期)).toBe(true);
+    expect(短期 == null || Array.isArray(短期)).toBe(true);
   });
 
   it('切换 POV 不影响 computePovPersonalityProjection 对另一实体的结果', () => {

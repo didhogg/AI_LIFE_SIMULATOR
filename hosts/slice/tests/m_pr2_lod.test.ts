@@ -192,7 +192,7 @@ describe('F3 · triggerLodGate', () => {
     const s = baseState();
     const attrBefore = { ...s.NPC[NPC_WANG]!.属性 };
     triggerLodGate(s, [NPC_WANG], SEED);
-    expect(s.NPC[NPC_WANG]!.属性.体质).toBe(attrBefore.体质);
+    expect(s.NPC[NPC_WANG]!.属性?.体质).toBe(attrBefore.体质);
     // 全实体 NPC 无 LOD表 条目·triggerLodGate 跳过
     expect(s.LOD表[NPC_WANG]).toBeUndefined();
   });

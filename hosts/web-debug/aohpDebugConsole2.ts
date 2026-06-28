@@ -255,21 +255,24 @@ export function buildPCPanel(state: RootState, pcKey: string): PCPanel {
     }
   }
 
+  const _attr = npc.属性 ?? { 体质: 10, 智慧: 10, 感知: 10, 魅力: 10, 心理: 10 };
+  const _der  = npc.派生 ?? { HP: 100, HP上限: 100, 精力: 100, 精力上限: 100, 颜值: 50 };
+
   return {
     pcKey,
     name: npc.姓名,
     ...(npc.位置 ? { location: npc.位置 } : {}),
     attributes: {
-      体质: npc.属性.体质,
-      智慧: npc.属性.智慧,
-      感知: npc.属性.感知,
-      魅力: npc.属性.魅力,
-      心理: npc.属性.心理,
+      体质: _attr.体质,
+      智慧: _attr.智慧,
+      感知: _attr.感知,
+      魅力: _attr.魅力,
+      心理: _attr.心理,
     },
-    hp:         npc.派生.HP,
-    hpMax:      npc.派生.HP上限,
-    energy:     npc.派生.精力,
-    energyMax:  npc.派生.精力上限,
+    hp:         _der.HP,
+    hpMax:      _der.HP上限,
+    energy:     _der.精力,
+    energyMax:  _der.精力上限,
     currencies,
     relationsCount:   npc.关系.length,
     cognitiveTargets: Object.keys(archiveByPc).length,
@@ -316,8 +319,8 @@ export function buildStateTree(state: RootState): StateTreeNode {
           children: [
             { label: `位置: ${npc.位置 || '—'}` },
             { label: `关系边: ${npc.关系.length}` },
-            { label: `HP: ${npc.派生.HP} / ${npc.派生.HP上限}` },
-            { label: `精力: ${npc.派生.精力} / ${npc.派生.精力上限}` },
+            { label: `HP: ${npc.派生?.HP ?? 100} / ${npc.派生?.HP上限 ?? 100}` },
+            { label: `精力: ${npc.派生?.精力 ?? 100} / ${npc.派生?.精力上限 ?? 100}` },
             {
               label: `所属组织: ${npc.所属组织.map(o => o.组织键).join(', ') || '无'}`,
             },
@@ -687,7 +690,8 @@ export class SnapshotStore {
     };
     const parts: string[] = [];
     for (const f of changedFields) {
-      if (semanticLabels[f.field]) parts.push(semanticLabels[f.field]);
+      const lbl = semanticLabels[f.field];
+      if (lbl) parts.push(lbl);
     }
 
     return {
@@ -813,7 +817,7 @@ export function computePovPersonalityProjection(
   const npc = state.NPC[entityKey];
   if (!npc) throw new Error(`[computePovPersonalityProjection] '${entityKey}' not in NPC`);
 
-  const trueAxes = npc.性格五轴;
+  const trueAxes = npc.性格五轴 ?? { 开放: 50, 尽责: 50, 外向: 50, 宜人: 50, 神经质: 50 };
 
   // 知情程度：认知档案[self][self].了解度（通常 0·NPC 一般不自我观察）
   const archiveBySelf = state.认知档案?.[entityKey] ?? {};
@@ -913,6 +917,13 @@ export function buildActorPanel(state: RootState, entityKey: string): ActorPanel
     姓名知识: entry.姓名知识,
   }));
 
+  const _attr  = npc.属性    ?? { 体质: 10, 智慧: 10, 感知: 10, 魅力: 10, 心理: 10 };
+  const _der   = npc.派生    ?? { HP: 100, HP上限: 100, 精力: 100, 精力上限: 100, 颜值: 50 };
+  const _ap    = npc.行动点  ?? { 当前: 15, 上限: 15 };
+  const _ocean = npc.性格五轴 ?? { 开放: 50, 尽责: 50, 外向: 50, 宜人: 50, 神经质: 50 };
+  const _rep   = npc.声誉    ?? { 人望: 0, 知名度: 0, 极性: '', 标签: '' };
+  const _goal  = npc.目标    ?? { 长期: [] as string[], 短期: [] as string[] };
+
   return {
     entityKey,
     name:     npc.姓名,
@@ -926,32 +937,32 @@ export function buildActorPanel(state: RootState, entityKey: string): ActorPanel
     头衔:     [...npc.头衔],
     业力:     npc.业力,
     attributes: {
-      体质: npc.属性.体质,
-      智慧: npc.属性.智慧,
-      感知: npc.属性.感知,
-      魅力: npc.属性.魅力,
-      心理: npc.属性.心理,
+      体质: _attr.体质,
+      智慧: _attr.智慧,
+      感知: _attr.感知,
+      魅力: _attr.魅力,
+      心理: _attr.心理,
     },
     派生: {
-      HP:       npc.派生.HP,
-      HP上限:   npc.派生.HP上限,
-      精力:     npc.派生.精力,
-      精力上限: npc.派生.精力上限,
-      颜值:     npc.派生.颜值,
+      HP:       _der.HP,
+      HP上限:   _der.HP上限,
+      精力:     _der.精力,
+      精力上限: _der.精力上限,
+      颜值:     _der.颜值,
     },
-    行动点: { 当前: npc.行动点.当前, 上限: npc.行动点.上限 },
+    行动点: { 当前: _ap.当前, 上限: _ap.上限 },
     性格五轴: {
-      开放:   npc.性格五轴.开放,
-      尽责:   npc.性格五轴.尽责,
-      外向:   npc.性格五轴.外向,
-      宜人:   npc.性格五轴.宜人,
-      神经质: npc.性格五轴.神经质,
+      开放:   _ocean.开放,
+      尽责:   _ocean.尽责,
+      外向:   _ocean.外向,
+      宜人:   _ocean.宜人,
+      神经质: _ocean.神经质,
     },
     声誉: {
-      人望:   npc.声誉.人望,
-      知名度: npc.声誉.知名度,
-      极性:   npc.声誉.极性,
-      标签:   npc.声誉.标签,
+      人望:   _rep.人望,
+      知名度: _rep.知名度,
+      极性:   _rep.极性,
+      标签:   _rep.标签,
     },
     情绪栈: npc.情绪栈.map(e => ({
       情绪名: e.情绪名,
@@ -987,7 +998,7 @@ export function buildActorPanel(state: RootState, entityKey: string): ActorPanel
       类别:     v.类别,
       重要级别: v.重要级别,
     })),
-    目标: { 长期: [...npc.目标.长期], 短期: [...npc.目标.短期] },
+    目标: { 长期: [..._goal.长期], 短期: [..._goal.短期] },
     认知概览,
     可见秘密ID: Object.keys(visibleSecrets),
     记忆: npc.记忆.map(m => ({

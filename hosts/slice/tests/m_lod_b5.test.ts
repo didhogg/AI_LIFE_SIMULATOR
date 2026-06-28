@@ -217,8 +217,8 @@ describe('B5-2 · 三态真值表', () => {
     delete (s.LOD表 as Record<string, unknown>)[NPC_KEY];
     const attrBefore = { ...s.NPC[NPC_KEY]!.属性 };
     triggerLodGate(s, [NPC_KEY], SEED);
-    // 属性未变（未物化）
-    expect(s.NPC[NPC_KEY]!.属性.体质).toBe(attrBefore.体质);
+    // 属性未变（未物化·属性仍为 undefined）
+    expect(s.NPC[NPC_KEY]!.属性?.体质).toBe(attrBefore.体质);
     expect(s.LOD表[NPC_KEY]).toBeUndefined(); // 未写 LOD表
   });
 
@@ -239,7 +239,7 @@ describe('B5-2 · 三态真值表', () => {
     const attrBefore = { ...s.NPC[NPC_KEY]!.属性 };
     triggerLodGate(s, [NPC_KEY], SEED);
     expect(s.LOD表[NPC_KEY]?.档位).toBe('实体');
-    expect(s.NPC[NPC_KEY]!.属性.体质).toBe(attrBefore.体质); // 未变
+    expect(s.NPC[NPC_KEY]!.属性?.体质).toBe(attrBefore.体质); // 未变
   });
 
   // promoteNode NPC guard（通过 promoteNode 触发内层 NPC 物化）
@@ -249,8 +249,8 @@ describe('B5-2 · 三态真值表', () => {
     delete (s.LOD表 as Record<string, unknown>)[NPC_KEY];
     const attrBefore = { ...s.NPC[NPC_KEY]!.属性 };
     promoteNode(s, LOC_KEY, SEED); // 促升地点
-    // NPC 属性未变（guard: LOD表[npcKey]?.档位 === '粗' → false for undefined）
-    expect(s.NPC[NPC_KEY]!.属性.体质).toBe(attrBefore.体质);
+    // NPC 属性未变（guard: LOD表[npcKey]?.档位 === '粗' → false for undefined·属性仍为 undefined）
+    expect(s.NPC[NPC_KEY]!.属性?.体质).toBe(attrBefore.体质);
     expect(s.LOD表[NPC_KEY]).toBeUndefined(); // NPC 条目未创建
   });
 
@@ -267,6 +267,7 @@ describe('B5-2 · 三态真值表', () => {
     const s = makeLocState();
     // 先物化一次（设 NPC LOD表 = 实体 + 属性已有值）
     (s.LOD表 as Record<string, unknown>)[NPC_KEY] = { 模块键: NPC_KEY, 档位: '实体' };
+    s.NPC[NPC_KEY]!.属性 ??= { 体质: 10, 智慧: 10, 感知: 10, 魅力: 10, 心理: 10 };
     s.NPC[NPC_KEY]!.属性.体质 = 77; // 模拟已物化值
     promoteNode(s, LOC_KEY, SEED);
     // 不重写·仍为 77
