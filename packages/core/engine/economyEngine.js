@@ -77,6 +77,15 @@ export function deriveEffectivePrice(state, preset, regionId, category) {
 }
 // ── P3-4 · 漂移候选再基线（additive·不回写预设·不 bump 预设版本）──────────────
 /**
+ * 相对漂移纯函数（|cur−base| / base·base>0 守卫·不写 state）。
+ * 供 LOD 触发 ctx 投影（漂移命名空间）和 applyDriftCandidate 复用。
+ */
+export function computeRelativeDrift(cur, baseline) {
+    if (baseline <= 0)
+        return 0;
+    return Math.abs(cur - baseline) / baseline;
+}
+/**
  * 若有效价格相对区域物价.基准价 漂移超过阈值，将候选新基线写入
  * state.地图.区域物价[regionId][category].候选基线（inner additive 字段）。
  *
@@ -99,7 +108,7 @@ export function applyDriftCandidate(state, preset, regionId, category) {
     if (stateBaseline === 0)
         return;
     const effective = deriveEffectivePrice(state, preset, regionId, category);
-    const drift = Math.abs(effective - stateBaseline) / stateBaseline;
+    const drift = computeRelativeDrift(effective, stateBaseline);
     if (drift <= ECONOMY_DRIFT_THRESHOLD)
         return;
     // 写入候选基线（additive·optional 字段·不触发 schemaKey 增长）

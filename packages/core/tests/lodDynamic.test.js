@@ -2,12 +2,12 @@
  * LOD-B2.5 · 动态阈值 + 敏感度 bias + 条件④ + LOD态 DSL ctx 机测
  *
  * 验收门：
- *   D-1: computeEffectiveDriftThreshold — 四点公式验证（sens=0/+1/-1/缺省）
+ *   D-1: 漂移命名空间 + 谓词驱动行为 — resolveTriggerPred/evalPredStr/敏感度缩放/指纹守护
  *   D-2: resolveSensitivity — per-module 覆盖 / 全局默认 / 缺省=0 / clamp 越界
  *   D-3: seededSortKey — 同入参确定性 / 不同节点值不同 / 不用禁函数
  *   D-4: 条件④ detectLodTrigger — 计数≥3→triggered·1/2拍不触发·中断重置
- *   D-5: demote 滞回 — drift < demote_threshold → reset 计数；滞回区间维持
- *   D-6: per-tick promote ≤8 seeded 排序 — scheduleLodPhase 多节点封顶
+ *   D-5: drift 计数管理（谓词驱动·无滞回）— true+1/false归零/首拍0
+ *   D-6: per-tick promote ≤8 seeded 排序 — PC-present 场景·封顶
  *   D-7: LOD态 DSL ctx — 粗=0/实体=1 注入·闸②fail-closed·未知键 miss=0
  *   D-8: 指纹分线守卫 — LOD表/连续偏离计数/漂移基线值/模块绑定策略 全排外·金向量恒等
  *   D-9: computeResourceFactor re-export — 原 tick 调用点输出不变
@@ -16,7 +16,7 @@
  * 六禁：禁 Date.now/new Date/Math.random/window/document/localeCompare
  */
 import { describe, it, expect } from 'vitest';
-import { scheduleLodPhase, LOD_PROMOTE_BUDGET, LOD_DRIFT_N, LOD_DRIFT_THRESHOLD, LOD_DEMOTE_RATIO, resolveSensitivity, computeEffectiveDriftThreshold, seededSortKey, } from '../engine/lodPhase.js';
+import { scheduleLodPhase, LOD_PROMOTE_BUDGET, LOD_DRIFT_N, resolveSensitivity, resolveTriggerPred, seededSortKey, } from '../engine/lodPhase.js';
 import { detectLodTrigger, } from '../engine/lodScheduler.js';
 import { projectStateCtx } from '../engine/dsl/stateCtx.js';
 import { computeResourceFactor } from '../engine/tick.js';
@@ -61,40 +61,73 @@ function makeStateWithLod(opts) {
     return s;
 }
 // ────────────────────────────────────────────────────────────────────────────
-// D-1: computeEffectiveDriftThreshold 四点公式
+// D-1: 漂移命名空间 + 谓词驱动行为
 // ────────────────────────────────────────────────────────────────────────────
-describe('D-1: computeEffectiveDriftThreshold', () => {
-    it('sensitivity=0 → threshold ≈ BASE (resourceFactor=1.0)', () => {
-        const t = computeEffectiveDriftThreshold(1.0, 0);
-        // BASE/1.0 × clamp(1-0, 0.5, 1.5) = 0.20 × 1.0 = 0.20
-        expect(t).toBeCloseTo(0.20);
+describe('D-1: 漂移命名空间 + 谓词驱动行为', () => {
+    it('resolveTriggerPred 无预设 → undefined → 条件④ no-op（计数不增）', () => {
+        expect(resolveTriggerPred(undefined, 'n1')).toBeUndefined();
+        const s = makeStateWithLod({ nodeKey: 'n1', 漂移基线值: 0.2 });
+        scheduleLodPhase(s, 1, 1);
+        expect(s.LOD表['n1']?.连续偏离计数).toBeUndefined();
+        scheduleLodPhase(s, 1, 2);
+        expect(s.LOD表['n1']?.连续偏离计数).toBeUndefined();
     });
-    it('sensitivity=+1 → 降阈（更灵敏）(resourceFactor=1.0)', () => {
-        const t = computeEffectiveDriftThreshold(1.0, 1);
-        // BASE × clamp(1-0.5, 0.5, 1.5) = 0.20 × 0.5 = 0.10
-        expect(t).toBeCloseTo(0.10);
+    it("触发谓词='漂移.资源紧张度 > 3'·baseline=0.2·factor≈1.0·drift=4.0 → 计数+1", () => {
+        // DSL v1 只支持整数字面量；drift=4.0 > 3 → TRUE
+        const s = makeStateWithLod({ nodeKey: 'n1', 漂移基线值: 0.2 });
+        const preset = {
+            模块绑定策略: { '*': { 触发谓词: '漂移.资源紧张度 > 3' } },
+        };
+        scheduleLodPhase(s, 1, 1, undefined, preset);
+        expect(s.LOD表['n1']?.连续偏离计数).toBe(1);
     });
-    it('sensitivity=-1 → 升阈（更钝感）(resourceFactor=1.0)', () => {
-        const t = computeEffectiveDriftThreshold(1.0, -1);
-        // BASE × clamp(1+0.5, 0.5, 1.5) = 0.20 × 1.5 = 0.30
-        expect(t).toBeCloseTo(0.30);
+    it('首拍无 baseline → 漂移=0 → predicate false → 计数=0，基线已初始化', () => {
+        const s = makeStateWithLod({ nodeKey: 'n1' }); // 无 漂移基线值
+        const preset = {
+            模块绑定策略: { '*': { 触发谓词: '漂移.资源紧张度 > 3' } },
+        };
+        scheduleLodPhase(s, 1, 1, undefined, preset);
+        expect(s.LOD表['n1']?.连续偏离计数).toBeUndefined(); // 首拍漂移=0·pred false
+        expect(s.LOD表['n1']?.漂移基线值).toBeDefined(); // 基线已初始化
     });
-    it('高负载(factor=0.5) sensitivity=0 → 升阈（高负载升阈）', () => {
-        const t0 = computeEffectiveDriftThreshold(1.0, 0); // calm
-        const t1 = computeEffectiveDriftThreshold(0.5, 0); // busy
-        // t1 = 0.20/0.5 × 1.0 = 0.40；t1 > t0
-        expect(t1).toBeGreaterThan(t0);
-        expect(t1).toBeCloseTo(0.40);
+    it('sensitivity=+1 放大漂移率（临界谓词下 sens=0 false / sens=+1 true）', () => {
+        // baseline=0.4·factor≈1.0 → rawDrift=1.5；pred='漂移.资源紧张度 >= 2'
+        //   sens=0:  1.5×1.0=1.5 < 2 → false → count=0
+        //   sens=+1: 1.5×1.5=2.25 >= 2 → true → count=1
+        const s0 = makeStateWithLod({ nodeKey: 'n1', 漂移基线值: 0.4 });
+        const s1 = makeStateWithLod({ nodeKey: 'n1', 漂移基线值: 0.4 });
+        const presetSens0 = {
+            模块绑定策略: { '*': { 触发谓词: '漂移.资源紧张度 >= 2', 敏感度: 0 } },
+        };
+        const presetSensPos = {
+            模块绑定策略: { '*': { 触发谓词: '漂移.资源紧张度 >= 2', 敏感度: 1 } },
+        };
+        scheduleLodPhase(s0, 1, 1, undefined, presetSens0);
+        scheduleLodPhase(s1, 1, 1, undefined, presetSensPos);
+        expect(s0.LOD表['n1']?.连续偏离计数).toBeUndefined(); // sens=0 → pred false
+        expect(s1.LOD表['n1']?.连续偏离计数).toBe(1); // sens=+1 → pred true
     });
-    it('敏感度变化不影响指纹（金向量守护·通过排外断言）', () => {
-        // 敏感度 bias 只进 LOD 阈值路径，不进 hashJudgmentBundle
+    it('sensitivity=-1 缩小漂移率（临界谓词下 sens=0 true / sens=-1 false）', () => {
+        // baseline=0.4·factor≈1.0 → rawDrift=1.5；pred='漂移.资源紧张度 >= 1'
+        //   sens=0:  1.5×1.0=1.5 >= 1 → true  → count=1
+        //   sens=-1: 1.5×0.5=0.75 < 1 → false → count=0
+        const s0 = makeStateWithLod({ nodeKey: 'n1', 漂移基线值: 0.4 });
+        const s1 = makeStateWithLod({ nodeKey: 'n1', 漂移基线值: 0.4 });
+        const presetSens0 = {
+            模块绑定策略: { '*': { 触发谓词: '漂移.资源紧张度 >= 1', 敏感度: 0 } },
+        };
+        const presetSensNeg = {
+            模块绑定策略: { '*': { 触发谓词: '漂移.资源紧张度 >= 1', 敏感度: -1 } },
+        };
+        scheduleLodPhase(s0, 1, 1, undefined, presetSens0);
+        scheduleLodPhase(s1, 1, 1, undefined, presetSensNeg);
+        expect(s0.LOD表['n1']?.连续偏离计数).toBe(1); // sens=0 → pred true
+        expect(s1.LOD表['n1']?.连续偏离计数).toBeUndefined(); // sens=-1 → pred false
+    });
+    it('敏感度变化不影响 hashJudgmentBundle（指纹守护·排外路径）', () => {
         const h1 = hashJudgmentBundle({ ...JUDGMENT_BASE });
         const h2 = hashJudgmentBundle({ ...JUDGMENT_BASE });
-        expect(h1).toBe(h2); // 与敏感度计算无关
-    });
-    it('resourceFactor=0 防除零 → 退化为 factor=1.0', () => {
-        const t = computeEffectiveDriftThreshold(0, 0);
-        expect(t).toBeCloseTo(0.20); // 防除零 clamp to 1.0
+        expect(h1).toBe(h2);
     });
 });
 // ────────────────────────────────────────────────────────────────────────────
@@ -194,100 +227,94 @@ describe('D-4: 条件④ detectLodTrigger 连续偏离', () => {
     });
 });
 // ────────────────────────────────────────────────────────────────────────────
-// D-5: demote 滞回 — drift 计数管理
+// D-5: drift 计数管理（谓词驱动·无滞回）
 // ────────────────────────────────────────────────────────────────────────────
-describe('D-5: scheduleLodPhase drift 计数管理', () => {
-    it('首拍初始化漂移基线值（无计数累积·首拍不触发条件④）', () => {
-        const s = makeStateWithLod({ nodeKey: 'n1', 档位: '粗' });
-        // 无 PC·首拍→初始化 baseline·计数=0
-        scheduleLodPhase(s, 1, 1);
-        const entry = s.LOD表['n1'];
-        expect(entry?.漂移基线值).toBeDefined();
-        expect(entry?.连续偏离计数).toBeUndefined(); // 首拍无漂移·不写计数
+describe('D-5: scheduleLodPhase drift 计数管理（谓词驱动·无滞回）', () => {
+    // DSL v1 只支持整数字面量；drift=4.0 > 3 → TRUE；drift=0 < 3 → FALSE
+    const PRED_PRESET = {
+        模块绑定策略: { '*': { 触发谓词: '漂移.资源紧张度 > 3' } },
+    };
+    it('predicate true → count+1（baseline=0.2·factor≈1.0·drift=4.0 > 3）', () => {
+        const s = makeStateWithLod({ nodeKey: 'n1', 漂移基线值: 0.2 });
+        scheduleLodPhase(s, 1, 1, undefined, PRED_PRESET);
+        expect(s.LOD表['n1']?.连续偏离计数).toBe(1);
     });
-    it('drift ≥ promote_threshold → 计数累积（但未达N=3 不 promote）', () => {
-        // 设置极端情形：资源紧张度=100 → factor=0.5；baseline=1.0 → drift=1.0 >> 0.20
-        const s = makeStateWithLod({ nodeKey: 'n1', 档位: '粗', 漂移基线值: 1.0, 区域资源紧张度: 0 });
-        // 手动注入超高区域资源紧张度使 factor 降低，但 computeResourceFactor 基于地图，
-        // 这里直接测计数逻辑：baseline=0.2，当前 factor≈1.0 → drift=(1.0-0.2)/0.2=4.0 >> threshold
-        s.LOD表['n1']['漂移基线值'] = 0.2;
-        // 第1拍
-        scheduleLodPhase(s, 1, 1);
-        const c1 = s.LOD表['n1']?.连续偏离计数;
-        // drift=(1.0-0.2)/0.2=4.0 >> 0.20 → 计数应为1
-        expect(c1).toBe(1);
+    it('连续 3 拍 predicate true → 计数=3（供 detectLodTrigger 读取）', () => {
+        const s = makeStateWithLod({ nodeKey: 'n1', 漂移基线值: 0.2 });
+        scheduleLodPhase(s, 1, 1, undefined, PRED_PRESET);
+        scheduleLodPhase(s, 1, 2, undefined, PRED_PRESET);
+        scheduleLodPhase(s, 1, 3, undefined, PRED_PRESET);
+        expect(s.LOD表['n1']?.连续偏离计数).toBe(3);
     });
-    it('连续3拍偏离 → 节点进入 promote 候选（通过 scheduleLodPhase）', () => {
-        // 构造场景：无 PC，baseline=0.2，当前 factor≈1.0，计数初始=2
-        const s = makeStateWithLod({
-            nodeKey: 'n1',
-            档位: '粗',
-            连续偏离计数: 2,
-            漂移基线值: 0.2,
-        });
-        // 第3拍：drift >> threshold，计数=3 → 促升
-        scheduleLodPhase(s, 1, 3);
-        // 节点被促升为实体态，计数重置
-        expect(s.LOD表['n1']?.档位).toBe('实体');
-        expect(s.LOD表['n1']?.连续偏离计数).toBeUndefined();
+    it('predicate 突然 false → 计数立刻归零（无滞回·baseline 改≈factor→drift=0 < 3）', () => {
+        const s = makeStateWithLod({ nodeKey: 'n1', 连续偏离计数: 2, 漂移基线值: 0.2 });
+        // 第1拍：drift=4.0 > 3 → pred true → count=3
+        scheduleLodPhase(s, 1, 1, undefined, PRED_PRESET);
+        expect(s.LOD表['n1']?.连续偏离计数).toBe(3);
+        // 手动将 baseline 改为 ≈ currentFactor(1.0) → drift=0 < 3 → pred false → 归零
+        s.LOD表['n1']['漂移基线值'] = 1.0;
+        scheduleLodPhase(s, 1, 2, undefined, PRED_PRESET);
+        expect(s.LOD表['n1']?.连续偏离计数).toBeUndefined(); // 归零后 delete
     });
-    it('drift < demote_threshold → 计数重置为 0（滞回防抖）', () => {
-        // baseline ≈ factor：drift ≈ 0 < demoteThreshold → reset
-        const s = makeStateWithLod({
-            nodeKey: 'n1',
-            档位: '粗',
-            连续偏离计数: 2,
-            漂移基线值: 1.0, // baseline≈factor(1.0)，drift≈0
-        });
-        scheduleLodPhase(s, 1, 1);
-        // drift ≈ 0 < demote_threshold → reset
-        expect(s.LOD表['n1']?.连续偏离计数).toBeUndefined();
+    it('首拍无基线 → 初始化基线·漂移=0 < 3 → predicate false → 计数=0', () => {
+        const s = makeStateWithLod({ nodeKey: 'n1' }); // 无 漂移基线值
+        scheduleLodPhase(s, 1, 1, undefined, PRED_PRESET);
+        expect(s.LOD表['n1']?.连续偏离计数).toBeUndefined(); // 首拍 fail-closed
+        expect(s.LOD表['n1']?.漂移基线值).toBeDefined(); // 基线已初始化
     });
 });
 // ────────────────────────────────────────────────────────────────────────────
 // D-6: per-tick promote ≤8 seeded 排序
 // ────────────────────────────────────────────────────────────────────────────
 describe('D-6: per-tick promote ≤8 seeded 排序', () => {
-    it(`promote 候选 >${LOD_PROMOTE_BUDGET} 时只促升 ≤${LOD_PROMOTE_BUDGET} 个节点`, () => {
+    it(`10 PC-present 节点 → 只促升 ≤${LOD_PROMOTE_BUDGET} 个（共享区域·1 PC）`, () => {
         const s = makeBase();
-        // 创建10个节点 + PC 在所有节点区域（通过将 PC 位置设为各区域的区域键）
-        // 简化：10节点均无 PC（drift 候选），各节点 连续偏离计数=LOD_DRIFT_N=3，baseline=0.2
-        const nodeCount = 10;
-        for (let i = 0; i < nodeCount; i++) {
+        // 共享区域级节点 region_hub·1 PC 位于此处 → 10 子节点全 PC-present
+        s.地图.地点['region_hub'] = {
+            名称: 'region_hub', 类别: '区域级', 父节点: '',
+        };
+        for (let i = 0; i < 10; i++) {
             const nodeKey = `node_${i}`;
-            s.地图.地点[nodeKey] = { 名称: nodeKey, 父节点: '' };
+            s.地图.地点[nodeKey] = {
+                名称: nodeKey, 父节点: 'region_hub',
+            };
             s.LOD表[nodeKey] = {
-                模块键: nodeKey,
-                档位: '粗',
-                连续偏离计数: LOD_DRIFT_N, // 已达门槛
-                漂移基线值: 0.2, // drift=(1.0-0.2)/0.2=4.0 >> threshold
+                模块键: nodeKey, 档位: '粗',
             };
         }
+        s._席位表 = {
+            本机: { 焦点角色键: 'pc1' },
+        };
+        s.NPC['pc1'] = { 位置: 'region_hub' };
         scheduleLodPhase(s, 42, 1);
         const promoted = Object.values(s.LOD表).filter(e => e?.档位 === '实体').length;
         expect(promoted).toBeLessThanOrEqual(LOD_PROMOTE_BUDGET);
     });
     it('相同 seed/tick → 相同排序结果（确定性）', () => {
-        // 构建两份相同初始 state，seeded sort 结果应相同
-        function makeMultiNodeState() {
+        function makeSharedRegionState() {
             const s = makeBase();
+            s.地图.地点['region_hub'] = {
+                名称: 'region_hub', 类别: '区域级', 父节点: '',
+            };
             for (let i = 0; i < 5; i++) {
                 const nodeKey = `nd_${i}`;
-                s.地图.地点[nodeKey] = { 名称: nodeKey, 父节点: '' };
+                s.地图.地点[nodeKey] = {
+                    名称: nodeKey, 父节点: 'region_hub',
+                };
                 s.LOD表[nodeKey] = {
-                    模块键: nodeKey,
-                    档位: '粗',
-                    连续偏离计数: LOD_DRIFT_N,
-                    漂移基线值: 0.2,
+                    模块键: nodeKey, 档位: '粗',
                 };
             }
+            s._席位表 = {
+                本机: { 焦点角色键: 'pc1' },
+            };
+            s.NPC['pc1'] = { 位置: 'region_hub' };
             return s;
         }
-        const s1 = makeMultiNodeState();
-        const s2 = makeMultiNodeState();
+        const s1 = makeSharedRegionState();
+        const s2 = makeSharedRegionState();
         scheduleLodPhase(s1, 99, 5);
         scheduleLodPhase(s2, 99, 5);
-        // 两个 state 促升的节点集合应相同
         const promoted1 = new Set(Object.keys(s1.LOD表).filter(k => s1.LOD表[k]?.档位 === '实体'));
         const promoted2 = new Set(Object.keys(s2.LOD表).filter(k => s2.LOD表[k]?.档位 === '实体'));
         expect(promoted1).toEqual(promoted2);
@@ -420,10 +447,8 @@ describe('D-10: 守恒门', () => {
             + FINGERPRINT_EXCLUDED_FIELDS.length;
         expect(total).toBe(88);
     });
-    it('LOD_DRIFT_N = 3 / LOD_DRIFT_THRESHOLD = 0.20 / LOD_DEMOTE_RATIO = 0.5 / LOD_PROMOTE_BUDGET = 8', () => {
+    it('LOD_DRIFT_N = 3 / LOD_PROMOTE_BUDGET = 8', () => {
         expect(LOD_DRIFT_N).toBe(3);
-        expect(LOD_DRIFT_THRESHOLD).toBeCloseTo(0.20);
-        expect(LOD_DEMOTE_RATIO).toBeCloseTo(0.5);
         expect(LOD_PROMOTE_BUDGET).toBe(8);
     });
 });

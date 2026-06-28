@@ -2,6 +2,7 @@
 // 校验用 schema；实际运行时由世界装配 WORLD_SETUP 注入引擎，不序列化进存档。
 import { z } from 'zod';
 import { 受治理句柄Schema } from './governedKeySpace.js';
+import { 谓词串Schema } from './commonEntry.js';
 
 // ── 历法皮肤（附录 C） ──
 export const 历法皮肤Schema = z.object({
@@ -543,10 +544,11 @@ export const 玩法预设Schema = z.object({
   派生标记: z.boolean().optional(),
   默认模板: z.boolean().optional(),
   LOD保温窗口: z.number().int().min(0).optional(),
-  // LOD-B2.5 · 模块绑定策略（PR-5c-1·additive·排外·敏感度 bias 阈值·不进指纹）
-  // record key '*' = 全模块默认；per-module key 覆盖全局默认；缺省=无 bias
+  // LOD-B2.5 · 模块绑定策略（PR-5c-1·additive·排外·敏感度 bias+触发谓词·不进指纹）
+  // record key '*' = 全模块默认；per-module key 覆盖全局默认；缺省=无 bias/无触发谓词
   模块绑定策略: z.record(z.string(), z.object({
     敏感度: z.number().min(-1).max(1).optional(),
+    触发谓词: 谓词串Schema.optional(), // LOD 条件④ 触发轴·evalPredStr 驱动·排外路径·不进 collectLorePredicates
   })).optional(),
   经济生成规则: z.object({
     品类基线: z.record(z.string(), z.number()).optional(),

@@ -10,18 +10,16 @@
 import { locRegion, computeResourceFactor } from './tick.js';
 import { promoteNode, tryDemoteNode, handleRegionCross, detectLodTrigger, } from './lodScheduler.js';
 import { dispatchLodGenerate } from './lodMount.js';
+import { evalPredStr } from './dsl/eval.js';
+import { computeRelativeDrift } from './economyEngine.js';
 // ── §四·6 定稿常量 ───────────────────────────────────────────────────────────
 /** promote 每拍硬上限（§四·6 定稿值·seeded 排序后取前 N） */
 export const LOD_PROMOTE_BUDGET = 8;
 /** 条件④ 连续偏离拍数门槛（§四·6 定稿值 N=3） */
 export const LOD_DRIFT_N = 3;
-/** 漂移阈值基准（20%·相对漂移·§四·6·computeResourceFactor 动态浮动） */
-export const LOD_DRIFT_THRESHOLD = 0.20;
-/** demote 阈 = promote×0.5（滞回防 thrash·§四·6） */
-export const LOD_DEMOTE_RATIO = 0.5;
-/** 敏感度 clamp 下限（sensMultiplier 最小值·防阈值降至零） */
+/** 敏感度缩放下限（漂移率乘子·sens=-1 → ×0.5·防过度钝化） */
 const DRIFT_SENS_LO = 0.5;
-/** 敏感度 clamp 上限（sensMultiplier 最大值·防过度钝化） */
+/** 敏感度缩放上限（漂移率乘子·sens=+1 → ×1.5·防过度放大） */
 const DRIFT_SENS_HI = 1.5;
 // ── LOD-B2.5 · 辅助纯函数 ────────────────────────────────────────────────────
 /**
@@ -42,16 +40,43 @@ export function resolveSensitivity(preset, nodeKey) {
     return 0;
 }
 /**
- * 计算有效漂移阈值（纯·确定性）。
- * 公式：(LOD_DRIFT_THRESHOLD / resourceFactor) × clamp(1 − sensitivity×0.5, LO, HI)
- * 平静(factor=1.0)→阈值≈BASE；高负载(factor<1.0)→阈值升（升阈防滥物化）。
- * sensitivity=0 → 无 bias；+1 → 降阈（更灵敏）；-1 → 升阈（更钝感）。
+ * 从 模块绑定策略 中解析节点的触发谓词（纯·只读）。
+ * per-module key 优先；'*' = 全模块默认；两者均无 → undefined（条件④ fail-closed·不参与）。
  */
-export function computeEffectiveDriftThreshold(resourceFactor, sensitivity) {
-    const rf = resourceFactor > 0 ? resourceFactor : 1.0; // 防除零
-    const resourceAdjusted = LOD_DRIFT_THRESHOLD / rf;
-    const sensMultiplier = Math.max(DRIFT_SENS_LO, Math.min(DRIFT_SENS_HI, 1 - sensitivity * 0.5));
-    return resourceAdjusted * sensMultiplier;
+export function resolveTriggerPred(preset, nodeKey) {
+    const strategy = preset?.模块绑定策略;
+    if (!strategy)
+        return undefined;
+    const perModule = strategy[nodeKey]?.触发谓词;
+    if (perModule !== undefined)
+        return perModule;
+    return strategy['*']?.触发谓词;
+}
+/**
+ * 构造 LOD 触发谓词专用 DslContext（纯·只读·排外路径）。
+ * 命名空间：全局（拍计数/纪元分钟）· LOD态（粗=0/实体=1）· 漂移（资源紧张度·sensMultiplier 缩放）。
+ * NPC 命名空间（属性/技能/账户/自定义变量）不注入（LOD 节点=地点键·非 NPC）。
+ * 漂移.资源紧张度 = computeRelativeDrift(currentFactor, baseline) × clamp(1+sens×0.5, LO, HI)
+ * baseline=undefined（首拍）→ 漂移=0（谓词 fail-closed）。
+ */
+function buildLodDriftCtx(state, nodeKey, locs, baseline, sensitivity) {
+    const 全局 = {
+        拍计数: state._tick?.拍计数 ?? 0,
+        纪元分钟: state.世界?.纪元分钟 ?? 0,
+    };
+    const LOD态Rec = {};
+    if (state.LOD表) {
+        for (const [k, entry] of Object.entries(state.LOD表)) {
+            if (entry !== null && typeof entry === 'object') {
+                LOD态Rec[k] = entry.档位 === '实体' ? 1 : 0;
+            }
+        }
+    }
+    const curFactor = computeResourceFactor(nodeKey, locs);
+    const rawDrift = baseline !== undefined ? computeRelativeDrift(curFactor, baseline) : 0;
+    const sensMultiplier = Math.max(DRIFT_SENS_LO, Math.min(DRIFT_SENS_HI, 1 + sensitivity * 0.5));
+    const 漂移 = { 资源紧张度: rawDrift * sensMultiplier };
+    return { 全局, LOD态: LOD态Rec, 漂移 };
 }
 /**
  * 确定性节点排序键（djb2 变体·seed × tick × nodeKey·六禁合规）。
@@ -126,7 +151,7 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
             }
         }
         if (pcPresent) {
-            promoteCandidates.push({ nodeKey, source: 'pc', sortKey });
+            promoteCandidates.push({ nodeKey, sortKey });
             // 促升时重置漂移计数和基线（节点进入实体态·重建基线）
             const entry = s.LOD表[nodeKey];
             if (entry) {
@@ -138,41 +163,37 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
             }
         }
         else {
-            // B2.5 条件④：计算当前漂移；更新连续计数
+            // 条件④：谓词驱动连续偏离计数（仅更新计数·不推 promoteCandidates）
             const entry = s.LOD表[nodeKey];
             if (!entry)
                 continue;
-            const resourceFactor = computeResourceFactor(nodeKey, locs);
-            const sensitivity = resolveSensitivity(preset, nodeKey);
-            const promoteThreshold = computeEffectiveDriftThreshold(resourceFactor, sensitivity);
-            const demoteThreshold = promoteThreshold * LOD_DEMOTE_RATIO;
-            // 初始化或读取漂移基线值
             const baseline = entry.漂移基线值;
-            let drift = 0;
-            if (baseline !== undefined && baseline > 0) {
-                drift = Math.abs(resourceFactor - baseline) / baseline;
-            }
             const currentCount = entry.连续偏离计数 ?? 0;
             let newCount;
-            let newBaseline = baseline;
-            if (drift >= promoteThreshold) {
-                newCount = currentCount + 1;
-            }
-            else if (drift < demoteThreshold) {
-                newCount = 0; // 低于 demote 阈 → 重置计数（滞回）
-            }
-            else {
-                newCount = currentCount; // 滞回区间维持计数不变
-            }
-            // 首次注册节点：初始化基线值
+            let newBaseline;
             if (baseline === undefined) {
-                newBaseline = resourceFactor;
+                // 首拍：初始化基线值，漂移=0，计数=0
+                newBaseline = computeResourceFactor(nodeKey, locs);
                 newCount = 0;
             }
-            driftCounterUpdates.push({ nodeKey, newCount, ...(newBaseline !== undefined ? { newBaseline } : {}) });
-            if (newCount >= LOD_DRIFT_N) {
-                promoteCandidates.push({ nodeKey, source: 'drift', sortKey });
+            else {
+                // 谓词驱动：作者声明触发轴（fail-closed：无谓词 → false → 归零）
+                const triggerPred = resolveTriggerPred(preset, nodeKey);
+                if (triggerPred) {
+                    const sensitivity = resolveSensitivity(preset, nodeKey);
+                    const ctx = buildLodDriftCtx(s, nodeKey, locs, baseline, sensitivity);
+                    // 真/假二值·无滞回区间
+                    newCount = evalPredStr(triggerPred, ctx) ? currentCount + 1 : 0;
+                }
+                else {
+                    newCount = 0; // 无触发谓词·条件④ 不参与该节点
+                }
             }
+            driftCounterUpdates.push({
+                nodeKey,
+                newCount,
+                ...(newBaseline !== undefined ? { newBaseline } : {}),
+            });
         }
     }
     // ── B2.5 · Pass 2: seeded 排序 + 预算截断（≤8）──────────────────────────
@@ -194,12 +215,10 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
             entry.漂移基线值 = newBaseline;
         }
     }
-    // ── Pass 4: 执行 promote / demote ──────────────────────────────────────
-    for (const { nodeKey, source } of toPromote) {
+    // ── Pass 4: 执行 promote / demote（所有候选均来自 PC 在场·无 drift 候选）──
+    for (const { nodeKey } of toPromote) {
         promoteNode(s, nodeKey, rngSeed);
-        if (source === 'pc') {
-            dispatchLodGenerate(s, nodeKey, rngSeed); // B3: lodMount seam
-        }
+        dispatchLodGenerate(s, nodeKey, rngSeed); // B3: lodMount seam
         // 促升后重置偏离计数（重新开始漂移监测）
         const entry = s.LOD表[nodeKey];
         if (entry) {

@@ -19,7 +19,6 @@ import { describe, it, expect } from 'vitest';
 import {
   scheduleLodPhase,
   LOD_PROMOTE_BUDGET,
-  LOD_DRIFT_THRESHOLD,
 } from '@ai-life-sim/core/engine/lodPhase';
 import { detectLodTrigger, type LodTriggerCtx } from '@ai-life-sim/core/engine/lodScheduler';
 import { SETTLEMENT_PHASES, runTick } from '@ai-life-sim/core/engine/tick';
@@ -128,9 +127,6 @@ describe('B2-0 · 守恒门', () => {
   });
   it('LOD_PROMOTE_BUDGET=8', () => {
     expect(LOD_PROMOTE_BUDGET).toBe(8);
-  });
-  it('LOD_DRIFT_THRESHOLD=0.20', () => {
-    expect(LOD_DRIFT_THRESHOLD).toBeCloseTo(0.20);
   });
 });
 
