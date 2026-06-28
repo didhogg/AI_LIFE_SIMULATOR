@@ -4,7 +4,7 @@ import { 渲染模式枚举 } from './memory.js';
 import { factFragmentSchema } from './commonEntry.js';
 // ── $运气 / $寿命预期 ──
 export const $运气Schema = z.number().int().min(1).max(100).default(50);
-export const $寿命预期Schema = z.number().int().min(1).max(200).default(75);
+export const $寿命预期Schema = z.number().int().min(1).max(200).optional(); // absent = preset/world模型提供；reader ?? 75
 // ── $存档种子（P0-5·Ring 0 RNG 根种子） ──
 // 0=哨兵；开局/读档时由 Ring 0 生成一次后只读（P0-7 接线）；AI 永不可见；纯函数遇 0 照常计算
 export const $存档种子Schema = z.number().int().default(0);

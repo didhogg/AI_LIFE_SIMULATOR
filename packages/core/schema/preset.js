@@ -178,7 +178,7 @@ export const 欠债参数Schema = z.object({
 // ── 赛事结构模板（6.35） ──
 const 赛事模板条目Schema = z.object({
     参与者选择器: z.string().default(''),
-    赛制: z.enum(['淘汰', '积分', '循环']).default('淘汰'),
+    赛制: z.string().default(''), // 淘汰/积分/循环/…；'' = 无预设（开放串·作者面）
     轮次: z.number().int().min(1).default(1),
     检定配方引用: z.string().default(''),
     排名表: z.record(z.string(), z.number()).default({}),

@@ -47,10 +47,10 @@ export const 地点条目Schema = z.object({
     结构: z.string().default(''),
     状态: z.string().default(''),
     控制方: z.string().default(''), // 组织实体键
-    社交开放度: z.string().default('中'), // 高/中/低
-    危险度: z.string().default('低'),
-    可达性: z.string().default('自由通行'),
-    探索度: z.number().min(0).max(100).default(100),
+    社交开放度: z.string().default(''), // 高/中/低；'' = 无预设（引擎 ?? '中'）
+    危险度: z.string().default(''), // '' = 无预设（引擎 ?? '低'）
+    可达性: z.string().default(''), // '' = 无预设（引擎 ?? '自由通行'）
+    探索度: z.number().min(0).max(100).default(0),
     意象: z.array(意象条目Schema).default([]), // 6.29 统一制式
     产出: 产出Schema.default({}),
     // 据点设施 🧮 派生镜像（filter 组织实体.网点 by 地点键），不存储
@@ -130,14 +130,14 @@ export const 地图Schema = z.object({
 const 参战方条目Schema = z.object({
     实体键: z.string().default(''),
     阵营键: z.string().default(''),
-    战争姿态: z.string().default('防守'), // 主攻/助攻/防守/观望/调停
+    战争姿态: z.string().default(''), // 主攻/助攻/防守/观望/调停；'' = 无预设
     参战目标: z.string().default(''),
 });
 const 战争条目Schema = z.object({
     战争名: z.string().default(''),
     参战方: z.array(参战方条目Schema).default([]),
     战争目标: z.string().default(''),
-    状态: z.string().default('交战'), // 交战/停战/和谈/结束
+    状态: z.string().default(''), // 交战/停战/和谈/结束；'' = 无预设
     // _战线 🧮 派生（压力榜汇总），不存储
 });
 export const 战争状态Schema = z.record(z.string(), 战争条目Schema).default({});
@@ -148,6 +148,6 @@ const 赛事实例条目Schema = z.object({
     模板引用: z.string().default(''), // 玩法预设/事件包中的模板 ID
     当前轮次: z.number().int().min(0).default(0),
     排名表: z.record(z.string(), z.number()).default({}), // NPC键→名次
-    状态: z.string().default('进行中'),
+    状态: z.string().default(''), // 进行中/已结束/…；'' = 无预设
 });
 export const 赛事实例Schema = z.record(z.string(), 赛事实例条目Schema).default({});

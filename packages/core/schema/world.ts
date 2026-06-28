@@ -5,10 +5,10 @@ import { z } from 'zod';
 export const 粒度模板Schema = z.object({
   现实档: z.string().default(''), // 即时/日常/发展/世代
   行动点上限: z.number().int().min(0).default(0), // 0 = 无限
-  精力激活: z.boolean().default(true),
+  精力激活: z.boolean().default(false), // false = 无预设（引擎 ?? true by preset）
   HP模型: z.string().default(''), // 回合血条/体力/寿元等
   自动结算: z.array(z.string()).default([]), // 月结/经济等自动结算项
-  对齐模式: z.enum(['固定跨度', '历法对齐']).default('固定跨度'),
+  对齐模式: z.string().default(''), // 固定跨度/历法对齐；'' = 无预设（开放串·作者面）
 });
 export type 粒度模板Type = z.infer<typeof 粒度模板Schema>;
 
@@ -39,11 +39,11 @@ export const 世界Schema = z.object({
   // 季节 🧮 派生 f(月, 气候带)，不存储
   年代背景: z.string().default(''),
   气候带: z.string().default(''),
-  当前粒度: z.string().default('日常'), // 粒度模板键
+  当前粒度: z.string().default(''), // 粒度模板键；'' = 无预设（preset/迁移写值）
   粒度栈: z.array(z.string()).default([]),
   周期数: z.number().int().min(0).default(0), // 只读统计；拍计数≠时间，禁止用拍数折算时长
-  _本拍跨度: z.number().int().min(1).default(43200), // 只读，单位纪元分钟（默认一天=1440*30）
-  _粒度模板: z.record(z.string(), 粒度模板Schema).default({ 即时: {}, 日常: {}, 发展: {}, 世代: {} }),
+  _本拍跨度: z.number().int().min(1).optional(), // 只读，单位纪元分钟；absent=引擎 ?? 43200
+  _粒度模板: z.record(z.string(), 粒度模板Schema).default({}), // 出厂空·preset/迁移注入具体条目
 });
 
 // ── G-1 活跃区间条目（域钟唯一派生输入，随线版本化） ──

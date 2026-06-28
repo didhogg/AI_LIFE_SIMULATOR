@@ -244,7 +244,7 @@ const 关系条目Schema = z.object({
     信任: z.number().min(0).max(100).default(0),
     深度: z.number().min(0).max(100).default(0),
     // C2-0 additive seam: typed edge classification (引擎结构化分类·⊥ 人读 类型 字段)
-    边类型: z.enum(['强', '弱', '桥接', '在场临时弱']).optional(),
+    边类型: z.string().optional(), // 强/弱/桥接/在场临时弱/…；开放串·与 EDGE_TYPE_IC_RATE record<string> 对齐
 });
 const 所属组织条目Schema = z.object({
     组织键: z.string().default(''),
@@ -282,7 +282,7 @@ const NPC占位形态Schema = z.object({
 // 关系声明：Z2 五类方向槽，导入时建关系边＋双向认知档案
 export const 关系声明条目Schema = z.object({
     对象: z.string().default(''), // NPC键 / 'user' / 'char' 占位
-    方向: z.enum(['单向→', '单向←', '双向', '敌对', '从属']).default('双向'),
+    方向: z.string().default(''), // 单向→/单向←/双向/敌对/从属/…；'' = 无预设（开放串·作者面）
     类型: z.string().default(''), // 开放串关系名
     强度: z.number().min(-100).max(100).default(0),
     备注: z.string().default(''),
@@ -428,10 +428,10 @@ export const NpcSchema = z.object({
     上次互动: z.number().int().default(0), // 绝对纪元分钟；0 = 从未互动
     // ── 对撞③ 姓名披露策略 ──────────────────────────────────────────────────────────
     // open=主动自我介绍; selective=仅特定条件下报名; secretive=永不主动报名
-    介绍策略: z.enum(['open', 'selective', 'secretive']).optional(),
+    介绍策略: z.string().optional(), // open/selective/secretive/…；开放串·作者面
     // ── 越界动词族·案底状态（对撞·越界行为历史记录·演出层·入指纹排除名单）──────────────
     案底: z.object({
-        状态: z.enum(['清白', '过期', '案底']).default('清白'),
+        状态: z.string().default(''), // 清白/过期/案底/…；'' = 无预设（开放串·演出层）
         过期时间: z.number().int().default(0), // 绝对纪元分钟；0=永不过期
         记录: z.array(z.object({
             类型: z.string().default(''), // 罪名开放串
@@ -520,7 +520,7 @@ const 认知档案条目Schema = z.object({
     // 视觉指代 = 认识前·叙事用「那人」「黑衣男子」等
     // 已知姓名 = 自报家门后·叙事可用真名+称呼建议
     // 铁律: 姓名知识是渲染期投影 over 实体键，永不写进冻结播报串
-    姓名知识: z.enum(['视觉指代', '已知姓名']).default('已知姓名'),
+    姓名知识: z.enum(['视觉指代', '已知姓名']).optional(), // 引擎机制闭集·absent=引擎/迁移写显式值
     // 日记/记忆区分 mentioned_known_names ⊥ mentioned_visual_refs
     mentioned_known_names: z.array(z.string()).optional(), // 本条目提及已知姓名的实体键列表
     mentioned_visual_refs: z.array(z.string()).optional(), // 本条目提及视觉指代的实体键列表

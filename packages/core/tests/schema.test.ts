@@ -376,30 +376,30 @@ describe('4.2 World layer', () => {
   it('unknown key strict rejection', () => {
     expect(世界Schema.strict().safeParse({ 季节: '春' }).success).toBe(false); // 季节 is derived
   });
-  // 13a: 对齐模式 in 粒度模板Schema (open record)
-  it('_粒度模板: 对齐模式 defaults to 固定跨度', () => {
-    const world = 世界Schema.parse({});
-    expect(world._粒度模板['即时']!.对齐模式).toBe('固定跨度');
-    expect(world._粒度模板['发展']!.对齐模式).toBe('固定跨度');
+  // 13a: 对齐模式 in 粒度模板Schema (open string · R2 widened)
+  it('_粒度模板: 对齐模式 default is "" (neutral)', () => {
+    const world = 世界Schema.parse({ _粒度模板: { 即时: {} } });
+    expect(world._粒度模板['即时']!.对齐模式).toBe('');
   });
   it('_粒度模板: 对齐模式 accepts 历法对齐', () => {
     const result = 世界Schema.parse({ _粒度模板: { 发展: { 对齐模式: '历法对齐' } } });
     expect(result._粒度模板['发展']!.对齐模式).toBe('历法对齐');
   });
-  it('_粒度模板: 对齐模式 rejects unknown value', () => {
-    expect(世界Schema.safeParse({ _粒度模板: { 即时: { 对齐模式: '自由' } } }).success).toBe(false);
+  it('_粒度模板: 对齐模式 accepts any open string (R2 widened)', () => {
+    expect(世界Schema.safeParse({ _粒度模板: { 即时: { 对齐模式: '自由' } } }).success).toBe(true);
   });
-  it('_粒度模板: default record has all 4 out-of-box granularity entries', () => {
+  it('_粒度模板: default record is empty {} (R2·preset/migration injects entries)', () => {
     const world = 世界Schema.parse({});
-    expect(world._粒度模板['即时']).toBeDefined();
-    expect(world._粒度模板['日常']).toBeDefined();
-    expect(world._粒度模板['发展']).toBeDefined();
-    expect(world._粒度模板['世代']).toBeDefined();
+    expect(Object.keys(world._粒度模板)).toHaveLength(0);
+    expect(world._粒度模板['即时']).toBeUndefined();
+    expect(world._粒度模板['日常']).toBeUndefined();
+    expect(world._粒度模板['发展']).toBeUndefined();
+    expect(world._粒度模板['世代']).toBeUndefined();
   });
   it('_粒度模板: accepts custom granularity key (open record, de-enumerated)', () => {
     const world = 世界Schema.parse({ _粒度模板: { 史诗档: {} } });
     expect(world._粒度模板['史诗档']).toBeDefined();
-    expect(world._粒度模板['史诗档']!.对齐模式).toBe('固定跨度');
+    expect(world._粒度模板['史诗档']!.对齐模式).toBe(''); // R2 neutral default
   });
   it('当前粒度 and 粒度栈 accept custom granularity keys', () => {
     const world = 世界Schema.parse({ 当前粒度: '史诗档', 粒度栈: ['日常', '史诗档'] });
@@ -500,8 +500,8 @@ describe('4.3 Actor layer', () => {
     expect(() => 关系声明条目Schema.parse({ 对象: 'user', 方向: '从属', 类型: '主仆', 强度: -30 })).not.toThrow();
     expect(() => 关系声明条目Schema.parse({ 对象: 'char', 方向: '敌对', 类型: '仇家', 强度: -80 })).not.toThrow();
   });
-  it('invalid: 关系声明 方向 illegal value', () => {
-    expect(关系声明条目Schema.safeParse({ 方向: '横向' }).success).toBe(false);
+  it('valid: 关系声明 方向 open string (R2 widened)', () => {
+    expect(关系声明条目Schema.safeParse({ 方向: '横向' }).success).toBe(true);
   });
   it('valid 既往记忆种子 with 来源=导入预设', () => {
     expect(() => 既往记忆种子条目Schema.parse({
@@ -4506,7 +4506,7 @@ describe('R5 · 货币系统 顶层 opt-in（RootSchema.optional()）', () => {
     expect(r.货币系统).toBeDefined();
     expect(r.货币系统?.基准币种).toBe('');
     expect(r.货币系统?.市场状态?.激活).toBe(false);
-    expect(r.货币系统?.市场状态?.大盘景气).toBe(50);
+    expect(r.货币系统?.市场状态?.大盘景气).toBe(0); // R2 neutral default
     expect(r.货币系统?.账户).toEqual({});
     expect(r.货币系统?.换汇登记).toEqual([]);
   });
@@ -4526,16 +4526,16 @@ describe('R5 · 货币系统 顶层 opt-in（RootSchema.optional()）', () => {
     expect(activated).toBe(false);
   });
 
-  it('accessor 读回退：市场状态.大盘景气 ?? 50 == 改前 default', () => {
-    const prosperity = EMPTY_ROOT.货币系统?.市场状态?.大盘景气 ?? 50;
-    expect(prosperity).toBe(50);
+  it('accessor 读回退：大盘景气 ?? 0 == R2 中性基准（consumer 语义值用 ?? 50）', () => {
+    const prosperity = EMPTY_ROOT.货币系统?.市场状态?.大盘景气 ?? 0;
+    expect(prosperity).toBe(0);
   });
 
   it('显式子树传入时叶子 default 仍生效', () => {
     const r = RootSchema.parse({ 货币系统: { 基准币种: '两', 市场状态: { 激活: true } } });
     expect(r.货币系统?.基准币种).toBe('两');
     expect(r.货币系统?.市场状态?.激活).toBe(true);
-    expect(r.货币系统?.市场状态?.大盘景气).toBe(50);
+    expect(r.货币系统?.市场状态?.大盘景气).toBe(0); // R2 neutral default
     expect(r.货币系统?.账户).toEqual({});
   });
 });

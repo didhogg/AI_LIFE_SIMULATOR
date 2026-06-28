@@ -88,7 +88,7 @@ const 经济依附Schema = z.object({
 // ── 市场状态 ──
 const 市场状态Schema = z.object({
   激活: z.boolean().default(false),
-  大盘景气: z.number().min(0).max(100).default(50),
+  大盘景气: z.number().min(0).max(100).default(0), // 0 = 无预设基准；consumer ?? 50
   通胀率: z.number().default(0),    // 年化（纪元时间）
   基准利率: z.number().default(0),  // 年化
   行业景气: z.record(经济记录键Schema, z.number().min(0).max(100)).default({}),
