@@ -850,6 +850,61 @@ describe('G2-3 E15 · 冲突吸收：矫诏=true + 无对立印象 → 只 FAKE_
   });
 });
 
+// ── E16 · 冲突吸收：中正/中负矫诏 ripple 语义修正（R3-b 判定面·tick 路径）──────
+// 旧 oppositePolarityStr(中正)='' → computeConflictAbsorption 立即 return 1.0（latent bug）。
+// 新 → '中负' → 查到 R态「中负」印象(强度≥30) → CONFLICT_FACTOR 吸收。
+
+describe('G2-3 E16 · 冲突吸收：中正/中负矫诏 ripple 语义修正（R3-b 判定面）', () => {
+  it('矫诏「中正」ripple + R态「中负」印象(35≥30) → CONFLICT_FACTOR 吸收（旧=无吸收·latent bug）', () => {
+    const s0 = makeState({
+      npcs: {
+        src:  { 位置: 'loc_a' },
+        obs1: { 位置: 'loc_a', 所属组织: [{ 组织键: 'orgE16a' }] },
+        mem:  { 位置: 'loc_b', 所属组织: [{ 组织键: 'orgE16a' }], 忠诚: { orgE16a: { $真实值: 100, 伪装度: 0 } } },
+      },
+    });
+    // 预植 R态：mem 已相信 src「声誉=中负」强度35≥CONFLICT_THRESHOLD(30)
+    s0.认知档案['mem'] = {
+      src: {
+        了解度: 0, 误差表: {}, 时效: 0, 姓名知识: '已知姓名',
+        印象: [{ 标签: '声誉', 极性: '中负', 强度: 35, 来源: '目击', 获知时间: 0, 衰减速率: 0, 来源类型: '一手观测' }],
+      },
+    };
+    // 矫诏伪诏：「声誉/中正」与既有「声誉/中负」对立
+    emitRipple(s0.$涟漪候选, 'src', { 标签: '声誉', 极性: '中正', 强度: ORG_MSG_BASE, 可见性: '公开', 来源拍号: 0, 矫诏: true });
+    const { state: s1 } = runTick(s0, { tickId: 'e16-zhongzheng', spanMinutes: 1440 });
+
+    const newImp = s1.认知档案['mem']?.['src']?.印象.find(i => i.极性 === '中正');
+    expect(newImp).toBeDefined();
+    // 新：oppositePolarityStr('中正')='中负'→找到强度35≥30→CONFLICT_FACTOR×0.5（killer）
+    const expected = ORG_MSG_BASE * ORG_CHANNEL_DECAY * 1.0 * FAKE_EDICT_FACTOR * CONFLICT_FACTOR;
+    expect(newImp?.强度).toBeCloseTo(expected, 5); // 旧=expected/CONFLICT_FACTOR（无吸收）
+  });
+
+  it('矫诏「中负」ripple + R态「中正」印象(35≥30) → CONFLICT_FACTOR 吸收（对称验证）', () => {
+    const s0 = makeState({
+      npcs: {
+        src:  { 位置: 'loc_a' },
+        obs1: { 位置: 'loc_a', 所属组织: [{ 组织键: 'orgE16b' }] },
+        mem:  { 位置: 'loc_b', 所属组织: [{ 组织键: 'orgE16b' }], 忠诚: { orgE16b: { $真实值: 100, 伪装度: 0 } } },
+      },
+    });
+    s0.认知档案['mem'] = {
+      src: {
+        了解度: 0, 误差表: {}, 时效: 0, 姓名知识: '已知姓名',
+        印象: [{ 标签: '声誉', 极性: '中正', 强度: 35, 来源: '目击', 获知时间: 0, 衰减速率: 0, 来源类型: '一手观测' }],
+      },
+    };
+    emitRipple(s0.$涟漪候选, 'src', { 标签: '声誉', 极性: '中负', 强度: ORG_MSG_BASE, 可见性: '公开', 来源拍号: 0, 矫诏: true });
+    const { state: s1 } = runTick(s0, { tickId: 'e16-zhongfu', spanMinutes: 1440 });
+
+    const newImp = s1.认知档案['mem']?.['src']?.印象.find(i => i.极性 === '中负');
+    expect(newImp).toBeDefined();
+    const expected = ORG_MSG_BASE * ORG_CHANNEL_DECAY * 1.0 * FAKE_EDICT_FACTOR * CONFLICT_FACTOR;
+    expect(newImp?.强度).toBeCloseTo(expected, 5);
+  });
+});
+
 // ── E8 · soak 稳定性（300 拍·bassP=0.5·无 NaN / 无发散）──────────────────────
 
 describe('G2-2 E8 · soak 稳定性（300 拍·bassP=0.5）', () => {
