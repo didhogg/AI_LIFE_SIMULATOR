@@ -4,8 +4,8 @@
 //
 // E-2 底座：executor 构建 提案批（array）。
 //   主条目：动作类别 + 目标引用（全路径）+ 可选数值槽（已钳制）+ 可选方向槽。
-//   对手方条目：params.关联实体 各路径·数值槽 = -主条目数值槽
-//     （executor 作为记账AI 显式签名·不来自列表位置·方向由具体 params 键名语义定）。
+//   对手方条目：忠实搬运 params.对手方条目 各条目·符号原样复制·禁取反·禁推导。
+//   符号/方向职责由上游菜单生成器在 option.params.对手方条目 里显式给出。
 import type { ActionOptionType, 指令信封Type, FailureTicketType } from '../schema/proposal.js';
 import { 指令信封Schema, 方向槽枚举 } from '../schema/proposal.js';
 import { 动词Id枚举 } from '../schema/verb.js';
@@ -64,22 +64,27 @@ export function executeActionOption(args: ExecuteOptionArgs): ExecuteOptionResul
     数值槽 = lo > hi ? chosenValue : Math.min(hi, Math.max(lo, chosenValue));
   }
 
-  // ── Step 5: 方向槽 + 关联实体（由 option.params 派生）────────────────────────
-  const rawDir      = option.params['方向槽'];
-  const rawEntities = option.params['关联实体'];
+  // ── Step 5: 方向槽 + 对手方条目（由 option.params 派生）────────────────────────
+  const rawDir          = option.params['方向槽'];
+  const rawCounterparts = option.params['对手方条目'];
 
   const 方向槽: (typeof 方向槽枚举)[number] | undefined =
     typeof rawDir === 'string' && 方向槽合法值.has(rawDir)
       ? (rawDir as (typeof 方向槽枚举)[number])
       : undefined;
 
-  const 关联实体: string[] = Array.isArray(rawEntities)
-    ? (rawEntities as unknown[]).filter((e): e is string => typeof e === 'string')
+  const 对手方条目: Array<{ 目标引用: string; 数值槽: number }> = Array.isArray(rawCounterparts)
+    ? (rawCounterparts as unknown[]).filter(
+        (e): e is { 目标引用: string; 数值槽: number } =>
+          typeof e === 'object' && e !== null &&
+          typeof (e as Record<string, unknown>)['目标引用'] === 'string' &&
+          typeof (e as Record<string, unknown>)['数值槽'] === 'number',
+      )
     : [];
 
   // ── Step 6: 构建 提案批 array（E-2·每条目独立路径+带符号数值槽）──────────────
-  // 主条目：动作类别 + 目标引用（全路径）+ 可选数值槽（正值）+ 可选方向槽
-  // 对手方条目：params.关联实体 各路径·数值槽 = -主数值槽（executor作为记账AI显式签名）
+  // 主条目：动作类别 + 目标引用（全路径）+ 可选数值槽（已钳制）+ 可选方向槽
+  // 对手方条目：忠实搬运 params.对手方条目·符号原样复制·零取反·零推导
   const primaryEntry: Record<string, unknown> = {
     动作类别: verb,
     目标引用: resolvedTarget,
@@ -89,14 +94,12 @@ export function executeActionOption(args: ExecuteOptionArgs): ExecuteOptionResul
 
   const 提案批条目: Record<string, unknown>[] = [primaryEntry];
 
-  if (数值槽 !== undefined) {
-    for (const counterPath of 关联实体) {
-      提案批条目.push({
-        动作类别: verb,
-        目标引用: counterPath,
-        数值槽:   -数值槽,
-      });
-    }
+  for (const counterpart of 对手方条目) {
+    提案批条目.push({
+      动作类别: verb,
+      目标引用: counterpart.目标引用,
+      数值槽:   counterpart.数值槽,
+    });
   }
 
   const rawEnvelope = {

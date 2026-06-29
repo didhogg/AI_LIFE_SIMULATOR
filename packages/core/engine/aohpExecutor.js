@@ -36,18 +36,20 @@ export function executeActionOption(args) {
         const hi = option.max ?? Infinity;
         数值槽 = lo > hi ? chosenValue : Math.min(hi, Math.max(lo, chosenValue));
     }
-    // ── Step 5: 方向槽 + 关联实体（由 option.params 派生）────────────────────────
+    // ── Step 5: 方向槽 + 对手方条目（由 option.params 派生）────────────────────────
     const rawDir = option.params['方向槽'];
-    const rawEntities = option.params['关联实体'];
+    const rawCounterparts = option.params['对手方条目'];
     const 方向槽 = typeof rawDir === 'string' && 方向槽合法值.has(rawDir)
         ? rawDir
         : undefined;
-    const 关联实体 = Array.isArray(rawEntities)
-        ? rawEntities.filter((e) => typeof e === 'string')
+    const 对手方条目 = Array.isArray(rawCounterparts)
+        ? rawCounterparts.filter((e) => typeof e === 'object' && e !== null &&
+            typeof e['目标引用'] === 'string' &&
+            typeof e['数值槽'] === 'number')
         : [];
     // ── Step 6: 构建 提案批 array（E-2·每条目独立路径+带符号数值槽）──────────────
-    // 主条目：动作类别 + 目标引用（全路径）+ 可选数值槽（正值）+ 可选方向槽
-    // 对手方条目：params.关联实体 各路径·数值槽 = -主数值槽（executor作为记账AI显式签名）
+    // 主条目：动作类别 + 目标引用（全路径）+ 可选数值槽（已钳制）+ 可选方向槽
+    // 对手方条目：忠实搬运 params.对手方条目·符号原样复制·零取反·零推导
     const primaryEntry = {
         动作类别: verb,
         目标引用: resolvedTarget,
@@ -55,14 +57,12 @@ export function executeActionOption(args) {
         ...(方向槽 !== undefined ? { 方向槽 } : {}),
     };
     const 提案批条目 = [primaryEntry];
-    if (数值槽 !== undefined) {
-        for (const counterPath of 关联实体) {
-            提案批条目.push({
-                动作类别: verb,
-                目标引用: counterPath,
-                数值槽: -数值槽,
-            });
-        }
+    for (const counterpart of 对手方条目) {
+        提案批条目.push({
+            动作类别: verb,
+            目标引用: counterpart['目标引用'],
+            数值槽: counterpart['数值槽'],
+        });
     }
     const rawEnvelope = {
         provenance: 'player_option',
