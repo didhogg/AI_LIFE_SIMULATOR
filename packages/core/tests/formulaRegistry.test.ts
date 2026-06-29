@@ -142,6 +142,27 @@ describe('F5-1 default values match hardcoded constants', () => {
   test('rel_depth_default default = 20', () => {
     expect(resolveFormula('rel_depth_default')).toBe(20);
   });
+  test('economy_price_formula default fallback = 1 (no ctx)', () => {
+    expect(resolveFormula('economy_price_formula')).toBe(1);
+  });
+  test('economy_price_formula default DSL with ctx evaluates linear formula', () => {
+    // 1 + (0.5 * 1 + 0 * 0 + 0 * 0) * 1 = 1.5
+    const config: FormulaResolveConfig = {
+      ctx: { w_tension: 0.5, tension: 1, w_supply: 0, supply: 0, w_war: 0, wartime: 0, decay: 1 },
+    };
+    expect(resolveFormula('economy_price_formula', config)).toBe(1.5);
+  });
+  test('economy_price_formula default DSL replay deterministic', () => {
+    const config: FormulaResolveConfig = {
+      ctx: { w_tension: 0.3, tension: 0.8, w_supply: 0.2, supply: -0.5, w_war: 0.1, wartime: 1, decay: 0.9 },
+    };
+    const r1 = resolveFormula('economy_price_formula', config);
+    const r2 = resolveFormula('economy_price_formula', config);
+    expect(r1).toBe(r2);
+  });
+  test('narrative_pullback_density default = 0.7', () => {
+    expect(resolveFormula('narrative_pullback_density')).toBe(0.7);
+  });
 });
 
 // ── F5-2: 注册表完整性 ───────────────────────────────────────────────────────────
@@ -154,8 +175,8 @@ describe('F5-2 registry completeness', () => {
     }
   });
 
-  test('total formula point count = 44', () => {
-    expect(FORMULA_POINT_KEYS.length).toBe(44);
+  test('total formula point count = 46', () => {
+    expect(FORMULA_POINT_KEYS.length).toBe(46);
   });
 });
 
@@ -242,6 +263,48 @@ describe('F5-4 DSL string override', () => {
     };
     expect(resolveFormula('rel_ripple_threshold', config)).toBe(75);
   });
+
+  test('economy_price_formula DSL override replaces formula shape', () => {
+    const config: FormulaResolveConfig = {
+      playerDsl: { economy_price_formula: '2' },
+      ctx: { w_tension: 0.5, tension: 1, w_supply: 0, supply: 0, w_war: 0, wartime: 0, decay: 1 },
+      enabled: true,
+    };
+    expect(resolveFormula('economy_price_formula', config)).toBe(2);
+  });
+
+  test('economy_price_formula invalid DSL override fail-safe falls through to defaultDsl', () => {
+    const config: FormulaResolveConfig = {
+      playerDsl: { economy_price_formula: '@@INVALID@@' },
+      ctx: { w_tension: 0.5, tension: 1, w_supply: 0, supply: 0, w_war: 0, wartime: 0, decay: 1 },
+      enabled: true,
+    };
+    // invalid override → fall through to defaultDsl → 1 + (0.5 * 1) * 1 = 1.5
+    expect(resolveFormula('economy_price_formula', config)).toBe(1.5);
+  });
+
+  test('economy_price_formula presetNumbers override locks formula to constant', () => {
+    const config: FormulaResolveConfig = {
+      presetNumbers: { economy_price_formula: 1.2 },
+      ctx: { w_tension: 1, tension: 1, w_supply: 0, supply: 0, w_war: 0, wartime: 0, decay: 1 },
+      enabled: true,
+    };
+    expect(resolveFormula('economy_price_formula', config)).toBe(1.2);
+  });
+
+  test('economy_price_formula enabled=false → returns defaultValue 1', () => {
+    const config: FormulaResolveConfig = {
+      playerDsl: { economy_price_formula: '2' },
+      ctx: { w_tension: 1, tension: 1, w_supply: 0, supply: 0, w_war: 0, wartime: 0, decay: 1 },
+      enabled: false,
+    };
+    expect(resolveFormula('economy_price_formula', config)).toBe(1);
+  });
+
+  test('narrative_pullback_density preset override changes threshold', () => {
+    const config: FormulaResolveConfig = { presetNumbers: { narrative_pullback_density: 0.5 }, enabled: true };
+    expect(resolveFormula('narrative_pullback_density', config)).toBe(0.5);
+  });
 });
 
 // ── F5-5: enabled=false 短路守卫 ────────────────────────────────────────────────
@@ -284,6 +347,27 @@ describe('F5-6 resolveEffectiveFormula direct', () => {
   test('enabled=false → always default', () => {
     const result = resolveEffectiveFormula('ripple_decay', 0.5, 0.6, '0.7', false, {});
     expect(result).toBe(0.5);
+  });
+
+  test('defaultDsl evaluates with ctx when no playerDsl and no preset', () => {
+    // 7th arg = defaultDsl; ctx has x=3 → '2 + x' = 5
+    const result = resolveEffectiveFormula('ripple_min', 1, undefined, undefined, true, { x: 3 }, '2 + x');
+    expect(result).toBe(5);
+  });
+
+  test('defaultDsl fail-safe: invalid DSL falls back to defaultValue', () => {
+    const result = resolveEffectiveFormula('ripple_min', 1, undefined, undefined, true, {}, '@@INVALID@@');
+    expect(result).toBe(1);
+  });
+
+  test('presetNumber takes priority over defaultDsl', () => {
+    const result = resolveEffectiveFormula('ripple_min', 1, 9, undefined, true, { x: 3 }, '2 + x');
+    expect(result).toBe(9);
+  });
+
+  test('playerDsl takes priority over defaultDsl', () => {
+    const result = resolveEffectiveFormula('ripple_min', 1, undefined, '7', true, { x: 3 }, '2 + x');
+    expect(result).toBe(7);
   });
 });
 

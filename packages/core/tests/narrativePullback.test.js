@@ -2,7 +2,7 @@
 // T1 = recentDensity（拉回前·近期密度）; T2 = finalIntentTags（拉回后·场景检测器读）
 // 断言: 场景检测器读 T2 不回灌 T1 近期密度
 import { describe, it, expect } from 'vitest';
-import { computeNarrativePullback, PULLBACK_DENSITY_THRESHOLD } from '../engine/narrativePullback.js';
+import { computeNarrativePullback } from '../engine/narrativePullback.js';
 import { isNsfwScene } from '../prompt/index.js';
 import { RootSchema } from '../schema/index.js';
 function makeExplicit() {
@@ -60,12 +60,12 @@ describe('N-5 · 正剧拉回 × 场景检测器时点分离', () => {
 });
 // ── 阈值边界 ─────────────────────────────────────────────────────────────────
 describe('N-5 · 拉回阈值边界', () => {
-    it('密度 = 阈值 → 不触发（边界不含等号）', () => {
-        const { appliedPullback } = computeNarrativePullback(PULLBACK_DENSITY_THRESHOLD, ['nsfw']);
+    it('密度 = 阈值(0.7) → 不触发（边界不含等号）', () => {
+        const { appliedPullback } = computeNarrativePullback(0.7, ['nsfw']);
         expect(appliedPullback).toBe(false);
     });
-    it('密度 > 阈值（微超）→ 触发', () => {
-        const { appliedPullback } = computeNarrativePullback(PULLBACK_DENSITY_THRESHOLD + 0.001, ['nsfw']);
+    it('密度 > 阈值(0.701) → 触发', () => {
+        const { appliedPullback } = computeNarrativePullback(0.701, ['nsfw']);
         expect(appliedPullback).toBe(true);
     });
     it('密度 = 0 → 不触发', () => {
@@ -93,5 +93,23 @@ describe('N-5 · computeNarrativePullback · 确定性', () => {
         const frozen = [...original];
         computeNarrativePullback(0.9, original);
         expect(original).toEqual(frozen);
+    });
+});
+// ── narrative_pullback_density formulaConfig override ───────────────────────
+describe('N-5 · narrative_pullback_density formulaConfig override', () => {
+    it('preset override 降低阈值为 0.5 → 密度 0.6 触发拉回', () => {
+        const cfg = { presetNumbers: { narrative_pullback_density: 0.5 }, enabled: true };
+        const { appliedPullback } = computeNarrativePullback(0.6, ['nsfw'], cfg);
+        expect(appliedPullback).toBe(true);
+    });
+    it('preset override 升高阈值为 0.9 → 密度 0.8 不触发', () => {
+        const cfg = { presetNumbers: { narrative_pullback_density: 0.9 }, enabled: true };
+        const { appliedPullback } = computeNarrativePullback(0.8, ['nsfw'], cfg);
+        expect(appliedPullback).toBe(false);
+    });
+    it('enabled=false → 回默认 0.7 → 密度 0.6 不触发', () => {
+        const cfg = { presetNumbers: { narrative_pullback_density: 0.5 }, enabled: false };
+        const { appliedPullback } = computeNarrativePullback(0.6, ['nsfw'], cfg);
+        expect(appliedPullback).toBe(false);
     });
 });

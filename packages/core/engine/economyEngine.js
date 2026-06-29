@@ -66,12 +66,22 @@ export function deriveEffectivePrice(state, preset, regionId, category, formulaC
     const tension = (state.地图?.地点?.[regionId]?.区域资源紧张度 ?? 0) / 100; // [0, 1]
     const supply = (state.地图?.区域物价?.[regionId]?.[category]?.供需 ?? 0) / 100; // [-1, 1]
     const wartime = hasActiveWar(state) ? 1 : 0;
-    const rawCorrection = (rule.资源紧张度权重 ?? 0) * tension +
-        (rule.供需权重 ?? 0) * supply +
-        (rule.战时修正权重 ?? 0) * wartime;
+    const priceCtx = {
+        ...(formulaConfig?.ctx ?? {}),
+        tension,
+        supply,
+        wartime,
+        decay: decayFactor,
+        w_tension: rule.资源紧张度权重 ?? 0,
+        w_supply: rule.供需权重 ?? 0,
+        w_war: rule.战时修正权重 ?? 0,
+    };
+    const priceCfg = formulaConfig
+        ? { ...formulaConfig, ctx: priceCtx }
+        : { ctx: priceCtx };
     const _clampLo = resolveFormula('economy_price_clamp_lo', formulaConfig);
     const _clampHi = resolveFormula('economy_price_clamp_hi', formulaConfig);
-    const correctionFactor = v1.clamp(1 + rawCorrection * decayFactor, _clampLo, _clampHi);
+    const correctionFactor = v1.clamp(resolveFormula('economy_price_formula', priceCfg), _clampLo, _clampHi);
     return Math.round(baseline * correctionFactor);
 }
 // ── P3-4 · 漂移候选再基线（additive·不回写预设·不 bump 预设版本）──────────────

@@ -303,6 +303,14 @@ describe('R5: getNetAsset with baseCurrency', () => {
   it('R5-5 BASE_CURRENCY 常量仍为 \"文\"（向后兼容·零重定基）', () => {
     expect(BASE_CURRENCY).toBe('文');
   });
+
+  it('R5-6 getNetAsset 会计恒等式·引擎事实·不受 formulaConfig 影响（无第4参数）', () => {
+    // 持有100 + 储蓄0 + 存货0 = 100（会计恒等式·纯账户数据驱动）
+    const acct = makeAccount('文', 100);
+    expect(getNetAsset(acct as unknown as Parameters<typeof getNetAsset>[0])).toBe(100);
+    // getNetAsset 无 formulaConfig 参数 → 会计恒等式是引擎事实，不 override
+    expect(getNetAsset.length).toBeLessThanOrEqual(3);
+  });
 });
 
 // ── R6: gateCoverage with currencyRegistry ────────────────────────────────────

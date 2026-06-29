@@ -1,6 +1,6 @@
 // F1/F2 · 公式/参数 override substrate
 //
-// F1: 44 具名公式点注册表（默认值 = 当前硬编码·零重定基守卫）
+// F1: 46 具名公式点注册表（默认值 = 当前硬编码·零重定基守卫）
 // F2: resolveEffectiveFormula — 双轨 override 解析器
 //     优先级：① enabled=false → 默认（全局锁闭）
 //             ② 玩家 DSL 串（$AI创作状态.公式override表） → evalExpr；非法串 fail-safe 回默认
@@ -71,6 +71,10 @@ export const FORMULA_POINT_KEYS = [
   'rel_trust',
   'rel_max_degree',
   'rel_depth_default',
+  // economyEngine.ts — 有效价格 DSL 公式形状
+  'economy_price_formula',
+  // narrativePullback.ts — NSFW 密度正剧拉回阈值
+  'narrative_pullback_density',
 ] as const;
 
 export type FormulaPointKey = typeof FORMULA_POINT_KEYS[number];
@@ -78,6 +82,8 @@ export type FormulaPointKey = typeof FORMULA_POINT_KEYS[number];
 export interface FormulaPointDescriptor {
   key: FormulaPointKey;
   defaultValue: number;
+  /** DSL 公式串默认值（走 F2 evalExpr 轨；非法串 fail-safe 回 defaultValue）。仅供公式形状点使用。 */
+  defaultDsl?: string;
   description: string;
   /** true = 影响确定性结算输出（进判定面）；false = 仅叙事层 */
   fingerprint: boolean;
@@ -140,6 +146,10 @@ export const FORMULA_REGISTRY: Readonly<Record<FormulaPointKey, FormulaPointDesc
   rel_trust:                           { key: 'rel_trust',                           defaultValue: 100,                      description: '装配期生成边信任度',               fingerprint: true  },
   rel_max_degree:                      { key: 'rel_max_degree',                      defaultValue: 10,                       description: '每 NPC 最大关系边数',              fingerprint: true  },
   rel_depth_default:                   { key: 'rel_depth_default',                   defaultValue: 20,                       description: '装配期生成边默认深度',             fingerprint: true  },
+  // ── economyEngine.ts · 有效价格 DSL 公式形状 ───────────────────────────────────
+  economy_price_formula:               { key: 'economy_price_formula',               defaultValue: 1,                        defaultDsl: '1 + (w_tension * tension + w_supply * supply + w_war * wartime) * decay', description: '有效价格修正因子 DSL 公式形状（clamp 外包·变量: tension/supply/wartime/decay/w_tension/w_supply/w_war）', fingerprint: true  },
+  // ── narrativePullback.ts ──────────────────────────────────────────────────────
+  narrative_pullback_density:          { key: 'narrative_pullback_density',          defaultValue: 0.7,                      description: 'NSFW 密度正剧拉回触发阈值（叙事层）',       fingerprint: false },
 };
 
 // ── F2: 双轨 override 解析器 ──────────────────────────────────────────────────────
@@ -176,6 +186,7 @@ export function resolveEffectiveFormula(
   dslString: string | undefined,
   enabled: boolean,
   ctx: DslContext = {},
+  defaultDsl?: string,
 ): number {
   if (!enabled) return defaultValue;
   // ② 玩家 DSL 轨（最高 override 优先级·运行态·fail-safe）
@@ -191,7 +202,15 @@ export function resolveEffectiveFormula(
   if (presetConfigNumber !== undefined && Number.isFinite(presetConfigNumber)) {
     return presetConfigNumber;
   }
-  // ④ 默认
+  // ④ 公式形状 DSL 默认值（defaultDsl 存在时·fail-safe 回 defaultValue）
+  if (defaultDsl) {
+    const expr = tryParseExpr(defaultDsl);
+    if (expr !== null) {
+      const val = evalExpr(expr, ctx);
+      if (Number.isFinite(val)) return val;
+    }
+  }
+  // ⑤ 默认
   return defaultValue;
 }
 
@@ -212,5 +231,6 @@ export function resolveFormula(
     config.playerDsl?.[key],
     config.enabled ?? true,
     config.ctx ?? {},
+    desc.defaultDsl,
   );
 }

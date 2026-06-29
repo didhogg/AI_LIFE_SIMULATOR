@@ -14,6 +14,7 @@ import { type RootState } from '../schema/index.js';
 import { type 玩法预设Type } from '../schema/preset.js';
 import { fixedPow, v1 } from './math/fixed.js';
 import { resolveFormula, type FormulaResolveConfig } from './formulaRegistry.js';
+import type { DslContext } from './dsl/eval.js';
 
 // ── P3-3 · 修正系数衰减（闭式·锚拍号·禁逐拍累积）──────────────────────────────
 
@@ -79,15 +80,24 @@ export function deriveEffectivePrice(
   const supply   = (state.地图?.区域物价?.[regionId]?.[category]?.供需 ?? 0) / 100; // [-1, 1]
   const wartime  = hasActiveWar(state) ? 1 : 0;
 
-  const rawCorrection =
-    (rule.资源紧张度权重 ?? 0) * tension +
-    (rule.供需权重 ?? 0) * supply +
-    (rule.战时修正权重 ?? 0) * wartime;
+  const priceCtx: DslContext = {
+    ...(formulaConfig?.ctx ?? {}),
+    tension,
+    supply,
+    wartime,
+    decay: decayFactor,
+    w_tension: rule.资源紧张度权重 ?? 0,
+    w_supply: rule.供需权重 ?? 0,
+    w_war: rule.战时修正权重 ?? 0,
+  };
+  const priceCfg: FormulaResolveConfig = formulaConfig
+    ? { ...formulaConfig, ctx: priceCtx }
+    : { ctx: priceCtx };
 
   const _clampLo = resolveFormula('economy_price_clamp_lo', formulaConfig);
   const _clampHi = resolveFormula('economy_price_clamp_hi', formulaConfig);
   const correctionFactor = v1.clamp(
-    1 + rawCorrection * decayFactor,
+    resolveFormula('economy_price_formula', priceCfg),
     _clampLo,
     _clampHi,
   );

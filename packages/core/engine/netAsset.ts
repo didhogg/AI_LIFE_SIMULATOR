@@ -25,6 +25,7 @@ export const BASE_CURRENCY = DEFAULT_CURRENCY_REGISTRY.baseCurrency;
  * baseCurrency: optional override; defaults to BASE_CURRENCY ('文'). Pass
  *   state.货币系统?.基准币种 (via buildCurrencyRegistry) for custom-currency worlds.
  */
+// 会计恒等式·引擎事实·不 override（持有+储蓄+Σ存货·成本价+Σ应收−Σ负债 = 会计定义·改它=改「什么叫资产」语义）
 export function getNetAsset(acct: 账户Type, 全局?: 全局Type, baseCurrency?: string): number {
   const bc = baseCurrency ?? BASE_CURRENCY;
   const 持有 = acct.持有[bc] ?? 0;

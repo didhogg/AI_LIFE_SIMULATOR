@@ -3,7 +3,7 @@
 // T2 (post-pullback): finalIntentTags → 供场景检测器（isNsfwScene）读取
 // 两读点显式分时点，类型签名强制隔离，禁止互相回灌
 
-export const PULLBACK_DENSITY_THRESHOLD = 0.7 as const;
+import { resolveFormula, type FormulaResolveConfig } from './formulaRegistry.js';
 
 export interface PullbackResult {
   /** T2: 拉回后标签——场景检测器仅读此字段，不读 T1 密度 */
@@ -18,8 +18,10 @@ export interface PullbackResult {
 export function computeNarrativePullback(
   recentDensity: number,          // T1: 拉回前近期密度 [0, 1]
   originalIntentTags: string[],   // 拉回前意图标签（本函数输入）
+  formulaConfig?: FormulaResolveConfig,
 ): PullbackResult {
-  if (recentDensity <= PULLBACK_DENSITY_THRESHOLD) {
+  const threshold = resolveFormula('narrative_pullback_density', formulaConfig);
+  if (recentDensity <= threshold) {
     return { finalIntentTags: originalIntentTags, appliedPullback: false };
   }
   // 拉回: 移除强 NSFW/explicit 标签，添加 pullback 标记（正剧化叙事）
