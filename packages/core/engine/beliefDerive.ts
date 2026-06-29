@@ -14,6 +14,7 @@ export interface Perception {
   subjectKey: string;  // 感知对象实体键
   fact: string;        // 观察到的事实描述
   certainty: number;   // 确信度 0-100
+  极性?: string;       // 结构化极性·直接从 CogImpression 携带·R 层零重派生
 }
 
 /** 推理层（R）—— 从感知单步派生 */
@@ -45,11 +46,23 @@ type CogEntry = { 印象?: CogImpression[] };
 type CogArchive = Record<string, CogEntry>;
 type FilteredSecret = { 母题: string; 严重度: number; 暴露度: number };
 
-// ── 推理规则（可配·零 Math 超越函数）───────────────────────────────────────────────
-const NEGATIVE_POLARITIES = ['负', '中负'] as const;
-const POSITIVE_POLARITIES = ['正', '中正'] as const;
-
 import { resolveFormula, type FormulaResolveConfig } from './formulaRegistry.js';
+
+/** 极性字符串→数值符号（负/中负=-1·正/中正=+1·其他=0）*/
+export function polaritySign(极性: string | undefined): -1 | 0 | 1 {
+  if (极性 === '负' || 极性 === '中负') return -1;
+  if (极性 === '正' || 极性 === '中正') return 1;
+  return 0;
+}
+
+/** 极性字符串取反（正↔负·中正↔中负·其他→空串）*/
+export function oppositePolarityStr(极性: string): string {
+  if (极性 === '正') return '负';
+  if (极性 === '负') return '正';
+  if (极性 === '中正') return '中负';
+  if (极性 === '中负') return '中正';
+  return '';
+}
 
 /**
  * P–R–B 信念派生（纯函数）。
@@ -84,7 +97,8 @@ export function deriveBeliefState(
         if (!imp.标签) continue;
         感知.push({
           subjectKey: targetKey,
-          fact: `${imp.标签}（${imp.极性 ?? '中'}·强度${imp.强度 ?? 0}）`,
+          fact: imp.标签,
+          极性: imp.极性 ?? '中',
           certainty: imp.强度 ?? _perceptionCertaintyDefault,
         });
       }
@@ -94,15 +108,11 @@ export function deriveBeliefState(
   // ── R（推理层）：强印象 → 单步推断 ────────────────────────────────────────────────
   for (const p of 感知) {
     if (p.certainty <= _trustThreshold) continue;
-    const polarityMatch = p.fact.match(/（(.+)·强度/);
-    if (!polarityMatch) continue;
-    const pol = polarityMatch[1] ?? '';
-    const isPositive = POSITIVE_POLARITIES.some(s => pol.startsWith(s));
-    const isNegative = NEGATIVE_POLARITIES.some(s => pol.startsWith(s));
-    if (!isPositive && !isNegative) continue;
+    const sign = polaritySign(p.极性);
+    if (sign === 0) continue;
     推理.push({
       basis: `对 ${p.subjectKey} 的感知: ${p.fact}`,
-      inference: isPositive
+      inference: sign > 0
         ? `${p.subjectKey} 是可信任的对象`
         : `对 ${p.subjectKey} 需保持警惕`,
       certainty: p.certainty,

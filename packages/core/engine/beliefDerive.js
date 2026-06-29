@@ -3,10 +3,27 @@
 //   trackPath='gate'     → 信念命中被 gate 消费 → 确定性 → 进指纹
 //   trackPath='narrative' → 叙事召回路径 → 不进指纹（同 Batch 1 lore 叙事注入路径）
 // 铁律: 纯函数·同入参同输出·不修改入参·零副作用
-// ── 推理规则（可配·零 Math 超越函数）───────────────────────────────────────────────
-const NEGATIVE_POLARITIES = ['负', '中负'];
-const POSITIVE_POLARITIES = ['正', '中正'];
 import { resolveFormula } from './formulaRegistry.js';
+/** 极性字符串→数值符号（负/中负=-1·正/中正=+1·其他=0）*/
+export function polaritySign(极性) {
+    if (极性 === '负' || 极性 === '中负')
+        return -1;
+    if (极性 === '正' || 极性 === '中正')
+        return 1;
+    return 0;
+}
+/** 极性字符串取反（正↔负·中正↔中负·其他→空串）*/
+export function oppositePolarityStr(极性) {
+    if (极性 === '正')
+        return '负';
+    if (极性 === '负')
+        return '正';
+    if (极性 === '中正')
+        return '中负';
+    if (极性 === '中负')
+        return '中正';
+    return '';
+}
 /**
  * P–R–B 信念派生（纯函数）。
  *
@@ -35,7 +52,8 @@ export function deriveBeliefState(cogArchive, filteredSecrets, povKey, trackPath
                     continue;
                 感知.push({
                     subjectKey: targetKey,
-                    fact: `${imp.标签}（${imp.极性 ?? '中'}·强度${imp.强度 ?? 0}）`,
+                    fact: imp.标签,
+                    极性: imp.极性 ?? '中',
                     certainty: imp.强度 ?? _perceptionCertaintyDefault,
                 });
             }
@@ -45,17 +63,12 @@ export function deriveBeliefState(cogArchive, filteredSecrets, povKey, trackPath
     for (const p of 感知) {
         if (p.certainty <= _trustThreshold)
             continue;
-        const polarityMatch = p.fact.match(/（(.+)·强度/);
-        if (!polarityMatch)
-            continue;
-        const pol = polarityMatch[1] ?? '';
-        const isPositive = POSITIVE_POLARITIES.some(s => pol.startsWith(s));
-        const isNegative = NEGATIVE_POLARITIES.some(s => pol.startsWith(s));
-        if (!isPositive && !isNegative)
+        const sign = polaritySign(p.极性);
+        if (sign === 0)
             continue;
         推理.push({
             basis: `对 ${p.subjectKey} 的感知: ${p.fact}`,
-            inference: isPositive
+            inference: sign > 0
                 ? `${p.subjectKey} 是可信任的对象`
                 : `对 ${p.subjectKey} 需保持警惕`,
             certainty: p.certainty,

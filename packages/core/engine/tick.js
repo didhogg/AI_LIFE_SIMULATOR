@@ -18,6 +18,7 @@ import { M3_HARD_EXCLUDED_PREFIXES } from '../interfaces/patchInvariant.js';
 import { seedExtensionParams } from './extensionParams.js';
 import { deriveExtensionParamPaths } from '../loader/modWhitelist.js';
 import { resolveFormula, FORMULA_REGISTRY } from './formulaRegistry.js';
+import { polaritySign, oppositePolarityStr } from './beliefDerive.js';
 // ── 环形缓冲上限 ──────────────────────────────────────────────────────────────
 const TICK_LOG_MAX = 8;
 function _buildTickFP(config) {
@@ -263,7 +264,7 @@ export function runTick(state, input) {
                     factFragment: {
                         主体: npcKey,
                         维度: '关系',
-                        Δ方向: rel.极性 === '负' ? -1 : 1,
+                        Δ方向: polaritySign(rel.极性),
                         客体: rel.对象键,
                         量级,
                     },
@@ -765,7 +766,7 @@ function bfsOrgHierarchyDepths(rootOrg, childGraph) {
 function computeConflictAbsorption(archive, obsKey, targetKey, imp, fp) {
     if (imp.矫诏 !== true)
         return 1.0;
-    const oppositePolarity = imp.极性 === '正' ? '负' : imp.极性 === '负' ? '正' : '';
+    const oppositePolarity = oppositePolarityStr(imp.极性);
     if (!oppositePolarity)
         return 1.0;
     const _absThreshold = fp.seirConflictAbsorptionThreshold;
