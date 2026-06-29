@@ -12,7 +12,11 @@
 // 依赖: detectSoftReject（softReject.ts·确定性规则·版本进指纹 '软拒检测规则版本'）
 
 import { detectSoftReject, SOFT_REJECT_RULE_VERSION } from '@ai-life-sim/core/engine/softReject';
-import type { SoftRejectHint } from '@ai-life-sim/core/engine/narrativeValidator';
+
+export interface SoftRejectHint {
+  ui提示: string;
+  重Roll说明: string;
+}
 
 export type OutputGuardStatus = 'passed' | 'soft_rejected';
 

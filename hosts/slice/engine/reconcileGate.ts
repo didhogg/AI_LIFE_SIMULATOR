@@ -14,7 +14,7 @@
 import { gateCoverage, type GateContext, type CoverageResult } from '../ledger/gate.js';
 import type { TickProposal } from '../ledger/proposalSchema.js';
 import { CHINESE_NUMBER_RULE_VERSION } from '@ai-life-sim/core/engine/text/chineseNumber';
-import type { SoftRejectHint } from '@ai-life-sim/core/engine/narrativeValidator';
+import type { SoftRejectHint } from './outputGuard.js';
 
 export type ReconcileGateStatus =
   | 'covered'           // 全部金额已覆盖

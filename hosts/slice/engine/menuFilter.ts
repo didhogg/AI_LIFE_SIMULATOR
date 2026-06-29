@@ -9,7 +9,7 @@
 import type { RootState } from '@ai-life-sim/core';
 import type { 秘密库条目Type } from '@ai-life-sim/core';
 import { filterSecretsForPOV } from '@ai-life-sim/core/engine/knowledgeFilter';
-import type { SoftRejectHint } from '@ai-life-sim/core/engine/narrativeValidator';
+import type { SoftRejectHint } from './outputGuard.js';
 import type { MenuOption } from '@ai-life-sim/core/engine/aohp';
 
 // ── 接口定义 ───────────────────────────────────────────────────────────────────
