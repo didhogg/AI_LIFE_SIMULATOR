@@ -1,11 +1,20 @@
-// tickInjectionVerb — deriveVerbDelta 单测
-// 覆盖：T1 转移-支 落账守恒 · T2 双宿主逐位恒等 · T3 违闸拒零写账
+// tickInjectionVerb — deriveVerbDelta 声明式哑执行器单测（R9）
+// 覆盖：T1 転移 守恒 · T2 双宿主逐位恒等 · T3 违闸拒零写账
 //       T4 无 injectedEnvelope 回归 · T5 缺键/ccy 空 no-op
+//       T6 调整 · T7 披露 · T8 施加 · T9a-e 缔结/解除/剥夺/移动/植入
+//       T10 未知动词 no-op · Treg 赋予守恒回归
 import { describe, it, expect } from 'vitest';
 import { runTick } from '../engine/tick.js';
 import { RootSchema } from '../schema/index.js';
 import type { RootState } from '../schema/index.js';
 import { 指令信封Schema } from '../schema/proposal.js';
+import type { EffectDeclType } from '../schema/verb.js';
+
+// ── 守恒对模板（転移/赋予语义：seatId sub → target add · Σ=0）──────────────
+const CONSERVATION_PAIR_DECLS: EffectDeclType[] = [
+  { path_tmpl: '货币系统.账户.{seatId}.持有.{ccy}', op: 'sub', value_src: '数值槽', conservation_role: 'debit'  },
+  { path_tmpl: '货币系统.账户.{target}.持有.{ccy}', op: 'add', value_src: '数值槽', conservation_role: 'credit' },
+];
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -13,8 +22,8 @@ const BASE_STATE: RootState = RootSchema.parse({
   货币系统: {
     基准币种: '文',
     账户: {
-      npc_li:   { 持有: { 文: 200 } },  // 付方（seatId）
-      npc_wang: { 持有: { 文: 100 } },  // 收方
+      npc_li:   { 持有: { 文: 200 } },
+      npc_wang: { 持有: { 文: 100 } },
     },
   },
   _状态机: { 双时钟: { 世界钟: 100 } },
@@ -22,27 +31,56 @@ const BASE_STATE: RootState = RootSchema.parse({
   全局: {},
 });
 
-// 转移信封：seatId=npc_li → npc_wang 50文（不传 injectedPacks → 走 deriveVerbDelta）
-const ENVELOPE_转移 = 指令信封Schema.parse({
-  提案: { 动作类别: '转移', 目标引用: 'npc_wang', 数值槽: 50 },
+// 転移信封（携带 effect_decls·seatId=npc_li → npc_wang 50文）
+const ENVELOPE_転移 = 指令信封Schema.parse({
+  提案: {
+    动作类别: '転移',
+    目标引用: 'npc_wang',
+    数值槽: 50,
+    effect_decls: CONSERVATION_PAIR_DECLS,
+  },
 });
 
-// 违闸信封（非法动作类别不是问题，闸拒走 packs 层·此处用合法信封+非法 pack 测拒闸）
-const ENVELOPE_合法 = ENVELOPE_转移;
+// 赋予信封（SINK=npc_li → recipient=npc_wang·同守恒対结构）
+const ENVELOPE_赋予 = 指令信封Schema.parse({
+  提案: {
+    动作类别: '赋予',
+    目标引用: 'npc_wang',
+    数值槽: 30,
+    effect_decls: CONSERVATION_PAIR_DECLS,
+  },
+});
+
+// 违闸信封（使用与 T1 相同的有效信封·T3 走 injectedPacks 路径不走 verbDelta）
+const ENVELOPE_合法 = ENVELOPE_転移;
 
 function getHolding(state: RootState, entity: string, ccy = '文'): number {
   const accts = state.货币系统?.账户 as Record<string, { 持有: Record<string, number> }> | undefined;
   return accts?.[entity]?.持有[ccy] ?? 0;
 }
 
-// ── T1: 转移-支 · 落账成功 + 守恒 ──────────────────────────────────────────────
+// ── 较大额度的 state（T6-T10 共用·各动词哑执行用例）────────────────────────
 
-describe('T1 · 转移-支 · deriveVerbDelta 落账守恒', () => {
+const BASE_STATE_V: RootState = RootSchema.parse({
+  货币系统: {
+    基准币种: '文',
+    账户: {
+      npc_li:   { 持有: { 文: 1000 } },
+      npc_wang: { 持有: { 文: 1000 } },
+    },
+  },
+  _状态机: { 双时钟: { 世界钟: 100 } },
+  _席位表: {},
+  全局: {},
+});
+
+// ── T1: 転移-支 · 落账成功 + 守恒 ──────────────────────────────────────────────
+
+describe('T1 · 転移-支 · deriveVerbDelta 落账守恒', () => {
   const result = runTick(BASE_STATE, {
     tickId: 'verb-t1',
-    injectedEnvelope: ENVELOPE_转移,
+    injectedEnvelope: ENVELOPE_転移,
     injectedSeatId: 'npc_li',
-    // injectedPacks 未传 → 走 deriveVerbDelta
   });
 
   it('Phase 提案落账 出现在 settledPhases', () => {
@@ -77,7 +115,7 @@ describe('T1 · 转移-支 · deriveVerbDelta 落账守恒', () => {
 describe('T2 · 双宿主逐位恒等', () => {
   const INPUT = {
     tickId: 'verb-t2',
-    injectedEnvelope: ENVELOPE_转移,
+    injectedEnvelope: ENVELOPE_転移,
     injectedSeatId: 'npc_li',
   };
 
@@ -98,7 +136,6 @@ describe('T2 · 双宿主逐位恒等', () => {
 // ── T3: 违闸信封 → 拒绝 + 零写账 ─────────────────────────────────────────────
 
 describe('T3 · 违闸 pack → Gate④ 拒绝 + 零写账', () => {
-  // injectedPacks 传非法路径（走旧路径，验证 packs 优先于 deriveVerbDelta）
   const result = runTick(BASE_STATE, {
     tickId: 'verb-t3',
     injectedEnvelope: ENVELOPE_合法,
@@ -141,14 +178,13 @@ describe('T4 · 无 injectedEnvelope → 现有 runTick 逐位恒等', () => {
 
 // ── T5: 缺键 / 基准币种为空 → no-op（不写账·不报错）────────────────────────────
 
-describe('T5a · 收方缺该币种键 → no-op（deferred additive）', () => {
-  // npc_wang 只持有 文，转 两 给它 → 收方无 两 键 → deriveVerbDelta 返回 []
+describe('T5a · 收方缺该币种键 → no-op（effect_decls 缺失·不报错）', () => {
   const stateWith两 = RootSchema.parse({
     货币系统: {
       基准币种: '两',
       账户: {
-        npc_li:   { 持有: { 两: 100 } },  // 付方有 两
-        npc_wang: { 持有: { 文: 50 } },   // 收方无 两 键
+        npc_li:   { 持有: { 两: 100 } },
+        npc_wang: { 持有: { 文: 50 } },
       },
     },
     _状态机: { 双时钟: { 世界钟: 100 } },
@@ -159,13 +195,13 @@ describe('T5a · 收方缺该币种键 → no-op（deferred additive）', () => 
   const result = runTick(stateWith两, {
     tickId: 'verb-t5a',
     injectedEnvelope: 指令信封Schema.parse({
-      提案: { 动作类别: '转移', 目标引用: 'npc_wang', 数值槽: 30 },
+      提案: { 动作类别: '転移', 目标引用: 'npc_wang', 数值槽: 30 },
+      // 无 effect_decls → verbDelta no-op
     }),
     injectedSeatId: 'npc_li',
   });
 
   it('packs 为空 → runProposalGate 返回 ok（空 packs 通闸）或 gateResult 正常', () => {
-    // 空 packs → gate 以空包执行（无 delta·无守恒压力）
     expect(result.proposalGateResult).toBeDefined();
   });
 
@@ -178,7 +214,7 @@ describe('T5a · 收方缺该币种键 → no-op（deferred additive）', () => 
 describe('T5b · 基准币种为空 → no-op', () => {
   const stateNoCcy = RootSchema.parse({
     货币系统: {
-      基准币种: '',  // 空 → no-op
+      基准币种: '',
       账户: {
         npc_li:   { 持有: { 文: 100 } },
         npc_wang: { 持有: { 文: 50 } },
@@ -192,7 +228,7 @@ describe('T5b · 基准币种为空 → no-op', () => {
   const result = runTick(stateNoCcy, {
     tickId: 'verb-t5b',
     injectedEnvelope: 指令信封Schema.parse({
-      提案: { 动作类别: '转移', 目标引用: 'npc_wang', 数值槽: 10 },
+      提案: { 动作类别: '転移', 目标引用: 'npc_wang', 数值槽: 10 },
     }),
     injectedSeatId: 'npc_li',
   });
@@ -205,5 +241,249 @@ describe('T5b · 基准币种为空 → no-op', () => {
   it('npc_wang.持有.文 未变（no-op）', () => {
     const accts = result.state.货币系统?.账户 as Record<string, { 持有: Record<string, number> }>;
     expect(accts?.['npc_wang']?.持有['文']).toBe(50);
+  });
+});
+
+// ── T6-T9: 8 动词哑执行用例（全部守恒对·Σ=0·seatId=npc_li·target=npc_wang）──
+// 守恒性由 conservation_role 声明·assertConservation 校验；
+// 测试验证「effect_decls 哑执行」机制，非验证每动词独立守恒语义。
+
+describe('T6 · 调整 · 多 path_tmpl·数值槽 debit+credit', () => {
+  // 调整：target.ccy sub → seatId.ccy add（展示 {target}/{seatId} 双占位符）
+  const result = runTick(BASE_STATE_V, {
+    tickId: 'verb-t6',
+    injectedEnvelope: 指令信封Schema.parse({
+      提案: {
+        动作类别: '调整',
+        目标引用: 'npc_wang',
+        数值槽: 50,
+        effect_decls: [
+          { path_tmpl: '货币系统.账户.{target}.持有.{ccy}', op: 'sub', value_src: '数值槽', conservation_role: 'debit'  },
+          { path_tmpl: '货币系统.账户.{seatId}.持有.{ccy}', op: 'add', value_src: '数值槽', conservation_role: 'credit' },
+        ],
+      },
+    }),
+    injectedSeatId: 'npc_li',
+  });
+
+  it('proposalGateResult.ok === true', () => { expect(result.proposalGateResult?.ok).toBe(true); });
+  it('npc_wang 持有.文 950（sub 50 via {target}）', () => { expect(getHolding(result.state, 'npc_wang')).toBe(950); });
+  it('npc_li 持有.文 1050（add 50 via {seatId}）', () => { expect(getHolding(result.state, 'npc_li')).toBe(1050); });
+  it('Σ守恒 2000', () => { expect(getHolding(result.state,'npc_li')+getHolding(result.state,'npc_wang')).toBe(2000); });
+});
+
+describe('T7 · 披露 · 数值槽 debit+credit', () => {
+  // 披露：seatId.ccy sub → target.ccy add（展示方向对调）
+  const result = runTick(BASE_STATE_V, {
+    tickId: 'verb-t7',
+    injectedEnvelope: 指令信封Schema.parse({
+      提案: {
+        动作类别: '披露',
+        目标引用: 'npc_wang',
+        数值槽: 10,
+        effect_decls: [
+          { path_tmpl: '货币系统.账户.{seatId}.持有.{ccy}', op: 'sub', value_src: '数值槽', conservation_role: 'debit'  },
+          { path_tmpl: '货币系统.账户.{target}.持有.{ccy}', op: 'add', value_src: '数值槽', conservation_role: 'credit' },
+        ],
+      },
+    }),
+    injectedSeatId: 'npc_li',
+  });
+
+  it('proposalGateResult.ok === true', () => { expect(result.proposalGateResult?.ok).toBe(true); });
+  it('npc_li 持有.文 990（sub 10）', () => { expect(getHolding(result.state, 'npc_li')).toBe(990); });
+  it('npc_wang 持有.文 1010（add 10）', () => { expect(getHolding(result.state, 'npc_wang')).toBe(1010); });
+  it('Σ守恒 2000', () => { expect(getHolding(result.state,'npc_li')+getHolding(result.state,'npc_wang')).toBe(2000); });
+});
+
+describe('T8 · 施加 · 常量 debit+credit', () => {
+  // 施加：常量 value·target sub + seatId add（展示 value_src=常量）
+  const result = runTick(BASE_STATE_V, {
+    tickId: 'verb-t8',
+    injectedEnvelope: 指令信封Schema.parse({
+      提案: {
+        动作类别: '施加',
+        目标引用: 'npc_wang',
+        effect_decls: [
+          { path_tmpl: '货币系统.账户.{target}.持有.{ccy}', op: 'sub', value_src: '常量', value: 15, conservation_role: 'debit'  },
+          { path_tmpl: '货币系统.账户.{seatId}.持有.{ccy}', op: 'add', value_src: '常量', value: 15, conservation_role: 'credit' },
+        ],
+      },
+    }),
+    injectedSeatId: 'npc_li',
+  });
+
+  it('proposalGateResult.ok === true', () => { expect(result.proposalGateResult?.ok).toBe(true); });
+  it('npc_wang 持有.文 985（sub 常量 15）', () => { expect(getHolding(result.state, 'npc_wang')).toBe(985); });
+  it('npc_li 持有.文 1015（add 常量 15）', () => { expect(getHolding(result.state, 'npc_li')).toBe(1015); });
+  it('Σ守恒 2000', () => { expect(getHolding(result.state,'npc_li')+getHolding(result.state,'npc_wang')).toBe(2000); });
+});
+
+describe('T9a · 缔结 · debit+credit', () => {
+  const result = runTick(BASE_STATE_V, {
+    tickId: 'verb-t9a',
+    injectedEnvelope: 指令信封Schema.parse({
+      提案: {
+        动作类别: '缔结',
+        目标引用: 'npc_wang',
+        数值槽: 20,
+        effect_decls: [
+          { path_tmpl: '货币系统.账户.{seatId}.持有.{ccy}', op: 'sub', value_src: '数值槽', conservation_role: 'debit'  },
+          { path_tmpl: '货币系统.账户.{target}.持有.{ccy}', op: 'add', value_src: '数值槽', conservation_role: 'credit' },
+        ],
+      },
+    }),
+    injectedSeatId: 'npc_li',
+  });
+
+  it('proposalGateResult.ok === true', () => { expect(result.proposalGateResult?.ok).toBe(true); });
+  it('npc_li 持有.文 980（sub 20）', () => { expect(getHolding(result.state, 'npc_li')).toBe(980); });
+  it('npc_wang 持有.文 1020（add 20）', () => { expect(getHolding(result.state, 'npc_wang')).toBe(1020); });
+  it('Σ守恒 2000', () => { expect(getHolding(result.state,'npc_li')+getHolding(result.state,'npc_wang')).toBe(2000); });
+});
+
+describe('T9b · 解除 · 常量 debit+credit', () => {
+  const result = runTick(BASE_STATE_V, {
+    tickId: 'verb-t9b',
+    injectedEnvelope: 指令信封Schema.parse({
+      提案: {
+        动作类别: '解除',
+        目标引用: 'npc_wang',
+        effect_decls: [
+          { path_tmpl: '货币系统.账户.{target}.持有.{ccy}', op: 'sub', value_src: '常量', value: 5, conservation_role: 'debit'  },
+          { path_tmpl: '货币系统.账户.{seatId}.持有.{ccy}', op: 'add', value_src: '常量', value: 5, conservation_role: 'credit' },
+        ],
+      },
+    }),
+    injectedSeatId: 'npc_li',
+  });
+
+  it('proposalGateResult.ok === true', () => { expect(result.proposalGateResult?.ok).toBe(true); });
+  it('npc_li 持有.文 1005（add 常量 5）', () => { expect(getHolding(result.state, 'npc_li')).toBe(1005); });
+  it('npc_wang 持有.文 995（sub 常量 5）', () => { expect(getHolding(result.state, 'npc_wang')).toBe(995); });
+  it('Σ守恒 2000', () => { expect(getHolding(result.state,'npc_li')+getHolding(result.state,'npc_wang')).toBe(2000); });
+});
+
+describe('T9c · 剥夺 · debit+credit', () => {
+  const result = runTick(BASE_STATE_V, {
+    tickId: 'verb-t9c',
+    injectedEnvelope: 指令信封Schema.parse({
+      提案: {
+        动作类别: '剥夺',
+        目标引用: 'npc_wang',
+        数值槽: 40,
+        effect_decls: [
+          { path_tmpl: '货币系统.账户.{seatId}.持有.{ccy}', op: 'sub', value_src: '数值槽', conservation_role: 'debit'  },
+          { path_tmpl: '货币系统.账户.{target}.持有.{ccy}', op: 'add', value_src: '数值槽', conservation_role: 'credit' },
+        ],
+      },
+    }),
+    injectedSeatId: 'npc_li',
+  });
+
+  it('proposalGateResult.ok === true', () => { expect(result.proposalGateResult?.ok).toBe(true); });
+  it('npc_li 持有.文 960（sub 40）', () => { expect(getHolding(result.state, 'npc_li')).toBe(960); });
+  it('npc_wang 持有.文 1040（add 40）', () => { expect(getHolding(result.state, 'npc_wang')).toBe(1040); });
+  it('Σ守恒 2000', () => { expect(getHolding(result.state,'npc_li')+getHolding(result.state,'npc_wang')).toBe(2000); });
+});
+
+describe('T9d · 移动 · 常量 debit+credit（seatId=npc_wang）', () => {
+  // seatId=npc_wang：验证 {seatId} 不固定为 npc_li
+  const result = runTick(BASE_STATE_V, {
+    tickId: 'verb-t9d',
+    injectedEnvelope: 指令信封Schema.parse({
+      提案: {
+        动作类别: '移动',
+        目标引用: 'npc_li',
+        effect_decls: [
+          { path_tmpl: '货币系统.账户.{seatId}.持有.{ccy}', op: 'sub', value_src: '常量', value: 100, conservation_role: 'debit'  },
+          { path_tmpl: '货币系统.账户.{target}.持有.{ccy}', op: 'add', value_src: '常量', value: 100, conservation_role: 'credit' },
+        ],
+      },
+    }),
+    injectedSeatId: 'npc_wang',
+  });
+
+  it('proposalGateResult.ok === true', () => { expect(result.proposalGateResult?.ok).toBe(true); });
+  it('npc_wang 持有.文 900（sub 常量 100 via {seatId}）', () => { expect(getHolding(result.state, 'npc_wang')).toBe(900); });
+  it('npc_li 持有.文 1100（add 常量 100 via {target}）', () => { expect(getHolding(result.state, 'npc_li')).toBe(1100); });
+  it('Σ守恒 2000', () => { expect(getHolding(result.state,'npc_li')+getHolding(result.state,'npc_wang')).toBe(2000); });
+});
+
+describe('T9e · 植入 · 数值槽 debit+credit', () => {
+  const result = runTick(BASE_STATE_V, {
+    tickId: 'verb-t9e',
+    injectedEnvelope: 指令信封Schema.parse({
+      提案: {
+        动作类别: '植入',
+        目标引用: 'npc_wang',
+        数值槽: 25,
+        effect_decls: [
+          { path_tmpl: '货币系统.账户.{seatId}.持有.{ccy}', op: 'sub', value_src: '数值槽', conservation_role: 'debit'  },
+          { path_tmpl: '货币系统.账户.{target}.持有.{ccy}', op: 'add', value_src: '数值槽', conservation_role: 'credit' },
+        ],
+      },
+    }),
+    injectedSeatId: 'npc_li',
+  });
+
+  it('proposalGateResult.ok === true', () => { expect(result.proposalGateResult?.ok).toBe(true); });
+  it('npc_li 持有.文 975（sub 25）', () => { expect(getHolding(result.state, 'npc_li')).toBe(975); });
+  it('npc_wang 持有.文 1025（add 25）', () => { expect(getHolding(result.state, 'npc_wang')).toBe(1025); });
+  it('Σ守恒 2000', () => { expect(getHolding(result.state,'npc_li')+getHolding(result.state,'npc_wang')).toBe(2000); });
+});
+
+// ── T10: 未知动词 + 无 effect_decls → 可观测 no-op（防乱写）──────────────────
+
+describe('T10 · 未知动词/无 effect_decls → 可观测 no-op', () => {
+  const result = runTick(BASE_STATE_V, {
+    tickId: 'verb-t10',
+    injectedEnvelope: 指令信封Schema.parse({
+      提案: {
+        动作类别: 'UNKNOWN_VERB',
+        目标引用: 'npc_wang',
+        数值槽: 999,
+        // 无 effect_decls → verbDelta 返回 []·非静默可观测
+      },
+    }),
+    injectedSeatId: 'npc_li',
+  });
+
+  it('gateResult 存在（提案落账 phase 执行）', () => {
+    expect(result.proposalGateResult).toBeDefined();
+  });
+
+  it('npc_li 持有.文 未变（no-op）', () => {
+    expect(getHolding(result.state, 'npc_li')).toBe(1000);
+  });
+
+  it('npc_wang 持有.文 未变（no-op）', () => {
+    expect(getHolding(result.state, 'npc_wang')).toBe(1000);
+  });
+});
+
+// ── Treg: 赋予守恒回归（転移/赋予 同底座·Σ=0）────────────────────────────────
+
+describe('Treg · 赋予守恒回归·同底座不破', () => {
+  const result = runTick(BASE_STATE, {
+    tickId: 'verb-treg',
+    injectedEnvelope: ENVELOPE_赋予,
+    injectedSeatId: 'npc_li',
+  });
+
+  it('proposalGateResult.ok === true', () => {
+    expect(result.proposalGateResult?.ok).toBe(true);
+  });
+
+  it('npc_li 持有.文 从 200 降至 170（sub 30）', () => {
+    expect(getHolding(result.state, 'npc_li')).toBe(170);
+  });
+
+  it('npc_wang 持有.文 从 100 升至 130（add 30）', () => {
+    expect(getHolding(result.state, 'npc_wang')).toBe(130);
+  });
+
+  it('Σ净值守恒：preNet=300 = postNet=300', () => {
+    expect(getHolding(result.state, 'npc_li') + getHolding(result.state, 'npc_wang')).toBe(300);
   });
 });

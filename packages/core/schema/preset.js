@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { 受治理句柄Schema } from './governedKeySpace.js';
 import { 谓词串Schema } from './commonEntry.js';
+import { EffectDeclSchema } from './verb.js';
 // ── 历法皮肤（附录 C） ──
 export const 历法皮肤Schema = z.object({
     纪年法: z.string().default(''),
@@ -393,6 +394,8 @@ export const 动词选项条目Schema = z.object({
     min: z.number().optional(), // 数值槽最小值
     max: z.number().optional(), // 数值槽最大值
     display_text: z.string().optional(), // 显示标签（不纳入 option_id·纯展示）
+    // R9 · 效果声明（mod 作者在预设侧声明·透传至 ActionOption → envelope → verbDelta 哑执行）
+    effect_decls: z.array(EffectDeclSchema).optional(),
 }).strip();
 // ══════════════════════════════════════════
 // 玩法预设根（顶层）

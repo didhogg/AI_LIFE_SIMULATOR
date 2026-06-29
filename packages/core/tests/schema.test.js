@@ -4139,14 +4139,19 @@ describe('L-9 · 动词Option基础Schema precond + effect_decls', () => {
         if (res.success)
             expect(res.data?.precond).toEqual(['货币系统.账户.主角.持有.金 >= 100']);
     });
-    it('valid: effect_decls 列表', () => {
-        const res = 动词OptionSchema表.转移.safeParse({ effect_decls: ['货币系统.账户.主角.持有.金', '货币系统.账户.目标.持有.金'] });
+    it('valid: effect_decls 结构化列表（R9）', () => {
+        const res = 动词OptionSchema表.转移.safeParse({
+            effect_decls: [
+                { path_tmpl: '货币系统.账户.{seatId}.持有.{ccy}', op: 'sub', value_src: '数值槽', conservation_role: 'debit' },
+                { path_tmpl: '货币系统.账户.{target}.持有.{ccy}', op: 'add', value_src: '数值槽', conservation_role: 'credit' },
+            ],
+        });
         expect(res.success).toBe(true);
     });
     it('valid: precond + effect_decls + side_effects 三者共存', () => {
         const res = 动词OptionSchema表.赋予.safeParse({
             precond: ['声望.值 >= 50'],
-            effect_decls: ['属性.体质'],
+            effect_decls: [{ path_tmpl: '属性.体质', op: 'add', value_src: '常量', value: 1 }],
             side_effects: [],
         });
         expect(res.success).toBe(true);
@@ -4155,9 +4160,10 @@ describe('L-9 · 动词Option基础Schema precond + effect_decls', () => {
         const res = 动词OptionSchema表.披露.safeParse({ unknown_field: 'x' });
         expect(res.success).toBe(false);
     });
-    it('全 10 动词均支持 precond/effect_decls', () => {
+    it('全 10 动词均支持 precond/effect_decls（结构化）', () => {
+        const decl = { path_tmpl: 'path.a', op: 'add', value_src: '常量', value: 1 };
         for (const [name, schema] of Object.entries(动词OptionSchema表)) {
-            const r = schema.safeParse({ precond: ['test'], effect_decls: ['path.a'] });
+            const r = schema.safeParse({ precond: ['test'], effect_decls: [decl] });
             expect(r.success, `${name} should accept precond+effect_decls`).toBe(true);
         }
     });

@@ -50,6 +50,10 @@ const TRANSFER_OPTION = 动词选项条目Schema.parse({
     value_slot: '金额',
     min: 1,
     max: 200,
+    effect_decls: [
+        { path_tmpl: '货币系统.账户.{seatId}.持有.{ccy}', op: 'sub', value_src: '数值槽', conservation_role: 'debit' },
+        { path_tmpl: '货币系统.账户.{target}.持有.{ccy}', op: 'add', value_src: '数值槽', conservation_role: 'credit' },
+    ],
 });
 const TRANSFER_OPTION_SET = sampleOptionSet({
     declaredOptions: [TRANSFER_OPTION],
@@ -80,6 +84,10 @@ const COLLECT_OPTION = 动词选项条目Schema.parse({
     value_slot: '数量',
     min: 1,
     max: 100,
+    effect_decls: [
+        { path_tmpl: '货币系统.账户.{seatId}.持有.{ccy}', op: 'sub', value_src: '数值槽', conservation_role: 'debit' },
+        { path_tmpl: '货币系统.账户.{target}.持有.{ccy}', op: 'add', value_src: '数值槽', conservation_role: 'credit' },
+    ],
 });
 const COLLECT_OPTION_SET = sampleOptionSet({
     declaredOptions: [COLLECT_OPTION],

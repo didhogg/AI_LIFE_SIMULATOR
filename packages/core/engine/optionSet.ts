@@ -18,6 +18,7 @@
 import { rngFor } from './rng.js';
 import { buildMenuOptionIds, type MenuOption } from './aohp.js';
 import type { ActionOptionType } from '../schema/proposal.js';
+import type { EffectDeclType } from '../schema/verb.js';
 import type { 动词选项条目Type } from '../schema/preset.js';
 
 export interface OptionSetSampleArgs {
@@ -53,11 +54,12 @@ export function sampleOptionSet(args: OptionSetSampleArgs): ActionOptionType[] {
       params:        e.params as Record<string, unknown>,
       target_choices: e.target_choices,
     };
-    if (e.salient_args !== undefined) base.salientArgs       = e.salient_args;
-    if (e.display_text !== undefined) base.displayText        = e.display_text;
-    if (e.value_slot   !== undefined) base['value_slot']      = e.value_slot;
-    if (e.min          !== undefined) base['min']             = e.min;
-    if (e.max          !== undefined) base['max']             = e.max;
+    if (e.salient_args  !== undefined) base.salientArgs        = e.salient_args;
+    if (e.display_text  !== undefined) base.displayText        = e.display_text;
+    if (e.value_slot    !== undefined) base['value_slot']      = e.value_slot;
+    if (e.min           !== undefined) base['min']             = e.min;
+    if (e.max           !== undefined) base['max']             = e.max;
+    if (e.effect_decls  !== undefined) base['effect_decls']   = e.effect_decls;
     return base;
   });
 
@@ -72,9 +74,11 @@ export function sampleOptionSet(args: OptionSetSampleArgs): ActionOptionType[] {
         ? (opt['target_choices'] as string[])
         : [],
     };
-    if (typeof opt['value_slot'] === 'string') result.value_slot = opt['value_slot'];
-    if (typeof opt['min'] === 'number')        result.min        = opt['min'];
-    if (typeof opt['max'] === 'number')        result.max        = opt['max'];
+    if (typeof opt['value_slot'] === 'string') result.value_slot    = opt['value_slot'];
+    if (typeof opt['min'] === 'number')        result.min           = opt['min'];
+    if (typeof opt['max'] === 'number')        result.max           = opt['max'];
+    const rawDecls = opt['effect_decls'];
+    if (Array.isArray(rawDecls))               result.effect_decls  = rawDecls as EffectDeclType[];
     return result;
   });
 }

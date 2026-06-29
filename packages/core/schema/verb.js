@@ -47,6 +47,18 @@ export const 动词目标槽Schema = z.string().default('');
 // 元素(handlerRef) Step 7(6.59)：形态 refine 已收紧（归一非空∧非JS保留键∧扁平命名正则）·
 //   成员校验 against registry 留 P0-6（命名空间='sideEffect句柄'）。
 // ══════════════════════════════════════════
+// ── R9 · EffectDecl 结构化效果声明（verbDelta 哑执行底座）──────────────────
+// 每条声明携路径模板 + op + value 来源；verbDelta 纯映射，零 per-verb 分支。
+// 占位符：{seatId} 发起方 / {target} 提案.目标引用 / {ccy} 基准币种 / {关联实体.N} 关联实体[N]
+// conservation_role: debit=出方(sub) / credit=入方(add)·守恒对由 assertConservation 校验
+export const EffectDeclSchema = z.object({
+    path_tmpl: z.string().min(1),
+    op: z.enum(['set', 'add', 'sub']),
+    value_src: z.enum(['数值槽', '常量']),
+    value: z.union([z.number(), z.string()]).optional(),
+    max_delta: z.number().int().nonnegative().optional(),
+    conservation_role: z.enum(['debit', 'credit']).optional(),
+}).strict();
 const 动词Option基础Schema = z.object({
     side_effects: z.array(受治理句柄Schema).optional(), // Step 7：形态 refine 已收紧·成员校验留 P0-6（sideEffect句柄）
     // 通道 A·标的类型（单态串·不分叉·沿用既有选择器惯例，不新造文法）
@@ -54,8 +66,8 @@ const 动词Option基础Schema = z.object({
     标的类型: 受治理句柄Schema.optional(),
     // L-9 · 前置条件（谓词列表·V3 单态目标槽配对·接线留 P0-7·⊥ side_effects）
     precond: z.array(z.string()).optional(),
-    // L-9 · 效果声明（自我声明将触发的变更路径·V5 对称性·接线留 P0-7·⊥ side_effects受治理句柄）
-    effect_decls: z.array(z.string()).optional(),
+    // R9 · 效果声明（结构化·path_tmpl+op+value来源·verbDelta 哑执行·⊥ side_effects受治理句柄）
+    effect_decls: z.array(EffectDeclSchema).optional(),
 }).strict();
 export const 转移OptionSchema = 动词Option基础Schema.optional();
 export const 缔结OptionSchema = 动词Option基础Schema.optional();

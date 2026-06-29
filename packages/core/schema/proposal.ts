@@ -1,5 +1,6 @@
 // 提案单 schema（6.68·Zod schema·由 AI 生成·经五道闸审查后落账）
 import { z } from 'zod';
+import { EffectDeclSchema } from './verb.js';
 
 // 方向槽五类（Z2·6.68）：各类动作的方向语义标注
 // 转账收支方向 / 缔约方角色 / 关系极性 / 主被动方 / 秘密涉事方角色
@@ -17,6 +18,8 @@ export const 提案单条目Schema = z.object({
   数值槽: z.number().optional(),         // 数量/金额等数值参数·可空
   方向槽: z.enum(方向槽枚举).optional(), // Z2·五类方向槽·可空
   关联实体: z.array(z.string()).default([]), // 除目标外涉及的其他实体键
+  // R9 · 效果声明（verbDelta 哑执行底座·缺省=no-op·由预设/option 携带进提案）
+  effect_decls: z.array(EffectDeclSchema).optional(),
 }).strip();
 
 export const 提案单Schema = z.array(提案单条目Schema).default([]);
@@ -68,6 +71,8 @@ export const ActionOptionSchema = z.object({
   target_choices: z.array(z.string()).default([]), // 目标实体键候选
   min:            z.number().optional(),    // 数值槽最小值
   max:            z.number().optional(),    // 数值槽最大值
+  // R9 · 效果声明（从 动词选项条目 携带进来·executeActionOption 透传至 envelope.提案）
+  effect_decls:   z.array(EffectDeclSchema).optional(),
 }).strip();
 
 export const ActionOptionListSchema = z.array(ActionOptionSchema).default([]);
