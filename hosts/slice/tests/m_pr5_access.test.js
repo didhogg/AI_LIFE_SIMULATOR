@@ -545,14 +545,14 @@ describe('G7 soak·确定性·守恒', () => {
         expect(Object.keys(schemaShape)).toHaveLength(54);
     });
     it('G7-6 FINGERPRINT_BUNDLE_MEMBERS=21 守恒（PR-5 无新 bundle member）', () => {
-        expect(FINGERPRINT_BUNDLE_MEMBERS).toHaveLength(27);
+        expect(FINGERPRINT_BUNDLE_MEMBERS).toHaveLength(28);
     });
     it('G7-7 manifest 行数 86 守恒（fingerprintManifest.ts 单引号行数不变）', () => {
         // fingerprintManifest.ts 单引号行数（代理 manifest 总行数）
         // 实际验证方式：BUNDLE_MEMBERS + 类型声明行 + 注释行 → 文件行数固定
         // 此处用 BUNDLE_MEMBERS 长度×4 + 固定偏移 作确定性代理断言
         // 真实校验在 CI tsc + m_p7tier2 守恒表（0 重定基）
-        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27); // manifest=86 行（含注释·类型·export）
+        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28); // manifest=86 行（含注释·类型·export）
     });
     it('G7-8 buildWorld 标准 fixture 运行 projectCognition 不破守恒（守恒与投影独立）', () => {
         const s = buildWorld();

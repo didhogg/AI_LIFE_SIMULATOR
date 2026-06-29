@@ -199,7 +199,7 @@ describe('C4-6 · G0 重定基验证', () => {
     it('媒体库不进 hashJudgmentBundle（无新 BUNDLE 成员·BUNDLE 仍=21）', () => {
         // commit-4 additive·媒体库（装配层）不进 hashJudgmentBundle
         // 注：媒体渠道表（G2-2·判定面传播系数）本就在 BUNDLE·不属媒体库条目
-        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
+        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
         // 媒体库 schema 新增（commit-4）不会添加新 BUNDLE 成员：库本身属装配层
         const mediaLibBundleMembers = FINGERPRINT_BUNDLE_MEMBERS.filter(m => m.includes('媒体库') || m.includes('mediaLibrary'));
         expect(mediaLibBundleMembers.length).toBe(0);
@@ -228,13 +228,13 @@ describe('C4-7 · 守恒门', () => {
         expect(Object.keys(RootSchema.shape).length).toBe(54);
     });
     it('BUNDLE=21', () => {
-        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
+        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
     });
     it('manifest=88', () => {
         const total = FINGERPRINT_BUNDLE_MEMBERS.length +
             FINGERPRINT_PRESET_FIELDS.length +
             FINGERPRINT_SNAPSHOT_FIELDS.length +
             FINGERPRINT_EXCLUDED_FIELDS.length;
-        expect(total).toBe(94);
+        expect(total).toBe(95);
     });
 });

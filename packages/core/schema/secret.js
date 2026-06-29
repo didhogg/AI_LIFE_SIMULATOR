@@ -96,7 +96,7 @@ const 约定库条目Schema = z.object({
 const 继承包Schema = z.object({
     候选: z.array(z.object({
         NPC键: z.string().default(''),
-        权限级别: z.string().default(''), // 全权限/仅商权+共事记忆/自身背景…；'' = 无预设（reader ?? '全权限'）
+        权限级别: z.string().default(''), // 开放串；'' = 无预设（渲染层/作者决定缺省行为）
         白名单: z.array(z.string()).default([]), // 可抓取字段列表
     })).default([]),
     抓取载荷: z.record(z.string(), z.unknown()).default({}),
@@ -108,7 +108,7 @@ const 继承包Schema = z.object({
 // ══════════════════════════════════════════
 const 双亲边Schema = z.object({
     parent_id: z.string().default(''),
-    边类型: z.string().default(''), // 开放串：血亲/领养/过继/继养；'' = 无预设（reader ?? '血亲'）
+    边类型: z.string().default(''), // 开放串：血亲/领养/过继/继养…；'' = 无预设（渲染层/作者决定缺省行为）
 });
 const 家族树节点Schema = z.object({
     双亲边: z.array(双亲边Schema).default([]),
@@ -152,7 +152,7 @@ export const 编年史条目Schema = z.object({
     结果摘要行: z.string().default(''),
     关联实体键: z.array(z.string()).default([]),
     事件id: z.string().optional(),
-    重要等级: z.string().default(''), // 路人/次要/重要/核心；'' = 无预设（reader ?? '重要'·同 NpcSchema.重要等级）
+    重要等级: z.string().default(''), // 开放串：路人/次要/重要/核心…；'' = 无预设（渲染层/作者决定缺省行为）
     媒介附件: 媒介附件Schema.optional(),
 });
 // ══════════════════════════════════════════

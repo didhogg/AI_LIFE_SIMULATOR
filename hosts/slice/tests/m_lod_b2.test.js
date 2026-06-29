@@ -86,14 +86,14 @@ describe('B2-0 · 守恒门', () => {
         expect(Object.keys(RootSchema.shape).length).toBe(54);
     });
     it('BUNDLE=21', () => {
-        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
+        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
     });
     it('manifest=88', () => {
         const total = FINGERPRINT_BUNDLE_MEMBERS.length +
             FINGERPRINT_PRESET_FIELDS.length +
             FINGERPRINT_SNAPSHOT_FIELDS.length +
             FINGERPRINT_EXCLUDED_FIELDS.length;
-        expect(total).toBe(94);
+        expect(total).toBe(95);
     });
     it('LOD_PROMOTE_BUDGET=8', () => {
         expect(LOD_PROMOTE_BUDGET).toBe(8);

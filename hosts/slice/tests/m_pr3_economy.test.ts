@@ -201,7 +201,7 @@ describe('F4 · 信号单调性 + 钳制', () => {
     const preset = makePreset({ 资源紧张度权重: 0.9, 供需权重: 0.9, 战时修正权重: 0.9 });
     const s = baseStateWithPrice(100, 100);
     s.战争状态 ??= {};  // R6 opt-in
-    s.战争状态['w'] = { 战争名: '极限战', 参战方: [], 战争目标: '', 状态: '交战' };
+    s.战争状态['w'] = { 战争名: '极限战', 参战方: [], 战争目标: '', 激活: true };
     const p = deriveEffectivePrice(s, preset, REGION_ID, CATEGORY_A);
     expect(p).toBeLessThanOrEqual(Math.ceil(BASE_PRICE * ECONOMY_PRICE_CLAMP_HI));
   });

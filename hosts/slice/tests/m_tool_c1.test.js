@@ -231,7 +231,7 @@ describe('C1-7 · 守恒门', () => {
         expect(keys.length).toBe(54);
     });
     it('BUNDLE=21 守恒（工具库不进 hashJudgmentBundle）', () => {
-        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
+        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
     });
     it('manifest=88（BUNDLE+PRESET+SNAP+EXCL 行数不变）', () => {
         // 86 = BUNDLE(21) + PRESET(11) + SNAPSHOT(5) + EXCLUDED(49)
@@ -239,7 +239,7 @@ describe('C1-7 · 守恒门', () => {
             FINGERPRINT_PRESET_FIELDS.length +
             FINGERPRINT_SNAPSHOT_FIELDS.length +
             FINGERPRINT_EXCLUDED_FIELDS.length;
-        expect(total).toBe(94);
+        expect(total).toBe(95);
     });
     it('工具库条目内容改变 → 指纹不变（整库不进 hashJudgmentBundle）', () => {
         // 验证：修改工具库字段不触发 BUNDLE 成员计数变化（静态守恒）
@@ -249,6 +249,6 @@ describe('C1-7 · 守恒门', () => {
         const r = resolveToolEntry('bonus_tool', libWithExtra);
         expect(r?.名称).toBe('extra');
         // BUNDLE 成员数不变（工具库属装配层·不进指纹）
-        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
+        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
     });
 });

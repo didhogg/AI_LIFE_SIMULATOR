@@ -97,7 +97,7 @@ describe('F2 · 退化守卫', () => {
     });
     it('F2-6 FINGERPRINT_BUNDLE_MEMBERS 成员数守恒（PR-3 不新增·基线=21）', () => {
         // PR-3 不新增 bundle member：经济派生不进指纹（不落库·派生不存储铁律）
-        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
+        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
     });
 });
 // ── F3 · 衰减闭式·锚拍号（同拍号同值·双跑恒等）──────────────────────────────
@@ -165,7 +165,7 @@ describe('F4 · 信号单调性 + 钳制', () => {
         const sPeace = baseStateWithPrice(0, 0);
         const sWar = baseStateWithPrice(0, 0);
         sWar.战争状态 ??= {}; // R6 opt-in
-        sWar.战争状态['war_01'] = { 战争名: '测试战争', 参战方: [], 战争目标: '', 状态: '交战' };
+        sWar.战争状态['war_01'] = { 战争名: '测试战争', 参战方: [], 战争目标: '', 状态: '交战', 激活: true };
         expect(deriveEffectivePrice(sWar, preset, REGION_ID, CATEGORY_A))
             .toBeGreaterThanOrEqual(deriveEffectivePrice(sPeace, preset, REGION_ID, CATEGORY_A));
     });
@@ -173,7 +173,7 @@ describe('F4 · 信号单调性 + 钳制', () => {
         const preset = makePreset({ 资源紧张度权重: 0.9, 供需权重: 0.9, 战时修正权重: 0.9 });
         const s = baseStateWithPrice(100, 100);
         s.战争状态 ??= {}; // R6 opt-in
-        s.战争状态['w'] = { 战争名: '极限战', 参战方: [], 战争目标: '', 状态: '交战' };
+        s.战争状态['w'] = { 战争名: '极限战', 参战方: [], 战争目标: '', 激活: true };
         const p = deriveEffectivePrice(s, preset, REGION_ID, CATEGORY_A);
         expect(p).toBeLessThanOrEqual(Math.ceil(BASE_PRICE * ECONOMY_PRICE_CLAMP_HI));
     });
@@ -183,17 +183,19 @@ describe('F4 · 信号单调性 + 钳制', () => {
         const p = deriveEffectivePrice(s, preset, REGION_ID, CATEGORY_A);
         expect(p).toBeGreaterThanOrEqual(Math.floor(BASE_PRICE * ECONOMY_PRICE_CLAMP_LO));
     });
-    it('F4-6 hasActiveWar: 无战→false / 交战→true / 停战→false', () => {
+    it('F4-6 hasActiveWar: 无战→false / 激活=true→true / 激活缺省→false', () => {
         const sNone = RootSchema.parse({});
         expect(hasActiveWar(sNone)).toBe(false);
+        // 结构化 flag 激活=true → true（不依赖状态字面量）
         const sWar = RootSchema.parse({});
         sWar.战争状态 ??= {}; // R6 opt-in
-        sWar.战争状态['w1'] = { 战争名: 'w', 参战方: [], 战争目标: '', 状态: '交战' };
+        sWar.战争状态['w1'] = { 战争名: 'w', 参战方: [], 战争目标: '', 状态: '修真大战', 激活: true };
         expect(hasActiveWar(sWar)).toBe(true);
-        const sCease = RootSchema.parse({});
-        sCease.战争状态 ??= {}; // R6 opt-in
-        sCease.战争状态['w1'] = { 战争名: 'w', 参战方: [], 战争目标: '', 状态: '停战' };
-        expect(hasActiveWar(sCease)).toBe(false);
+        // 激活 缺省（undefined）→ false（即使状态写着'交战'也不触发）
+        const sInactive = RootSchema.parse({});
+        sInactive.战争状态 ??= {}; // R6 opt-in
+        sInactive.战争状态['w1'] = { 战争名: 'w', 参战方: [], 战争目标: '', 状态: '交战' };
+        expect(hasActiveWar(sInactive)).toBe(false);
     });
 });
 // ── F5 · 漂移触发→候选基线=均值·不回写预设 ────────────────────────────────────

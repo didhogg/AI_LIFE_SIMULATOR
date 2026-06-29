@@ -218,3 +218,48 @@ describe('G1-S5 · covert 零印象（空间因子路径继承 G1a）', () => {
         expect(s1.认知档案[NPC_HONG]?.[PC]?.印象.length ?? 0).toBe(0); // 二跳零印象
     });
 });
+// ── S6 · 关系涟漪 Δ方向语义修正（R3-b 判定面·tick 路径）────────────────────────
+// 旧 ===负?-1:1 把「中负」当 +1 → 写'信任感'（latent bug）。
+// 新 polaritySign 写 -1 → 写'警惕'。
+// 路径：NPC.关系[极性='中负'] → Phase6 emitRipple → propagateRipple(一跳) → applyAppraisal。
+describe('G1-S6 · 关系涟漪 Δ方向 polaritySign 语义修正（R3-b 判定面）', () => {
+    it('rel.极性=中负：factFragment.Δ方向=-1·情绪写警惕（旧+1=信任感 latent bug 已修）', () => {
+        // alice → bob 关系 极性=中负，score=80≥50 触发 Phase6 ripple about bob
+        // carol 同地 bob(loc_b) → 一手观测 → factFragment.Δ方向=-1 → applyAppraisal → 警惕
+        const s0 = RootSchema.parse({
+            NPC: {
+                alice: { 姓名: 'alice', 位置: 'loc_a',
+                    关系: [{ 对象键: 'bob', 类型: '怨仇', 强度: 80, 极性: '中负', 信任: 100, 深度: 50 }] },
+                bob: { 姓名: 'bob', 位置: 'loc_b' },
+                carol: { 姓名: 'carol', 位置: 'loc_b' },
+            },
+        });
+        const { state: s1 } = runTick(s0, { tickId: 'rel-zhongfu-411', spanMinutes: 1440 });
+        const imp = s1.认知档案['carol']?.['bob']?.印象.find(i => i.factFragment?.维度 === '关系');
+        expect(imp).toBeDefined();
+        expect(imp?.factFragment?.Δ方向).toBe(-1); // 新正确值；旧=+1（killer：此行在旧引擎失败）
+        // applyAppraisal: EMOTION_DIMENSION_MAP['关系']{pos:'信任感',neg:'警惕'}
+        const 警惕 = s1.NPC['carol']?.情绪栈.find(e => e.情绪名 === '警惕');
+        expect(警惕).toBeDefined(); // 旧引擎缺席
+        expect(警惕?.极性).toBe('负');
+        const 信任感 = s1.NPC['carol']?.情绪栈.find(e => e.情绪名 === '信任感');
+        expect(信任感).toBeUndefined(); // 旧引擎存在→新修正后不存在
+    });
+    it('rel.极性=中：factFragment.Δ方向=0（旧=+1）·情绪仍信任感（0≥0→pos·结构值已修正）', () => {
+        const s0 = RootSchema.parse({
+            NPC: {
+                alice: { 姓名: 'alice', 位置: 'loc_a',
+                    关系: [{ 对象键: 'bob', 类型: '相识', 强度: 80, 极性: '中', 信任: 100, 深度: 30 }] },
+                bob: { 姓名: 'bob', 位置: 'loc_b' },
+                carol: { 姓名: 'carol', 位置: 'loc_b' },
+            },
+        });
+        const { state: s1 } = runTick(s0, { tickId: 'rel-zhong-411', spanMinutes: 1440 });
+        const imp = s1.认知档案['carol']?.['bob']?.印象.find(i => i.factFragment?.维度 === '关系');
+        expect(imp).toBeDefined();
+        expect(imp?.factFragment?.Δ方向).toBe(0); // 新=0（中性无方向）；旧=+1
+        // 0≥0→pos→'信任感'·情绪输出与旧一致·但 factFragment 结构值已修正
+        const 信任感 = s1.NPC['carol']?.情绪栈.find(e => e.情绪名 === '信任感');
+        expect(信任感).toBeDefined();
+    });
+});

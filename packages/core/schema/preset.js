@@ -497,4 +497,5 @@ export const 玩法预设Schema = z.object({
     IC边类型率表: z.record(z.string(), z.number()).optional(),
     复杂传播标签集: z.array(z.string()).optional(),
     体质分档断点: z.object({ tiers: z.array(z.number().int().min(0)) }).optional(),
+    组织层级边类型集: z.array(z.string()).optional(), // 追加边类型视为层级关系（默认集含'层级'/'隶属'）
 });

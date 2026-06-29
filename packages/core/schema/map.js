@@ -137,7 +137,8 @@ const 战争条目Schema = z.object({
     战争名: z.string().default(''),
     参战方: z.array(参战方条目Schema).default([]),
     战争目标: z.string().default(''),
-    状态: z.string().default(''), // 交战/停战/和谈/结束；'' = 无预设
+    状态: z.string().default(''), // 开放串：交战/停战/和谈/结束…；'' = 无预设
+    激活: z.boolean().optional(), // true = 战争激活态（价格/判定信号源）；undefined/false = 非激活
     // _战线 🧮 派生（压力榜汇总），不存储
 });
 export const 战争状态Schema = z.record(z.string(), 战争条目Schema).default({});
