@@ -49,19 +49,16 @@ const STATE_TRANSFER: RootState = RootSchema.parse({
   全局: {},
 });
 
-// 转账 option（verb='转移'·pc_linjiu 付 → npc_wang 收 50 文）
+// 转账 option（verb='转移'·pc_linjiu 付 → npc_wang 收）
+// 变量驱动：target_choices = 收方全路径·params.关联实体 = 付方全路径
 const TRANSFER_OPTION = 动词选项条目Schema.parse({
   verb:           '转移',
-  target_choices: ['npc_wang'],
+  target_choices: ['货币系统.账户.npc_wang.持有.文'],
   tool_name:      'transfer',
-  params:         {},
+  params:         { 关联实体: ['货币系统.账户.pc_linjiu.持有.文'] },
   value_slot:     '金额',
   min:            1,
   max:            200,
-  effect_decls: [
-    { path_tmpl: '货币系统.账户.{seatId}.持有.{ccy}', op: 'sub', value_src: '数值槽', conservation_role: 'debit'  },
-    { path_tmpl: '货币系统.账户.{target}.持有.{ccy}', op: 'add', value_src: '数值槽', conservation_role: 'credit' },
-  ],
 });
 
 const TRANSFER_OPTION_SET = sampleOptionSet({
@@ -86,20 +83,16 @@ const STATE_COLLECT: RootState = RootSchema.parse({
   全局: {},
 });
 
-// 赋予 option（verb='赋予'·world_sink 给 → pc_linjiu 收 30 文）
-// seatId = 'world_sink'（donor·传入 injectedSeatId）
+// 赋予 option（verb='赋予'·world_sink → pc_linjiu 收）
+// 变量驱动：target_choices = 收方全路径·params.关联实体 = SINK 全路径
 const COLLECT_OPTION = 动词选项条目Schema.parse({
   verb:           '赋予',
-  target_choices: ['pc_linjiu'],
+  target_choices: ['货币系统.账户.pc_linjiu.持有.文'],
   tool_name:      'collect',
-  params:         {},
+  params:         { 关联实体: ['货币系统.账户.world_sink.持有.文'] },
   value_slot:     '数量',
   min:            1,
   max:            100,
-  effect_decls: [
-    { path_tmpl: '货币系统.账户.{seatId}.持有.{ccy}', op: 'sub', value_src: '数值槽', conservation_role: 'debit'  },
-    { path_tmpl: '货币系统.账户.{target}.持有.{ccy}', op: 'add', value_src: '数值槽', conservation_role: 'credit' },
-  ],
 });
 
 const COLLECT_OPTION_SET = sampleOptionSet({

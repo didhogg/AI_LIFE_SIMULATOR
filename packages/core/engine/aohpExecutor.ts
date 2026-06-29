@@ -82,7 +82,6 @@ export function executeActionOption(args: ExecuteOptionArgs): ExecuteOptionResul
       ...(数值槽    !== undefined                ? { 数值槽 }          : {}),
       ...(方向槽    !== undefined                ? { 方向槽 }          : {}),
       ...(关联实体.length > 0                   ? { 关联实体 }         : {}),
-      ...(option.effect_decls !== undefined      ? { effect_decls: option.effect_decls } : {}),
     },
   };
 

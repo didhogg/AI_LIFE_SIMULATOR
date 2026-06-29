@@ -4127,9 +4127,9 @@ describe('L-8 · 二审维度条目 越界类型 enum（Off-Topic/Cheating）', 
         expect(res.success).toBe(false);
     });
 });
-// ── L-9 · 动词 precond + effect_decls ────────────────────────────────────────
-describe('L-9 · 动词Option基础Schema precond + effect_decls', () => {
-    it('valid: 无 precond/effect_decls（默认路径）', () => {
+// ── L-9 · 动词 precond（变量驱动底座·effect_decls 已废弃）───────────────────
+describe('L-9 · 动词Option基础Schema precond', () => {
+    it('valid: 无 precond（默认路径）', () => {
         const res = 动词OptionSchema表.转移.safeParse({});
         expect(res.success).toBe(true);
     });
@@ -4139,19 +4139,9 @@ describe('L-9 · 动词Option基础Schema precond + effect_decls', () => {
         if (res.success)
             expect(res.data?.precond).toEqual(['货币系统.账户.主角.持有.金 >= 100']);
     });
-    it('valid: effect_decls 结构化列表（R9）', () => {
-        const res = 动词OptionSchema表.转移.safeParse({
-            effect_decls: [
-                { path_tmpl: '货币系统.账户.{seatId}.持有.{ccy}', op: 'sub', value_src: '数值槽', conservation_role: 'debit' },
-                { path_tmpl: '货币系统.账户.{target}.持有.{ccy}', op: 'add', value_src: '数值槽', conservation_role: 'credit' },
-            ],
-        });
-        expect(res.success).toBe(true);
-    });
-    it('valid: precond + effect_decls + side_effects 三者共存', () => {
+    it('valid: precond + side_effects 共存', () => {
         const res = 动词OptionSchema表.赋予.safeParse({
             precond: ['声望.值 >= 50'],
-            effect_decls: [{ path_tmpl: '属性.体质', op: 'add', value_src: '常量', value: 1 }],
             side_effects: [],
         });
         expect(res.success).toBe(true);
@@ -4160,11 +4150,16 @@ describe('L-9 · 动词Option基础Schema precond + effect_decls', () => {
         const res = 动词OptionSchema表.披露.safeParse({ unknown_field: 'x' });
         expect(res.success).toBe(false);
     });
-    it('全 10 动词均支持 precond/effect_decls（结构化）', () => {
-        const decl = { path_tmpl: 'path.a', op: 'add', value_src: '常量', value: 1 };
+    it('invalid: effect_decls 已废弃·strict 拒绝', () => {
+        const res = 动词OptionSchema表.转移.safeParse({
+            effect_decls: [{ path_tmpl: 'x', op: 'add', value_src: '常量', value: 1 }],
+        });
+        expect(res.success).toBe(false);
+    });
+    it('全 10 动词均支持 precond', () => {
         for (const [name, schema] of Object.entries(动词OptionSchema表)) {
-            const r = schema.safeParse({ precond: ['test'], effect_decls: [decl] });
-            expect(r.success, `${name} should accept precond+effect_decls`).toBe(true);
+            const r = schema.safeParse({ precond: ['test'] });
+            expect(r.success, `${name} should accept precond`).toBe(true);
         }
     });
 });

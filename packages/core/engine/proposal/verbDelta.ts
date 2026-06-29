@@ -1,74 +1,65 @@
-// verbDelta — effect_decls 声明式哑执行器（R9·单一确定性底座）
-// 读 envelope.提案.effect_decls → 路径模板占位符替换 + value 来源映射 → K5DeltaEntry[]
-// 无 per-动词分支；无 per-路径/op 硬编码；mod 作者在 effect_decls 里声明，此处仅映射。
-// 无 effect_decls → 可观测 no-op（返回 []·非静默漏账：调用方可检查 decls 是否存在）。
+// verbDelta — 变量驱动翻译底座（R9 重做·单一确定性路径·零 per-verb 分支·零占位符）
+// 读 envelope.提案.目标引用（全状态路径）+ 数值槽（带符号整数）+ 关联实体（对手方全路径列表）
+// → 按路径现有值类型派生 op → K5DeltaEntry[]
+//
+// 规则（三条·无分叉）：
+//   1. 目标引用 = 全状态路径；数值槽 带符号（正→add·负→sub·0/undefined→no-op）
+//   2. 关联实体[i] = 对手方全路径，同量反向（数值槽取反）
+//   3. 非数值路径 / 路径不存在 → 可观测 no-op（返回 []·非静默：调用方 empty packs 可检测）
+//
+// 守恒：写到 货币系统.账户.* 的条目自动参与 tick.ts Phase9 assertConservation；此处不检查。
+// E-2（多变量多值·txn_id 组）是下一步，本批仅覆盖单主路径 + 同量对手方。
+
 import type { 指令信封Type } from '../../schema/proposal.js';
 import type { RootState } from '../../schema/index.js';
 import type { K5DeltaEntry } from '../../interfaces/interventionMerge.js';
 
-// 路径模板占位符解析
-// 支持：{seatId} / {target} / {ccy} / {关联实体.N}（N 为非负整数索引）
-function resolvePathTmpl(
-  tmpl: string,
-  seatId: string,
-  target: string,
-  ccy: string,
-  关联实体: readonly string[],
-): string | null {
-  let failed = false;
-  const path = tmpl.replace(/\{([^}]+)\}/g, (_, key: string): string => {
-    if (key === 'seatId') return seatId;
-    if (key === 'target') return target;
-    if (key === 'ccy')    return ccy;
-    const m = /^关联实体\.(\d+)$/.exec(key);
-    if (m) {
-      const v = 关联实体[Number(m[1])];
-      if (v === undefined) { failed = true; return ''; }
-      return v;
-    }
-    failed = true;
-    return '';
-  });
-  if (failed) return null;
-  // 不得含空路径段（占位符解析为空串 or 模板本身含连续点号）
-  if (path.split('.').some(s => s === '')) return null;
-  return path;
+function getAtPath(obj: Record<string, unknown>, path: string): unknown {
+  let cur: unknown = obj;
+  for (const seg of path.split('.')) {
+    if (seg === '') return undefined;
+    if (cur === null || typeof cur !== 'object' || Array.isArray(cur)) return undefined;
+    cur = (cur as Record<string, unknown>)[seg];
+  }
+  return cur;
+}
+
+function makeEntry(path: string, 数值: number): K5DeltaEntry | null {
+  if (!Number.isInteger(数值) || 数值 === 0) return null;
+  const op = 数值 > 0 ? 'add' : 'sub';
+  return { path, op, value: Math.abs(数值) };
 }
 
 export function deriveVerbDelta(
   envelope: 指令信封Type,
   state: RootState,
-  seatId: string,
+  _seatId: string,
 ): ReadonlyArray<ReadonlyArray<K5DeltaEntry>> {
   const 提案 = envelope.提案;
-  const decls = 提案.effect_decls;
+  const targetPath = 提案.目标引用;
+  const 数值 = 提案.数值槽;
 
-  // 无 effect_decls → 可观测 no-op（mod/预设作者须在 option 里声明 effect_decls）
-  if (!decls || decls.length === 0) return [];
+  if (!targetPath || 数值 === undefined) return [];
 
-  const ccy    = state.货币系统?.基准币种 ?? '';
-  const target = 提案.目标引用;
-  const 关联   = 提案.关联实体;
+  const stateObj = state as unknown as Record<string, unknown>;
 
-  const entries: K5DeltaEntry[] = [];
-  for (const decl of decls) {
-    const path = resolvePathTmpl(decl.path_tmpl, seatId, target, ccy, 关联);
-    if (path === null) continue;  // 占位符无法解析 → 跳过此条
+  const primaryVal = getAtPath(stateObj, targetPath);
+  if (typeof primaryVal !== 'number') return [];
 
-    // value 来源映射：数值槽取提案运行值，常量取声明值
-    const rawVal = decl.value_src === '数值槽' ? 提案.数值槽 : decl.value;
-    if (rawVal === undefined) continue;
+  const primaryEntry = makeEntry(targetPath, 数值);
+  if (primaryEntry === null) return [];
 
-    // add/sub 要求整数（computeDelta 亦校验；此处提前 guard 防浮点混入）
-    if ((decl.op === 'add' || decl.op === 'sub') && !Number.isInteger(rawVal)) continue;
+  const entries: K5DeltaEntry[] = [primaryEntry];
 
-    const entry: K5DeltaEntry = decl.max_delta !== undefined
-      ? { path, op: decl.op, value: rawVal, max_delta: decl.max_delta }
-      : { path, op: decl.op, value: rawVal };
-    entries.push(entry);
+  // 关联实体：同量反向（对手方）
+  const opposite = -数值;
+  for (const counterPath of 提案.关联实体) {
+    if (!counterPath) continue;
+    const counterVal = getAtPath(stateObj, counterPath);
+    if (typeof counterVal !== 'number') continue;
+    const entry = makeEntry(counterPath, opposite);
+    if (entry !== null) entries.push(entry);
   }
 
-  if (entries.length === 0) return [];
-  // 单包：一条提案所有 effect_decls 产出的 entries 归一包（过闸时原子处理）
   return [entries];
 }

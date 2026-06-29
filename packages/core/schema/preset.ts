@@ -3,7 +3,6 @@
 import { z } from 'zod';
 import { 受治理句柄Schema } from './governedKeySpace.js';
 import { 谓词串Schema } from './commonEntry.js';
-import { EffectDeclSchema } from './verb.js';
 
 // ── 历法皮肤（附录 C） ──
 export const 历法皮肤Schema = z.object({
@@ -453,16 +452,14 @@ export const 换角许可Schema = z.object({
 
 export const 动词选项条目Schema = z.object({
   verb:           z.string().default(''),           // 动词（来自 动词Id枚举·运行时校验）
-  target_choices: z.array(z.string()).default([]),  // 目标实体键候选（一或多）
+  target_choices: z.array(z.string()).default([]),  // 目标变量全状态路径候选（变量驱动底座）
   tool_name:      z.string().default(''),           // 调用工具名（open string）
-  params:         z.record(z.string(), z.unknown()).default({}), // 参数 map
+  params:         z.record(z.string(), z.unknown()).default({}), // 参数 map（含 关联实体[] 对手方路径）
   salient_args:   z.string().optional(),            // 显著参数文本·用于 option_id 派生
   value_slot:     z.string().optional(),            // 绑定的数值槽键
   min:            z.number().optional(),            // 数值槽最小值
   max:            z.number().optional(),            // 数值槽最大值
   display_text:   z.string().optional(),            // 显示标签（不纳入 option_id·纯展示）
-  // R9 · 效果声明（mod 作者在预设侧声明·透传至 ActionOption → envelope → verbDelta 哑执行）
-  effect_decls:   z.array(EffectDeclSchema).optional(),
 }).strip();
 
 export type 动词选项条目Type = z.infer<typeof 动词选项条目Schema>;

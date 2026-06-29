@@ -47,8 +47,6 @@ export function sampleOptionSet(args) {
             base['min'] = e.min;
         if (e.max !== undefined)
             base['max'] = e.max;
-        if (e.effect_decls !== undefined)
-            base['effect_decls'] = e.effect_decls;
         return base;
     });
     const withIds = buildMenuOptionIds(menuOpts);
@@ -67,9 +65,6 @@ export function sampleOptionSet(args) {
             result.min = opt['min'];
         if (typeof opt['max'] === 'number')
             result.max = opt['max'];
-        const rawDecls = opt['effect_decls'];
-        if (Array.isArray(rawDecls))
-            result.effect_decls = rawDecls;
         return result;
     });
 }
