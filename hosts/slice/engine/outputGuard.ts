@@ -9,7 +9,7 @@
 //   - rollHint 用于重Roll图标旁常驻静态提示
 //   - 不主动弹窗·不主动教学·不替玩家做事
 //
-// 依赖: detectSoftReject（softReject.ts·确定性规则·版本进指纹 '软拒检测规则版本'）
+// 依赖: detectSoftReject（softReject.ts·确定性规则·输入=LLM输出·结果仅驱动 rollHint UX·不进指纹）
 
 import { detectSoftReject, SOFT_REJECT_RULE_VERSION } from '@ai-life-sim/core/engine/softReject';
 
@@ -22,7 +22,7 @@ export type OutputGuardStatus = 'passed' | 'soft_rejected';
 
 export interface OutputGuardResult {
   status: OutputGuardStatus;
-  /** 规则版本（进指纹·'软拒检测规则版本'·供调用方传入 hashPresetFingerprint） */
+  /** 规则版本（诊断/日志用·不进指纹·软拒输入=LLM输出不可重放） */
   ruleVersion: typeof SOFT_REJECT_RULE_VERSION;
   /** 重Roll提示（status='soft_rejected' 时存在·常驻图标旁·不弹窗） */
   rollHint?: SoftRejectHint;

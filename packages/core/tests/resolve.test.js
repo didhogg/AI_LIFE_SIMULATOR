@@ -335,14 +335,14 @@ describe('A2 · 守恒门', () => {
         expect(BLUEPRINT_KEYS.length).toBe(54);
     });
     it('BUNDLE = 21（FINGERPRINT_BUNDLE_MEMBERS 不变）', () => {
-        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
+        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
     });
-    it('manifest 四组总长 = 87（不变）', () => {
+    it('manifest 四组总长 = 88', () => {
         const total = FINGERPRINT_BUNDLE_MEMBERS.length +
             FINGERPRINT_PRESET_FIELDS.length +
             FINGERPRINT_SNAPSHOT_FIELDS.length +
             FINGERPRINT_EXCLUDED_FIELDS.length;
-        expect(total).toBe(89);
+        expect(total).toBe(94);
     });
     it('黄金向量：hashPresetFingerprint 确定性（不重定基）', () => {
         // 同入参双跑相等即可（不钉死具体 hex 值·避免与 A0 黄金向量冲突）

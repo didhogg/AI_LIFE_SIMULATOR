@@ -9,7 +9,7 @@
 //   - rollHint 用于重Roll图标旁常驻静态提示
 //   - 不主动弹窗·不主动教学·不替玩家做事
 //
-// 依赖: detectSoftReject（softReject.ts·确定性规则·版本进指纹 '软拒检测规则版本'）
+// 依赖: detectSoftReject（softReject.ts·确定性规则·输入=LLM输出·结果仅驱动 rollHint UX·不进指纹）
 import { detectSoftReject, SOFT_REJECT_RULE_VERSION } from '@ai-life-sim/core/engine/softReject';
 /** 输出侧软拒重Roll提示（常驻图标旁·不弹窗·不教学·不替玩家做事） */
 export const OUTPUT_GUARD_ROLL_HINT = {

@@ -498,16 +498,16 @@ describe('底座-2b · 守恒门', () => {
   });
 
   it('BUNDLE = 21（规则库 dormant·不改 FINGERPRINT_BUNDLE_MEMBERS）', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
   });
 
-  it('manifest 四组总长 = 87（不变）', () => {
+  it('manifest 四组总长 = 88', () => {
     const total =
       FINGERPRINT_BUNDLE_MEMBERS.length +
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(89);
+    expect(total).toBe(94);
   });
 
   it('规则面键集 = 13（12 张规则表 + 归并表）', () => {

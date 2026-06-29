@@ -9,8 +9,9 @@
 // 设计约束：
 //  - runTick 零 RNG 改动（optionSetInput 路径不引入新 RNG 通道）
 //  - 黄金向量不受影响（optionSetInput 未接入涟漪/衰减路径）
-//  - schemaKeys=52 / manifest=87 守恒（G2-2 +媒介传播面 → BUNDLE21）
+//  - schemaKeys=54 / manifest=89 守恒
 //  - SINK 使用 world_sink（无 _ 前缀·computeDelta Gate③ 兼容）
+//  - 每个测试的 option 在 params.对手方条目 中显式携带带符号数值·executor 零取反
 import { describe, it, expect } from 'vitest';
 import { runTick } from '../engine/tick.js';
 import { sampleOptionSet } from '../engine/optionSet.js';
@@ -28,6 +29,34 @@ function calcNetAsset(state) {
         return 0;
     return Object.values(账户).reduce((sum, acct) => sum + getNetAsset(acct), 0);
 }
+// ── 辅助：构建含显式对手方条目的转账 option ─────────────────────────────────────
+// counterAmount 由调用方按 -chosenValue 显式给出·executor 零推导
+function makeTransferOption(receiverPath, payerPath, counterAmount) {
+    return 动词选项条目Schema.parse({
+        verb: '转移',
+        target_choices: [receiverPath],
+        tool_name: 'transfer',
+        params: { 对手方条目: [{ 目标引用: payerPath, 数值槽: counterAmount }] },
+        value_slot: '金额',
+        min: 1,
+        max: 200,
+    });
+}
+function makeCollectOption(receiverPath, sinkPath, counterAmount) {
+    return 动词选项条目Schema.parse({
+        verb: '赋予',
+        target_choices: [receiverPath],
+        tool_name: 'collect',
+        params: { 对手方条目: [{ 目标引用: sinkPath, 数值槽: counterAmount }] },
+        value_slot: '数量',
+        min: 1,
+        max: 100,
+    });
+}
+// ── 路径常量 ──────────────────────────────────────────────────────────────────
+const LINJIU_PATH = '货币系统.账户.pc_linjiu.持有.文';
+const WANG_PATH = '货币系统.账户.npc_wang.持有.文';
+const SINK_PATH = '货币系统.账户.world_sink.持有.文';
 // ── Fixture: 双账户封闭经济（转账测试）──────────────────────────────────────────
 const STATE_TRANSFER = RootSchema.parse({
     货币系统: {
@@ -40,23 +69,6 @@ const STATE_TRANSFER = RootSchema.parse({
     _状态机: { 双时钟: { 世界钟: 100 } },
     _席位表: {},
     全局: {},
-});
-// 转账 option（verb='转移'·pc_linjiu 付 → npc_wang 收）
-// 变量驱动：target_choices = 收方全路径·params.关联实体 = 付方全路径
-const TRANSFER_OPTION = 动词选项条目Schema.parse({
-    verb: '转移',
-    target_choices: ['货币系统.账户.npc_wang.持有.文'],
-    tool_name: 'transfer',
-    params: { 关联实体: ['货币系统.账户.pc_linjiu.持有.文'] },
-    value_slot: '金额',
-    min: 1,
-    max: 200,
-});
-const TRANSFER_OPTION_SET = sampleOptionSet({
-    declaredOptions: [TRANSFER_OPTION],
-    seed: 42,
-    tick: 1,
-    rerollSalt: 0,
 });
 // ── Fixture: SINK → player 封闭经济（赋予测试）──────────────────────────────────
 const STATE_COLLECT = RootSchema.parse({
@@ -71,30 +83,16 @@ const STATE_COLLECT = RootSchema.parse({
     _席位表: {},
     全局: {},
 });
-// 赋予 option（verb='赋予'·world_sink → pc_linjiu 收）
-// 变量驱动：target_choices = 收方全路径·params.关联实体 = SINK 全路径
-const COLLECT_OPTION = 动词选项条目Schema.parse({
-    verb: '赋予',
-    target_choices: ['货币系统.账户.pc_linjiu.持有.文'],
-    tool_name: 'collect',
-    params: { 关联实体: ['货币系统.账户.world_sink.持有.文'] },
-    value_slot: '数量',
-    min: 1,
-    max: 100,
-});
-const COLLECT_OPTION_SET = sampleOptionSet({
-    declaredOptions: [COLLECT_OPTION],
-    seed: 7,
-    tick: 1,
-    rerollSalt: 0,
-});
-// ── ① 转账 option → 付方 −N / 收方 +N · 守恒 Σ=0 · gateOk=true ──────────────
+// ── ① 转账 option → 付方 −50 / 收方 +50 · 守恒 Σ=0 · gateOk=true ──────────────
+// 对手方条目.数值槽=-50 由 makeTransferOption 显式给出·与 chosenValue:50 对称
 describe('① 转账 option → 全闸 + 守恒', () => {
-    expect(TRANSFER_OPTION_SET.length).toBeGreaterThan(0);
-    const optionId = TRANSFER_OPTION_SET[0].option_id;
+    const OPT_50 = makeTransferOption(WANG_PATH, LINJIU_PATH, -50);
+    const OPT_SET_50 = sampleOptionSet({ declaredOptions: [OPT_50], seed: 42, tick: 1, rerollSalt: 0 });
+    expect(OPT_SET_50.length).toBeGreaterThan(0);
+    const optionId = OPT_SET_50[0].option_id;
     const result = runTick(STATE_TRANSFER, {
         tickId: 'opt-t1-transfer',
-        optionSetInput: { chosenOptionId: optionId, optionSet: TRANSFER_OPTION_SET, chosenValue: 50 },
+        optionSetInput: { chosenOptionId: optionId, optionSet: OPT_SET_50, chosenValue: 50 },
         injectedSeatId: 'pc_linjiu',
     });
     it('Phase 提案落账 出现在 settledPhases', () => {
@@ -118,17 +116,19 @@ describe('① 转账 option → 全闸 + 守恒', () => {
         // provenance 在 envelope·通过 proposalGateResult 间接验：gateOk=true·不直接暴露 envelope
         // 用 executeActionOption 验 provenance 字段（独立非 runTick 路径）
         const { executeActionOption } = require('../engine/aohpExecutor.js');
-        const r = executeActionOption({ chosenOptionId: optionId, optionSet: TRANSFER_OPTION_SET, chosenValue: 50 });
+        const r = executeActionOption({ chosenOptionId: optionId, optionSet: OPT_SET_50, chosenValue: 50 });
         expect(r.envelope?.provenance).toBe('player_option');
     });
 });
-// ── ② 同 optionSetInput 双宿主 diff=0 逐位恒等 ────────────────────────────────
+// ── ② 同 optionSetInput 双宿主 diff=0 逐位恒等（chosenValue:30·对手方-30）────────
 describe('② 双宿主逐位恒等', () => {
-    expect(TRANSFER_OPTION_SET.length).toBeGreaterThan(0);
-    const optionId = TRANSFER_OPTION_SET[0].option_id;
+    const OPT_30 = makeTransferOption(WANG_PATH, LINJIU_PATH, -30);
+    const OPT_SET_30 = sampleOptionSet({ declaredOptions: [OPT_30], seed: 42, tick: 1, rerollSalt: 0 });
+    expect(OPT_SET_30.length).toBeGreaterThan(0);
+    const optionId = OPT_SET_30[0].option_id;
     const INPUT = {
         tickId: 'opt-t2-dual',
-        optionSetInput: { chosenOptionId: optionId, optionSet: TRANSFER_OPTION_SET, chosenValue: 30 },
+        optionSetInput: { chosenOptionId: optionId, optionSet: OPT_SET_30, chosenValue: 30 },
         injectedSeatId: 'pc_linjiu',
     };
     it('两次调用 state JSON 逐位恒等', () => {
@@ -150,11 +150,13 @@ describe('② 双宿主逐位恒等', () => {
 });
 // ── ③ 越界 option_id → matched=false · 不写账 · state 不变 ───────────────────
 describe('③ 越界 option_id → downgrade · 不写账', () => {
+    const OPT_ANY = makeTransferOption(WANG_PATH, LINJIU_PATH, -50);
+    const OPT_SET_ANY = sampleOptionSet({ declaredOptions: [OPT_ANY], seed: 42, tick: 1, rerollSalt: 0 });
     const result = runTick(STATE_TRANSFER, {
         tickId: 'opt-t3-oob',
         optionSetInput: {
             chosenOptionId: '赋予:npc_unknown:未注册_选项', // 不在权威集
-            optionSet: TRANSFER_OPTION_SET,
+            optionSet: OPT_SET_ANY,
             chosenValue: 999,
         },
         injectedSeatId: 'pc_linjiu',
@@ -174,13 +176,15 @@ describe('③ 越界 option_id → downgrade · 不写账', () => {
         expect(postNet).toBe(preNet);
     });
 });
-// ── ④ 赋予 option(SINK → player) → 守恒 · gateOk=true ──────────────────────────
+// ── ④ 赋予 option(SINK → player) → 守恒 · gateOk=true（对手方SINK-30·chosenValue:30）
 describe('④ 收集/赋予 option → SINK 显式守恒', () => {
-    expect(COLLECT_OPTION_SET.length).toBeGreaterThan(0);
-    const collectId = COLLECT_OPTION_SET[0].option_id;
+    const OPT_COLLECT = makeCollectOption('货币系统.账户.pc_linjiu.持有.文', SINK_PATH, -30);
+    const OPT_SET_COLLECT = sampleOptionSet({ declaredOptions: [OPT_COLLECT], seed: 7, tick: 1, rerollSalt: 0 });
+    expect(OPT_SET_COLLECT.length).toBeGreaterThan(0);
+    const collectId = OPT_SET_COLLECT[0].option_id;
     const result = runTick(STATE_COLLECT, {
         tickId: 'opt-t4-collect',
-        optionSetInput: { chosenOptionId: collectId, optionSet: COLLECT_OPTION_SET, chosenValue: 30 },
+        optionSetInput: { chosenOptionId: collectId, optionSet: OPT_SET_COLLECT, chosenValue: 30 },
         injectedSeatId: 'world_sink', // 显式 SINK 来源方
     });
     it('proposalGateResult.ok === true', () => {
@@ -200,7 +204,7 @@ describe('④ 收集/赋予 option → SINK 显式守恒', () => {
     it('双宿主逐位恒等（赋予路径）', () => {
         const INPUT = {
             tickId: 'opt-t4-dual',
-            optionSetInput: { chosenOptionId: collectId, optionSet: COLLECT_OPTION_SET, chosenValue: 30 },
+            optionSetInput: { chosenOptionId: collectId, optionSet: OPT_SET_COLLECT, chosenValue: 30 },
             injectedSeatId: 'world_sink',
         };
         const r1 = runTick(STATE_COLLECT, INPUT);
@@ -208,16 +212,18 @@ describe('④ 收集/赋予 option → SINK 显式守恒', () => {
         expect(JSON.stringify(r1.state)).toBe(JSON.stringify(r2.state));
     });
 });
-// ── ⑤ optionSetInput 与 injectedEnvelope 互斥：optionSetInput 优先 ──────────────
+// ── ⑤ optionSetInput 与 injectedEnvelope 互斥：optionSetInput 优先（chosenValue:10·对手方-10）
 describe('⑤ optionSetInput > injectedEnvelope 优先级', () => {
-    expect(TRANSFER_OPTION_SET.length).toBeGreaterThan(0);
-    const optionId = TRANSFER_OPTION_SET[0].option_id;
+    const OPT_10 = makeTransferOption(WANG_PATH, LINJIU_PATH, -10);
+    const OPT_SET_10 = sampleOptionSet({ declaredOptions: [OPT_10], seed: 42, tick: 1, rerollSalt: 0 });
+    expect(OPT_SET_10.length).toBeGreaterThan(0);
+    const optionId = OPT_SET_10[0].option_id;
     it('两者同时存在 → optionSetInput 胜出·正常落账', () => {
         const { 指令信封Schema } = require('../schema/proposal.js');
         const freeEnvelope = 指令信封Schema.parse({ 提案批: [{ 动作类别: '転移', 目标引用: 'npc_wang', 数值槽: 999 }] });
         const result = runTick(STATE_TRANSFER, {
             tickId: 'opt-t5-priority',
-            optionSetInput: { chosenOptionId: optionId, optionSet: TRANSFER_OPTION_SET, chosenValue: 10 },
+            optionSetInput: { chosenOptionId: optionId, optionSet: OPT_SET_10, chosenValue: 10 },
             injectedEnvelope: freeEnvelope, // 应被忽略
             injectedSeatId: 'pc_linjiu',
         });

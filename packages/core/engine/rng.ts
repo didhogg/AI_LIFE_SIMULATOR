@@ -191,6 +191,18 @@ export function hashJudgmentBundle(fields: {
   受控接口能力集注册集?: unknown;
   /** G2-2: 媒介登记表{是否传播,传播系数}投影·{mediaKey:{是否传播?,传播系数?}}·判定面·改传播配置即改判定 */
   媒介传播面?: unknown;
+  /** 作者可配情绪维度表·record<维度,{pos,neg,coeff}>·改表即改判定面（涟漪Δ维度×方向派生情绪名）*/
+  情绪维度表?: unknown;
+  /** 作者可配人口密度系数表·record<规模,number>·改表即改判定面（区域传播强度调制）*/
+  人口密度系数表?: unknown;
+  /** 作者可配场景传播系数表·record<开放度,number>·改表即改判定面（二跳强度乘子）*/
+  场景传播系数表?: unknown;
+  /** 作者可配IC边类型率表·record<边类型,number>·改表即改判定面（IC基础传播率）*/
+  IC边类型率表?: unknown;
+  /** 作者可配复杂传播标签集·string[]·改集即改判定面（Centola-Macy 多桥门槛）*/
+  复杂传播标签集?: unknown;
+  /** 作者可配体质分档断点·{tiers:number[]}·改断点即改判定面（θ_i 计算口径）*/
+  体质分档断点?: unknown;
   // TODO(P0-7): 方式×速度换算表 — 家在 P0-7 速度模型，届时加入签名 + 补断言
   // TODO(P0-7): H7量纲表全量 — 家在 P0-7 量纲系统，届时加入签名 + 补断言
 }): string {
@@ -228,8 +240,6 @@ export function hashPresetFingerprint(fields: {
   DSL文法版本?: string;
   /** §十A: 求值器函数库版本·v1={min,max,clamp,pow,sqrt}逐位恒等·增列超越函数时 bump */
   求值器函数库版本?: number;
-  /** N-4: 软拒/拒答检测器规则版本·确定性规则·版本变则判定口径变·随 U3 版本分段 */
-  软拒检测规则版本?: number;
   /** 对撞⑦: 中文数字解析规则版·三百/叁佰/3百→300 归一·改版即改判定口径 */
   中文数字解析规则版?: number;
   /** U3·F-c层1: 封段时活动引擎版本·版本变则分段指纹变·字段已在位·分段触发逻辑随P0-3/U3·当前所有preset该字段=undefined */

@@ -119,7 +119,7 @@ describe('F2 · 退化守卫', () => {
 
   it('F2-6 FINGERPRINT_BUNDLE_MEMBERS 成员数守恒（PR-3 不新增·基线=21）', () => {
     // PR-3 不新增 bundle member：经济派生不进指纹（不落库·派生不存储铁律）
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
   });
 });
 

@@ -1,6 +1,5 @@
 import { rngFor } from './rng.js';
 import { resolveFormula, FORMULA_REGISTRY } from './formulaRegistry.js';
-
 /** 正典无向端点对键（NPC 键字典序小的在前·null-byte 分隔·防碰撞） */
 function pairKey(a, b) {
     return a < b ? `${a}\x00${b}` : `${b}\x00${a}`;

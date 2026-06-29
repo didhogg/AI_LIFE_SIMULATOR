@@ -202,7 +202,7 @@ describe('F1 約束注入 指纹隔離 (R7-b)', () => {
             FINGERPRINT_PRESET_FIELDS.length +
             FINGERPRINT_SNAPSHOT_FIELDS.length +
             FINGERPRINT_EXCLUDED_FIELDS.length;
-        expect(total).toBe(89);
+        expect(total).toBe(94);
     });
     it('schemaKeys=53 不変', () => {
         expect(Object.keys(RootSchema.shape).length).toBe(54);

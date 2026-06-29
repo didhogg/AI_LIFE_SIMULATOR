@@ -565,7 +565,7 @@ describe('D-10: 守恒门', () => {
   });
 
   it('BUNDLE = 21', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
   });
 
   it('manifest 总长 = 88（BUNDLE21+PRESET11+SNAPSHOT5+EXCLUDED51·模块绑定策略子字段由单条覆盖）', () => {
@@ -573,7 +573,7 @@ describe('D-10: 守恒门', () => {
       + FINGERPRINT_PRESET_FIELDS.length
       + FINGERPRINT_SNAPSHOT_FIELDS.length
       + FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(89);
+    expect(total).toBe(94);
   });
 
   it('LOD_DRIFT_N = 3 / LOD_PROMOTE_BUDGET = 8', () => {

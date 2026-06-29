@@ -425,7 +425,7 @@ describe('选项集库 · 守恒门', () => {
   });
 
   it('BUNDLE = 21', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
   });
 
   it('manifest 四组总长 = 88（+模块绑定策略）', () => {
@@ -434,7 +434,7 @@ describe('选项集库 · 守恒门', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length,
-    ).toBe(89);
+    ).toBe(94);
   });
 
   it('命名空间枚举 = 32 項（含选项集）', () => {

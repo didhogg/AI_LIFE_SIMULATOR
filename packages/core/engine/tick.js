@@ -44,15 +44,14 @@ function _buildTickFP(config) {
         defaultSpanMinutes: r('default_span_minutes'),
     };
 }
-// ── C2-5 感知消费参数 ──────────────────────────────────────────────────────────
-/** 情绪维度映射表（由 factFragment.维度+Δ方向派生·禁写死标签名） */
-const EMOTION_DIMENSION_MAP = {
+// ── C2-5 / G1 / G2-1 社会动力学默认回退表（单一真相源·作者可 override·禁第二副本）──
+/** 情绪维度映射默认表（factFragment.维度+Δ方向派生·禁写死标签名） */
+const EMOTION_DIMENSION_MAP_DEFAULT = {
     '生命': { pos: '震惊', neg: '悲恸', coeff: 1.0 },
     '关系': { pos: '信任感', neg: '警惕', coeff: 0.5 },
 };
-// ── 空间层参数（G1·区域图距离 + 人口密度调制 + 场景传播系数） ─────────────────────
 // 人口规模字符串 → 密度调制系数（目标区越密 → 传播越广）
-const POPULATION_DENSITY_FACTOR = {
+const POPULATION_DENSITY_FACTOR_DEFAULT = {
     '超大型': 1.3,
     '大型': 1.2,
     '中型': 1.0,
@@ -61,27 +60,45 @@ const POPULATION_DENSITY_FACTOR = {
 };
 // G1 场景传播系数（广场↑ / 密室↓）：目标所在地点的社交开放度 → 二跳强度乘子
 // 仅二跳生效（一跳=同地·社交开放度对在场目击者无衰减·因子恒 1）
-const SCENE_PROPAGATION_COEFF = {
-    '高': 1.3, // 广场效应：高社交开放度→事件可见度放大→二跳传播增强
-    '中': 1.0, // 默认：中等社交开放度→因子恒 1（退化不变式）
-    '低': 0.7, // 密室效应：低社交开放度→事件私密性→二跳传播衰减
+const SCENE_PROPAGATION_COEFF_DEFAULT = {
+    '高': 1.3,
+    '中': 1.0,
+    '低': 0.7,
 };
-// ── G2-1 全动力学参数（SEIR×IC×LT · Granovetter78 · Centola-Macy · Bass stub）──────
 // IC 边类型速率（Independent Cascade · 边类型→基础传播率 [0,1]）
 // 规则：icEdgeProb(type, trust=100) = 1.0 for any type → trust=100 恒确定性通过（向后兼容）
-const EDGE_TYPE_IC_RATE = {
+const EDGE_TYPE_IC_RATE_DEFAULT = {
     '亲人': 1.0, '伴侣': 1.0, '恋人': 1.0, '配偶': 1.0,
     '友人': 1.0, '旧友': 1.0, '老友': 1.0, '挚友': 1.0, '闺蜜': 1.0,
     '相识': 0.7, '熟人': 0.7, '邻居': 0.65,
     '点头之交': 0.4, '路人': 0.35,
     '桥接': 0.4,
 };
-// 复杂传播标签集（Centola-Macy）：需要 W ≥ θ_i 条桥才能采纳
-// 简单传播（默认）：单条通过的桥即可（W ≥ 1）
-const COMPLEX_CONTAGION_LABELS = new Set([
+// 复杂传播标签集默认值（Centola-Macy）：需要 W ≥ θ_i 条桥才能采纳
+const COMPLEX_CONTAGION_LABELS_DEFAULT = new Set([
     '思想传播', '行为改变', '身份转变', '政治观点', '信仰转变',
     '革命动员', '集体行动', '范式转移',
 ]);
+// 体质分档断点默认值（[4,12] → 体质≤4:θ=1 / ≤12:θ=2 / else:θ=3）
+const PHYSIQUE_TIERS_DEFAULT = [4, 12];
+/** 通用具名表合并：作者表覆盖/扩展引擎默认表·单真相源·禁重复实现 */
+function mergeTable(author, defaults) {
+    if (!author)
+        return defaults;
+    return { ...defaults, ...author };
+}
+function _buildTickTP(social) {
+    return {
+        情绪维度表: mergeTable(social?.情绪维度表, EMOTION_DIMENSION_MAP_DEFAULT),
+        人口密度系数表: mergeTable(social?.人口密度系数表, POPULATION_DENSITY_FACTOR_DEFAULT),
+        场景传播系数表: mergeTable(social?.场景传播系数表, SCENE_PROPAGATION_COEFF_DEFAULT),
+        IC边类型率表: mergeTable(social?.IC边类型率表, EDGE_TYPE_IC_RATE_DEFAULT),
+        复杂传播标签集: social?.复杂传播标签集
+            ? new Set([...COMPLEX_CONTAGION_LABELS_DEFAULT, ...social.复杂传播标签集])
+            : COMPLEX_CONTAGION_LABELS_DEFAULT,
+        体质分档断点: social?.体质分档断点?.tiers ?? PHYSIQUE_TIERS_DEFAULT,
+    };
+}
 // Bass 扩散参数（G2-1 stub 默认零·G2-2 通过 TickInput.bassP/bassQ 喂值）
 // p=0 外部系数（媒介/告示广播项接线点）；q=0 口碑系数（Word-of-Mouth 接线点）
 // 运行时由 TickInput.bassP/bassQ 覆盖；缺省保持零·向后兼容 G2-1 所有现有测试
@@ -130,6 +147,7 @@ export function runTick(state, input) {
         ? { playerDsl: _dslState.公式override表 }
         : undefined);
     const _fp = _buildTickFP(_formulaConfig);
+    const _tp = _buildTickTP(input.社会動力学表);
     // [3] 幂等检查 — tickId 已全量结算则直接返回
     if (s._系统.已结算标记[input.tickId]?.即时分量 === 1) {
         return { state: s, settledPhases: [], matureSeeds: [] };
@@ -381,12 +399,13 @@ export function runTick(state, input) {
         const rngSalt = s._存档头?.全局回滚计数器 ?? 0;
         propagateRipple(s, nowEpochMin, rngSeed, rngTick, rngSalt, input.bassP ?? BASS_P_DEFAULT, // G2-2: Bass 外部点火系数
         input.bassQ ?? BASS_Q_DEFAULT, // G2-2: Bass 口碑系数
-        _fp);
+        _fp, // F4: 公式点参数结构体
+        _tp);
     });
     // Phase 感知情绪化 · C2-5: 扫认知档案本拍新印象 → 含 factFragment 的条目映射为情绪栈 Δ
     // 维度/Δ方向派生情绪名·取 max 防回路·二手转述 fp.indirectAppraisalFactor 淡化（确定性）
     runPhase('感知情绪化', () => {
-        applyAppraisal(s, nowEpochMin, _fp);
+        applyAppraisal(s, nowEpochMin, _fp, _tp);
     });
     // Phase 编年史入册 · C2-5: 公共知识 factFragment（≥1 一手观测·量级≥阈值）→ 全局._编年史
     // covert 事件 propagateRipple 已滤（无一手观测→自然零命中·知情门天然生效）
@@ -617,7 +636,7 @@ export function bfsRegionHops(from, to, graph) {
  * 退化条件（无图 / 无区域 / 同区域 / 不可达）均返回 1，完全保持 G1a 传播值。
  * TODO(G2): 传播媒介维度（口耳/信件/布告/谣言网络）此处占位 ×1，G2 接线。
  */
-function computeSpatialFactor(targetRegion, obs2Loc, locs, graph, fp) {
+function computeSpatialFactor(targetRegion, obs2Loc, locs, graph, fp, tp) {
     if (!targetRegion || !graph || !obs2Loc)
         return 1;
     const obs2Region = locRegion(obs2Loc, locs);
@@ -630,7 +649,7 @@ function computeSpatialFactor(targetRegion, obs2Loc, locs, graph, fp) {
     const _sfMin = fp.spatialFactorMin;
     const _sfMax = fp.spatialFactorMax;
     const hopFactor = fixedPow(_hopDecay, hops);
-    const density = POPULATION_DENSITY_FACTOR[locs[targetRegion]?.人口规模 ?? ''] ?? 1.0;
+    const density = tp.人口密度系数表[locs[targetRegion]?.人口规模 ?? ''] ?? 1.0;
     return Math.min(_sfMax, Math.max(_sfMin, hopFactor * density));
 }
 // ── G2-1 动力学辅助函数 ──────────────────────────────────────────────────────
@@ -641,37 +660,33 @@ function computeSpatialFactor(targetRegion, obs2Loc, locs, graph, fp) {
  * 不变式：trust=100 时恒 1.0（对任意 rate）→ 确定性通过（向后兼容 G1a 所有现有测试）。
  * trust=0 时 = rate（纯边类型下界）。
  */
-function icEdgeProb(relType, trust, fp) {
+function icEdgeProb(relType, trust, fp, tp) {
     const _defaultRate = fp.icRateDefault;
-    const rate = EDGE_TYPE_IC_RATE[relType] ?? _defaultRate;
+    const rate = tp.IC边类型率表[relType] ?? _defaultRate;
     return rate + (trust / 100) * (1 - rate);
 }
 /**
  * 判定是否为「复杂传播」内容（Centola-Macy 复杂传播·需多桥）。
  * 简单传播（默认）= 单条通过桥即可；复杂传播 = 须 W ≥ θ_i 条独立桥。
  */
-function isComplexContagion(label, ff) {
-    if (COMPLEX_CONTAGION_LABELS.has(label))
+function isComplexContagion(label, tp, ff) {
+    if (tp.复杂传播标签集.has(label))
         return true;
-    if (ff?.维度 && COMPLEX_CONTAGION_LABELS.has(ff.维度))
+    if (ff?.维度 && tp.复杂传播标签集.has(ff.维度))
         return true;
     return false;
 }
 /**
  * 派生 NPC 异质阈值计数 θ_i（Granovetter78·整数·不写 schema）。
- *
- * 使用 体质 作为「信息阻力」代理（高体质→更保守→更高阈值）。
- * 返回值表示：复杂采纳需要的最少独立桥数。
- * 默认体质=10 → θ_i=2；体质=1 → θ_i=1；体质≥15 → θ_i=3。
+ * 断点由 tp.体质分档断点 给出（作者可配·默认 [4,12]）。
  */
-function deriveThresholdCount(npc, fp) {
-    const _defaultPhysique = fp.defaultPhysique;
-    const 体质 = npc?.属性?.['体质'] ?? _defaultPhysique;
-    if (体质 <= 4)
-        return 1;
-    if (体质 <= 12)
-        return 2;
-    return 3;
+function deriveThresholdCount(npc, fp, tp) {
+    const 体质 = npc?.属性?.['体质'] ?? fp.defaultPhysique;
+    for (let i = 0; i < tp.体质分档断点.length; i++) {
+        if (体质 <= tp.体质分档断点[i])
+            return i + 1;
+    }
+    return tp.体质分档断点.length + 1;
 }
 /**
  * Bass 扩散放大因子（G2-2 接线）。
@@ -793,7 +808,7 @@ function computeConflictAbsorption(archive, obsKey, targetKey, imp, fp) {
  */
 function propagateRipple(s, nowEpochMin, seed, nowTick, rerollSalt, pExt, // G2-2: Bass 外部点火系数（TickInput.bassP）；0 = 无媒体广播
 bassQ, // G2-2: Bass 口碑系数（TickInput.bassQ）；0 = 无口碑项
-fp) {
+fp, tp) {
     const _rippleDecay = fp.rippleDecay;
     const _rippleMin = fp.rippleMin;
     const _fakeFactor0 = fp.fakeEdictCredibilityFactor;
@@ -814,7 +829,7 @@ fp) {
             const targetLoc = npcs[targetKey]?.位置 ?? '';
             const targetRegion = hasMap && targetLoc ? locRegion(targetLoc, locs) : undefined;
             const targetLocEntry = hasMap && targetLoc ? locs[targetLoc] : undefined;
-            const sceneCoeff = SCENE_PROPAGATION_COEFF[targetLocEntry?.社交开放度 ?? '中'] ?? 1.0;
+            const sceneCoeff = tp.场景传播系数表[targetLocEntry?.社交开放度 ?? '中'] ?? 1.0;
             // ── 跳 1：一手在场目击（与 G1a 完全一致·不走 IC·确定性）────────────────
             const presentKeys = targetLoc
                 ? Object.entries(npcs)
@@ -862,7 +877,7 @@ fp) {
             const bf = bassFactor(pExt, bassQ, knownFraction);
             // ── 跳 2：口耳相传（IC×LT×Centola-Macy · seeded）─────────────────────
             // 是否为复杂传播（Centola-Macy）
-            const complex = isComplexContagion(imp.标签, imp.factFragment);
+            const complex = isComplexContagion(imp.标签, tp, imp.factFragment);
             // 收集所有 obs1→obs2 桥候选：obs2Key → [{obs1Key, strength2}]
             const hop2Map = new Map();
             for (const obs1 of presentKeys) {
@@ -878,7 +893,7 @@ fp) {
                     if (npcs[obs2]?.存活状态 === '已故')
                         continue;
                     const obs2Loc = npcs[obs2]?.位置 ?? '';
-                    const sfactor = computeSpatialFactor(targetRegion, obs2Loc, locs, regionGraph, fp);
+                    const sfactor = computeSpatialFactor(targetRegion, obs2Loc, locs, regionGraph, fp, tp);
                     const strength2 = imp.强度 * _rippleDecay * (rel.信任 / 100) * sfactor * sceneCoeff * bf * resourceFactor;
                     if (strength2 < _rippleMin)
                         continue;
@@ -893,7 +908,7 @@ fp) {
                 // IC 检定：每条桥独立概率触发
                 const passing = [];
                 for (const cand of candidates) {
-                    const prob = icEdgeProb(cand.relType, cand.trust, fp);
+                    const prob = icEdgeProb(cand.relType, cand.trust, fp, tp);
                     if (prob >= 1.0) {
                         // trust=100（或极高信任强类型）→ 确定性通过·不消耗 RNG
                         passing.push({ obs1: cand.obs1, strength2: cand.strength2 });
@@ -910,7 +925,7 @@ fp) {
                 const W = passing.length;
                 // LT 门槛（Centola-Macy）
                 if (complex) {
-                    const θi = deriveThresholdCount(npcs[obs2], fp);
+                    const θi = deriveThresholdCount(npcs[obs2], fp, tp);
                     if (W < θi)
                         continue; // 未达复杂传播阈值 → 不写入
                 }
@@ -1072,7 +1087,7 @@ export function emitRipple(pending, targetKey, entry) {
  * → 按维度/Δ方向派生情绪名 → 写 NPC.情绪栈（取 max·防回路膨胀）。
  * 二手转述 fp.indirectAppraisalFactor 淡化（fixedExp(-ln2)≈0.5·确定性·no Math.exp）。
  */
-function applyAppraisal(s, nowEpochMin, fp) {
+function applyAppraisal(s, nowEpochMin, fp, tp) {
     const _unknownDimCoeff = fp.unknownDimCoeff;
     const _indirectFactor = fp.indirectAppraisalFactor;
     for (const [observerKey, targetMap] of Object.entries(s.认知档案)) {
@@ -1086,7 +1101,7 @@ function applyAppraisal(s, nowEpochMin, fp) {
                 if (imp.获知时间 !== nowEpochMin)
                     continue;
                 const ff = imp.factFragment;
-                const dimEntry = EMOTION_DIMENSION_MAP[ff.维度];
+                const dimEntry = tp.情绪维度表[ff.维度];
                 const dimCoeff = dimEntry?.coeff ?? _unknownDimCoeff;
                 // 情绪名/极性由 factFragment.维度+Δ方向派生（禁写死标签名）
                 const emotionName = dimEntry

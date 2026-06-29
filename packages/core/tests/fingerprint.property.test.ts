@@ -53,7 +53,6 @@ type FullCtx = {
   规则补丁哈希?: string;
   DSL文法版本?: string;       // DSL v1.0 frozen
   求值器函数库版本?: number;  // §十A evaluator math lib version
-  软拒检测规则版本?: number;  // N-4 soft-reject rule version
   中文数字解析规则版?: number; // 对撞⑦·三百/叁佰/3百→300 归一
   引擎版本?: string;          // U3·F-c层1·封段活动引擎版本·当前所有preset=undefined
   Schema版本?: string;        // U3·F-c层1·封段Schema版本·当前所有preset=undefined
@@ -95,6 +94,13 @@ type FullCtx = {
   受控接口能力集注册集?: unknown;
   // G2-2 bundle member
   媒介传播面?: unknown; // {mediaKey:{是否传播?,传播系数?}} projection of 媒介登记表
+  // 社会动力学表 bundle members (作者可配·进判定面)
+  情绪维度表?: unknown;
+  人口密度系数表?: unknown;
+  场景传播系数表?: unknown;
+  'IC边类型率表'?: unknown;
+  复杂传播标签集?: unknown;
+  体质分档断点?: unknown;
   // B-1 lore exclusions
   lore能力集: unknown;
   'output_tag命名空间': unknown;
@@ -156,7 +162,6 @@ const BASE_CTX: FullCtx = {
   生效中内容包集哈希:   '',
   DSL文法版本:         '1.0',
   求值器函数库版本:    1,
-  软拒检测规则版本:    1,
   中文数字解析规则版:  1,
   // Snapshot
   难度系数组:          { 基础成功率调整: 0 },
@@ -251,6 +256,12 @@ function fingerprintOf(ctx: FullCtx): string {
     ...(ctx['lore谓词集合'] !== undefined ? { lore谓词集合: ctx['lore谓词集合'] } : {}),
     ...(ctx['受控接口能力集注册集'] !== undefined ? { 受控接口能力集注册集: ctx['受控接口能力集注册集'] } : {}),
     ...(ctx['媒介传播面'] !== undefined ? { 媒介传播面: ctx['媒介传播面'] } : {}),
+    ...(ctx['情绪维度表'] !== undefined ? { 情绪维度表: ctx['情绪维度表'] } : {}),
+    ...(ctx['人口密度系数表'] !== undefined ? { 人口密度系数表: ctx['人口密度系数表'] } : {}),
+    ...(ctx['场景传播系数表'] !== undefined ? { 场景传播系数表: ctx['场景传播系数表'] } : {}),
+    ...(ctx['IC边类型率表'] !== undefined ? { 'IC边类型率表': ctx['IC边类型率表'] } : {}),
+    ...(ctx['复杂传播标签集'] !== undefined ? { 复杂传播标签集: ctx['复杂传播标签集'] } : {}),
+    ...(ctx['体质分档断点'] !== undefined ? { 体质分档断点: ctx['体质分档断点'] } : {}),
   });
   return hashPresetFingerprint({
     判定面整包:        bundleHash,
@@ -258,7 +269,6 @@ function fingerprintOf(ctx: FullCtx): string {
     ...(ctx['规则补丁哈希'] !== undefined ? { 规则补丁哈希: ctx['规则补丁哈希'] as string } : {}),
     ...(ctx['DSL文法版本'] !== undefined ? { DSL文法版本: ctx['DSL文法版本'] as string } : {}),
     ...(ctx['求值器函数库版本'] !== undefined ? { 求值器函数库版本: ctx['求值器函数库版本'] as number } : {}),
-    ...(ctx['软拒检测规则版本'] !== undefined ? { 软拒检测规则版本: ctx['软拒检测规则版本'] as number } : {}),
     ...(ctx['中文数字解析规则版'] !== undefined ? { 中文数字解析规则版: ctx['中文数字解析规则版'] as number } : {}),
     ...(ctx['引擎版本'] !== undefined ? { 引擎版本: ctx['引擎版本'] as string } : {}),
     ...(ctx['Schema版本'] !== undefined ? { Schema版本: ctx['Schema版本'] as string } : {}),
@@ -299,6 +309,12 @@ const BUNDLE_MUTATIONS: Record<FingerprintBundleMember, unknown> = {
   lore谓词集合:         { 'cuisine:川菜': '场景.地域 == 四川', 'dialect:苏州话': '角色.出身地 == 苏州 or 场景.地域 == 苏州' },  // D-a-lore
   受控接口能力集注册集: ['code', 'roll_dice', 'trigger'],               // D-a-lore·R6 a/c/d
   媒介传播面:           { 日报: { 是否传播: true, 传播系数: 0.8 } },    // G2-2·传播配置投影
+  情绪维度表:           { '恐惧': { pos: '兴奋', neg: '恐慌', coeff: 0.8 } },
+  人口密度系数表:        { '巨城': 1.5, '超大型': 1.4 },
+  场景传播系数表:        { '高': 1.5, '中': 1.1, '低': 0.5 },
+  'IC边类型率表':        { '仇人': 0.0, '陌生人': 0.2 },
+  复杂传播标签集:        ['范式转移', '新增复杂标签'],
+  体质分档断点:          { tiers: [3, 10, 20] },
 };
 // Compile-time: ensures exhaustiveness whenever FINGERPRINT_BUNDLE_MEMBERS gains a new entry.
 type _BundleMutationsExhaustive = typeof BUNDLE_MUTATIONS extends Record<FingerprintBundleMember, unknown> ? true : never;
@@ -323,7 +339,6 @@ const PRESET_MUTATIONS: Record<FingerprintPresetField, unknown> = {
   规则补丁哈希:      'patch0042',
   DSL文法版本:       '2.0',
   求值器函数库版本:  2,
-  软拒检测规则版本:  2,
   中文数字解析规则版: 3,
   引擎版本:          'v2.0.0',
   Schema版本:        '2',

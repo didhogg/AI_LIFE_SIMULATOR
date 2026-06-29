@@ -191,7 +191,7 @@ describe('种族模板库 · 剥离③', () => {
   // 断言⑧ 守恒门
   it('⑧ 守恒门：schemaKeys=54 / BUNDLE=21 / 命名空间枚举=32项（含种族模板）', () => {
     expect(Object.keys(RootSchema.shape).length).toBe(54);
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
     expect(FINGERPRINT_BUNDLE_MEMBERS).toContain('种族模板');
     expect(命名空间枚举.length).toBe(32);
     expect(命名空间枚举).toContain('种族模板');

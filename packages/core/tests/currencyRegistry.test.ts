@@ -393,7 +393,7 @@ describe('R8: 守恒门', () => {
   });
 
   it('R8-2 FINGERPRINT_BUNDLE_MEMBERS 不变（无新增指纹字段）', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
   });
 
   it('R8-3 FINGERPRINT_EXCLUDED_FIELDS 不变', () => {

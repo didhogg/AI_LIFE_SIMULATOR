@@ -1,5 +1,4 @@
 // N-4: 软拒/拒答检测 — 确定性规则，不引 LLM
-// 规则版本进 FINGERPRINT_PRESET_FIELDS（「软拒检测规则版本」），随 U3 版本分段
 // 禁: 不得引入 LLM 调用、Date.now()、Math.random()（继承六禁约束）
 
 export const SOFT_REJECT_RULE_VERSION = 1 as const;

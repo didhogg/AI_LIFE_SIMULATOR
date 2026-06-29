@@ -219,49 +219,120 @@ describe('Test 5 · 动词不在动词Id枚举 10 内 → downgrade:true', () =>
         }
     });
 });
-// ── Test 6(新): E-2·executor 构建 提案批 multi-entry（对手方条目验证）─────────────
-describe('Test 6(新) · E-2 提案批 multi-entry（executor 记账AI）', () => {
-    const primaryPath = '货币系统.账户.npc_wang.持有.文';
-    const counterPath = '货币系统.账户.pc_linjiu.持有.文';
-    const opt = makeOpt({
-        option_id: '转移:npc_wang',
-        value_slot: '金额',
-        min: 1,
-        max: 200,
-        target_choices: [primaryPath],
-        params: { 关联实体: [counterPath] },
-    });
-    it('提案批 length = 2（主+对手方）', () => {
-        const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [opt], chosenValue: 50 });
-        expect(r.envelope?.提案批.length).toBe(2);
-    });
-    it('提案批[0].目标引用 = 收方路径·数値槽 = +50', () => {
-        const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [opt], chosenValue: 50 });
-        expect(r.envelope?.提案批[0]?.目标引用).toBe(primaryPath);
-        expect(r.envelope?.提案批[0]?.数值槽).toBe(50);
-    });
-    it('提案批[1].目标引用 = 付方路径·数値槽 = -50（executor显式签名·不来自位置）', () => {
-        const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [opt], chosenValue: 50 });
-        expect(r.envelope?.提案批[1]?.目标引用).toBe(counterPath);
-        expect(r.envelope?.提案批[1]?.数值槽).toBe(-50);
-    });
-    it('无 value_slot 时 提案批 length = 1（无对手方条目）', () => {
-        const optNoSlot = makeOpt({
+// ── Test 6: executor 路径·对手方条目忠实搬运（符号来自 params·executor 零取反）──────
+describe('Test 6 · executor 路径·对手方条目忠实搬运（零取反）', () => {
+    const receiverPath = '货币系统.账户.npc_wang.持有.文';
+    const payerPath = '货币系统.账户.pc_linjiu.持有.文';
+    const allyPath = '货币系统.账户.npc_hong.持有.文';
+    const payAPath = '货币系统.账户.npc_payA.持有.文';
+    const payBPath = '货币系统.账户.npc_payB.持有.文';
+    // ── 6a: 转移·付方符号由 params 给出·executor 不取反 ──────────────────────────
+    describe('6a · 转移（付方 -50 来自 params·非 executor 计算）', () => {
+        const opt = makeOpt({
             option_id: '转移:npc_wang',
-            target_choices: [primaryPath],
-            params: { 关联实体: [counterPath] },
+            value_slot: '金额',
+            min: 1,
+            max: 200,
+            target_choices: [receiverPath],
+            params: { 对手方条目: [{ 目标引用: payerPath, 数值槽: -50 }] },
         });
-        const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [optNoSlot], chosenValue: 50 });
-        expect(r.envelope?.提案批.length).toBe(1);
+        it('提案批 length = 2（主+对手方）', () => {
+            const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [opt], chosenValue: 50 });
+            expect(r.envelope?.提案批.length).toBe(2);
+        });
+        it('提案批[0]·收方·数值槽 = +50（来自 chosenValue·钳制后）', () => {
+            const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [opt], chosenValue: 50 });
+            expect(r.envelope?.提案批[0]?.目标引用).toBe(receiverPath);
+            expect(r.envelope?.提案批[0]?.数值槽).toBe(50);
+        });
+        it('提案批[1]·付方·数值槽 = -50（来自 params·executor 原样搬运·非取反）', () => {
+            const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [opt], chosenValue: 50 });
+            expect(r.envelope?.提案批[1]?.目标引用).toBe(payerPath);
+            expect(r.envelope?.提案批[1]?.数值槽).toBe(-50);
+        });
+        it('无对手方条目时 提案批 length = 1', () => {
+            const optNoCounter = makeOpt({
+                option_id: '转移:npc_wang',
+                value_slot: '金额',
+                target_choices: [receiverPath],
+                params: {},
+            });
+            const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [optNoCounter], chosenValue: 50 });
+            expect(r.envelope?.提案批.length).toBe(1);
+        });
+    });
+    // ── 6b: 缔结同向·盟友与主条目同为正·executor 不取反 ─────────────────────────
+    describe('6b · 缔结同向（两条都 +10·executor 零取反）', () => {
+        const opt = makeOpt({
+            option_id: '缔结:npc_wang',
+            value_slot: '好感',
+            min: 1,
+            max: 50,
+            target_choices: [receiverPath],
+            params: { 对手方条目: [{ 目标引用: allyPath, 数值槽: 10 }] },
+        });
+        it('提案批 length = 2', () => {
+            const r = executeActionOption({ chosenOptionId: '缔结:npc_wang', optionSet: [opt], chosenValue: 10 });
+            expect(r.envelope?.提案批.length).toBe(2);
+        });
+        it('提案批[0].数值槽 = +10（主·chosenValue）', () => {
+            const r = executeActionOption({ chosenOptionId: '缔结:npc_wang', optionSet: [opt], chosenValue: 10 });
+            expect(r.envelope?.提案批[0]?.数值槽).toBe(10);
+        });
+        it('提案批[1].数值槽 = +10（盟友同向·executor 未取反·仍为正）', () => {
+            const r = executeActionOption({ chosenOptionId: '缔结:npc_wang', optionSet: [opt], chosenValue: 10 });
+            expect(r.envelope?.提案批[1]?.目标引用).toBe(allyPath);
+            expect(r.envelope?.提案批[1]?.数值槽).toBe(10);
+        });
+    });
+    // ── 6c: 三方转账·三条腿符号原样·Σ=+50−30−20=0 ──────────────────────────────
+    describe('6c · 三方（三条腿符号原样·Σ=0 由闸④确认·executor 不造守恒）', () => {
+        const opt = makeOpt({
+            option_id: '转移:npc_wang',
+            value_slot: '金额',
+            min: 1,
+            max: 200,
+            target_choices: [receiverPath],
+            params: {
+                对手方条目: [
+                    { 目标引用: payAPath, 数值槽: -30 },
+                    { 目标引用: payBPath, 数值槽: -20 },
+                ],
+            },
+        });
+        it('提案批 length = 3', () => {
+            const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [opt], chosenValue: 50 });
+            expect(r.envelope?.提案批.length).toBe(3);
+        });
+        it('提案批[0].数值槽 = +50（收方）', () => {
+            const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [opt], chosenValue: 50 });
+            expect(r.envelope?.提案批[0]?.数值槽).toBe(50);
+        });
+        it('提案批[1].数值槽 = -30（付A·原样）', () => {
+            const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [opt], chosenValue: 50 });
+            expect(r.envelope?.提案批[1]?.目标引用).toBe(payAPath);
+            expect(r.envelope?.提案批[1]?.数值槽).toBe(-30);
+        });
+        it('提案批[2].数值槽 = -20（付B·原样）', () => {
+            const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [opt], chosenValue: 50 });
+            expect(r.envelope?.提案批[2]?.目标引用).toBe(payBPath);
+            expect(r.envelope?.提案批[2]?.数值槽).toBe(-20);
+        });
+        it('Σ = +50−30−20 = 0（守恒由闸④校验·此处验结构）', () => {
+            const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [opt], chosenValue: 50 });
+            const 批 = r.envelope?.提案批 ?? [];
+            const sigma = 批.reduce((acc, e) => acc + (e.数值槽 ?? 0), 0);
+            expect(sigma).toBe(0);
+        });
     });
 });
 // ── Test 7: 指纹 + 黄金向量不回归 ────────────────────────────────────────────────
-describe('Test 6 · 指纹 manifest 不变 + 确定性验证', () => {
-    it('指纹 manifest 四组总长 = 87（不变）', () => {
+describe('Test 7 · 指纹 manifest 不变 + 确定性验证', () => {
+    it('指纹 manifest 四组总长 = 89（不变）', () => {
         expect(FINGERPRINT_BUNDLE_MEMBERS.length +
             FINGERPRINT_PRESET_FIELDS.length +
             FINGERPRINT_SNAPSHOT_FIELDS.length +
-            FINGERPRINT_EXCLUDED_FIELDS.length).toBe(89);
+            FINGERPRINT_EXCLUDED_FIELDS.length).toBe(94);
     });
     it('AOHP選項id集 已在 FINGERPRINT_PRESET_FIELDS（接线已在位）', () => {
         expect(FINGERPRINT_PRESET_FIELDS).toContain('AOHP選項id集');

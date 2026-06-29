@@ -8,7 +8,7 @@ import { buildWorld, SAVE_SEED, PC, NPC_WANG, NPC_HONG, EXPECTED_NET_ASSET } fro
 import { assertConservation } from '@ai-life-sim/core/engine/conservation';
 import { getNetAsset } from '@ai-life-sim/core/engine/netAsset';
 import { runTick } from '@ai-life-sim/core/engine/tick';
-import { FORMULA_REGISTRY } from '@ai-life-sim/core/engine/formulaRegistry';
+import {} from '@ai-life-sim/core/engine/formulaRegistry';
 // ── 辅助 ────────────────────────────────────────────────────────────────────
 const COARSE_KEY = 'coarse_node_01';
 const COARSE_KEY_B = 'coarse_node_02';
@@ -322,6 +322,13 @@ describe('F6 · 300 拍 soak', () => {
     });
 });
 // ── F7 · F3 自证: playerDsl → materializeCoarseNode 实际引擎输出变化 ──────────
+//
+// F3 接线路径（tick.ts:275-291）:
+//   s.$AI创作状态.公式override表  →  _dslState?.公式override表
+//   →  _formulaConfig.playerDsl  →  resolveEffectiveFormula  →  引擎参数
+//
+// 本组用 materializeCoarseNode（纯函数·直接接收 FormulaResolveConfig）验证
+// playerDsl 串真实影响节点属性输出，非仅 resolveFormula 返回值。
 describe('F7 · F3 自证: playerDsl → materializeCoarseNode 引擎输出', () => {
     const SEED_F7 = 42;
     const NODE_F7 = 'f7_coarse';

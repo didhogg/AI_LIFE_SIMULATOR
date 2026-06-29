@@ -351,7 +351,7 @@ describe('UI库 · 安全硬化：原型名 UI_ID/句柄 → null', () => {
 // ═══════════════════════════════════════════════════════════════════
 describe('UI库 · 不进判定面指纹', () => {
   it('FINGERPRINT_BUNDLE_MEMBERS 不含 UI库相关键（BUNDLE=21）', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
     const bundleSet = new Set(FINGERPRINT_BUNDLE_MEMBERS as readonly string[]);
     expect(bundleSet.has('UI库')).toBe(false);
     expect(bundleSet.has('UI组件')).toBe(false);
@@ -486,16 +486,16 @@ describe('UI库 · 守恒门', () => {
   });
 
   it('BUNDLE = 21（UI库 dormant·不改 FINGERPRINT_BUNDLE_MEMBERS）', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
   });
 
-  it('manifest 四组总长 = 87（不变）', () => {
+  it('manifest 四组总长 = 88', () => {
     const total =
       FINGERPRINT_BUNDLE_MEMBERS.length +
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(89);
+    expect(total).toBe(94);
   });
 
   it('命名空间枚举 = 32 項（18+剥离①六库+剥离②选项集）', () => {

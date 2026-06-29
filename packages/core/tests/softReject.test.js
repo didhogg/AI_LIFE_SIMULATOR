@@ -1,12 +1,7 @@
 // N-4: 软拒检测确定性测试
-// 覆盖: 真阳性·假阳/假阴边界·确定性·规则版本进指纹
+// 覆盖: 真阳性·假阳/假阴边界·确定性·规则版本（输入=LLM输出·不进指纹）
 import { describe, it, expect } from 'vitest';
 import { detectSoftReject, SOFT_REJECT_RULE_VERSION, SOFT_REJECT_KEYWORDS } from '../engine/softReject.js';
-import { hashPresetFingerprint } from '../engine/rng.js';
-const SNAP_BASE = {
-    难度系数组: {}, 判定骰型: 100, 暴击映射: '关',
-    钳制表: {}, 预设数值面域上下界: [],
-};
 // ── 真阳性（关键词命中）─────────────────────────────────────────────────────
 describe('N-4 · 软拒检测 · 真阳性（关键词命中）', () => {
     it('「我无法」命中', () => {
@@ -95,28 +90,14 @@ describe('N-4 · 软拒检测 · 确定性', () => {
         }
     });
 });
-// ── 规则版本 + 指纹断言 ──────────────────────────────────────────────────────
-describe('N-4 · 软拒检测 · 规则版本进指纹', () => {
+// ── 规则版本断言 ─────────────────────────────────────────────────────────────
+describe('N-4 · 软拒检测 · 规则版本', () => {
     it('每次结果携带 ruleVersion = SOFT_REJECT_RULE_VERSION', () => {
         expect(detectSoftReject('任意输入').ruleVersion).toBe(SOFT_REJECT_RULE_VERSION);
         expect(detectSoftReject('我无法').ruleVersion).toBe(SOFT_REJECT_RULE_VERSION);
     });
     it('SOFT_REJECT_RULE_VERSION 当前为 1', () => {
         expect(SOFT_REJECT_RULE_VERSION).toBe(1);
-    });
-    it('规则版本 1→2 → hashPresetFingerprint 输出变（版本进指纹·断言）', () => {
-        const base = { 判定面整包: 'bundle', 生效中内容包集哈希: '', snapshot: SNAP_BASE };
-        const fp1 = hashPresetFingerprint({ ...base, 软拒检测规则版本: 1 });
-        const fp2 = hashPresetFingerprint({ ...base, 软拒检测规则版本: 2 });
-        expect(fp1).not.toBe(fp2);
-    });
-    it('软拒规则版本 ⊥ 其他字段：仅版本不同时指纹不同', () => {
-        const base = { 判定面整包: 'same', 生效中内容包集哈希: 'same', snapshot: SNAP_BASE, DSL文法版本: '1.0' };
-        const fp1 = hashPresetFingerprint({ ...base, 软拒检测规则版本: 1 });
-        const fp2 = hashPresetFingerprint({ ...base, 软拒检测规则版本: 2 });
-        const fp3 = hashPresetFingerprint({ ...base, 软拒检测规则版本: 1 });
-        expect(fp1).not.toBe(fp2);
-        expect(fp1).toBe(fp3); // 相同版本 → 相同指纹
     });
     it('SOFT_REJECT_KEYWORDS 非空（规则表存在）', () => {
         expect(SOFT_REJECT_KEYWORDS.length).toBeGreaterThan(5);

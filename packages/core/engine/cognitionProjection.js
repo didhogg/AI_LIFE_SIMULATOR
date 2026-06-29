@@ -2,7 +2,7 @@
 // PR-5 · access 场 / 认知投影接缝（认知投影层 ⊥ 真相实体层）
 //
 // P5-1  projectCognition          — 纯函数·只读·零指纹·零写
-// P5-2  co-location 临时高导通    — 同场 +COLOCATION_BOOST·读时计算·不落状态
+// P5-2  co-location 临时高导通    — 同场 +colocation_boost 公式点值·读时计算·不落状态
 // P5-3  covert gate               — 跨域 access=0·访问阈值门·existence-opaque
 // P5-4  声望导通乘子              — 声誉.人望 → conductance 调制·闭式·确定性
 // P5-5  buildInvestigationDelta   — investigation 归约为 了解度 K5 delta（走五道闸）

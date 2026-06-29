@@ -187,17 +187,17 @@ describe('TB5 自由文本越权 → 校验链拒绝·不写账', () => {
 // ──────────────────────────────────────────────────────────────────────────────
 // TC. 指纹84 / schemaKeys52 守恒（Feature A/B 不进指纹）
 // ──────────────────────────────────────────────────────────────────────────────
-describe('TC 指纹84 / schemaKeys52 守恒', () => {
+describe('TC 指纹88 / schemaKeys54 守恒', () => {
     it('BUNDLE_MEMBERS = 21（G2-2 +媒介传播面）', () => {
-        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
+        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
     });
-    it('PRESET_FIELDS = 11', () => {
-        expect(FINGERPRINT_PRESET_FIELDS.length).toBe(11);
+    it('PRESET_FIELDS = 10', () => {
+        expect(FINGERPRINT_PRESET_FIELDS.length).toBe(10);
     });
     it('SNAPSHOT_FIELDS = 5', () => {
         expect(FINGERPRINT_SNAPSHOT_FIELDS.length).toBe(5);
     });
-    it('EXCLUDED_FIELDS = 50', () => {
+    it('EXCLUDED_FIELDS = 52', () => {
         expect(FINGERPRINT_EXCLUDED_FIELDS.length).toBe(52);
     });
     it('schemaKeys = 53', () => {

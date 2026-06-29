@@ -60,8 +60,8 @@ export function executeActionOption(args) {
     for (const counterpart of 对手方条目) {
         提案批条目.push({
             动作类别: verb,
-            目标引用: counterpart['目标引用'],
-            数值槽: counterpart['数值槽'],
+            目标引用: counterpart.目标引用,
+            数值槽: counterpart.数值槽,
         });
     }
     const rawEnvelope = {

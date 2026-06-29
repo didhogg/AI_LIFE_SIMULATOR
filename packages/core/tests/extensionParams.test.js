@@ -298,7 +298,7 @@ describe('extensionParams · 守恒门', () => {
         expect(Object.keys(RootSchema.shape).length).toBe(54);
     });
     it('BUNDLE = 21 · manifest 总长 = 86（扩展参数/物品库不进判定面指纹）', () => {
-        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
+        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
         const total = FINGERPRINT_BUNDLE_MEMBERS.length + FINGERPRINT_PRESET_FIELDS.length + FINGERPRINT_SNAPSHOT_FIELDS.length;
         expect(total).toBeGreaterThan(30); // manifest 总体不缩减
     });

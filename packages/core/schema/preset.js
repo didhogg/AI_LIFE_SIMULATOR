@@ -486,4 +486,15 @@ export const 玩法预设Schema = z.object({
         衰减率: z.number().min(0).max(1).optional(),
     }).optional(),
     社会熵默认值: z.number().min(0).max(1).optional(),
+    // ── 社会动力学表（G2-1/C2-5 判定面·作者可配·缺省=引擎默认·进 hashJudgmentBundle）───
+    情绪维度表: z.record(z.string(), z.object({
+        pos: z.string(),
+        neg: z.string(),
+        coeff: z.number(),
+    })).optional(),
+    人口密度系数表: z.record(z.string(), z.number()).optional(),
+    场景传播系数表: z.record(z.string(), z.number()).optional(),
+    IC边类型率表: z.record(z.string(), z.number()).optional(),
+    复杂传播标签集: z.array(z.string()).optional(),
+    体质分档断点: z.object({ tiers: z.array(z.number().int().min(0)) }).optional(),
 });

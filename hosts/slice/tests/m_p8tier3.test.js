@@ -327,10 +327,7 @@ describe('Batch3 ⑤ N-4 玩家主权断言（不自动重生·不抬预算）',
         expect(OUTPUT_GUARD_ROLL_HINT.ui提示).not.toContain('弹窗');
         expect(OUTPUT_GUARD_ROLL_HINT.ui提示).not.toContain('请你');
     });
-    it('N-4 规则版本进指纹·FINGERPRINT_PRESET_FIELDS 含 "软拒检测规则版本"', () => {
-        expect(FINGERPRINT_PRESET_FIELDS).toContain('软拒检测规则版本');
-    });
-    it('soft_rejected 时 ruleVersion 正确暴露（供调用方传入 hashPresetFingerprint）', () => {
+    it('soft_rejected 时 ruleVersion 正确暴露（诊断/日志用·不进指纹）', () => {
         const r = runOutputGuard('I cannot do this.');
         if (r.status === 'soft_rejected') {
             expect(r.ruleVersion).toBe(SOFT_REJECT_RULE_VERSION);

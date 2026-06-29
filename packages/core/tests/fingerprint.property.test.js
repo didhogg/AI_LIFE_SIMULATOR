@@ -33,7 +33,6 @@ const BASE_CTX = {
     生效中内容包集哈希: '',
     DSL文法版本: '1.0',
     求值器函数库版本: 1,
-    软拒检测规则版本: 1,
     中文数字解析规则版: 1,
     // Snapshot
     难度系数组: { 基础成功率调整: 0 },
@@ -127,6 +126,12 @@ function fingerprintOf(ctx) {
         ...(ctx['lore谓词集合'] !== undefined ? { lore谓词集合: ctx['lore谓词集合'] } : {}),
         ...(ctx['受控接口能力集注册集'] !== undefined ? { 受控接口能力集注册集: ctx['受控接口能力集注册集'] } : {}),
         ...(ctx['媒介传播面'] !== undefined ? { 媒介传播面: ctx['媒介传播面'] } : {}),
+        ...(ctx['情绪维度表'] !== undefined ? { 情绪维度表: ctx['情绪维度表'] } : {}),
+        ...(ctx['人口密度系数表'] !== undefined ? { 人口密度系数表: ctx['人口密度系数表'] } : {}),
+        ...(ctx['场景传播系数表'] !== undefined ? { 场景传播系数表: ctx['场景传播系数表'] } : {}),
+        ...(ctx['IC边类型率表'] !== undefined ? { 'IC边类型率表': ctx['IC边类型率表'] } : {}),
+        ...(ctx['复杂传播标签集'] !== undefined ? { 复杂传播标签集: ctx['复杂传播标签集'] } : {}),
+        ...(ctx['体质分档断点'] !== undefined ? { 体质分档断点: ctx['体质分档断点'] } : {}),
     });
     return hashPresetFingerprint({
         判定面整包: bundleHash,
@@ -134,7 +139,6 @@ function fingerprintOf(ctx) {
         ...(ctx['规则补丁哈希'] !== undefined ? { 规则补丁哈希: ctx['规则补丁哈希'] } : {}),
         ...(ctx['DSL文法版本'] !== undefined ? { DSL文法版本: ctx['DSL文法版本'] } : {}),
         ...(ctx['求值器函数库版本'] !== undefined ? { 求值器函数库版本: ctx['求值器函数库版本'] } : {}),
-        ...(ctx['软拒检测规则版本'] !== undefined ? { 软拒检测规则版本: ctx['软拒检测规则版本'] } : {}),
         ...(ctx['中文数字解析规则版'] !== undefined ? { 中文数字解析规则版: ctx['中文数字解析规则版'] } : {}),
         ...(ctx['引擎版本'] !== undefined ? { 引擎版本: ctx['引擎版本'] } : {}),
         ...(ctx['Schema版本'] !== undefined ? { Schema版本: ctx['Schema版本'] } : {}),
@@ -173,6 +177,12 @@ const BUNDLE_MUTATIONS = {
     lore谓词集合: { 'cuisine:川菜': '场景.地域 == 四川', 'dialect:苏州话': '角色.出身地 == 苏州 or 场景.地域 == 苏州' }, // D-a-lore
     受控接口能力集注册集: ['code', 'roll_dice', 'trigger'], // D-a-lore·R6 a/c/d
     媒介传播面: { 日报: { 是否传播: true, 传播系数: 0.8 } }, // G2-2·传播配置投影
+    情绪维度表: { '恐惧': { pos: '兴奋', neg: '恐慌', coeff: 0.8 } },
+    人口密度系数表: { '巨城': 1.5, '超大型': 1.4 },
+    场景传播系数表: { '高': 1.5, '中': 1.1, '低': 0.5 },
+    'IC边类型率表': { '仇人': 0.0, '陌生人': 0.2 },
+    复杂传播标签集: ['范式转移', '新增复杂标签'],
+    体质分档断点: { tiers: [3, 10, 20] },
 };
 const _checkBundle = true;
 void _checkBundle;
@@ -192,7 +202,6 @@ const PRESET_MUTATIONS = {
     规则补丁哈希: 'patch0042',
     DSL文法版本: '2.0',
     求值器函数库版本: 2,
-    软拒检测规则版本: 2,
     中文数字解析规则版: 3,
     引擎版本: 'v2.0.0',
     Schema版本: '2',

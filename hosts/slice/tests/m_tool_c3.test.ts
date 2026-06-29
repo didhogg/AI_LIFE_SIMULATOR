@@ -186,7 +186,7 @@ describe('C3-4 · G0 重定基报告', () => {
   });
 
   it('BUNDLE=21 守恒（roll_dice 切面不新增 bundle 成员）', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
   });
 
   it('executeRollDice 是纯函数（同 args 多次 = 逐位恒等·G0 保证）', () => {
@@ -244,15 +244,15 @@ describe('C3-7 · 守恒门', () => {
   });
 
   it('BUNDLE=21', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(21);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
   });
 
-  it('manifest=86', () => {
+  it('manifest=88', () => {
     const total =
       FINGERPRINT_BUNDLE_MEMBERS.length +
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(89);
+    expect(total).toBe(94);
   });
 });
