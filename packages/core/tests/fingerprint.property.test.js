@@ -132,6 +132,7 @@ function fingerprintOf(ctx) {
         ...(ctx['IC边类型率表'] !== undefined ? { 'IC边类型率表': ctx['IC边类型率表'] } : {}),
         ...(ctx['复杂传播标签集'] !== undefined ? { 复杂传播标签集: ctx['复杂传播标签集'] } : {}),
         ...(ctx['体质分档断点'] !== undefined ? { 体质分档断点: ctx['体质分档断点'] } : {}),
+        ...(ctx['组织层级边类型集'] !== undefined ? { 组织层级边类型集: ctx['组织层级边类型集'] } : {}),
     });
     return hashPresetFingerprint({
         判定面整包: bundleHash,
@@ -183,6 +184,7 @@ const BUNDLE_MUTATIONS = {
     'IC边类型率表': { '仇人': 0.0, '陌生人': 0.2 },
     复杂传播标签集: ['范式转移', '新增复杂标签'],
     体质分档断点: { tiers: [3, 10, 20] },
+    组织层级边类型集: ['从属', '下属'],
 };
 const _checkBundle = true;
 void _checkBundle;

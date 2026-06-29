@@ -384,7 +384,7 @@ describe('A2 · 守恒门', () => {
   });
 
   it('BUNDLE = 21（FINGERPRINT_BUNDLE_MEMBERS 不变）', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
   });
 
   it('manifest 四组总长 = 88', () => {
@@ -392,7 +392,7 @@ describe('A2 · 守恒门', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(94);
+    expect(total).toBe(95);
   });
 
   it('黄金向量：hashPresetFingerprint 确定性（不重定基）', () => {

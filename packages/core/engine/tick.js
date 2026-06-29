@@ -81,6 +81,8 @@ const COMPLEX_CONTAGION_LABELS_DEFAULT = new Set([
 ]);
 // 体质分档断点默认值（[4,12] → 体质≤4:θ=1 / ≤12:θ=2 / else:θ=3）
 const PHYSIQUE_TIERS_DEFAULT = [4, 12];
+// 组织层级边类型集默认值（buildOrgChildGraph 用·作者可追加自定义层级边类型）
+const HIERARCHY_EDGE_TYPES_DEFAULT = new Set(['层级', '隶属']);
 /** 通用具名表合并：作者表覆盖/扩展引擎默认表·单真相源·禁重复实现 */
 function mergeTable(author, defaults) {
     if (!author)
@@ -97,6 +99,9 @@ function _buildTickTP(social) {
             ? new Set([...COMPLEX_CONTAGION_LABELS_DEFAULT, ...social.复杂传播标签集])
             : COMPLEX_CONTAGION_LABELS_DEFAULT,
         体质分档断点: social?.体质分档断点?.tiers ?? PHYSIQUE_TIERS_DEFAULT,
+        组织层级边类型集: social?.组织层级边类型集
+            ? new Set([...HIERARCHY_EDGE_TYPES_DEFAULT, ...social.组织层级边类型集])
+            : HIERARCHY_EDGE_TYPES_DEFAULT,
     };
 }
 // Bass 扩散参数（G2-1 stub 默认零·G2-2 通过 TickInput.bassP/bassQ 喂值）
@@ -730,16 +735,17 @@ function getOrgMemberKeys(npcs, orgKey, excludeKeys) {
 }
 // ── G2-3 S1 组织层级辅助（层级延迟·子组织扩散） ───────────────────────────────────
 /**
- * G2-3 S1: 从 组织关系网 的 层级/隶属 边构建父→子有向图。
+ * G2-3 S1: 从 组织关系网 构建父→子有向图（层级延迟 BFS 基础结构）。
  * A组织 = 下级（子）；B组织 = 上级（父）。
+ * 哪些边类型视为层级关系由 tp.组织层级边类型集 决定（作者可配·默认'层级'/'隶属'）。
  * 默认 fixture 无此类边 → 空图 → S1 路径完全跳过 → 0 重定基。
  */
-function buildOrgChildGraph(orgNet) {
+function buildOrgChildGraph(orgNet, tp) {
     const children = new Map();
     if (!orgNet)
         return children;
     for (const edge of Object.values(orgNet)) {
-        if (edge.边类型 !== '层级' && edge.边类型 !== '隶属')
+        if (!edge.边类型 || !tp.组织层级边类型集.has(edge.边类型))
             continue;
         const parent = edge.B组织;
         const child = edge.A组织;
@@ -819,8 +825,8 @@ fp, tp) {
     const locs = s.地图?.地点 ?? {};
     const hasMap = Object.keys(locs).length > 0;
     const regionGraph = hasMap ? buildRegionGraph(locs) : undefined;
-    // G2-3 S1: 组织层级图（一次性构建·default fixture 无 层级/隶属 边 → 空图 → S1 路径跳过）
-    const orgChildGraph = buildOrgChildGraph(s.组织关系网);
+    // G2-3 S1: 组织层级图（一次性构建·tp.组织层级边类型集 决定哪些边算层级·default fixture 空图 → S1 跳过）
+    const orgChildGraph = buildOrgChildGraph(s.组织关系网, tp);
     // Global round index for IC channel disambiguation (one shared counter per propagateRipple call)
     let icRound = 0;
     for (const [targetKey, impressions] of Object.entries(pending)) {
@@ -992,7 +998,7 @@ fp, tp) {
                         orgCovered.add(memKey);
                     }
                     // ── G2-3 S1: 层级延迟 — 子组织成员按深度概率性接收 ─────────────────
-                    // 仅在有 层级/隶属 边时激活（orgChildGraph.size=0 完全跳过·default fixture→0重定基）。
+                    // 仅在有层级边时激活（orgChildGraph.size=0 完全跳过·default fixture→0重定基）。
                     // P(receive_this_tick) = 100/(depth+1)：depth=1→50%·depth=2→33%·depth=3→25%。
                     // seeded RNG（通道键含 subOrgKey 区分）·icRound 仅在此分支递增。
                     if (orgChildGraph.size > 0) {

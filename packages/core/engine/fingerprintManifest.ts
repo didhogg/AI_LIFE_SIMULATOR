@@ -35,6 +35,7 @@ export const FINGERPRINT_BUNDLE_MEMBERS = [
   'IC边类型率表',             // 作者可配·record<边类型,number>·IC基础传播率·判定面
   '复杂传播标签集',            // 作者可配·string[]·Centola-Macy多桥门槛标签集·判定面
   '体质分档断点',              // 作者可配·{tiers:number[]}·θ_i计算口径·判定面
+  '组织层级边类型集',           // 作者可配·string[]·追加边类型进层级集合·判定面（buildOrgChildGraph 门控）
 ] as const;
 
 // ── 预设整包组（顶层·从不快照）──────────────────────────────────────────────────

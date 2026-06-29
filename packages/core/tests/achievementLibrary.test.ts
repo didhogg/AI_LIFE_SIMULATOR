@@ -293,7 +293,7 @@ describe('成就库 · 解锁条件谓词串 parse', () => {
 // ═══════════════════════════════════════════════════════════════════
 describe('成就库 · 不进判定面指纹', () => {
   it('FINGERPRINT_BUNDLE_MEMBERS 不含成就库相关键（BUNDLE=21）', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
     const bundleSet = new Set(FINGERPRINT_BUNDLE_MEMBERS as readonly string[]);
     expect(bundleSet.has('成就库')).toBe(false);
     expect(bundleSet.has('成就')).toBe(false);
@@ -403,7 +403,7 @@ describe('成就库 · 守恒门', () => {
   });
 
   it('BUNDLE = 21（成就库 dormant·不改 FINGERPRINT_BUNDLE_MEMBERS）', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
   });
 
   it('manifest 四组总长 = 88', () => {
@@ -412,7 +412,7 @@ describe('成就库 · 守恒门', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(94);
+    expect(total).toBe(95);
   });
 
   it('命名空间枚举 = 32 項（18+剥离①六库+剥离②选项集）', () => {

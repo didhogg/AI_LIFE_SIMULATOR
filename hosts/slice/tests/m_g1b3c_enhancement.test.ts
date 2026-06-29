@@ -227,7 +227,7 @@ describe('TB5 自由文本越权 → 校验链拒绝·不写账', () => {
 // ──────────────────────────────────────────────────────────────────────────────
 describe('TC 指纹88 / schemaKeys54 守恒', () => {
   it('BUNDLE_MEMBERS = 21（G2-2 +媒介传播面）', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
   });
 
   it('PRESET_FIELDS = 10', () => {

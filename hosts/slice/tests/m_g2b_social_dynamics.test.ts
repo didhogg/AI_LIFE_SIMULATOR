@@ -7,6 +7,7 @@
 //   D  作者调整场景传播系数 → 二跳强度变化
 //   E  作者设置体质分档断点 → θ_i 分档口径改变（复杂传播阈值变化）
 //   F  作者扩展复杂传播标签集 → 新标签走复杂传播路径
+//   G  作者配置组织层级边类型集 → 自定义边类型激活/阻断 G2-3 S1 路径
 
 import { describe, it, expect } from 'vitest';
 import { runTick, emitRipple } from '@ai-life-sim/core/engine/tick';
@@ -260,5 +261,76 @@ describe('F · 复杂传播标签集 extend → 新标签走复杂传播路径',
     });
     const complexImp = r1.state.认知档案?.['obs2']?.['src']?.印象?.length ?? 0;
     expect(complexImp).toBe(0); // 变为复杂传播后阻断
+  });
+});
+
+// ── G: 组织层级边类型集 → S1 路径激活/阻断 ──────────────────────────────────────
+
+describe('G · 作者配置组织层级边类型集 → G2-3 S1 层级延迟路径受控', () => {
+  it('G1 · 自定义边「从属」不在默认集 → orgChildGraph 为空 → S1 路径不激活 → sub_member 无印象', () => {
+    // obs1 at loc_a（目击 src）→ 向 org_main 广播
+    // sub_member at loc_b（org_sub 成员）
+    // org_sub → org_main 通过「从属」边连接
+    // 默认集只含['层级','隶属']·「从属」不在其中 → orgChildGraph.size=0 → S1 跳过 → sub_member 零印象（确定性）
+    const s0 = RootSchema.parse({
+      $存档种子: 42,
+      NPC: {
+        src:        { 名称: 'src',        位置: 'loc_a', 存活状态: '在世', 关系: [], 所属组织: [] },
+        obs1:       { 名称: 'obs1',       位置: 'loc_a', 存活状态: '在世', 关系: [], 所属组织: [{ 组织键: 'org_main', 职务: '', 派系: '' }], 忠诚: { org_main: { $真实值: 100, 伪装度: 0 } } },
+        sub_member: { 名称: 'sub_member', 位置: 'loc_b', 存活状态: '在世', 关系: [], 所属组织: [{ 组织键: 'org_sub', 职务: '', 派系: '' }], 忠诚: { org_sub: { $真实值: 100, 伪装度: 0 } } },
+      },
+      组织关系网: {
+        edge_01: { A组织: 'org_sub', B组织: 'org_main', 关系: '', 关系值: 0, 约定引用键: '', 边类型: '从属' },
+      },
+      地图: { 地点: {
+        loc_a: { 名称: 'A', 节点类型: '室内', 人口规模: '中型', 社交开放度: '低', 父节点: '' },
+        loc_b: { 名称: 'B', 节点类型: '室内', 人口规模: '中型', 社交开放度: '低', 父节点: '' },
+      }},
+      _tick: { 拍计数: 0, 周期分钟: 1440, 上次结算纪元分钟: 0 },
+    });
+    emitRipple(s0.$涟漪候选, 'src', { 标签: '事件', 极性: '正', 强度: 99, 可见性: '公开', 来源拍号: 0 });
+
+    // 不传 组织层级边类型集 → 默认只含'层级'/'隶属' → '从属'边被忽略 → orgChildGraph.size=0
+    const result = runTick(s0, { tickId: 'g1-default', spanMinutes: 1440 });
+    const subImp = result.state.认知档案?.['sub_member']?.['src']?.印象?.length ?? 0;
+    expect(subImp).toBe(0); // S1 路径确定未激活
+  });
+
+  it('G2 · 组织层级边类型集字段进判定面 → 改集 hash 变（受控重定基）', () => {
+    const base = hashJudgmentBundle({
+      历法皮肤: {}, 粒度模板覆盖: {}, 种族模板: {}, 母题配额: {},
+      媒体渠道表: {}, 检定配方表: {}, 检定档切分表: {}, 欠债参数: {},
+      赛事结构模板: {}, 派生量配方: {},
+      概率域夹逼: { p_最小: 0.0001, p_最大: 0.9999 },
+      纠缠闭包弱边阈值: 0.2,
+    });
+    const withOrgEdge = hashJudgmentBundle({
+      历法皮肤: {}, 粒度模板覆盖: {}, 种族模板: {}, 母题配额: {},
+      媒体渠道表: {}, 检定配方表: {}, 检定档切分表: {}, 欠债参数: {},
+      赛事结构模板: {}, 派生量配方: {},
+      概率域夹逼: { p_最小: 0.0001, p_最大: 0.9999 },
+      纠缠闭包弱边阈值: 0.2,
+      组织层级边类型集: ['从属'],
+    });
+    expect(withOrgEdge).not.toBe(base); // 字段进 bundle·改值→hash 变
+  });
+
+  it('G3 · 组织层级边类型集 undefined → hash 与不传时相同（0 重定基）', () => {
+    const base = hashJudgmentBundle({
+      历法皮肤: {}, 粒度模板覆盖: {}, 种族模板: {}, 母题配额: {},
+      媒体渠道表: {}, 检定配方表: {}, 检定档切分表: {}, 欠债参数: {},
+      赛事结构模板: {}, 派生量配方: {},
+      概率域夹逼: { p_最小: 0.0001, p_最大: 0.9999 },
+      纠缠闭包弱边阈值: 0.2,
+    });
+    const withUndef = hashJudgmentBundle({
+      历法皮肤: {}, 粒度模板覆盖: {}, 种族模板: {}, 母题配额: {},
+      媒体渠道表: {}, 检定配方表: {}, 检定档切分表: {}, 欠债参数: {},
+      赛事结构模板: {}, 派生量配方: {},
+      概率域夹逼: { p_最小: 0.0001, p_最大: 0.9999 },
+      纠缠闭包弱边阈值: 0.2,
+      组织层级边类型集: undefined,
+    });
+    expect(withUndef).toBe(base); // undefined 不入 canonicalize → hash 不变
   });
 });

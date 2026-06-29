@@ -93,7 +93,7 @@ describe('战术包库 · 剥离③', () => {
     // 断言⑦ 守恒门
     it('⑦ 守恒门：schemaKeys=54 / BUNDLE=21 / manifest=87 / 命名空间枚举=32项（含战术包）', () => {
         expect(Object.keys(RootSchema.shape).length).toBe(54);
-        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
+        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
         expect(命名空间枚举.length).toBe(32);
         expect(命名空间枚举).toContain('战术包');
         expect(冰箱绑定表['战术包']?.解析器键).toBe('战术包库');

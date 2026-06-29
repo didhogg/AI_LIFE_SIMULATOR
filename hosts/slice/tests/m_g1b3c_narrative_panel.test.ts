@@ -179,7 +179,7 @@ describe('T7 叙事 + state diff 并存', () => {
 // ──────────────────────────────────────────────────────────────────────────────
 describe('T8 指纹88 / schemaKeys54 守恒', () => {
   it('BUNDLE_MEMBERS = 21（G2-2 +媒介传播面）', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
   });
 
   it('PRESET_FIELDS = 10', () => {

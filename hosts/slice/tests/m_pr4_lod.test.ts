@@ -545,7 +545,7 @@ describe('G6: 穿越 + 契约执行 + 跨域隔离', () => {
 
 describe('G7: soak 守恒 + 确定性 + 黄金向量', () => {
   it('G7-1 默认 fixture 无 LOD 活动：BUNDLE_MEMBERS 守恒（不新增）', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS).toHaveLength(27);
+    expect(FINGERPRINT_BUNDLE_MEMBERS).toHaveLength(28);
   });
 
   it('G7-2 buildWorld()（原始 fixture·无 LOD 区域）：runTick 10拍 守恒', () => {

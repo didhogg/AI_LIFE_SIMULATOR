@@ -235,7 +235,7 @@ describe('学业制式库 · resolve 挂载 + by-ID 加载', () => {
 // ═══════════════════════════════════════════════════════════════
 describe('学业制式库 · 不进判定面指纹', () => {
     it('FINGERPRINT_BUNDLE_MEMBERS 不含学业制式库相关键（BUNDLE=21）', () => {
-        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
+        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
         const bundleSet = new Set(FINGERPRINT_BUNDLE_MEMBERS);
         expect(bundleSet.has('学业制式库')).toBe(false);
         expect(bundleSet.has('学业制式')).toBe(false);
@@ -320,14 +320,14 @@ describe('学业制式库 · 守恒门', () => {
         expect(BLUEPRINT_KEYS.length).toBe(54);
     });
     it('BUNDLE = 21（学业制式库 dormant·不改 FINGERPRINT_BUNDLE_MEMBERS）', () => {
-        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
+        expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
     });
     it('manifest 四组总长 = 88', () => {
         const total = FINGERPRINT_BUNDLE_MEMBERS.length +
             FINGERPRINT_PRESET_FIELDS.length +
             FINGERPRINT_SNAPSHOT_FIELDS.length +
             FINGERPRINT_EXCLUDED_FIELDS.length;
-        expect(total).toBe(94);
+        expect(total).toBe(95);
     });
     it('命名空间枚举 = 32 項（含学业制式）', () => {
         expect(命名空间枚举.length).toBe(32);

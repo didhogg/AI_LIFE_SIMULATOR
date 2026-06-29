@@ -24,13 +24,13 @@ export function computeDecayFactor(decayRate, tick) {
     return fixedPow(1 - decayRate, tick);
 }
 // ── 辅助：战时信号（只读 state.战争状态）───────────────────────────────────────
-/** state.战争状态 中存在 状态='交战' 的条目 → true（一档判断·停战细分留参数暴露） */
+/** state.战争状态 中存在 激活=true 的条目 → true（结构化 flag·作者声明激活态·不读状态字面量） */
 export function hasActiveWar(state) {
     const wars = state.战争状态;
     if (!wars)
         return false;
     for (const w of Object.values(wars)) {
-        if (w.状态 === '交战')
+        if (w.激活 === true)
             return true;
     }
     return false;

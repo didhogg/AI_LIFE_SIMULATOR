@@ -203,6 +203,8 @@ export function hashJudgmentBundle(fields: {
   复杂传播标签集?: unknown;
   /** 作者可配体质分档断点·{tiers:number[]}·改断点即改判定面（θ_i 计算口径）*/
   体质分档断点?: unknown;
+  /** 作者可配组织层级边类型集·string[]·改集即改判定面（buildOrgChildGraph 门控·层级延迟 BFS 口径）*/
+  组织层级边类型集?: unknown;
   // TODO(P0-7): 方式×速度换算表 — 家在 P0-7 速度模型，届时加入签名 + 补断言
   // TODO(P0-7): H7量纲表全量 — 家在 P0-7 量纲系统，届时加入签名 + 补断言
 }): string {

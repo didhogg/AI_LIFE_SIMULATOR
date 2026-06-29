@@ -225,7 +225,7 @@ describe('二审维度库 · resolve 挂载 + by-ID 加载', () => {
 
 describe('二审维度库 · 不进判定面指纹', () => {
   it('FINGERPRINT_BUNDLE_MEMBERS 不含二审维度库相关键（BUNDLE=21）', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
     const bundleSet = new Set(FINGERPRINT_BUNDLE_MEMBERS as readonly string[]);
     expect(bundleSet.has('二审维度库')).toBe(false);
     expect(bundleSet.has('二审维度')).toBe(false);
@@ -279,10 +279,10 @@ describe('二审维度库 · 守恒门', () => {
     expect(BLUEPRINT_KEYS.length).toBe(54);
   });
   it('BUNDLE = 21', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(27);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
   });
   it('manifest 四组总长 = 88', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length + FINGERPRINT_PRESET_FIELDS.length + FINGERPRINT_SNAPSHOT_FIELDS.length + FINGERPRINT_EXCLUDED_FIELDS.length).toBe(94);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length + FINGERPRINT_PRESET_FIELDS.length + FINGERPRINT_SNAPSHOT_FIELDS.length + FINGERPRINT_EXCLUDED_FIELDS.length).toBe(95);
   });
   it('命名空间枚举 = 32 項（含二审维度）', () => {
     expect(命名空间枚举.length).toBe(32);
