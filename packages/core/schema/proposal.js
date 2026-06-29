@@ -14,13 +14,12 @@ export const 提案单条目Schema = z.object({
     目标引用: z.string().default(''), // 变量全状态路径（变量驱动底座·verbDelta 按路径读类型派生 op）
     数值槽: z.number().optional(), // 带符号数值（正=add·负=sub·undefined=no-op）
     方向槽: z.enum(方向槽枚举).optional(), // Z2·五类方向槽·可空
-    关联实体: z.array(z.string()).default([]), // 对手方变量全状态路径列表（同量反向·守恒配对）
 }).strip();
 export const 提案单Schema = z.array(提案单条目Schema).default([]);
 // ── P0-1·指令信封（txn_id：组级原子事务 ID·可空零迁移）─────────────────────────
-// txn_id: 同一信封内的多条提案单条目视为原子组；缺省=非组级事务（单条提案）
+// txn_id: 同一信封内的多条提案单条目视为原子组（E-2·array 底座）
 //
-// provenance 判别位（阶段1·additive·transient·不进 RootSchema·schemaKeys 仍 52）：
+// provenance 判别位（阶段1·additive·transient·不进 RootSchema·schemaKeys 仍 54）：
 //   player_option  — 来自 AOHP option-set（executeActionOption 路径·本轮走全闸+守恒）
 //   player_freetext — 来自 LLM 自由文本（既有 injectedEnvelope 路径）
 //   system_cheat   — 系统/管理员命令（Gate③ $ 前缀·阶段6 实装·本轮仅留判别位）
@@ -29,7 +28,7 @@ export const 指令信封Schema = z.object({
     提案血统: z.string().optional(), // Z3·6.68·发起方血统键引用·可空·瞬时非存档
     转域续命授权: z.boolean().optional(), // L-15·瞬时授权令牌·仅转域续命边构造时置 true·不落存档
     provenance: z.enum(['player_option', 'player_freetext', 'system_cheat']).optional(),
-    提案: 提案单条目Schema,
+    提案批: 提案单Schema, // E-2·每条目独立路径+带符号数值槽·方向由各条目数值槽符号定
 }).strip();
 // ── Z5·失败工单（6.68·Zod schema 地基·零迁移·逻辑实装 P0-7）────────────────────
 // 表达式预求值同数值槽族(z.number)·加 .int()（预求值为定值=整型）

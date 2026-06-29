@@ -45,17 +45,28 @@ export function executeActionOption(args) {
     const 关联实体 = Array.isArray(rawEntities)
         ? rawEntities.filter((e) => typeof e === 'string')
         : [];
-    // ── Step 6: 构建原始信封（条件式展开·exactOptionalPropertyTypes 兼容）────────
-    // provenance: 'player_option' 标记 AOHP 路径·transient·不进 RootSchema
+    // ── Step 6: 构建 提案批 array（E-2·每条目独立路径+带符号数值槽）──────────────
+    // 主条目：动作类别 + 目标引用（全路径）+ 可选数值槽（正值）+ 可选方向槽
+    // 对手方条目：params.关联实体 各路径·数值槽 = -主数值槽（executor作为记账AI显式签名）
+    const primaryEntry = {
+        动作类别: verb,
+        目标引用: resolvedTarget,
+        ...(数值槽 !== undefined ? { 数值槽 } : {}),
+        ...(方向槽 !== undefined ? { 方向槽 } : {}),
+    };
+    const 提案批条目 = [primaryEntry];
+    if (数值槽 !== undefined) {
+        for (const counterPath of 关联实体) {
+            提案批条目.push({
+                动作类别: verb,
+                目标引用: counterPath,
+                数值槽: -数值槽,
+            });
+        }
+    }
     const rawEnvelope = {
         provenance: 'player_option',
-        提案: {
-            动作类别: verb,
-            目标引用: resolvedTarget,
-            ...(数值槽 !== undefined ? { 数值槽 } : {}),
-            ...(方向槽 !== undefined ? { 方向槽 } : {}),
-            ...(关联实体.length > 0 ? { 关联实体 } : {}),
-        },
+        提案批: 提案批条目,
     };
     // ── Step 7: 形状闸（Zod parse）────────────────────────────────────────────────
     const parsed = 指令信封Schema.safeParse(rawEnvelope);

@@ -214,7 +214,7 @@ describe('⑤ optionSetInput > injectedEnvelope 优先级', () => {
     const optionId = TRANSFER_OPTION_SET[0].option_id;
     it('两者同时存在 → optionSetInput 胜出·正常落账', () => {
         const { 指令信封Schema } = require('../schema/proposal.js');
-        const freeEnvelope = 指令信封Schema.parse({ 提案: { 动作类别: '转移', 目标引用: 'npc_wang', 数值槽: 999 } });
+        const freeEnvelope = 指令信封Schema.parse({ 提案批: [{ 动作类别: '転移', 目标引用: 'npc_wang', 数值槽: 999 }] });
         const result = runTick(STATE_TRANSFER, {
             tickId: 'opt-t5-priority',
             optionSetInput: { chosenOptionId: optionId, optionSet: TRANSFER_OPTION_SET, chosenValue: 10 },

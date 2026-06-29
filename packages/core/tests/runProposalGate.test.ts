@@ -31,8 +31,8 @@ const BASE_STATE: RootState = RootSchema.parse({
 });
 
 // Minimal valid envelope.
-const ENV_BASIC = { 提案: { 动作类别: '转账', 目标引用: 'npc_wang' } };
-const ENV_TXN   = { txn_id: 'txn_001', 提案: { 动作类别: '转账', 目标引用: 'npc_wang' } };
+const ENV_BASIC = { 提案批: [{ 动作类别: '转账', 目标引用: 'npc_wang' }] };
+const ENV_TXN   = { txn_id: 'txn_001', 提案批: [{ 动作类别: '转账', 目标引用: 'npc_wang' }] };
 
 // Whitelisted numeric path that exists in BASE_STATE.
 const WL_PATH = '货币系统.账户.npc_wang.持有.文';
@@ -64,10 +64,9 @@ describe('Gate① — Zod shape validation', () => {
     if (!r.ok) expect(r.gate).toBe('①-shape');
   });
 
-  it('rejects missing 提案 field', () => {
+  it('提案批 absent → defaults to [] → gate passes', () => {
     const r = runProposalGate({ txn_id: 'x' }, BASE_STATE, 'seat1', '系统');
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.gate).toBe('①-shape');
+    expect(r.ok).toBe(true);
   });
 
   it('accepts minimal valid envelope with no packs', () => {
@@ -573,7 +572,7 @@ describe('⊕-4 e2e-1 · happy path：全链 ①→⑤ 含多包 add+clamp+audit
     // mergeInterventionDeltas codepoint sort: 'add'<'clamp' → add processes first.
     const p1: K5DeltaEntry[] = [{ path: WL_PATH, op: 'add', value: 50 }];
     const p2: K5DeltaEntry[] = [{ path: WL_PATH, op: 'clamp', value: 220 }];
-    const envelope = { txn_id: 'e2e_001', 提案: { 动作类别: '转账', 目标引用: 'npc_wang' } };
+    const envelope = { txn_id: 'e2e_001', 提案批: [{ 动作类别: '转账', 目标引用: 'npc_wang' }] };
 
     const r = runProposalGate(envelope, BASE_STATE, 'seat1', '系统', [p1, p2]);
 
@@ -734,7 +733,7 @@ describe('Gate③-L15 · 存活状态/物品状态 不可逆转移', () => {
 
   it('已故→在世 无 转域续命授权 → ③-L15 违例', () => {
     const r = runProposalGate(
-      { 提案: { 动作类别: 'test' } },
+      { 提案批: [{ 动作类别: 'test' }] },
       STATE_DEAD_NPC, '', '系统',
       pack([{ path: 'NPC.npc_ghost.存活状态', op: 'set', value: '在世' }]),
     );
@@ -744,7 +743,7 @@ describe('Gate③-L15 · 存活状态/物品状态 不可逆转移', () => {
 
   it('已故→在世 携 转域续命授权:true → 放行', () => {
     const r = runProposalGate(
-      { 提案: { 动作类别: 'test' }, 转域续命授权: true },
+      { 提案批: [{ 动作类别: 'test' }], 转域续命授权: true },
       STATE_DEAD_NPC, '', '系统',
       pack([{ path: 'NPC.npc_ghost.存活状态', op: 'set', value: '在世' }]),
     );
@@ -753,7 +752,7 @@ describe('Gate③-L15 · 存活状态/物品状态 不可逆转移', () => {
 
   it('物品 销毁→持有 → ③-L15 违例', () => {
     const r = runProposalGate(
-      { 提案: { 动作类别: 'test' } },
+      { 提案批: [{ 动作类别: 'test' }] },
       STATE_DESTROYED_ITEM, '', '系统',
       pack([{ path: 'NPC.npc_wang.物品.sword_001.物品状态', op: 'set', value: '持有' }]),
     );

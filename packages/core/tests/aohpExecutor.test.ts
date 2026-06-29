@@ -47,12 +47,12 @@ describe('Test 1 · 命中 → envelope → 既有落账 + 双宿主逐位恒等
 
   it('envelope.提案.动作类别 = 转移', () => {
     const r = executeActionOption(args);
-    expect(r.envelope?.提案.动作类别).toBe('转移');
+    expect(r.envelope?.提案批[0]?.动作类别).toBe('转移');
   });
 
   it('envelope.提案.目标引用 = npc_wang', () => {
     const r = executeActionOption(args);
-    expect(r.envelope?.提案.目标引用).toBe('npc_wang');
+    expect(r.envelope?.提案批[0]?.目标引用).toBe('npc_wang');
   });
 
   it('envelope 经 runProposalGate → ok:true（Gate① shape 通过）', () => {
@@ -117,7 +117,7 @@ describe('Test 3 · chosenValue 越界 → 钳制到 [min, max]', () => {
     });
     expect(r.matched).toBe(true);
     expect(r.downgrade).toBe(false);
-    expect(r.envelope?.提案.数值槽).toBe(10);
+    expect(r.envelope?.提案批[0]?.数值槽).toBe(10);
   });
 
   it('chosenValue > max → 结果 = max', () => {
@@ -126,7 +126,7 @@ describe('Test 3 · chosenValue 越界 → 钳制到 [min, max]', () => {
       optionSet: [opt],
       chosenValue: 999,
     });
-    expect(r.envelope?.提案.数值槽).toBe(100);
+    expect(r.envelope?.提案批[0]?.数值槽).toBe(100);
   });
 
   it('chosenValue ∈ [min, max] → 原值保留', () => {
@@ -135,7 +135,7 @@ describe('Test 3 · chosenValue 越界 → 钳制到 [min, max]', () => {
       optionSet: [opt],
       chosenValue: 50,
     });
-    expect(r.envelope?.提案.数值槽).toBe(50);
+    expect(r.envelope?.提案批[0]?.数值槽).toBe(50);
   });
 
   it('无 value_slot 时忽略 chosenValue（数值槽 undefined）', () => {
@@ -149,7 +149,7 @@ describe('Test 3 · chosenValue 越界 → 钳制到 [min, max]', () => {
     });
     expect(r.matched).toBe(true);
     expect(r.downgrade).toBe(false);
-    expect(r.envelope?.提案.数值槽).toBeUndefined();
+    expect(r.envelope?.提案批[0]?.数值槽).toBeUndefined();
   });
 });
 
@@ -193,7 +193,7 @@ describe('Test 4 · 目标选取规则', () => {
     });
     expect(r.matched).toBe(true);
     expect(r.downgrade).toBe(false);
-    expect(r.envelope?.提案.目标引用).toBe('loc_inn');
+    expect(r.envelope?.提案批[0]?.目标引用).toBe('loc_inn');
   });
 
   it('多候选 + 有效 chosenTarget → 使用该目标', () => {
@@ -207,7 +207,7 @@ describe('Test 4 · 目标选取规则', () => {
       chosenTarget: 'npc_hong',
     });
     expect(r.downgrade).toBe(false);
-    expect(r.envelope?.提案.目标引用).toBe('npc_hong');
+    expect(r.envelope?.提案批[0]?.目标引用).toBe('npc_hong');
   });
 });
 
@@ -256,7 +256,50 @@ describe('Test 5 · 动词不在动词Id枚举 10 内 → downgrade:true', () =>
   });
 });
 
-// ── Test 6: 指纹 + 黄金向量不回归 ────────────────────────────────────────────────
+// ── Test 6(新): E-2·executor 构建 提案批 multi-entry（对手方条目验证）─────────────
+
+describe('Test 6(新) · E-2 提案批 multi-entry（executor 记账AI）', () => {
+  const primaryPath  = '货币系统.账户.npc_wang.持有.文';
+  const counterPath  = '货币系统.账户.pc_linjiu.持有.文';
+
+  const opt = makeOpt({
+    option_id:      '转移:npc_wang',
+    value_slot:     '金额',
+    min:            1,
+    max:            200,
+    target_choices: [primaryPath],
+    params:         { 关联实体: [counterPath] },
+  });
+
+  it('提案批 length = 2（主+对手方）', () => {
+    const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [opt], chosenValue: 50 });
+    expect(r.envelope?.提案批.length).toBe(2);
+  });
+
+  it('提案批[0].目标引用 = 收方路径·数値槽 = +50', () => {
+    const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [opt], chosenValue: 50 });
+    expect(r.envelope?.提案批[0]?.目标引用).toBe(primaryPath);
+    expect(r.envelope?.提案批[0]?.数值槽).toBe(50);
+  });
+
+  it('提案批[1].目标引用 = 付方路径·数値槽 = -50（executor显式签名·不来自位置）', () => {
+    const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [opt], chosenValue: 50 });
+    expect(r.envelope?.提案批[1]?.目标引用).toBe(counterPath);
+    expect(r.envelope?.提案批[1]?.数值槽).toBe(-50);
+  });
+
+  it('无 value_slot 时 提案批 length = 1（无对手方条目）', () => {
+    const optNoSlot = makeOpt({
+      option_id:      '转移:npc_wang',
+      target_choices: [primaryPath],
+      params:         { 关联实体: [counterPath] },
+    });
+    const r = executeActionOption({ chosenOptionId: '转移:npc_wang', optionSet: [optNoSlot], chosenValue: 50 });
+    expect(r.envelope?.提案批.length).toBe(1);
+  });
+});
+
+// ── Test 7: 指纹 + 黄金向量不回归 ────────────────────────────────────────────────
 
 describe('Test 6 · 指纹 manifest 不变 + 确定性验证', () => {
   it('指纹 manifest 四组总长 = 87（不变）', () => {

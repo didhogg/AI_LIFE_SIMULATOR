@@ -227,7 +227,7 @@ export function runProposalGate(
     时间: worldClock,
     授权源,
     级别: 'L1',
-    目标: envelope.提案.目标引用,
+    目标: envelope.提案批.map(p => p.目标引用).join(','),
     理由: '',
     是否作弊: false,
     ...(envelope.txn_id !== undefined ? { 提案单引用: envelope.txn_id } : {}),

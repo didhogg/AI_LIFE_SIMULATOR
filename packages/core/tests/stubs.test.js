@@ -54,10 +54,10 @@ describe('P0-1x Schema: 提案单（6.68·Zod schema·形状冻结）', () => {
             { 动作类别: '转账', 目标引用: 'npc_001' },
         ]).success).toBe(true);
     });
-    it('提案单: 完整条目（含数值槽/方向槽/关联实体）', () => {
+    it('提案单: 完整条目（含数值槽/方向槽）', () => {
         expect(提案单条目Schema.safeParse({
             动作类别: '转账', 目标引用: 'npc_001',
-            数值槽: 500, 方向槽: '转账收支方向', 关联实体: ['npc_002'],
+            数值槽: 500, 方向槽: '转账收支方向',
         }).success).toBe(true);
     });
     it('方向槽: 五类全合法（Z2·6.68）', () => {
@@ -74,8 +74,9 @@ describe('P0-1x Schema: 提案单（6.68·Zod schema·形状冻结）', () => {
     it('数值槽: absent = optional', () => {
         expect(提案单条目Schema.parse({}).数值槽).toBeUndefined();
     });
-    it('关联实体: 默认空数组', () => {
-        expect(提案单条目Schema.parse({}).关联实体).toEqual([]);
+    it('关联实体: 已从提案单条目移除（strip·不保留）', () => {
+        const res = 提案单条目Schema.parse({ 关联实体: ['npc_002'] });
+        expect(res).not.toHaveProperty('关联实体');
     });
     it('提案单: strip 验证（未知字段被剥离）', () => {
         const res = 提案单条目Schema.parse({ 动作类别: 'x', 未知字段: 'y' });
@@ -85,31 +86,31 @@ describe('P0-1x Schema: 提案单（6.68·Zod schema·形状冻结）', () => {
 // ── P0-1 Batch 3: 指令信封（txn_id·组级原子事务）────────────────────────────────
 describe('P0-1 Batch 3 Schema: 指令信封（txn_id 组级原子事务 ID）', () => {
     it('txn_id absent (optional·零迁移)', () => {
-        const res = 指令信封Schema.parse({ 提案: {} });
+        const res = 指令信封Schema.parse({});
         expect(res.txn_id).toBeUndefined();
     });
     it('txn_id present (string)', () => {
         expect(指令信封Schema.safeParse({
             txn_id: 'txn_20260614_001',
-            提案: { 动作类别: '转账', 目标引用: 'npc_001' },
+            提案批: [{ 动作类别: '转账', 目标引用: 'npc_001' }],
         }).success).toBe(true);
     });
-    it('提案 字段必填', () => {
-        // 缺 提案 字段时 parse 失败
-        expect(指令信封Schema.safeParse({ txn_id: 'txn_001' }).success).toBe(false);
+    it('提案批 absent → defaults to []', () => {
+        const res = 指令信封Schema.parse({ txn_id: 'txn_001' });
+        expect(res.提案批).toEqual([]);
     });
     it('strip: 未知字段被剥离', () => {
-        const res = 指令信封Schema.parse({ 提案: {}, 未知字段: 'y' });
+        const res = 指令信封Schema.parse({ 提案批: [], 未知字段: 'y' });
         expect(res).not.toHaveProperty('未知字段');
     });
     it('提案血统 absent (optional·零迁移)', () => {
-        const res = 指令信封Schema.parse({ 提案: {} });
+        const res = 指令信封Schema.parse({});
         expect(res.提案血统).toBeUndefined();
     });
     it('提案血统 present (string·Z3·6.68)', () => {
         expect(指令信封Schema.safeParse({
             提案血统: 'pc_linjiu',
-            提案: { 动作类别: '转账', 目标引用: 'npc_wang' },
+            提案批: [{ 动作类别: '转账', 目标引用: 'npc_wang' }],
         }).success).toBe(true);
     });
 });
@@ -235,7 +236,7 @@ describe('P0-1x 签名冻结断言 stub（三件套第③件·编译期口径锁
         expectTypeOf(离场补结.收束).returns.toEqualTypeOf();
     });
     // ── 提案单 Schema ───────────────────────────────────────────────────────────
-    it('提案单条目Type 含必要字段口径冻结', () => {
+    it('提案单条目Type 含必要字段口径冻结（无 关联实体）', () => {
         expectTypeOf().toMatchTypeOf();
     });
     it('提案单Type 为 提案单条目Type[] 口径冻结', () => {

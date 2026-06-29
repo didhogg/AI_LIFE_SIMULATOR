@@ -484,7 +484,7 @@ describe('extensionParams · P9-3 · 提案闸② 集成', () => {
     }
     it('声明键路径 → Gate② pass（扩展参数路径在白名单·set op）', () => {
         const state = makeProposalState();
-        const envelope = 指令信封Schema.parse({ 提案: {} });
+        const envelope = 指令信封Schema.parse({});
         const extraPaths = deriveExtensionParamPaths(state, { iron_sword: itemDef });
         const result = runProposalGate(envelope, state, 'p1', '玩家确认', [[{ path: 'NPC.hero.物品.iron_sword.扩展参数.耐久度', op: 'set', value: 70 }]], extraPaths);
         expect(result.ok).toBe(true);
@@ -495,7 +495,7 @@ describe('extensionParams · P9-3 · 提案闸② 集成', () => {
     });
     it('未声明键路径 → Gate② reject（不在白名单·fail-closed）', () => {
         const state = makeProposalState();
-        const envelope = 指令信封Schema.parse({ 提案: {} });
+        const envelope = 指令信封Schema.parse({});
         const extraPaths = deriveExtensionParamPaths(state, { iron_sword: itemDef });
         const result = runProposalGate(envelope, state, 'p1', '玩家确认', [[{ path: 'NPC.hero.物品.iron_sword.扩展参数.未声明键', op: 'set', value: 999 }]], extraPaths);
         expect(result.ok).toBe(false);
@@ -507,7 +507,7 @@ describe('extensionParams · P9-3 · 提案闸② 集成', () => {
         // FIX-2: 静态白名单 post-filter 已剔除 扩展参数 通配条目。
         // 不传 extraWhitelistPaths → 无任何授权源 → Gate②-a 直拒。
         const state = makeProposalState();
-        const envelope = 指令信封Schema.parse({ 提案: {} });
+        const envelope = 指令信封Schema.parse({});
         const result = runProposalGate(envelope, state, 'p1', '玩家确认', [[{ path: 'NPC.hero.物品.iron_sword.扩展参数.耐久度', op: 'set', value: 50 }]]);
         expect(result.ok).toBe(false);
         if (!result.ok) {
@@ -519,7 +519,7 @@ describe('extensionParams · P9-3 · 提案闸② 集成', () => {
         // FIX-2 剔除了 NPC.{id}.扩展参数.{id} 通配；deriveExtensionParamPaths 当前不产 NPC 级路径。
         // → Gate②-a 无匹配条目 → fail-closed。
         const state = makeProposalState();
-        const envelope = 指令信封Schema.parse({ 提案: {} });
+        const envelope = 指令信封Schema.parse({});
         const result = runProposalGate(envelope, state, 'p1', '玩家确认', [[{ path: 'NPC.hero.扩展参数.hp', op: 'set', value: 99 }]]);
         expect(result.ok).toBe(false);
         if (!result.ok) {
@@ -528,7 +528,7 @@ describe('extensionParams · P9-3 · 提案闸② 集成', () => {
     });
     it('FIX-1: 数字声明键 = 字符串值 → Gate② 类型拒（live 写路径·非仅单测）', () => {
         const state = makeProposalState();
-        const envelope = 指令信封Schema.parse({ 提案: {} });
+        const envelope = 指令信封Schema.parse({});
         const extraPaths = deriveExtensionParamPaths(state, { iron_sword: itemDef });
         const result = runProposalGate(envelope, state, 'p1', '玩家确认', [[{ path: 'NPC.hero.物品.iron_sword.扩展参数.耐久度', op: 'set', value: '不是数字' }]], extraPaths);
         expect(result.ok).toBe(false);
@@ -539,7 +539,7 @@ describe('extensionParams · P9-3 · 提案闸② 集成', () => {
     });
     it('FIX-1: 数字声明键 = 数字值 → Gate② 通过 + 落地', () => {
         const state = makeProposalState();
-        const envelope = 指令信封Schema.parse({ 提案: {} });
+        const envelope = 指令信封Schema.parse({});
         const extraPaths = deriveExtensionParamPaths(state, { iron_sword: itemDef });
         const result = runProposalGate(envelope, state, 'p1', '玩家确认', [[{ path: 'NPC.hero.物品.iron_sword.扩展参数.耐久度', op: 'set', value: 55 }]], extraPaths);
         expect(result.ok).toBe(true);

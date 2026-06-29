@@ -23,7 +23,7 @@ const BASE_STATE = RootSchema.parse({
 });
 // 合法信封：転移 npc_wang
 const VALID_ENVELOPE = 指令信封Schema.parse({
-    提案: { 动作类别: '転移', 目标引用: 'npc_wang', 数值槽: 50 },
+    提案批: [{ 动作类别: '転移', 目标引用: 'npc_wang', 数值槽: 50 }],
 });
 // 守恒平衡 pack：npc_wang +50 / npc_li -50（净变化 0·preNet=300=postNet）
 const PACKS_CONSERVATION = [[
@@ -47,7 +47,7 @@ describe('T1 · 合法注入 → 落账成功 + 守恒 + 幂等', () => {
         const 账户 = result.state.货币系统?.账户;
         expect(账户['npc_wang']?.持有['文']).toBe(150);
     });
-    it('npc_li 持有.文 从 200 降至 150（资金来源方）', () => {
+    it('npc_li 持有. 从 200 降至 150（资金来源方）', () => {
         const 账户 = result.state.货币系统?.账户;
         expect(账户['npc_li']?.持有['文']).toBe(150);
     });
