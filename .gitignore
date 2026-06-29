@@ -7,3 +7,8 @@ dist/
 .env
 .env.local
 .claude/
+# tsc in-place 编译产物（vitest 只读 .ts，.js 产物禁入版本库）
+packages/core/tests/**/*.js
+packages/core/chaos/**/*.test.js
+hosts/slice/tests/**/*.js
+vitest.config.js
