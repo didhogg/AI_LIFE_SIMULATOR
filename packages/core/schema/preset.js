@@ -29,15 +29,20 @@ export const 玩法预设Schema = z.object({
     派生标记: z.boolean().optional(),
     默认模板: z.boolean().optional(),
     LOD保温窗口: z.number().int().min(0).optional(),
-    // LOD-B2.5 · 模块绑定策略（PR-5c-1·additive·排外·opt-in 漂移触发·不进指纹）
+    // LOD-B2.5 · 漂移绑定策略（PR-5c-1·additive·排外·opt-in 漂移触发·不进指纹）
     // record key '*' = 全模块默认；per-module key 覆盖全局默认；缺省=不参与漂移（实体永全态）
     // Tier A: 触发谓词（DSL 完整谓词串·直接驱动）
     // Tier B: 监测轴 + 触发阈值（合成 '漂移.{监测轴} {触发阈值}'·DSL 谓词片段）
     // 无任何字段 → resolveLodPredicate → null → 引擎跳过·不评估·不 demote
-    模块绑定策略: z.record(z.string(), z.object({
+    漂移绑定策略: z.record(z.string(), z.object({
         触发谓词: 谓词串Schema.optional(), // Tier A: 完整 DSL 谓词·evalPredStr 驱动·排外路径·不进 collectLorePredicates
         监测轴: z.string().optional(), // Tier B: 轴名（如 '声望'/'民心'），经 descriptor.读数值轴 解析
         触发阈值: z.string().optional(), // Tier B: DSL 谓词片段（如 '> 30%'·与监测轴合成完整谓词）
+    })).optional(),
+    // LOD-B2.5 · 模块绑定策略（additive·主权层·不接线·不进指纹·缺省=自由）
+    // record key '*' = 全模块默认；per-module key 覆盖全局默认
+    模块绑定策略: z.record(z.string(), z.object({
+        绑定: z.enum(['锁定', '建议', '自由']).default('自由'),
     })).optional(),
     // ── ③C STOPPED（DSL 版本·常量不匹配·待用户拍板后删）──────────────────────────
     DSL文法版本: z.string().default('1.0'),

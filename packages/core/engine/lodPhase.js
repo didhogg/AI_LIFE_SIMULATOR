@@ -27,7 +27,7 @@ export const LOD_PROMOTE_BUDGET = 8;
 export const LOD_DRIFT_N = 3;
 // ── LOD-B2 opt-in 谓词解析 ────────────────────────────────────────────────────
 /**
- * 从模块绑定策略单条目解析 LOD 触发谓词（纯·三态 Tier A/B/null）。
+ * 从漂移绑定策略单条目解析 LOD 触发谓词（纯·三态 Tier A/B/null）。
  * Tier A: 有 触发谓词 → 直接返回。
  * Tier B: 有 监测轴 AND 触发阈值 → 合成 '漂移.{监测轴} {触发阈值}'。
  * 否则 → null（实体永远全态·不参与漂移评估·不 demote）。
@@ -174,7 +174,7 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
             }
         }
         // 解析有效谓词（Tier A / Tier B / null = 不参与）
-        const rawStrat = preset?.模块绑定策略?.[nodeKey] ?? preset?.模块绑定策略?.['*'];
+        const rawStrat = preset?.漂移绑定策略?.[nodeKey] ?? preset?.漂移绑定策略?.['*'];
         const rawPred = resolveLodPredicate(rawStrat);
         if (pcPresent) {
             promoteCandidates.push({ nodeKey, sortKey });
@@ -268,7 +268,7 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
         const entry = s.LOD表[nodeKey];
         if (entry) {
             delete entry.连续偏离计数;
-            const rawStrat = preset?.模块绑定策略?.[nodeKey] ?? preset?.模块绑定策略?.['*'];
+            const rawStrat = preset?.漂移绑定策略?.[nodeKey] ?? preset?.漂移绑定策略?.['*'];
             const pred = resolveLodPredicate(rawStrat);
             if (pred !== null) {
                 const axes = extractDriftAxes(pred);
@@ -335,7 +335,7 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
                 const lodEntry = s.LOD表[pcLocKey];
                 if (lodEntry) {
                     delete lodEntry.连续偏离计数;
-                    const rawStrat = preset?.模块绑定策略?.[pcLocKey] ?? preset?.模块绑定策略?.['*'];
+                    const rawStrat = preset?.漂移绑定策略?.[pcLocKey] ?? preset?.漂移绑定策略?.['*'];
                     const pred = resolveLodPredicate(rawStrat);
                     if (pred !== null) {
                         const axes = extractDriftAxes(pred);

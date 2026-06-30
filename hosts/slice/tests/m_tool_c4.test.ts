@@ -267,6 +267,6 @@ describe('C4-7 · 守恒门', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(95);
+    expect(total).toBe(96);
   });
 });
