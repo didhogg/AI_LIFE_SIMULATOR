@@ -248,7 +248,7 @@ describe('T7 指纹 84 / schemaKeys 52 守恒', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(97);
+    expect(total).toBe(98);
   });
 
   it('schemaKeys = 53', () => {

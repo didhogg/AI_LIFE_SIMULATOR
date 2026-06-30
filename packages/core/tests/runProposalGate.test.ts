@@ -605,7 +605,7 @@ describe('⊕-4 e2e-1 · happy path：全链 ①→⑤ 含多包 add+clamp+audit
     expect(
       FINGERPRINT_BUNDLE_MEMBERS.length + FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length + FINGERPRINT_EXCLUDED_FIELDS.length,
-    ).toBe(97);
+    ).toBe(98);
   });
 });
 

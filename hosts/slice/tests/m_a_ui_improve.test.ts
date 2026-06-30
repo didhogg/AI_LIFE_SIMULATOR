@@ -256,7 +256,7 @@ describe('恒等门 — 指纹88 / schemaKeys54 守恒', () => {
       ...FINGERPRINT_SNAPSHOT_FIELDS,
       ...FINGERPRINT_EXCLUDED_FIELDS,
     ]);
-    expect(allKeys.size).toBe(97);
+    expect(allKeys.size).toBe(98);
   });
 
   it('RootSchema 顶层 keyCount 仍为 52', () => {

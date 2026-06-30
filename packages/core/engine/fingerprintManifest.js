@@ -135,4 +135,6 @@ export const FINGERPRINT_EXCLUDED_FIELDS = [
     '功能开关override表', // 玩家运行态功能开关覆盖·认知迷雾/舞台追踪/二审严格度/观战推进模式·不影响判定
     // PR-8 R-b · 内容层稀疏覆盖（additive·休眠·不接线·不进判定面·内容走 content_hash）
     '局部覆盖', // 内容包种子稀疏覆盖·预设级内容层·不影响引擎判定面
+    // PR-8 R-c · 结构化包引用（additive·路由层·不影响判定面·下游影响已走生效中内容包集哈希）
+    '引用包', // 结构化 pack_id@semver 引用清单·双读路由层·semver dormant·不影响判定面
 ];

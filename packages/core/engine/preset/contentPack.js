@@ -6,7 +6,7 @@
 import { z } from 'zod';
 import { RootSchema } from '../../schema/index.js';
 import { 种子视图 } from './seedView.js';
-import { 内容包内容ShapeSchema } from '../../schema/contentPackSeed.js';
+import { 内容包内容ShapeSchema, 包引用Schema } from '../../schema/contentPackSeed.js';
 // ── 経済生成規則（内容包裸标量·经 resolve() 聚合·Step0 迁移）────────────────────────
 export const 経済生成規則Schema = z.object({
     品类基线: z.record(z.string(), z.number()).optional(),
@@ -172,4 +172,6 @@ export const 薄清单Schema = z.object({
     离场演化契约: z.array(z.string()).optional(),
     社会角色: z.array(z.string()).optional(),
     基底版本: z.string().optional(),
+    // PR-8 R-c · 引用包（additive·resolve 双读消费端·semver dormant 不接线）
+    引用包: z.array(包引用Schema).optional(),
 });

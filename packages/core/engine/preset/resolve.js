@@ -66,8 +66,13 @@ raceTemplateLib, tacticPackLib, narrativeDistLib, motifVocabLib, motifQuotaLib, 
     const 墓碑库 = {};
     // ── Layer 1: 单包校验 ────────────────────────────────────────────────────────
     const registry = {};
-    for (let i = 0; i < manifest.packs.length; i++) {
-        const packId = manifest.packs[i];
+    // PR-8 R-c · 双读分支：引用包 present → 用其 pack_id 列表；absent → 原 packs 路径不变
+    // semver dormant·本轮只存不读·接线留后续；两路同时 present 时引用包优先、packs 忽略
+    const _packIds = manifest.引用包 !== undefined
+        ? manifest.引用包.map(r => r.pack_id)
+        : manifest.packs;
+    for (let i = 0; i < _packIds.length; i++) {
+        const packId = _packIds[i];
         const pack = library[packId];
         if (!pack)
             continue; // 不在库中 → 静默跳过（不入墓碑·后续 computeLoadOrder 处理悬空依赖）
@@ -686,9 +691,12 @@ export function shimThickPreset(oldPreset) {
         ? oldPreset['packs']
         : [];
     const 薄rules = Object.keys(规则面).length > 0 ? ['shim'] : [];
+    // PR-8 R-c · 透传引用包（只认 array·逐字搬运·不校验内容·缺省不写入）
+    const 引用包Raw = oldPreset['引用包'];
     const manifest = {
         packs: 薄packs,
         ...(薄rules.length > 0 ? { rules: 薄rules } : {}),
+        ...(Array.isArray(引用包Raw) ? { 引用包: 引用包Raw } : {}),
     };
     const ruleLib = {};
     if (薄rules.length > 0) {

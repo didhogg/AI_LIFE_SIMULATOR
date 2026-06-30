@@ -493,13 +493,13 @@ describe('D3 NSFW 物理隔离', () => {
     expect(expectedResult).toBe(false);
   });
 
-  it('指纹 manifest 总条目 = 85（demo 代码不进指纹）', () => {
+  it('指纹 manifest 总条目 = 98（demo 代码不进指纹）', () => {
     const total =
       FINGERPRINT_BUNDLE_MEMBERS.length +
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(97);
+    expect(total).toBe(98);
   });
 
   it('schemaKeys=53 不变（demo 不新增 schema 字段·指纹守恒）', () => {

@@ -392,7 +392,7 @@ describe('A2 · 守恒门', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(97);
+    expect(total).toBe(98);
   });
 
   it('黄金向量：hashPresetFingerprint 确定性（不重定基）', () => {
@@ -484,5 +484,57 @@ describe('P1 · deepMerge 原型污染防护', () => {
     const result = 旧轨叠加({}, { 正常键: 'value', another: 42 });
     expect(result['正常键']).toBe('value');
     expect(result['another']).toBe(42);
+  });
+});
+
+// ── PR-8 R-c · 引用包双读等价 ──────────────────────────────────────────────────
+// 断言⑥  packs 路径 vs 引用包路径 → resolve 输出逐位恒等（双轨等价）
+// 断言⑦  两路同时 present → 引用包优先·不重复装包（both-present 不等价 ≠ double-load）
+
+describe('PR-8 R-c · 引用包双读等价', () => {
+  const mkPack2 = (id: string, seed: Record<string, unknown> = {}) =>
+    内容包条目Schema.parse({
+      pack_id: id,
+      版本: '1.0.0',
+      名称: id,
+      作者: 'test',
+      描述: '',
+      依赖: [],
+      冲突: [],
+      模块种子: seed,
+    });
+
+  it('packs:["a","b"] vs 引用包:[{pack_id:"a"},{pack_id:"b"}] → resolve 输出逐位恒等', () => {
+    const lib = 内容包库Schema.parse({
+      a: mkPack2('a', { 世界: { 地名: '测试城' } }),
+      b: mkPack2('b', { NPC: { 主角: { 姓名: '张三' } } }),
+    });
+    const 旧路径结果 = resolve({ packs: ['a', 'b'] }, lib);
+    const 新路径结果 = resolve({ packs: [], 引用包: [{ pack_id: 'a' }, { pack_id: 'b' }] }, lib);
+    // 逐字段对比（禁手写期望值）
+    expect(新路径结果.成品).toEqual(旧路径结果.成品);
+    expect(新路径结果.生效中内容包集哈希).toBe(旧路径结果.生效中内容包集哈希);
+    expect(新路径结果.生效中包集.map(p => p.pack_id)).toEqual(旧路径结果.生效中包集.map(p => p.pack_id));
+  });
+
+  it('引用包 present + packs 同时 present → 引用包优先·仅装 引用包 所列包（不重复·不装 packs 的额外包）', () => {
+    const lib = 内容包库Schema.parse({
+      a: mkPack2('a'),
+      b: mkPack2('b'),
+      extra: mkPack2('extra'),
+    });
+    // packs 含 extra，引用包 只含 a·b → 应只装 a·b，extra 不进生效集
+    const 结果 = resolve({ packs: ['a', 'b', 'extra'], 引用包: [{ pack_id: 'a' }, { pack_id: 'b' }] }, lib);
+    const ids = 结果.生效中包集.map(p => p.pack_id);
+    expect(ids).toContain('a');
+    expect(ids).toContain('b');
+    expect(ids).not.toContain('extra');
+  });
+
+  it('引用包 absent → 纯 packs 路径行为不变（向后兼容）', () => {
+    const lib = 内容包库Schema.parse({ a: mkPack2('a') });
+    const 有引用包 = resolve({ packs: [], 引用包: [{ pack_id: 'a' }] }, lib);
+    const 无引用包 = resolve({ packs: ['a'] }, lib);
+    expect(有引用包.生效中包集.map(p => p.pack_id)).toEqual(无引用包.生效中包集.map(p => p.pack_id));
   });
 });

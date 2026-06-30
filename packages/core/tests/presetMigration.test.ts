@@ -89,6 +89,17 @@ describe('C2 · shimThickPreset round-trip 等价', () => {
     const r2 = shimThickPreset(THICK_PRESET_RULES as Record<string, unknown>);
     expect(JSON.stringify(r1)).toBe(JSON.stringify(r2));
   });
+
+  it('shimThickPreset 透传 引用包 → manifest.引用包 等于入参（PR-8 R-c）', () => {
+    const 引用包 = [{ pack_id: 'pack_a', semver: '^1.0.0' }, { pack_id: 'pack_b' }];
+    const result = shimThickPreset({ packs: ['pack_a'], 引用包 });
+    expect(result.manifest.引用包).toEqual(引用包);
+  });
+
+  it('shimThickPreset 无 引用包 入参 → manifest.引用包 为 undefined', () => {
+    const result = shimThickPreset({ packs: ['pack_x'] });
+    expect(result.manifest.引用包).toBeUndefined();
+  });
 });
 
 // ── C1 · 玩法预设Schema packs 默认值 ────────────────────────────────────────────

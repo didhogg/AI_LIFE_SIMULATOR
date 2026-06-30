@@ -239,7 +239,7 @@ describe('TC 指纹88 / schemaKeys54 守恒', () => {
   });
 
   it('EXCLUDED_FIELDS = 52', () => {
-    expect(FINGERPRINT_EXCLUDED_FIELDS.length).toBe(54);
+    expect(FINGERPRINT_EXCLUDED_FIELDS.length).toBe(55);
   });
 
   it('schemaKeys = 53', () => {

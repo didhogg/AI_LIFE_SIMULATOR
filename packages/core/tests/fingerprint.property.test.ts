@@ -139,6 +139,8 @@ type FullCtx = {
   AOHP選項id集?: string[];
   // 阶段1 动词选项集整包哈希（preset-level·mod 作者声明·进指纹）
   动词选项集哈希?: string | undefined;
+  // PR-8 R-c 引用包（EXCLUDED·路由层·不进指纹）
+  引用包?: unknown;
   [key: string]: unknown; // index sig for dynamic spread in loops
 };
 
@@ -231,6 +233,7 @@ const BASE_CTX: FullCtx = {
   // 越界动词族·案底状态
   案底:                undefined,
   // AOHP選項id集 在 BASE_CTX 中不设置（optional·undefined by default → 不参与指纹）
+  // PR-8 R-c · 引用包缺省 absent（optional·undefined → 不参与指纹）
 };
 
 /** Extract fingerprint from a FullCtx — excluded fields are invisible to the functions. */
@@ -420,6 +423,8 @@ const EXCLUDED_MUTATIONS: Record<FingerprintExcludedField, unknown> = {
   功能开关override表:  { '认知迷雾': false, '舞台追踪': '强制开', '二审严格度': 80, '观战推进模式': '自动连播' },
   // PR-8 R-b 内容层稀疏覆盖（additive·休眠·不影响判定面）
   局部覆盖:            { 模块种子: { 世界: { 地名: '测试城' } } },
+  // PR-8 R-c 结构化包引用（additive·路由层·不影响判定面）
+  引用包:              [{ pack_id: 'test-pack-rc', semver: '^1.0.0' }],
 };
 type _ExcludedMutationsExhaustive = typeof EXCLUDED_MUTATIONS extends Record<FingerprintExcludedField, unknown> ? true : never;
 const _checkExcluded: _ExcludedMutationsExhaustive = true;

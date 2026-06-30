@@ -430,7 +430,7 @@ describe('T9 指纹守恒 — 84条/schemaKeys=53', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(97);
+    expect(total).toBe(98);
   });
 
   it('schemaKeys = 53（调试控制台/fixture 不新增 schema 顶层键）', () => {

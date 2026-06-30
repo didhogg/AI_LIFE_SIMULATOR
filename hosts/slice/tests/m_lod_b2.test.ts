@@ -125,7 +125,7 @@ describe('B2-0 · 守恒门', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(97);
+    expect(total).toBe(98);
   });
   it('LOD_PROMOTE_BUDGET=8', () => {
     expect(LOD_PROMOTE_BUDGET).toBe(8);

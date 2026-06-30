@@ -289,7 +289,7 @@ describe('C1-7 · 守恒门', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(97);
+    expect(total).toBe(98);
   });
 
   it('工具库条目内容改变 → 指纹不变（整库不进 hashJudgmentBundle）', () => {
