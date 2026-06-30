@@ -4,16 +4,6 @@ import { z } from 'zod';
 import { 谓词串Schema } from './commonEntry.js';
 import { 内容包内容ShapeSchema, 包引用Schema } from './contentPackSeed.js';
 
-// ── 导入保真度三档（对撞·mod/卡导入检验口径）─────────────────────────────────────────
-// compat_strict = 旧版严格兼容（禁任何新字段）
-// compat_plus   = 兼容+扩展（允许已知扩展字段·禁未知字段）
-// native        = 原生 V4.1（完整 schema·最严格验证）
-export const 导入保真度枚举 = ['compat_strict', 'compat_plus', 'native'] as const;
-export type 导入保真度 = (typeof 导入保真度枚举)[number];
-
-// 6.41⑦ 注入面防护：超过此长度的模板正文/风格提示词导入时拒收
-export const 叙事模板正文长度上限 = 4000;
-
 
 // ══════════════════════════════════════════
 // 玩法预设根（顶层）

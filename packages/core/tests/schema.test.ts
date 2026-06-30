@@ -66,7 +66,6 @@ import {
   钳制表Schema,
   死亡拦截器条目Schema,
   换角许可Schema,
-  叙事模板正文长度上限,
   HISTORY_TEXT_MAX,
   编年史条目Schema,
   约定子类型Schema,
@@ -3040,11 +3039,6 @@ describe('6.43 编年史（全局._编年史）', () => {
       结果摘要行: '天下太平',
       媒介附件: { 渠道标签: '邸报', 渲染缓存全文: '正文' },
     }).success).toBe(true);
-  });
-  it('HISTORY_TEXT_MAX 与 叙事模板正文长度上限 是不同常量', () => {
-    expect(HISTORY_TEXT_MAX).toBe(8000);
-    expect(叙事模板正文长度上限).toBe(4000);
-    expect(HISTORY_TEXT_MAX).not.toBe(叙事模板正文长度上限);
   });
   it('SystemSchema: 叙事流高水位序号 默认=0', () => {
     expect(SystemSchema.parse({}).叙事流高水位序号).toBe(0);

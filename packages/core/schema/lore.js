@@ -1,9 +1,13 @@
 // Module 15 — lore 知识库（世界恒真知识层·AI 只读·随玩法预设/mod 包注入·可空零迁移）
 // 口径锁定：docs/design/lore_tool_spec.md；gate/组装器实装留 P0-6/P0-8。
 import { z } from 'zod';
-import { 导入保真度枚举 } from './preset.js';
 import { 谓词串Schema } from './commonEntry.js';
 import { 工具引用Schema } from './toolLibrary.js';
+// ── 导入保真度三档（对撞·mod/卡导入检验口径）─────────────────────────────────────────
+// compat_strict = 旧版严格兼容（禁任何新字段）
+// compat_plus   = 兼容+扩展（允许已知扩展字段·禁未知字段）
+// native        = 原生 V4.1（完整 schema·最严格验证）
+export const 导入保真度枚举 = ['compat_strict', 'compat_plus', 'native'];
 // ══════════════════════════════════════════
 // ② 别名同义词条目（进 S 批归并表·受治理键空间）
 // ══════════════════════════════════════════
