@@ -202,32 +202,6 @@ export const 检定骰面Schema = z.object({
   暴击映射: 暴击映射Schema.default('关'),
 });
 
-// 1b-2. 叙事分发表（6.44）— 键 = 场景锚点（行动名/设施类型/事件标签）
-// 多锚点可指同一媒介；优先序 行动名＞设施＞事件标签，同级平局按键字典序（6.41②）
-const 叙事分发条目Schema = z.object({
-  媒介键引用: z.string().default(''),
-  优先级: z.number().int().optional(),
-});
-
-export const 叙事分发表Schema = z.record(z.string(), 叙事分发条目Schema).default({});
-
-// 1c. 母题词汇表
-export const 母题词汇表Schema = z.record(
-  z.string(), // 母题键
-  z.object({
-    词条: z.array(z.string()).default([]),
-    调味提示词: z.string().optional(),
-  }),
-).default({});
-
-// 1d. 实体模板库（结构待 P0-7+ 补全，先占位）
-export const 实体模板库Schema = z.object({
-  NPC模板: z.array(z.unknown()).default([]),
-  组织模板: z.array(z.unknown()).default([]),
-  // → 定义已迁至 itemLibrary 物品库冰箱·此黑洞待"玩法预设双轨剥离"时删除·勿填（反冗余）
-  物品模板: z.array(z.unknown()).default([]),
-});
-
 // 1e. 开局装配数据（6.42）
 const 序章模板Schema = z.object({
   模式: z.enum(['固定文本', '锚点引导', 'AI自由']).default('AI自由'),
@@ -242,17 +216,6 @@ export const 开局装配数据Schema = z.object({
   出厂行动卡集: z.array(z.string()).default([]),
   序章模板: 序章模板Schema.default({}),
 });
-
-// 1f. 文风库（6.44，原叙事风格预设库更名）
-const 文风条目Schema = z.object({
-  键: z.string().default(''),
-  名称: z.string().default(''),
-  风格提示词: z.string().max(叙事模板正文长度上限), // 6.41⑦同款
-  禁词表引用: z.string().optional(),
-  默认开: z.boolean().default(false),
-});
-
-export const 文风库Schema = z.array(文风条目Schema).default([]);
 
 // ══════════════════════════════════════════
 // P0-5 检定判定层（余量制·双层钳制·进指纹）
@@ -290,35 +253,6 @@ export const 钳制表Schema = z.object({
 // ══════════════════════════════════════════
 // P0-1 4.10 缺口：六项补全
 // ══════════════════════════════════════════
-
-// 缺口一·二审维度库（6.75）
-// 开放·不枚举：反玛丽苏/反油腻/单拍物理矛盾等都是条目，非写死固定项
-// 检测方式二分：机械=跑规则；审稿提示词=喂另一个 AI 评（无权重/评分标尺）
-export const 二审维度条目Schema = z.object({
-  键: z.string().default(''),
-  名称: z.string().default(''),
-  检测方式: z.enum(['机械', '审稿提示词']),
-  规则或提示词: z.string().default(''),
-  阈值: z.number().optional(),
-  默认开: z.boolean().optional(),
-  // L-8 · 越界分类法（enum·非开放串·确定性·L-28 Cheating枚举依赖此）
-  // L-28: 路径+席位已被五道闸结构（runProposalGate·Gate②白名单+C6）覆盖；
-  //        Cheating 枚举在此处落地以供 P0-6 二审维度库引用
-  越界类型: z.enum(['Off-Topic', 'Cheating']).optional(),
-}).strip();
-
-// 缺口二·小剧场剧本库（6.75）
-// 玩家主动点击触发的脑洞剧本（无触发条件、无NPC角色表）
-export const 小剧场剧本条目Schema = z.object({
-  键: z.string().default(''),       // 剧本ID
-  名称: z.string().default(''),
-  图标: z.string().default(''),
-  分类: z.string().default(''),
-  描述: z.string().default(''),
-  提示词: z.string().default(''),
-  读历史默认: z.boolean().optional(),
-  输出格式: z.string().default(''),
-}).strip();
 
 // 缺口三·死亡拦截器条目（缺口1/6.45·list）
 // ⚠ 概率参数住检定配方表（进指纹），本结构只放配方引用，不直接写概率

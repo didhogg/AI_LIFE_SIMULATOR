@@ -64,15 +64,9 @@ import {
   检定骰面Schema,
   检定档切分表Schema,
   钳制表Schema,
-  叙事分发表Schema,
-  二审维度条目Schema,
-  小剧场剧本条目Schema,
   死亡拦截器条目Schema,
   换角许可Schema,
-  母题词汇表Schema,
-  实体模板库Schema,
   开局装配数据Schema,
-  文风库Schema,
   叙事模板正文长度上限,
   HISTORY_TEXT_MAX,
   编年史条目Schema,
@@ -2652,32 +2646,6 @@ describe('4.10 Preset layer', () => {
   it('检定骰面: invalid 暴击映射 wrong string (not 关)', () => {
     expect(检定骰面Schema.safeParse({ 暴击映射: '开' }).success).toBe(false);
   });
-  // 1b. 脚手架随 preset 删除·等价由 golden 保证
-  // 1b-2. 叙事分发表（6.44）— 预设字段已删，独立 schema 测试保留
-  it('叙事分发表: valid 含分发条目', () => {
-    expect(叙事分发表Schema.safeParse({
-      战斗开始: { 媒介键引用: '报纸', 优先级: 1 },
-      市场交易: { 媒介键引用: '告示板' },
-    }).success).toBe(true);
-  });
-  it('叙事分发表: invalid 优先级非整数', () => {
-    expect(叙事分发表Schema.safeParse({
-      锚点A: { 媒介键引用: '日记', 优先级: 1.5 },
-    }).success).toBe(false);
-  });
-  // 1c. 母题词汇表 — 预设字段已删，独立 schema 测试保留
-  it('母题词汇表: valid 含词条', () => {
-    expect(母题词汇表Schema.safeParse({
-      权谋: { 词条: ['阴谋', '暗算', '联盟'], 调味提示词: '尔虞我诈' },
-    }).success).toBe(true);
-  });
-  it('母题词汇表: invalid 词条 wrong type (string instead of array)', () => {
-    expect(母题词汇表Schema.safeParse({ 权谋: { 词条: '阴谋' } }).success).toBe(false);
-  });
-  // 1d. 实体模板库 — 预设字段已删，独立 schema 测试保留
-  it('实体模板库: invalid NPC模板 wrong type (object instead of array)', () => {
-    expect(实体模板库Schema.safeParse({ NPC模板: {}, 组织模板: [], 物品模板: [] }).success).toBe(false);
-  });
   // 1e. 开局装配数据 — 预设字段已删，独立 schema 测试保留
   it('开局装配数据: valid 序章模板.模式=固定文本', () => {
     expect(开局装配数据Schema.safeParse({
@@ -2688,22 +2656,6 @@ describe('4.10 Preset layer', () => {
     expect(开局装配数据Schema.safeParse({
       序章模板: { 模式: '自由发挥' },
     }).success).toBe(false);
-  });
-  // 1f. 文风库（6.44，原叙事风格预设库更名）— 预设字段已删，独立 schema 测试保留
-  it('文风库: valid 含风格条目', () => {
-    expect(文风库Schema.safeParse([
-      { 键: 'wuxia', 名称: '武侠', 风格提示词: '古典武侠，意境深远', 默认开: true },
-    ]).success).toBe(true);
-  });
-  it('文风库: invalid 风格提示词超长度上限', () => {
-    expect(文风库Schema.safeParse([
-      { 键: 'a', 名称: 'b', 风格提示词: 'x'.repeat(叙事模板正文长度上限 + 1) },
-    ]).success).toBe(false);
-  });
-  it('文风库: invalid 风格提示词缺失 (required field)', () => {
-    expect(文风库Schema.safeParse([
-      { 键: 'a', 名称: 'b' },
-    ]).success).toBe(false);
   });
   // P0-5 检定档切分表 防回归断言
   it('检定档切分表: 默认切分界 大胜下限=40, 胜下限=15, 惨胜下限=1, 败下限=-24', () => {
@@ -2767,26 +2719,6 @@ describe('4.10 Preset layer', () => {
   it('$会话状态: 演出层草稿计数拒绝负值', () => {
     expect(RootSchema.shape.$会话状态.safeParse({ 演出层草稿计数: -1 }).success).toBe(false);
   });
-  // ── 缺口一·二审维度库（6.75）— 预设字段已删，独立 schema 测试保留 ──────────────
-  it('二审维度库: 检测方式=机械 valid', () => {
-    expect(二审维度条目Schema.safeParse({
-      键: 'anti_mary_sue', 名称: '反玛丽苏', 检测方式: '机械', 规则或提示词: 'rule:...',
-    }).success).toBe(true);
-  });
-  it('二审维度库: 检测方式=审稿提示词 valid', () => {
-    expect(二审维度条目Schema.safeParse({
-      键: 'anti_oil', 名称: '反油腻', 检测方式: '审稿提示词', 规则或提示词: '请检查是否有油腻描写…',
-      阈值: 0.8, 默认开: true,
-    }).success).toBe(true);
-  });
-  it('二审维度库: 检测方式 二分枚举（无第三值）', () => {
-    expect(二审维度条目Schema.safeParse({ 键: 'x', 检测方式: '权重评分' }).success).toBe(false);
-  });
-  it('二审维度库: 阈值/默认开 absent (optional)', () => {
-    const res = 二审维度条目Schema.parse({ 键: 'x', 检测方式: '机械', 规则或提示词: 'r' });
-    expect(res.阈值).toBeUndefined();
-    expect(res.默认开).toBeUndefined();
-  });
   it('二审维度库: 在 玩法预设 中 valid array', () => {
     expect(玩法预设Schema.safeParse({
       二审维度库: [
@@ -2796,22 +2728,6 @@ describe('4.10 Preset layer', () => {
     }).success).toBe(true);
   });
 
-  // ── 缺口二·小剧场剧本库（6.75）— 预设字段已删，独立 schema 测试保留 ────────────
-  it('小剧场剧本库: valid 剧本条目（含所有字段）', () => {
-    expect(小剧场剧本条目Schema.safeParse({
-      键: 'dream_seq', 名称: '梦境序列', 图标: '🌙', 分类: '奇幻',
-      描述: '主角进入梦境', 提示词: '现在开始叙述一段梦境…',
-      读历史默认: true, 输出格式: 'prose',
-    }).success).toBe(true);
-  });
-  it('小剧场剧本库: 读历史默认 absent (optional)', () => {
-    const res = 小剧场剧本条目Schema.parse({ 键: 'x', 检测方式: '机械' });
-    expect(res.读历史默认).toBeUndefined();
-  });
-  it('小剧场剧本库: 无触发条件字段（strip 验证）', () => {
-    const res = 小剧场剧本条目Schema.parse({ 键: 'x', 触发条件: '到达城市' });
-    expect(res).not.toHaveProperty('触发条件');
-  });
   it('小剧场剧本库: 在 玩法预设 中 valid array', () => {
     expect(玩法预设Schema.safeParse({
       小剧场剧本库: [{ 键: 's1', 名称: '占卜', 图标: '🔮', 分类: '神秘', 描述: '…', 提示词: '…', 输出格式: 'structured' }],
@@ -2880,12 +2796,6 @@ describe('4.10 Preset layer', () => {
   });
   it('防回归: 玩法预设Schema.shape 不含旧键「叙事风格预设库」', () => {
     expect('叙事风格预设库' in 玩法预设Schema.shape).toBe(false);
-  });
-  it('防回归: 文风库条目 parse 后不含已删字段「适用场景」（strip 验证）', () => {
-    const res = 文风库Schema.parse([
-      { 键: 'a', 名称: 'b', 风格提示词: '测试', 适用场景: '武侠世界' },
-    ]);
-    expect(res[0]).not.toHaveProperty('适用场景');
   });
 });
 
@@ -4321,27 +4231,6 @@ describe('L-2b 当时快照 + L-22 来源类型 · 印象条目 optional', () =>
   });
   it('valid: 当时快照 + 来源类型 同批', () => {
     expect(wrap({ ...baseImp, 来源类型: '一手观测', 当时快照: { 所在地点: '校园', 情绪键: '愉快' } }).success).toBe(true);
-  });
-});
-
-// ── L-8 · 二审维度条目 越界类型枚举 ──────────────────────────────────────────
-describe('L-8 · 二审维度条目 越界类型 enum（Off-Topic/Cheating）', () => {
-  it('valid: 无越界类型字段（默认）', () => {
-    const res = 二审维度条目Schema.safeParse({ 键: 'k1', 名称: '测试', 检测方式: '机械', 规则或提示词: '规则A' });
-    expect(res.success).toBe(true);
-    if (res.success) expect(res.data.越界类型).toBeUndefined();
-  });
-  it('valid: 越界类型 = Off-Topic', () => {
-    const res = 二审维度条目Schema.safeParse({ 键: 'k2', 名称: '离题检测', 检测方式: '机械', 规则或提示词: 'r', 越界类型: 'Off-Topic' });
-    expect(res.success).toBe(true);
-  });
-  it('valid: 越界类型 = Cheating', () => {
-    const res = 二审维度条目Schema.safeParse({ 键: 'k3', 名称: '作弊检测', 检测方式: '审稿提示词', 规则或提示词: 'p', 越界类型: 'Cheating' });
-    expect(res.success).toBe(true);
-  });
-  it('invalid: 越界类型不在枚举内（开放串被拒）', () => {
-    const res = 二审维度条目Schema.safeParse({ 键: 'k4', 名称: '越权', 检测方式: '机械', 规则或提示词: 'r', 越界类型: 'Spam' });
-    expect(res.success).toBe(false);
   });
 });
 
