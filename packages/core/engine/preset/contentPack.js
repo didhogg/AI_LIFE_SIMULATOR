@@ -6,7 +6,7 @@
 import { z } from 'zod';
 import { RootSchema } from '../../schema/index.js';
 import { 种子视图 } from './seedView.js';
-import { 历法皮肤Schema, 财富分档参数Schema, 欠债参数Schema, 穿越契约Schema, 开局装配数据Schema, } from '../../schema/preset.js';
+import { 历法皮肤Schema, 财富分档参数Schema, 欠债参数Schema, 穿越契约Schema, 开局装配数据Schema, 経済生成規則Schema, } from '../../schema/preset.js';
 const pack_id正则 = /^[a-z][a-z0-9_]*$/;
 // ── 内容包元数据 — 来源鉴权/依赖声明 ──────────────────────────────────────────
 export const 内容包元数据Schema = z.object({
@@ -73,6 +73,17 @@ export const 内容包条目Schema = z.object({
     欠债参数: 欠债参数Schema.optional(),
     穿越契约: 穿越契约Schema.optional(),
     开局装配数据: 开局装配数据Schema.optional(),
+    経済生成規則: 経済生成規則Schema.optional(),
+    // ── ③1D 休眠裸标量（Step1D 迁入·additive·dormant·resolve() 聚合时取最后声明包的值） ──
+    世界遗产白名单出厂值: z.array(z.string()).optional(),
+    事件来源权重出厂值: z.object({
+        事件包: z.number().min(0).max(100),
+        AI自发: z.number().min(0).max(100),
+    }).optional(),
+    角色激活配置: z.object({
+        激活上限: z.number().min(0).max(100).optional(),
+        沉默下限: z.number().min(0).max(100).optional(),
+    }).optional(),
     // 作者底线·完整键→boolean·false=锁死禁AI改·true=明示允许·不进指纹（内容层·进 content_hash）
     AI控制策略: z.record(z.string(), z.boolean()).optional(),
 }).superRefine((data, ctx) => 运行种子校验(data.模块种子, ctx));

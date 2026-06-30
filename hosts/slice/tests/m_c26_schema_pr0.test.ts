@@ -47,8 +47,6 @@ describe('PR0-1 · 新预设字段不影响 judgment bundle 指纹', () => {
     expect(p.创建时预设版本).toBeUndefined();
     expect(p.派生标记).toBeUndefined();
     expect(p.默认模板).toBeUndefined();
-    expect(p.经济生成规则).toBeUndefined();
-    expect(p.社会熵默认值).toBeUndefined();
   });
 
   it('hashJudgmentBundle 带/不带新字段·输出逐位恒等', () => {
@@ -198,30 +196,25 @@ describe('PR0-5 · 双宿主快照恒等（C2-6 新字段全空跑）', () => {
   });
 });
 
-describe('PR0-6 · 新预设字段写值后解析正确', () => {
-  it('预设带父预设/派生标记 → 解析后值正确', () => {
+describe('PR0-6 · 预设骨架字段写值后解析正确', () => {
+  it('预设带父预设/派生标记/migration_version → 解析后值正确', () => {
     const p = 玩法预设Schema.parse({
       预设ID: 'derived-001',
       父预设: 'base-preset',
       创建时预设版本: '2.0.0',
       派生标记: true,
       默认模板: false,
-      经济生成规则: { 品类基线: { 粮食: 100 }, 衰减率: 0.03 }, // P3-1 定型后字段
-      社会熵默认值: 0.3,
+      migration_version: 1,
     });
     expect(p.父预设).toBe('base-preset');
     expect(p.创建时预设版本).toBe('2.0.0');
     expect(p.派生标记).toBe(true);
     expect(p.默认模板).toBe(false);
-    expect(p.经济生成规则?.衰减率).toBe(0.03);          // P3-1: 旧任意键→新具名字段
-    expect(p.经济生成规则?.品类基线?.['粮食']).toBe(100);
-    expect(p.社会熵默认值).toBe(0.3);
+    expect(p.migration_version).toBe(1);
   });
 
-  it('社会熵默认值边界：0 和 1 合法', () => {
-    expect(玩法预设Schema.parse({ 社会熵默认值: 0 }).社会熵默认值).toBe(0);
-    expect(玩法预设Schema.parse({ 社会熵默认值: 1 }).社会熵默认值).toBe(1);
-    expect(玩法预设Schema.safeParse({ 社会熵默认值: -0.1 }).success).toBe(false);
-    expect(玩法预设Schema.safeParse({ 社会熵默认值: 1.1 }).success).toBe(false);
+  it('migration_version 默认 0·不可为负', () => {
+    expect(玩法预设Schema.parse({}).migration_version).toBe(0);
+    expect(玩法预设Schema.safeParse({ migration_version: -1 }).success).toBe(false);
   });
 });

@@ -2653,11 +2653,7 @@ describe('4.10 Preset layer', () => {
   it('检定骰面: invalid 暴击映射 wrong string (not 关)', () => {
     expect(检定骰面Schema.safeParse({ 暴击映射: '开' }).success).toBe(false);
   });
-  // 1b. 媒介登记表（6.44）
-  it('媒介登记表: 默认 parse 为空 record', () => {
-    const res = 玩法预设Schema.parse({});
-    expect(res.媒介登记表).toEqual({});
-  });
+  // 1b. 媒介登记表（6.44）— 预设字段已删，独立 schema 测试保留
   it('媒介登记表: valid 含媒介条目', () => {
     expect(媒介登记表Schema.safeParse({
       报纸: { 模板正文: '{{日期}}号外', 必填槽位: ['日期'], 引擎槽位: [], 渠道标签: '公开' },
@@ -2673,11 +2669,7 @@ describe('4.10 Preset layer', () => {
       告示板: { 必填槽位: ['地点'] },
     }).success).toBe(false);
   });
-  // 1b-2. 叙事分发表（6.44）
-  it('叙事分发表: 默认 parse 为空 record', () => {
-    const res = 玩法预设Schema.parse({});
-    expect(res.叙事分发表).toEqual({});
-  });
+  // 1b-2. 叙事分发表（6.44）— 预设字段已删，独立 schema 测试保留
   it('叙事分发表: valid 含分发条目', () => {
     expect(叙事分发表Schema.safeParse({
       战斗开始: { 媒介键引用: '报纸', 优先级: 1 },
@@ -2689,11 +2681,7 @@ describe('4.10 Preset layer', () => {
       锚点A: { 媒介键引用: '日记', 优先级: 1.5 },
     }).success).toBe(false);
   });
-  // 1c. 母题词汇表
-  it('母题词汇表: 默认 parse 为空 record', () => {
-    const res = 玩法预设Schema.parse({});
-    expect(res.母题词汇表).toEqual({});
-  });
+  // 1c. 母题词汇表 — 预设字段已删，独立 schema 测试保留
   it('母题词汇表: valid 含词条', () => {
     expect(母题词汇表Schema.safeParse({
       权谋: { 词条: ['阴谋', '暗算', '联盟'], 调味提示词: '尔虞我诈' },
@@ -2702,21 +2690,11 @@ describe('4.10 Preset layer', () => {
   it('母题词汇表: invalid 词条 wrong type (string instead of array)', () => {
     expect(母题词汇表Schema.safeParse({ 权谋: { 词条: '阴谋' } }).success).toBe(false);
   });
-  // 1d. 实体模板库
-  it('实体模板库: 默认 parse 含空数组', () => {
-    const res = 玩法预设Schema.parse({});
-    expect(res.实体模板库.NPC模板).toEqual([]);
-    expect(res.实体模板库.组织模板).toEqual([]);
-    expect(res.实体模板库.物品模板).toEqual([]);
-  });
+  // 1d. 实体模板库 — 预设字段已删，独立 schema 测试保留
   it('实体模板库: invalid NPC模板 wrong type (object instead of array)', () => {
     expect(实体模板库Schema.safeParse({ NPC模板: {}, 组织模板: [], 物品模板: [] }).success).toBe(false);
   });
-  // 1e. 开局装配数据
-  it('开局装配数据: 默认 parse 通过', () => {
-    const res = 玩法预设Schema.parse({});
-    expect(res.开局装配数据.序章模板.模式).toBe('AI自由');
-  });
+  // 1e. 开局装配数据 — 预设字段已删，独立 schema 测试保留
   it('开局装配数据: valid 序章模板.模式=固定文本', () => {
     expect(开局装配数据Schema.safeParse({
       序章模板: { 模式: '固定文本', 正文: '你出生在一个普通家庭' },
@@ -2727,11 +2705,7 @@ describe('4.10 Preset layer', () => {
       序章模板: { 模式: '自由发挥' },
     }).success).toBe(false);
   });
-  // 1f. 文风库（6.44，原叙事风格预设库更名）
-  it('文风库: 默认 parse 为空数组', () => {
-    const res = 玩法预设Schema.parse({});
-    expect(res.文风库).toEqual([]);
-  });
+  // 1f. 文风库（6.44，原叙事风格预设库更名）— 预设字段已删，独立 schema 测试保留
   it('文风库: valid 含风格条目', () => {
     expect(文风库Schema.safeParse([
       { 键: 'wuxia', 名称: '武侠', 风格提示词: '古典武侠，意境深远', 默认开: true },
@@ -2809,10 +2783,7 @@ describe('4.10 Preset layer', () => {
   it('$会话状态: 演出层草稿计数拒绝负值', () => {
     expect(RootSchema.shape.$会话状态.safeParse({ 演出层草稿计数: -1 }).success).toBe(false);
   });
-  // ── 缺口一·二审维度库（6.75）──────────────────────────────────────────────────
-  it('二审维度库: absent (optional)', () => {
-    expect(玩法预设Schema.parse({}).二审维度库).toBeUndefined();
-  });
+  // ── 缺口一·二审维度库（6.75）— 预设字段已删，独立 schema 测试保留 ──────────────
   it('二审维度库: 检测方式=机械 valid', () => {
     expect(二审维度条目Schema.safeParse({
       键: 'anti_mary_sue', 名称: '反玛丽苏', 检测方式: '机械', 规则或提示词: 'rule:...',
@@ -2841,10 +2812,7 @@ describe('4.10 Preset layer', () => {
     }).success).toBe(true);
   });
 
-  // ── 缺口二·小剧场剧本库（6.75）──────────────────────────────────────────────
-  it('小剧场剧本库: absent (optional)', () => {
-    expect(玩法预设Schema.parse({}).小剧场剧本库).toBeUndefined();
-  });
+  // ── 缺口二·小剧场剧本库（6.75）— 预设字段已删，独立 schema 测试保留 ────────────
   it('小剧场剧本库: valid 剧本条目（含所有字段）', () => {
     expect(小剧场剧本条目Schema.safeParse({
       键: 'dream_seq', 名称: '梦境序列', 图标: '🌙', 分类: '奇幻',
@@ -2918,47 +2886,9 @@ describe('4.10 Preset layer', () => {
     expect(换角许可Schema.safeParse({ 次数上限: -1 }).success).toBe(false);
   });
 
-  // ── 缺口五·世界遗产白名单出厂值（6.45）──────────────────────────────────────
-  it('世界遗产白名单出厂值: absent (optional)', () => {
-    expect(玩法预设Schema.parse({}).世界遗产白名单出厂值).toBeUndefined();
-  });
-  it('世界遗产白名单出厂值: valid 路径列表', () => {
-    expect(玩法预设Schema.safeParse({
-      世界遗产白名单出厂值: ['$meta.周目谱系', '全局.家族树', '全局._编年史'],
-    }).success).toBe(true);
-  });
-  it('世界遗产白名单出厂值: 空数组合法（mod 可覆盖）', () => {
-    expect(玩法预设Schema.safeParse({ 世界遗产白名单出厂值: [] }).success).toBe(true);
-  });
+  // ── 缺口五·世界遗产白名单出厂值（6.45）— 预设字段已删，迁入内容包 ──────────────
 
-  // ── 缺口六确认·穿越契约（无需新增，现状即是预设级定义）────────────────────────
-  it('穿越契约: 现有 optional 即预设级定义（无单独出厂值字段）', () => {
-    expect(玩法预设Schema.parse({}).穿越契约).toBeUndefined();
-    expect(玩法预设Schema.safeParse({
-      穿越契约: { 属性映射: { '智慧': '智力' }, 货币处理: '按汇率', 时间比率: 2 },
-    }).success).toBe(true);
-  });
-
-  // ── 顺手·离场演化契约出厂模板（6.45·契约来路②兜底）────────────────────────
-  it('离场演化契约出厂模板: absent (optional)', () => {
-    expect(玩法预设Schema.parse({}).离场演化契约出厂模板).toBeUndefined();
-  });
-  it('离场演化契约出厂模板: valid record(组织类型→模板)', () => {
-    expect(玩法预设Schema.safeParse({
-      离场演化契约出厂模板: {
-        '朝廷机构': { 解散概率: 0.1, 继承者: '户部' },
-        '商会': { 解散概率: 0.3, 继承者: null },
-      },
-    }).success).toBe(true);
-  });
-
-  // ── 实体模板库确认·保持 z.unknown() 占位 ──────────────────────────────────
-  it('实体模板库: z.unknown() 占位，各模板数组默认空', () => {
-    const res = 玩法预设Schema.parse({});
-    expect(res.实体模板库.NPC模板).toEqual([]);
-    expect(res.实体模板库.组织模板).toEqual([]);
-    expect(res.实体模板库.物品模板).toEqual([]);
-  });
+  // ── 缺口六/顺手·穿越契约/离场演化契约/实体模板库 — 预设字段已删，迁入内容包 ─────
 
   // 6.44 防回归断言：旧键名已从 玩法预设 和文风条目中删除
   it('防回归: 玩法预设Schema.shape 不含旧键「叙事格式表」', () => {
@@ -4361,35 +4291,11 @@ describe('L-1/L-6 · 性格五轴 facet optional 子结构', () => {
   });
 });
 
-// ── L-1/L-6 · 社会角色参数 + L-7 · 角色激活配置 ────────────────────────────
-describe('L-1/L-6 社会角色参数 + L-7 角色激活配置 · 玩法预设 optional', () => {
-  it('valid: 玩法预设无社会角色参数（默认路径）', () => {
+// ── L-1/L-6 · 社会角色参数 + L-7 · 角色激活配置 — 预设字段已删，骨架空跑校验 ──
+describe('L-1/L-6 社会角色参数 + L-7 角色激活配置 · 玩法预设骨架', () => {
+  it('valid: 玩法预设无社会角色参数（字段已迁出·骨架 parse 成功）', () => {
     const res = 玩法预设Schema.safeParse({});
     expect(res.success).toBe(true);
-    if (res.success) {
-      expect(res.data.社会角色定义表).toBeUndefined();
-      expect(res.data.角色激活配置).toBeUndefined();
-    }
-  });
-  it('valid: 社会角色三表同时提供', () => {
-    const res = 玩法预设Schema.safeParse({
-      社会角色定义表: { '学生': { 名称: '学生' }, '老师': { 名称: '老师' } },
-      社会角色权重表: { '玩家': { '学生': 0.8, '老师': 0.2 } },
-      社会角色效应量表: { '学生→社交': 0.3 },
-    });
-    expect(res.success).toBe(true);
-  });
-  it('valid: L-7 角色激活配置 激活上限+沉默下限', () => {
-    const res = 玩法预设Schema.safeParse({ 角色激活配置: { 激活上限: 70, 沉默下限: 30 } });
-    expect(res.success).toBe(true);
-    if (res.success) {
-      expect(res.data.角色激活配置?.激活上限).toBe(70);
-      expect(res.data.角色激活配置?.沉默下限).toBe(30);
-    }
-  });
-  it('invalid: 激活上限超出 0-100', () => {
-    const res = 玩法预设Schema.safeParse({ 角色激活配置: { 激活上限: 110 } });
-    expect(res.success).toBe(false);
   });
 });
 

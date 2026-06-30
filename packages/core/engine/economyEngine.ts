@@ -11,7 +11,7 @@
 // Math.round 允许（IEEE 754 整数舍入·确定性）
 
 import { type RootState } from '../schema/index.js';
-import { type 玩法预设Type } from '../schema/preset.js';
+import { type 経済生成規則Type } from '../schema/preset.js';
 import { fixedPow, v1 } from './math/fixed.js';
 import { resolveFormula, type FormulaResolveConfig } from './formulaRegistry.js';
 import type { DslContext } from './dsl/eval.js';
@@ -44,25 +44,25 @@ export function hasActiveWar(state: RootState): boolean {
 /**
  * 派生有效价格（只读·不写 state）。
  *
- * 退化守卫：preset 无 经济生成规则 → 返回 区域物价[regionId][category].基准价（或 0）。
+ * 退化守卫：economyRule=undefined → 返回 区域物价[regionId][category].基准价（或 0）。
  * 公式：baseline × clamp(1 + rawCorrection × decayFactor, LO, HI)
  *   rawCorrection = Σ(weight_i × signal_i)
  *   decayFactor   = pow(1 - 衰减率, 当前拍计数)   [P3-3 闭式]
  *
- * @param state      当前 RootState（只读）
- * @param preset     当前挂载预设对象（caller 传入；为 undefined → 退化）
- * @param regionId   区域节点键（state.地图.地点 中 类别='区域级' 的键）
- * @param category   品类键（与 区域物价[regionId] 的内层键一致）
+ * @param state        当前 RootState（只读）
+ * @param economyRule  経済生成規則（来自 resolve().聚合経済生成規則；为 undefined → 退化）
+ * @param regionId     区域节点键（state.地图.地点 中 类别='区域级' 的键）
+ * @param category     品类键（与 区域物价[regionId] 的内层键一致）
  * @returns 有效价格整数（Math.round·与 基准价 同单位）
  */
 export function deriveEffectivePrice(
   state: RootState,
-  preset: 玩法预设Type | undefined,
+  economyRule: 経済生成規則Type | undefined,
   regionId: string,
   category: string,
   formulaConfig?: FormulaResolveConfig,
 ): number {
-  const rule = preset?.经济生成规则;
+  const rule = economyRule;
   const stateBase = state.地图?.区域物价?.[regionId]?.[category]?.基准价 ?? 0;
 
   if (!rule) return stateBase;
@@ -125,26 +125,26 @@ export function computeRelativeDrift(cur: number, baseline: number): number {
  *  · 不回写只读预设对象
  *  · 不新增顶层 schemaKey（候选基线 是 区域物价 内层字段）
  *
- * @param state     当前 RootState（in-place 写候选基线）
- * @param preset    当前挂载预设（为 undefined → 退化 no-op）
- * @param regionId  区域节点键
- * @param category  品类键
+ * @param state        当前 RootState（in-place 写候选基线）
+ * @param economyRule  経済生成規則（来自 resolve().聚合経済生成規則；为 undefined → 退化 no-op）
+ * @param regionId     区域节点键
+ * @param category     品类键
  */
 export function applyDriftCandidate(
   state: RootState,
-  preset: 玩法预设Type | undefined,
+  economyRule: 経済生成規則Type | undefined,
   regionId: string,
   category: string,
   formulaConfig?: FormulaResolveConfig,
 ): void {
-  const rule = preset?.经济生成规则;
+  const rule = economyRule;
   if (!rule) return;
 
   const entry = state.地图?.区域物价?.[regionId]?.[category];
   const stateBaseline = entry?.基准价 ?? 0;
   if (stateBaseline === 0) return;
 
-  const effective = deriveEffectivePrice(state, preset, regionId, category, formulaConfig);
+  const effective = deriveEffectivePrice(state, economyRule, regionId, category, formulaConfig);
   const drift = computeRelativeDrift(effective, stateBaseline);
   const _driftThreshold = resolveFormula('economy_drift_threshold', formulaConfig);
   if (drift <= _driftThreshold) return;

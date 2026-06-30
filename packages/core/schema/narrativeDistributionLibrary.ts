@@ -12,6 +12,7 @@ export const 叙事分发ID正则 = /^[a-z][a-z0-9_]*$/;
 export const 叙事分发定义条目Schema = z.object({
   // 信封
   名称: z.string(),
+  作者: z.string().optional(),
   版本: z.string().optional(),
   描述: z.string().optional(),
   内容哈希: z.string().optional(),

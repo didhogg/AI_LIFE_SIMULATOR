@@ -613,6 +613,7 @@ raceTemplateLib, tacticPackLib, narrativeDistLib, motifVocabLib, motifQuotaLib, 
     let 聚合欠债参数 = undefined;
     let 聚合穿越契约 = undefined;
     let 聚合开局装配数据 = undefined;
+    let 聚合経済生成規則 = undefined;
     for (const pack of 生效中包集) {
         const p = pack;
         if (p['历法皮肤'] !== undefined)
@@ -625,6 +626,8 @@ raceTemplateLib, tacticPackLib, narrativeDistLib, motifVocabLib, motifQuotaLib, 
             聚合穿越契约 = p['穿越契约'];
         if (p['开局装配数据'] !== undefined)
             聚合开局装配数据 = p['开局装配数据'];
+        if (p['経済生成規則'] !== undefined)
+            聚合経済生成規則 = p['経済生成規則'];
     }
     return {
         成品, _mod墓碑库: 墓碑库, 生效中包集, 生效中内容包集哈希,
@@ -654,6 +657,7 @@ raceTemplateLib, tacticPackLib, narrativeDistLib, motifVocabLib, motifQuotaLib, 
         ...(聚合欠债参数 !== undefined ? { 聚合欠债参数 } : {}),
         ...(聚合穿越契约 !== undefined ? { 聚合穿越契约 } : {}),
         ...(聚合开局装配数据 !== undefined ? { 聚合开局装配数据 } : {}),
+        ...(聚合経済生成規則 !== undefined ? { 聚合経済生成規則 } : {}),
     };
 }
 // ── shimThickPreset — 厚预设存档 shim（C2 确定性迁移工具）────────────────────────

@@ -177,6 +177,8 @@ export interface 解析结果 {
   聚合穿越契约?:     unknown;
   /** 开局装配数据 (last-write-wins · dormant · 不进 hashJudgmentBundle) */
   聚合开局装配数据?: unknown;
+  /** 経済生成規則 (last-write-wins · dormant · 不进 hashJudgmentBundle) */
+  聚合経済生成規則?: unknown;
 }
 
 // ── 确定性深合并（无 Date/random/副作用·对象递归展开·数组/叶节点后载覆盖） ───
@@ -824,6 +826,7 @@ export function resolve(
   let 聚合欠债参数:     unknown = undefined;
   let 聚合穿越契约:     unknown = undefined;
   let 聚合开局装配数据: unknown = undefined;
+  let 聚合経済生成規則: unknown = undefined;
 
   for (const pack of 生效中包集) {
     const p = pack as Record<string, unknown>;
@@ -832,6 +835,7 @@ export function resolve(
     if (p['欠债参数']     !== undefined) 聚合欠债参数     = p['欠债参数'];
     if (p['穿越契约']     !== undefined) 聚合穿越契约     = p['穿越契约'];
     if (p['开局装配数据'] !== undefined) 聚合开局装配数据 = p['开局装配数据'];
+    if (p['経済生成規則'] !== undefined) 聚合経済生成規則 = p['経済生成規則'];
   }
 
   return {
@@ -862,6 +866,7 @@ export function resolve(
     ...(聚合欠债参数     !== undefined ? { 聚合欠债参数 }     : {}),
     ...(聚合穿越契约     !== undefined ? { 聚合穿越契约 }     : {}),
     ...(聚合开局装配数据 !== undefined ? { 聚合开局装配数据 } : {}),
+    ...(聚合経済生成規則 !== undefined ? { 聚合経済生成規則 } : {}),
   };
 }
 

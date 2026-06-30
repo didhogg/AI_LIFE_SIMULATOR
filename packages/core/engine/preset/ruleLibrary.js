@@ -4,7 +4,7 @@
 // 纯 schema + 派生常量·无副作用·禁 Date.now/Math.random/window/document
 // schemaKeys 守恒 52：规则库属装配层·不进 RootSchema
 import { z } from 'zod';
-import { 难度系数组Schema, 属性轴表Schema, 检定配方表Schema, 派生量配方Schema, 赛事结构模板Schema, 规则补丁Schema, 检定骰面Schema, 检定档切分表Schema, 钳制表Schema, 概率域夹逼Schema, 死亡拦截器条目Schema, 换角许可Schema, } from '../../schema/preset.js';
+import { 难度系数组Schema, 属性轴表Schema, 检定配方表Schema, 派生量配方Schema, 赛事结构模板Schema, 规则补丁Schema, 检定骰面Schema, 检定档切分表Schema, 钳制表Schema, 概率域夹逼Schema, 死亡拦截器条目Schema, 换角许可Schema, 粒度模板覆盖Schema, } from '../../schema/preset.js';
 import { 种子视图 } from './seedView.js';
 const rule_id正则 = /^[a-z][a-z0-9_]*$/;
 // ── 规则元数据 — mirror 内容包元数据口径（rule_id 正则同 pack_id） ─────────────
@@ -58,6 +58,14 @@ export const 规则面Schema = z.object({
     换角许可: 种子视图(换角许可Schema).optional(),
     // 玩法预设 :522 归并表（一并纳入）
     归并表: z.record(z.string(), z.unknown()).optional(),
+    // ── ③1A 判定面补完（粒度/纠缠闭包/约定谓词/级联限制·Step1A 迁入·dormant）──────
+    粒度模板覆盖: 种子视图(粒度模板覆盖Schema).optional(),
+    纠缠闭包弱边阈值: z.number().min(0).max(1).optional(),
+    约定谓词集: z.record(z.string(), z.string()).optional(),
+    级联限制: z.object({
+        最大深度: z.number().int().min(0),
+        最大轮数: z.number().int().min(0),
+    }).optional(),
 });
 // ── 规则条目 = 规则元数据 + 规则面 ──────────────────────────────────────────────
 // 规则面 schema 自带结构校验（种子视图 passthrough）·与 内容包条目Schema 同族模式
@@ -67,5 +75,5 @@ export const 规则条目Schema = z.object({
 });
 // ── 规则库 = record<rule_id, 规则条目>.default({}) ──────────────────────────────
 export const 规则库Schema = z.record(z.string().regex(rule_id正则), 规则条目Schema).default({});
-// 规则面键集（13 项：12 张规则表 + 归并表·供外部引用·派生自 规则面Schema.shape）
+// 规则面键集（17 项：12 张规则表 + 归并表 + ③1A 四字段·供外部引用·派生自 规则面Schema.shape）
 export const 规则面键集 = Object.keys(规则面Schema.shape);

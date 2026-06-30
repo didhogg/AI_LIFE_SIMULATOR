@@ -55,6 +55,10 @@ export interface SwapPresetResult {
   chainValid: boolean;
   /** 未注册句柄警告·D4 断链警示（fail-open·纯日志·不阻断） */
   warnings: string[];
+  /** 旧格式预设被 strip 后 migration_version 自动 +1 → 为 true 时建议提示作者升级预设 */
+  presetMigrated: boolean;
+  /** 有效的 migration_version（旧格式预设自动 +1） */
+  effectiveMigrationVersion: number;
 }
 
 // ── P1-1: swapPreset —————————————————————————————————————————————————————————
@@ -82,7 +86,12 @@ export function swapPreset(
   const warnings: string[] = [];
 
   // ① Zod parse（throws ZodError if invalid）
+  // 旧格式预设含已迁出域字段 → Zod strip 后有剩余键 → migration_version 自动 +1
+  const knownPresetKeys = new Set(Object.keys(玩法预设Schema.shape));
+  const hasStrippedKeys = typeof newPreset === 'object' && newPreset !== null
+    && Object.keys(newPreset).some(k => !knownPresetKeys.has(k));
   const parsed = 玩法预设Schema.parse(newPreset);
+  const effectiveMigrationVersion = hasStrippedKeys ? parsed.migration_version + 1 : parsed.migration_version;
   const newPresetId = parsed.预设ID || '__preset__';
 
   // ② 目标域
@@ -108,7 +117,7 @@ export function swapPreset(
     opts.schemaVersion === prevSchemaVersion &&
     newDifficultyFingerprint === prevDifficultyFP
   ) {
-    return { state, openedNewSegment: false, chainValid: true, warnings };
+    return { state, openedNewSegment: false, chainValid: true, warnings, presetMigrated: hasStrippedKeys, effectiveMigrationVersion };
   }
 
   // ③ 卸旧预设命名空间
@@ -168,6 +177,8 @@ export function swapPreset(
     openedNewSegment: needNewSeg,
     chainValid: chainResult.valid,
     warnings,
+    presetMigrated: hasStrippedKeys,
+    effectiveMigrationVersion,
   };
 }
 

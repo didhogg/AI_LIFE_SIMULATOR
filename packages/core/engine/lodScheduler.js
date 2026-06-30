@@ -54,18 +54,18 @@ export function promoteNode(state, nodeKey, seed) {
  * - 离开再聚合：对该区域所有品类调用 applyDriftCandidate（P14·复用 PR-3）
  * - 写 LOD表[nodeKey].档位='粗'，清空 保温到期拍号（原子转换）
  */
-export function demoteNode(state, nodeKey, preset) {
+export function demoteNode(state, nodeKey, preset, economyRule) {
     if (state.LOD表?.[nodeKey]?.档位 !== '实体')
         return; // 幂等（含 undefined）
     state.LOD表 ??= {};
-    // 离开再聚合（P14·复用 PR-3 applyDriftCandidate）
-    if (preset?.经济生成规则) {
+    // 离开再聚合（P14·复用 PR-3 applyDriftCandidate·経済ルール 来自 resolve().聚合経済生成規則）
+    if (economyRule) {
         const locs = state.地图?.地点 ?? {};
         const regionId = locRegion(nodeKey, locs) ?? nodeKey;
         const regionPrices = state.地图?.区域物价?.[regionId];
         if (regionPrices) {
             for (const category of Object.keys(regionPrices)) {
-                applyDriftCandidate(state, preset, regionId, category);
+                applyDriftCandidate(state, economyRule, regionId, category);
             }
         }
     }
@@ -108,10 +108,10 @@ export function checkWarmWindow(state, nodeKey, currentTick) {
  * 尝试 demote（考虑保温窗口·in-place）。
  * 窗口内 → no-op（复用实体态）；超窗 → demoteNode。
  */
-export function tryDemoteNode(state, nodeKey, currentTick, preset) {
+export function tryDemoteNode(state, nodeKey, currentTick, preset, economyRule) {
     if (checkWarmWindow(state, nodeKey, currentTick))
         return;
-    demoteNode(state, nodeKey, preset);
+    demoteNode(state, nodeKey, preset, economyRule);
 }
 // ── P4-3 · 跨区自动物化/解聚 ──────────────────────────────────────────────────
 /**

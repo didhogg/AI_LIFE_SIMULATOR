@@ -46,7 +46,12 @@ export const WORLD_OWNED_STATE_KEYS = [
 export function swapPreset(state, newPreset, opts = {}, resolvedRules) {
     const warnings = [];
     // ① Zod parse（throws ZodError if invalid）
+    // 旧格式预设含已迁出域字段 → Zod strip 后有剩余键 → migration_version 自动 +1
+    const knownPresetKeys = new Set(Object.keys(玩法预设Schema.shape));
+    const hasStrippedKeys = typeof newPreset === 'object' && newPreset !== null
+        && Object.keys(newPreset).some(k => !knownPresetKeys.has(k));
     const parsed = 玩法预设Schema.parse(newPreset);
+    const effectiveMigrationVersion = hasStrippedKeys ? parsed.migration_version + 1 : parsed.migration_version;
     const newPresetId = parsed.预设ID || '__preset__';
     // ② 目标域
     const domainKeys = Object.keys(state.世界域);
@@ -66,7 +71,7 @@ export function swapPreset(state, newPreset, opts = {}, resolvedRules) {
         opts.engineVersion === prevEngineVersion &&
         opts.schemaVersion === prevSchemaVersion &&
         newDifficultyFingerprint === prevDifficultyFP) {
-        return { state, openedNewSegment: false, chainValid: true, warnings };
+        return { state, openedNewSegment: false, chainValid: true, warnings, presetMigrated: hasStrippedKeys, effectiveMigrationVersion };
     }
     // ③ 卸旧预设命名空间
     const registryAfterUnload = oldPresetId
@@ -119,6 +124,8 @@ export function swapPreset(state, newPreset, opts = {}, resolvedRules) {
         openedNewSegment: needNewSeg,
         chainValid: chainResult.valid,
         warnings,
+        presetMigrated: hasStrippedKeys,
+        effectiveMigrationVersion,
     };
 }
 // ── P1-4: unloadPreset ────────────────────────────────────────────────────────

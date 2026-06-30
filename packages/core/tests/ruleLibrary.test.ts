@@ -141,8 +141,8 @@ describe('底座-2b · 规则库Schema · parse', () => {
     expect(r.success).toBe(true);
   });
 
-  it('规则面键集 = 13 项（12 表 + 归并表）', () => {
-    expect(规则面键集.length).toBe(13);
+  it('规则面键集 = 17 项（12 表 + 归并表 + ③1A 四字段）', () => {
+    expect(规则面键集.length).toBe(17);
     expect(规则面键集).toContain('难度系数组');
     expect(规则面键集).toContain('归并表');
   });
@@ -510,8 +510,8 @@ describe('底座-2b · 守恒门', () => {
     expect(total).toBe(95);
   });
 
-  it('规则面键集 = 13（12 张规则表 + 归并表）', () => {
-    expect(规则面键集.length).toBe(13);
+  it('规则面键集 = 17（12 张规则表 + 归并表 + ③1A 四字段）', () => {
+    expect(规则面键集.length).toBe(17);
   });
 });
 

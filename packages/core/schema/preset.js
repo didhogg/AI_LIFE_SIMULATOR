@@ -394,75 +394,29 @@ export const 动词选项条目Schema = z.object({
     max: z.number().optional(), // 数值槽最大值
     display_text: z.string().optional(), // 显示标签（不纳入 option_id·纯展示）
 }).strip();
+// ── 経済生成規則（内容包裸标量·经 resolve() 聚合·Step0 迁移）──────────────────────
+export const 経済生成規則Schema = z.object({
+    品类基线: z.record(z.string(), z.number()).optional(),
+    资源紧张度权重: z.number().min(0).max(1).optional(),
+    供需权重: z.number().min(0).max(1).optional(),
+    战时修正权重: z.number().min(0).max(1).optional(),
+    衰减率: z.number().min(0).max(1).optional(),
+});
 // ══════════════════════════════════════════
 // 玩法预设根（顶层）
 // ══════════════════════════════════════════
 export const 玩法预设Schema = z.object({
+    // ── ① 骨架（拼装器/冰箱清单·没声明=不存在）────────────────────────────────────
     预设ID: z.string().default(''),
     名称: z.string().default(''),
     版本: z.string().default('0.1.0'),
     作者: z.string().default(''),
     描述: z.string().default(''),
+    migration_version: z.number().int().min(0).default(0),
     // ── 薄清单（装配层·指向内容包库+规则库·由 resolve() 处理）─────────────────────
     packs: z.array(z.string()).default([]), // 内容包引用列表（按顺序·后列覆盖先列）
     rules: z.array(z.string()).optional(), // 规则引用列表（按顺序·后列覆盖先载）
-    历法皮肤: 历法皮肤Schema.default({}),
-    种族模板: 种族模板Schema,
-    粒度模板覆盖: 粒度模板覆盖Schema,
-    行动点上限: z.number().int().min(1).default(4),
-    母题配额: 母题配额Schema,
-    媒体渠道表: 媒体渠道表Schema,
-    战术包: 战术包Schema,
-    学业制式库: 学业制式库Schema,
-    职级体系库: 职级体系库Schema,
-    财富分档参数: 财富分档参数Schema.default({}),
-    欠债参数: 欠债参数Schema.default({}),
-    事件来源权重出厂值: z.object({
-        事件包: z.number().min(0).max(100).default(50),
-        AI自发: z.number().min(0).max(100).default(50),
-    }).default({}),
-    穿越契约: 穿越契约Schema.optional(),
-    // ── 4.11 · 6.41 · 6.42 · 6.44 叙事面容器字段 ──
-    媒介登记表: 媒介登记表Schema,
-    叙事分发表: 叙事分发表Schema,
-    母题词汇表: 母题词汇表Schema,
-    实体模板库: 实体模板库Schema.default({}),
-    开局装配数据: 开局装配数据Schema.default({}),
-    文风库: 文风库Schema,
-    // 6.66·纠缠闭包弱边阈值（判定面·随整包入指纹）
-    纠缠闭包弱边阈值: z.number().min(0).max(1).default(0.2),
-    账面安全界限: 账面安全界限Schema, // H1·入账前 clamp·不进指纹（安全执行层·非判定面）
-    // ── 指纹族补完（Q5/J5·入 hashJudgmentBundle·判定面整包·零迁移）────────────────
-    约定谓词集: z.record(z.string(), z.string()).optional(), // Q5·约定库谓词/选择器谓词定义表
-    级联限制: z.object({
-        最大深度: z.number().int().min(0).default(8),
-        最大轮数: z.number().int().min(0).default(32),
-    }).optional(),
-    DSL文法版本: z.string().default('1.0'),
-    // §十A 分层方案·v1={min,max,clamp,pow,sqrt}全逐位恒等固定实现·增列超越函数时 bump
-    求值器函数库版本: z.number().int().min(1).default(1),
-    // ── P0-1 4.10 缺口 ──────────────────────────────────────────────────────────
-    二审维度库: z.array(二审维度条目Schema).optional(),
-    小剧场剧本库: z.array(小剧场剧本条目Schema).optional(),
-    // 缺口五·世界遗产白名单出厂值（6.45·路径列表·mod可覆盖）
-    世界遗产白名单出厂值: z.array(z.string()).optional(),
-    // 离场演化契约出厂模板（6.45·契约来路②兜底·record(组织类型→模板)）
-    离场演化契约出厂模板: z.record(z.string(), z.unknown()).optional(),
-    // ── Phase-L 补漏批 ────────────────────────────────────────────────────────
-    社会角色定义表: z.record(z.string(), z.object({
-        名称: z.string().default(''),
-        描述: z.string().optional(),
-    })).optional(),
-    社会角色权重表: z.record(z.string(), z.record(z.string(), z.number())).optional(),
-    社会角色效应量表: z.record(z.string(), z.number()).optional(),
-    角色激活配置: z.object({
-        激活上限: z.number().min(0).max(100).optional(),
-        沉默下限: z.number().min(0).max(100).optional(),
-    }).optional(),
-    // ── 动词选项集（AOHP·mod 作者经动词表声明的确定性候选选项集）──────────────────
-    // 进 PRESET 指纹（hashCanonical(动词选项集) → hashPresetFingerprint 的 动词选项集哈希）
-    动词选项集: z.array(动词选项条目Schema).max(99).optional(),
-    // ── PR-0 · 预设元数据 v2 留位（additive·空跑·消费留 G2 / PR-1~5）────────────────
+    // ── PR-0 · 预设元数据 v2（additive·空跑·消费留 G2 / PR-1~5）───────────────────
     父预设: z.string().optional(),
     创建时预设版本: z.string().optional(),
     派生标记: z.boolean().optional(),
@@ -478,24 +432,8 @@ export const 玩法预设Schema = z.object({
         监测轴: z.string().optional(), // Tier B: 轴名（如 '声望'/'民心'），经 descriptor.读数值轴 解析
         触发阈值: z.string().optional(), // Tier B: DSL 谓词片段（如 '> 30%'·与监测轴合成完整谓词）
     })).optional(),
-    经济生成规则: z.object({
-        品类基线: z.record(z.string(), z.number()).optional(),
-        资源紧张度权重: z.number().min(0).max(1).optional(),
-        供需权重: z.number().min(0).max(1).optional(),
-        战时修正权重: z.number().min(0).max(1).optional(),
-        衰减率: z.number().min(0).max(1).optional(),
-    }).optional(),
-    社会熵默认值: z.number().min(0).max(1).optional(),
-    // ── 社会动力学表（G2-1/C2-5 判定面·作者可配·缺省=引擎默认·进 hashJudgmentBundle）───
-    情绪维度表: z.record(z.string(), z.object({
-        pos: z.string(),
-        neg: z.string(),
-        coeff: z.number(),
-    })).optional(),
-    人口密度系数表: z.record(z.string(), z.number()).optional(),
-    场景传播系数表: z.record(z.string(), z.number()).optional(),
-    IC边类型率表: z.record(z.string(), z.number()).optional(),
-    复杂传播标签集: z.array(z.string()).optional(),
-    体质分档断点: z.object({ tiers: z.array(z.number().int().min(0)) }).optional(),
-    组织层级边类型集: z.array(z.string()).optional(), // 追加边类型视为层级关系（默认集含'层级'/'隶属'）
+    // ── ③C STOPPED（DSL 版本·常量不匹配·待用户拍板后删）──────────────────────────
+    DSL文法版本: z.string().default('1.0'),
+    // §十A 分层方案·v1={min,max,clamp,pow,sqrt}全逐位恒等固定实现·增列超越函数时 bump
+    求值器函数库版本: z.number().int().min(1).default(1),
 });

@@ -11,7 +11,7 @@
 // 红线：gate.ts/rng.ts/conservation.ts/computeDelta.ts/fixed.ts/propagateRipple 函数体零 diff
 
 import type { RootState } from '../schema/index.js';
-import type { 玩法预设Type } from '../schema/preset.js';
+import type { 玩法预设Type, 経済生成規則Type } from '../schema/preset.js';
 import type { LOD态条目 } from '../schema/lodTable.js';
 import { 穿越契约Schema } from '../schema/preset.js';
 import type { z } from 'zod';
@@ -66,18 +66,23 @@ export function promoteNode(state: RootState, nodeKey: string, seed: number): vo
  * - 离开再聚合：对该区域所有品类调用 applyDriftCandidate（P14·复用 PR-3）
  * - 写 LOD表[nodeKey].档位='粗'，清空 保温到期拍号（原子转换）
  */
-export function demoteNode(state: RootState, nodeKey: string, preset?: 玩法预设Type): void {
+export function demoteNode(
+  state: RootState,
+  nodeKey: string,
+  preset?: 玩法预设Type,
+  economyRule?: 経済生成規則Type,
+): void {
   if (state.LOD表?.[nodeKey]?.档位 !== '实体') return; // 幂等（含 undefined）
   state.LOD表 ??= {};
 
-  // 离开再聚合（P14·复用 PR-3 applyDriftCandidate）
-  if (preset?.经济生成规则) {
+  // 离开再聚合（P14·复用 PR-3 applyDriftCandidate·経済ルール 来自 resolve().聚合経済生成規則）
+  if (economyRule) {
     const locs = state.地图?.地点 ?? {};
     const regionId = locRegion(nodeKey, locs) ?? nodeKey;
     const regionPrices = state.地图?.区域物价?.[regionId];
     if (regionPrices) {
       for (const category of Object.keys(regionPrices)) {
-        applyDriftCandidate(state, preset, regionId, category);
+        applyDriftCandidate(state, economyRule, regionId, category);
       }
     }
   }
@@ -135,9 +140,10 @@ export function tryDemoteNode(
   nodeKey: string,
   currentTick: number,
   preset?: 玩法预设Type,
+  economyRule?: 経済生成規則Type,
 ): void {
   if (checkWarmWindow(state, nodeKey, currentTick)) return;
-  demoteNode(state, nodeKey, preset);
+  demoteNode(state, nodeKey, preset, economyRule);
 }
 
 // ── P4-3 · 跨区自动物化/解聚 ──────────────────────────────────────────────────
