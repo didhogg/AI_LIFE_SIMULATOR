@@ -5,9 +5,9 @@
  * 断言②  学业制式ID 正则覆盖：合法蛇形过 / 大写·中文·空串键拒
  * 断言③  事实层字段值域：时长分钟负数拒·非整数拒·全 optional 缺省过
  * 断言④  按 学业制式ID resolve 挂载：命中加载 / 缺失跳过 / 原型名句柄 → 不命中
- * 断言⑤  不进 hashJudgmentBundle：改学业制式库内容 → 金向量逐位恒等 · BUNDLE=21 不变
+ * 断言⑤  不进 hashJudgmentBundle：改学业制式库内容 → 金向量逐位恒等 · BUNDLE=28 不变
  * 断言⑥  content_hash round-trip 闭环（库条目→包信封边界映射）
- * 断言⑦  守恒门：schemaKeys=54 / BUNDLE=21 / manifest=87 / 命名空间枚举 24 项
+ * 断言⑦  守恒门：schemaKeys=54 / BUNDLE=28 / manifest=97 / 命名空间枚举 32 项
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -247,10 +247,10 @@ describe('学业制式库 · resolve 挂载 + by-ID 加载', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// 断言⑤ · 不进 hashJudgmentBundle：BUNDLE=21；改学业制式库 → 金向量恒等
+// 断言⑤ · 不进 hashJudgmentBundle：BUNDLE=28；改学业制式库 → 金向量恒等
 // ═══════════════════════════════════════════════════════════════
 describe('学业制式库 · 不进判定面指纹', () => {
-  it('FINGERPRINT_BUNDLE_MEMBERS 不含学业制式库相关键（BUNDLE=21）', () => {
+  it('FINGERPRINT_BUNDLE_MEMBERS 不含学业制式库相关键（BUNDLE=28）', () => {
     expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
     const bundleSet = new Set(FINGERPRINT_BUNDLE_MEMBERS as readonly string[]);
     expect(bundleSet.has('学业制式库')).toBe(false);
@@ -337,10 +337,10 @@ describe('学业制式库 · 守恒门', () => {
     expect(Object.keys(RootSchema.shape).length).toBe(54);
     expect(BLUEPRINT_KEYS.length).toBe(54);
   });
-  it('BUNDLE = 21（学业制式库 dormant·不改 FINGERPRINT_BUNDLE_MEMBERS）', () => {
+  it('BUNDLE = 28（学业制式库 dormant·不改 FINGERPRINT_BUNDLE_MEMBERS）', () => {
     expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
   });
-  it('manifest 四组总长 = 88', () => {
+  it('manifest 四组总长 = 97', () => {
     const total =
       FINGERPRINT_BUNDLE_MEMBERS.length +
       FINGERPRINT_PRESET_FIELDS.length +

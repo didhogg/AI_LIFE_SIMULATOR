@@ -1,7 +1,6 @@
 // 4.10 玩法预设 / 引擎配置层（不进存档）
 // 校验用 schema；实际运行时由世界装配 WORLD_SETUP 注入引擎，不序列化进存档。
 import { z } from 'zod';
-import { 谓词串Schema } from './commonEntry.js';
 import { 内容包内容ShapeSchema, 包引用Schema } from './contentPackSeed.js';
 // ══════════════════════════════════════════
 // 玩法预设根（顶层）
@@ -30,7 +29,7 @@ export const 玩法预设Schema = z.object({
     局部覆盖: 内容包内容ShapeSchema.deepPartial().optional(),
     // PR-8 R-c · 引用包（additive·结构化 pack_id@semver·semver dormant 不接线·缺省=不参与·旧档 raw packs 经 shim 路径兼容）
     引用包: z.array(包引用Schema).optional(),
-    // ── ③C STOPPED（DSL 版本·常量不匹配·待用户拍板后删）──────────────────────────
+    // ── dormant 占位（C-2 结案·DSL 版本·实装前激活）────────────────────────────────
     DSL文法版本: z.string().default('1.0'),
     // §十A 分层方案·v1={min,max,clamp,pow,sqrt}全逐位恒等固定实现·增列超越函数时 bump
     求值器函数库版本: z.number().int().min(1).default(1),

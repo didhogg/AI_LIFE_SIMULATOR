@@ -12,7 +12,7 @@
  *   D-7: LOD态 DSL ctx — 粗=0/实体=1 注入·闸②fail-closed·未知键 miss=0
  *   D-8: 指纹分线守卫 — LOD表/连续偏离计数/漂移基线值/漂移绑定策略 全排外·金向量恒等
  *   D-9: computeResourceFactor re-export — 原 tick 调用点输出不变
- *   D-10: 守恒门 — schemaKeys=54 / BUNDLE=21 / manifest=88
+ *   D-10: 守恒门 — schemaKeys=54 / BUNDLE=28 / manifest=97
  *
  * opt-in 铁律：作者不声明触发条件 → null → 引擎跳过 → 实体永全态 → 不 demote
  * 六禁：禁 Date.now/new Date/Math.random/window/document/localeCompare
@@ -551,7 +551,7 @@ describe('D-10: 守恒门', () => {
     expect(BLUEPRINT_KEYS.length).toBe(54);
   });
 
-  it('BUNDLE = 21', () => {
+  it('BUNDLE = 28', () => {
     expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
   });
 

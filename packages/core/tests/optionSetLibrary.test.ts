@@ -8,7 +8,7 @@
  * 断言⑤  指纹金测：hashCanonical(投影结果) === hashCanonical(原数组) → 三金向量 0 重定基
  * 断言⑥  by-ID resolve 挂载：命中加载 / 缺失跳过 / 原型名句柄拦截
  * 断言⑦  content_hash round-trip 闭环
- * 断言⑧  守恒门：schemaKeys=54 / BUNDLE=21 / manifest=87 / 命名空间枚举 = 32 項
+ * 断言⑧  守恒门：schemaKeys=54 / BUNDLE=28 / manifest=97 / 命名空间枚举 = 32 項
  */
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
@@ -424,7 +424,7 @@ describe('选项集库 · 守恒门', () => {
     expect(BLUEPRINT_KEYS.length).toBe(54);
   });
 
-  it('BUNDLE = 21', () => {
+  it('BUNDLE = 28', () => {
     expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
   });
 
@@ -446,7 +446,7 @@ describe('选项集库 · 守恒门', () => {
     expect(冰箱绑定表['选项集'].解析器键).toBe('选项集库');
   });
 
-  it('FINGERPRINT_BUNDLE_MEMBERS 不含选项集库相关键（BUNDLE=21）', () => {
+  it('FINGERPRINT_BUNDLE_MEMBERS 不含选项集库相关键（BUNDLE=28）', () => {
     const bundleSet = new Set(FINGERPRINT_BUNDLE_MEMBERS as readonly string[]);
     expect(bundleSet.has('选项集库')).toBe(false);
     expect(bundleSet.has('选项集')).toBe(false);
