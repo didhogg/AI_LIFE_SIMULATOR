@@ -6,7 +6,14 @@
 import { z } from 'zod';
 import { RootSchema } from '../../schema/index.js';
 import { 种子视图 } from './seedView.js';
-import { 経済生成規則Schema, } from '../../schema/preset.js';
+// ── 経済生成規則（内容包裸标量·经 resolve() 聚合·Step0 迁移）────────────────────────
+export const 経済生成規則Schema = z.object({
+    品类基线: z.record(z.string(), z.number()).optional(),
+    资源紧张度权重: z.number().min(0).max(1).optional(),
+    供需权重: z.number().min(0).max(1).optional(),
+    战时修正权重: z.number().min(0).max(1).optional(),
+    衰减率: z.number().min(0).max(1).optional(),
+});
 // ── 历法皮肤（附录 C） ──
 export const 历法皮肤Schema = z.object({
     纪年法: z.string().default(''),

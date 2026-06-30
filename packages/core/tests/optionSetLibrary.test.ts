@@ -19,8 +19,8 @@ import {
   投影选项集库,
 } from '../schema/optionSetLibrary.js';
 import type { 选项集定义条目Type, 选项集库Type } from '../schema/optionSetLibrary.js';
-import { 动词选项条目Schema } from '../schema/preset.js';
-import type { 动词选项条目Type } from '../schema/preset.js';
+import { 动词选项条目Schema } from '../schema/optionSetLibrary.js';
+import type { 动词选项条目Type } from '../schema/optionSetLibrary.js';
 import { resolve } from '../engine/preset/resolve.js';
 import { 引用Schema, 创建引用, 解引用 } from '../engine/preset/ref.js';
 import { 命名空间枚举 } from '../schema/governedKeySpace.js';

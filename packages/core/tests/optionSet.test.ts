@@ -12,8 +12,8 @@ import { describe, it, expect } from 'vitest';
 import { sampleOptionSet } from '../engine/optionSet.js';
 import { executeActionOption } from '../engine/aohpExecutor.js';
 import { hashCanonical, hashPresetFingerprint, hashJudgmentBundle } from '../engine/rng.js';
-import type { 动词选项条目Type } from '../schema/preset.js';
-import { 动词选项条目Schema } from '../schema/preset.js';
+import type { 动词选项条目Type } from '../schema/optionSetLibrary.js';
+import { 动词选项条目Schema } from '../schema/optionSetLibrary.js';
 
 // ── 内联 fixture ──────────────────────────────────────────────────────────────
 

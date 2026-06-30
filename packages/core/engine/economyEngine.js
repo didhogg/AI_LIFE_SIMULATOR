@@ -10,7 +10,7 @@
 // 六禁：禁 Date.now/new Date/Math.random/localeCompare/裸 JSON.stringify/NFC normalize
 // Math.round 允许（IEEE 754 整数舍入·确定性）
 import {} from '../schema/index.js';
-import {} from '../schema/preset.js';
+import {} from './preset/contentPack.js';
 import { fixedPow, v1 } from './math/fixed.js';
 import { resolveFormula } from './formulaRegistry.js';
 // ── P3-3 · 修正系数衰减（闭式·锚拍号·禁逐拍累积）──────────────────────────────

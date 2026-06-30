@@ -18,8 +18,8 @@ import { runTick } from '../engine/tick.js';
 import { sampleOptionSet } from '../engine/optionSet.js';
 import { RootSchema } from '../schema/index.js';
 import type { RootState } from '../schema/index.js';
-import type { 动词选项条目Type } from '../schema/preset.js';
-import { 动词选项条目Schema } from '../schema/preset.js';
+import type { 动词选项条目Type } from '../schema/optionSetLibrary.js';
+import { 动词选项条目Schema } from '../schema/optionSetLibrary.js';
 import { getNetAsset } from '../engine/netAsset.js';
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────

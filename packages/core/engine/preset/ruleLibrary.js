@@ -5,8 +5,15 @@
 // schemaKeys 守恒 52：规则库属装配层·不进 RootSchema
 import { z } from 'zod';
 import { 受治理句柄Schema } from '../../schema/governedKeySpace.js';
-import { 粒度模板覆盖Schema } from '../../schema/preset.js';
 import { 种子视图 } from './seedView.js';
+// ── 粒度模板覆盖（判定面·进 hashJudgmentBundle·Step1A 迁入）────────────────────────
+const 粒度模板条目Schema = z.object({
+    跨度分钟: z.number().int().min(1).default(1440),
+    行动点上限: z.number().int().min(1).default(4),
+    叙事粒度提示: z.string().default(''),
+});
+export const 粒度模板覆盖Schema = z.record(z.string(), // 粒度名：即时/日常/发展/世代
+粒度模板条目Schema).default({});
 // ── 难度系数组（M6·AA8·旋钮可变性：组边界可切·切点即分段点）──────────────────────
 // 可变性裁定：难度系数组属"组边界可切换"旋钮（对局中允许改、生效在指令组边界）。
 // 分段语义：难度切换在指令组边界生效 → 新组锚点 = 新难度分段点（与 U3 版本分段共用同一台分段机器）。

@@ -6,7 +6,20 @@
 // 命名避撞：preset.ts 无同名 Schema·本文件为唯一权威
 // 纯 schema + 投影函数·无副作用·禁 Date.now / new Date / Math.random / window / document
 import { z } from 'zod';
-import { 动词选项条目Schema } from './preset.js';
+// ── 动词选项条目（AOHP preset 侧声明·无 option_id·由引擎派生）────────────────────────
+// 口径：对应 ActionOptionSchema 去掉 option_id（该字段由 buildMenuOptionIds 确定性派生）
+// 约束：≤99 条（受 rngFor [0,99] 精度·partialShuffleSample 无偏样本约束）
+export const 动词选项条目Schema = z.object({
+    verb: z.string().default(''), // 动词（来自 动词Id枚举·运行时校验）
+    target_choices: z.array(z.string()).default([]), // 目标变量全状态路径候选（变量驱动底座）
+    tool_name: z.string().default(''), // 调用工具名（open string）
+    params: z.record(z.string(), z.unknown()).default({}), // 参数 map（含 关联实体[] 对手方路径）
+    salient_args: z.string().optional(), // 显著参数文本·用于 option_id 派生
+    value_slot: z.string().optional(), // 绑定的数值槽键
+    min: z.number().optional(), // 数值槽最小值
+    max: z.number().optional(), // 数值槽最大值
+    display_text: z.string().optional(), // 显示标签（不纳入 option_id·纯展示）
+}).strip();
 export const 选项集ID正则 = /^[a-z][a-z0-9_]*$/;
 // ── 选项集定义条目 ── 两层：信封 + 动词选项条目列表（作者形态·保持 动词选项条目Schema 不变）────
 // ① 信封 typed（resolve 三层校验 + content_hash 可复现面）

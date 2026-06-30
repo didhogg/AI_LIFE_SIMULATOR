@@ -11,7 +11,7 @@
 // Math.round 允许（IEEE 754 整数舍入·确定性）
 
 import { type RootState } from '../schema/index.js';
-import { type 経済生成規則Type } from '../schema/preset.js';
+import { type 経済生成規則Type } from './preset/contentPack.js';
 import { fixedPow, v1 } from './math/fixed.js';
 import { resolveFormula, type FormulaResolveConfig } from './formulaRegistry.js';
 import type { DslContext } from './dsl/eval.js';

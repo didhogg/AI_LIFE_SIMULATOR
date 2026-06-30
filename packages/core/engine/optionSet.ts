@@ -18,7 +18,7 @@
 import { rngFor } from './rng.js';
 import { buildMenuOptionIds, type MenuOption } from './aohp.js';
 import type { ActionOptionType } from '../schema/proposal.js';
-import type { 动词选项条目Type } from '../schema/preset.js';
+import type { 动词选项条目Type } from '../schema/optionSetLibrary.js';
 
 export interface OptionSetSampleArgs {
   /** 预设声明的全量候选（来自 玩法预设.动词选项集，可为 undefined 或空） */

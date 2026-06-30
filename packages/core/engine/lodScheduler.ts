@@ -11,7 +11,8 @@
 // 红线：gate.ts/rng.ts/conservation.ts/computeDelta.ts/fixed.ts/propagateRipple 函数体零 diff
 
 import type { RootState } from '../schema/index.js';
-import type { 玩法预设Type, 経済生成規則Type } from '../schema/preset.js';
+import type { 玩法预设Type } from '../schema/preset.js';
+import type { 経済生成規則Type } from './preset/contentPack.js';
 import type { LOD态条目 } from '../schema/lodTable.js';
 import { 穿越契约Schema } from './preset/contentPack.js';
 import type { z } from 'zod';
