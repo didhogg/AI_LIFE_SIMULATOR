@@ -9,7 +9,7 @@
 //
 // 纯函数·确定性·Ring 0·六禁：禁 Date.now/new Date/Math.random/localeCompare/裸 JSON.stringify/NFC
 // 红线：gate.ts/rng.ts/conservation.ts/computeDelta.ts/fixed.ts/propagateRipple 函数体零 diff
-import { 穿越契约Schema } from '../schema/preset.js';
+import { 穿越契约Schema } from './preset/contentPack.js';
 import { locRegion, buildRegionGraph, bfsRegionHops } from './tick.js';
 import { materializeCoarseNode } from './lodEngine.js';
 import { applyDriftCandidate } from './economyEngine.js';

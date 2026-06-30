@@ -66,7 +66,6 @@ import {
   钳制表Schema,
   死亡拦截器条目Schema,
   换角许可Schema,
-  开局装配数据Schema,
   叙事模板正文长度上限,
   HISTORY_TEXT_MAX,
   编年史条目Schema,
@@ -95,6 +94,7 @@ import {
   受治理句柄Schema,
   $玩家偏好Schema,
 } from '../schema/index.js';
+import { 开局装配数据Schema } from '../engine/preset/contentPack.js';
 import { classifyTopKey, deriveWritableWhitelist } from '../schema/whitelistDryRun.js';
 import { backfill货币账户PerEntity } from '../migration/migrate.js';
 import { FINGERPRINT_BUNDLE_MEMBERS, FINGERPRINT_EXCLUDED_FIELDS } from '../engine/fingerprintManifest.js';

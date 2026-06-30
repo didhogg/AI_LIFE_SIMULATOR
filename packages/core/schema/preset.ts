@@ -4,18 +4,6 @@ import { z } from 'zod';
 import { 受治理句柄Schema } from './governedKeySpace.js';
 import { 谓词串Schema } from './commonEntry.js';
 
-// ── 历法皮肤（附录 C） ──
-export const 历法皮肤Schema = z.object({
-  纪年法: z.string().default(''),
-  纪元锚点: z.number().int().min(0).default(0),
-  年号表: z.array(z.object({
-    名称: z.string().default(''),
-    起始纪元分钟: z.number().int().min(0).default(0),
-  })).default([]),
-  月制: z.string().default(''),
-  显示模板: z.string().default(''),
-});
-
 // ── 粒度模板覆盖 ──
 const 粒度模板条目Schema = z.object({
   跨度分钟: z.number().int().min(1).default(1440),
@@ -98,26 +86,6 @@ const 派生量配方条目Schema = z.object({
 
 export const 派生量配方Schema = z.record(z.string(), 派生量配方条目Schema).default({});
 
-// ── 财富分档参数 ──
-export const 财富分档参数Schema = z.object({
-  分档列表: z.array(z.object({
-    档名: z.string().default(''),
-    净资产下限: z.number().default(0),
-    净资产上限: z.number().optional(),
-    标准生活开销: z.number().min(0).default(0),
-  })).default([]),
-  默认基准币种: z.string().default(''),
-});
-
-// ── 欠债阈值与利息周期（6.25） ──
-export const 欠债参数Schema = z.object({
-  透支触发阈值: z.number().default(-1000), // 低于此值挂追债
-  追债冷却分钟: z.number().int().min(0).default(43200),
-  大额借贷下限: z.number().min(0).default(10000),
-  利息周期分钟: z.number().int().min(1).default(43200),
-  默认利率: z.number().min(0).default(0.05), // 年化
-});
-
 // ── 赛事结构模板（6.35） ──
 const 赛事模板条目Schema = z.object({
   参与者选择器: z.string().default(''),
@@ -129,16 +97,6 @@ const 赛事模板条目Schema = z.object({
 });
 
 export const 赛事结构模板Schema = z.record(z.string(), 赛事模板条目Schema).default({});
-
-// ── 穿越契约（6.36） ──
-export const 穿越契约Schema = z.object({
-  属性映射: z.record(z.string(), z.string()).default({}), // 旧轴名→新轴名
-  货币处理: z.string().default(''), // 丢失/按汇率/保留/归零
-  技能等价表: z.record(z.string(), z.string()).default({}),
-  携带白名单: z.array(z.string()).default([]),
-  时间比率: z.number().min(0).default(1),
-  随附规则补丁: z.string().optional(), // 规则补丁 ID 引用
-});
 
 // ── 规则补丁（6.28·白名单参数面） ──
 const 规则补丁条目Schema = z.object({
@@ -200,21 +158,6 @@ export const 检定骰面Schema = z.object({
   判定骰型: z.union([z.literal(100), z.literal(20)]).default(100),
   显骰: z.boolean().default(false),
   暴击映射: 暴击映射Schema.default('关'),
-});
-
-// 1e. 开局装配数据（6.42）
-const 序章模板Schema = z.object({
-  模式: z.enum(['固定文本', '锚点引导', 'AI自由']).default('AI自由'),
-  正文: z.string().optional(),
-  锚点契约: z.string().optional(),
-  引擎槽位: z.array(z.string()).default([]),
-});
-
-export const 开局装配数据Schema = z.object({
-  // 凸成本点购曲线；不进 _tick.难度系数组指纹（6.42⑧）
-  凸成本点购曲线: z.array(z.unknown()).default([]),
-  出厂行动卡集: z.array(z.string()).default([]),
-  序章模板: 序章模板Schema.default({}),
 });
 
 // ══════════════════════════════════════════

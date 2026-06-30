@@ -13,7 +13,7 @@
 import type { RootState } from '../schema/index.js';
 import type { 玩法预设Type, 経済生成規則Type } from '../schema/preset.js';
 import type { LOD态条目 } from '../schema/lodTable.js';
-import { 穿越契约Schema } from '../schema/preset.js';
+import { 穿越契约Schema } from './preset/contentPack.js';
 import type { z } from 'zod';
 import { locRegion, buildRegionGraph, bfsRegionHops, type LocRecord } from './tick.js';
 import { materializeCoarseNode } from './lodEngine.js';

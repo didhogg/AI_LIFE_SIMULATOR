@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { 玩法预设Schema } from '../schema/preset.js';
 import { resolve, shimThickPreset, 规则字段名集 } from '../engine/preset/resolve.js';
-import { 开局装配数据Schema } from '../schema/preset.js';
+import { 开局装配数据Schema } from '../engine/preset/contentPack.js';
 
 // ── C1 · 残留断言：13 个规则字段均不在 玩法预设Schema.shape ─────────────────────
 
