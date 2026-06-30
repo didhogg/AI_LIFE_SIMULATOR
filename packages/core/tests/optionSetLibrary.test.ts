@@ -428,13 +428,13 @@ describe('选项集库 · 守恒门', () => {
     expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
   });
 
-  it('manifest 四组总长 = 98（+漂移绑定策略+模块绑定策略+局部覆盖+引用包）', () => {
+  it('manifest 四组总长 = 97（C-2 漂移绑定策略→LOD模块·模块绑定策略+局部覆盖+引用包）', () => {
     expect(
       FINGERPRINT_BUNDLE_MEMBERS.length +
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length,
-    ).toBe(98);
+    ).toBe(97);
   });
 
   it('命名空间枚举 = 32 項（含选项集）', () => {

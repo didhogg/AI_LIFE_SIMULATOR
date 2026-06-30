@@ -11,7 +11,6 @@
 // 红线：gate.ts/rng.ts/conservation.ts/computeDelta.ts/fixed.ts/propagateRipple 函数体零 diff
 
 import type { RootState } from '../schema/index.js';
-import type { 玩法预设Type } from '../schema/preset.js';
 import type { 経済生成規則Type } from './preset/contentPack.js';
 import type { LOD态条目 } from '../schema/lodTable.js';
 import { 穿越契约Schema } from './preset/contentPack.js';
@@ -70,7 +69,6 @@ export function promoteNode(state: RootState, nodeKey: string, seed: number): vo
 export function demoteNode(
   state: RootState,
   nodeKey: string,
-  preset?: 玩法预设Type,
   economyRule?: 経済生成規則Type,
 ): void {
   if (state.LOD表?.[nodeKey]?.档位 !== '实体') return; // 幂等（含 undefined）
@@ -99,8 +97,8 @@ export function demoteNode(
 
 // ── P4-2 · 保温滞回窗口防 thrash ──────────────────────────────────────────────
 
-function getWarmWindow(preset?: 玩法预设Type): number {
-  return preset?.LOD保温窗口 ?? LOD_WARM_WINDOW_DEFAULT;
+function getWarmWindow(): number {
+  return LOD_WARM_WINDOW_DEFAULT;
 }
 
 /**
@@ -112,7 +110,6 @@ export function startWarmWindow(
   state: RootState,
   nodeKey: string,
   currentTick: number,
-  preset?: 玩法预设Type,
 ): void {
   if (!state.地图?.地点?.[nodeKey]) return; // guard: loc must exist
   state.LOD表 ??= {};
@@ -120,7 +117,7 @@ export function startWarmWindow(
     const entry: LOD态条目 = { 模块键: nodeKey, 档位: '粗' };
     state.LOD表[nodeKey] = entry;
   }
-  state.LOD表[nodeKey]!.保温到期拍号 = currentTick + getWarmWindow(preset);
+  state.LOD表[nodeKey]!.保温到期拍号 = currentTick + getWarmWindow();
 }
 
 /**
@@ -140,11 +137,10 @@ export function tryDemoteNode(
   state: RootState,
   nodeKey: string,
   currentTick: number,
-  preset?: 玩法预设Type,
   economyRule?: 経済生成規則Type,
 ): void {
   if (checkWarmWindow(state, nodeKey, currentTick)) return;
-  demoteNode(state, nodeKey, preset, economyRule);
+  demoteNode(state, nodeKey, economyRule);
 }
 
 // ── P4-3 · 跨区自动物化/解聚 ──────────────────────────────────────────────────
@@ -178,7 +174,6 @@ export function handleRegionCross(
   curLocKey: string,
   seed: number,
   currentTick: number,
-  preset?: 玩法预设Type,
 ): void {
   const locs: LocRecord = state.地图?.地点 ?? {};
   const prevRegion = locRegion(prevLocKey, locs) ?? prevLocKey;
@@ -189,7 +184,7 @@ export function handleRegionCross(
 
   // 对离开区域起保温窗口（不立即 demote）
   if (prevRegion !== newRegion) {
-    startWarmWindow(state, prevRegion, currentTick, preset);
+    startWarmWindow(state, prevRegion, currentTick);
   }
 }
 

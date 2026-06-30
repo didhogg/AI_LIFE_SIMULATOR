@@ -507,7 +507,7 @@ describe('底座-2b · 守恒门', () => {
       FINGERPRINT_PRESET_FIELDS.length +
       FINGERPRINT_SNAPSHOT_FIELDS.length +
       FINGERPRINT_EXCLUDED_FIELDS.length;
-    expect(total).toBe(98);
+    expect(total).toBe(97);
   });
 
   it('规则面键集 = 17（12 张规则表 + 归并表 + ③1A 四字段）', () => {

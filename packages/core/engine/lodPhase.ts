@@ -16,7 +16,6 @@
 //   漂移 = computeRelativeDrift(cur, baseline[轴])·原始小数·不 ×100
 
 import type { RootState } from '../schema/index.js';
-import type { 玩法预设Type } from '../schema/preset.js';
 import { locRegion, type LocRecord } from './tick.js';
 import {
   promoteNode,
@@ -38,6 +37,17 @@ export const LOD_PROMOTE_BUDGET = 8;
 /** 条件④ 连续偏离拍数门槛（§四·6 定稿值 N=3） */
 export const LOD_DRIFT_N = 3;
 
+// ── LOD 漂移触发策略类型（归宿 LOD 模块·C-2）──────────────────────────────────
+
+/** LOD 漂移触发策略单条目（Tier A: 触发谓词 / Tier B: 监测轴+触发阈值·缺省=不参与） */
+export type LodDriftStrategyEntry = {
+  触发谓词?: string;
+  监测轴?: string;
+  触发阈值?: string;
+};
+/** LOD 漂移触发策略表（key '*'=全局默认·per-nodeKey 覆盖·缺省=不参与漂移） */
+export type LodDriftStrategy = Record<string, LodDriftStrategyEntry>;
+
 // ── LOD-B2 opt-in 谓词解析 ────────────────────────────────────────────────────
 
 /**
@@ -47,7 +57,7 @@ export const LOD_DRIFT_N = 3;
  * 否则 → null（实体永远全态·不参与漂移评估·不 demote）。
  */
 export function resolveLodPredicate(
-  策略?: { 触发谓词?: string | undefined; 监测轴?: string | undefined; 触发阈值?: string | undefined },
+  策略?: LodDriftStrategyEntry,
 ): string | null {
   if (!策略) return null;
   if (策略.触发谓词) return 策略.触发谓词;
@@ -143,14 +153,14 @@ export function seededSortKey(seed: number, tick: number, nodeKey: string): numb
  * @param currentTick  当前拍计数（s._tick?.拍计数 ?? 0）
  * @param prevLocCtxs  前一拍实体位置上下文（三条件 detectLodTrigger 用）；
  *                     tick 正路传 undefined → 三条件路径退化为 no-op（无跨拍历史存储·B3+）
- * @param preset       玩法预设（可选·缺省=退化 no-op·无触发声明实体永全态）
+ * @param driftStrategy  漂移触发策略（可选·缺省=不参与漂移·实体永全态·归宿 LOD 模块·C-2）
  */
 export function scheduleLodPhase(
   s: RootState,
   rngSeed: number,
   currentTick: number,
   prevLocCtxs?: Map<string, LodTriggerCtx>,
-  preset?: 玩法预设Type,
+  driftStrategy?: LodDriftStrategy,
 ): void {
   // ── 双保险 guard：空 LOD表 → 提前 return·零 state 写·零 RNG draw ──────
   if (Object.keys(s.LOD表 ?? {}).length === 0) return;
@@ -227,7 +237,7 @@ export function scheduleLodPhase(
     }
 
     // 解析有效谓词（Tier A / Tier B / null = 不参与）
-    const rawStrat = preset?.漂移绑定策略?.[nodeKey] ?? preset?.漂移绑定策略?.['*'];
+    const rawStrat = driftStrategy?.[nodeKey] ?? driftStrategy?.['*'];
     const rawPred = resolveLodPredicate(rawStrat);
 
     if (pcPresent) {
@@ -325,7 +335,7 @@ export function scheduleLodPhase(
     const entry = s.LOD表[nodeKey];
     if (entry) {
       delete (entry as { 连续偏离计数?: number }).连续偏离计数;
-      const rawStrat = preset?.漂移绑定策略?.[nodeKey] ?? preset?.漂移绑定策略?.['*'];
+      const rawStrat = driftStrategy?.[nodeKey] ?? driftStrategy?.['*'];
       const pred = resolveLodPredicate(rawStrat);
       if (pred !== null) {
         const axes = extractDriftAxes(pred);
@@ -347,7 +357,7 @@ export function scheduleLodPhase(
   for (const nodeKey of Object.keys(s.LOD表 ?? {})) {
     if (!locs[nodeKey]) continue; // NPC/org LOD条目由 dispatchLodGenerate 管理·不独立 demote
     if (!promotedSet.has(nodeKey)) {
-      tryDemoteNode(s, nodeKey, currentTick, preset);
+      tryDemoteNode(s, nodeKey, currentTick);
     }
   }
 
@@ -373,7 +383,7 @@ export function scheduleLodPhase(
       if (triggerPromoteCount >= LOD_PROMOTE_BUDGET) continue; // 预算已耗尽
 
       if (result.condition === '跨区') {
-        handleRegionCross(s, prevCtx.locKey, curCtx.locKey, rngSeed, currentTick, preset);
+        handleRegionCross(s, prevCtx.locKey, curCtx.locKey, rngSeed, currentTick);
         triggerPromoteCount++;
       } else if (
         result.condition === '纪元跨时代' ||
@@ -390,7 +400,7 @@ export function scheduleLodPhase(
         const lodEntry = s.LOD表[pcLocKey];
         if (lodEntry) {
           delete (lodEntry as { 连续偏离计数?: number }).连续偏离计数;
-          const rawStrat = preset?.漂移绑定策略?.[pcLocKey] ?? preset?.漂移绑定策略?.['*'];
+          const rawStrat = driftStrategy?.[pcLocKey] ?? driftStrategy?.['*'];
           const pred = resolveLodPredicate(rawStrat);
           if (pred !== null) {
             const axes = extractDriftAxes(pred);

@@ -2,7 +2,6 @@
 // 测试序：G1~G7（确定性·seeded·禁 Date.now/Math.random）
 import { describe, it, expect } from 'vitest';
 import { RootSchema, NpcSchema } from '@ai-life-sim/core';
-import type { 玩法预设Type } from '@ai-life-sim/core';
 import {
   promoteNode,
   demoteNode,
@@ -286,15 +285,14 @@ describe('G3: 保温窗口', () => {
     expect(s.LOD表[REGION_NORTH]?.档位).toBe('粗');
   });
 
-  it('G3-7 自定义保温窗口（预设 LOD保温窗口=1）', () => {
+  it('G3-7 保温窗口固定为 LOD_WARM_WINDOW_DEFAULT（C-2 迁出 preset）', () => {
     const s = buildLodWorld();
-    const preset: 玩法预设Type = { LOD保温窗口: 1 } as 玩法预设Type;
-    startWarmWindow(s, REGION_NORTH, 10, preset);
-    expect(s.LOD表[REGION_NORTH]?.保温到期拍号).toBe(11);
-    // tick=11 仍在窗口内
-    expect(checkWarmWindow(s, REGION_NORTH, 11)).toBe(true);
-    // tick=12 超窗
-    expect(checkWarmWindow(s, REGION_NORTH, 12)).toBe(false);
+    startWarmWindow(s, REGION_NORTH, 10);
+    expect(s.LOD表[REGION_NORTH]?.保温到期拍号).toBe(10 + LOD_WARM_WINDOW_DEFAULT);
+    // tick=10+LOD_WARM_WINDOW_DEFAULT 仍在窗口内
+    expect(checkWarmWindow(s, REGION_NORTH, 10 + LOD_WARM_WINDOW_DEFAULT)).toBe(true);
+    // tick=10+LOD_WARM_WINDOW_DEFAULT+1 超窗
+    expect(checkWarmWindow(s, REGION_NORTH, 10 + LOD_WARM_WINDOW_DEFAULT + 1)).toBe(false);
   });
 
   it('G3-8 demoteNode 清空 保温到期拍号', () => {

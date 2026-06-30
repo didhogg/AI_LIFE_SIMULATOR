@@ -396,8 +396,8 @@ describe('R8: 守恒门', () => {
     expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
   });
 
-  it('R8-3 FINGERPRINT_EXCLUDED_FIELDS 不变', () => {
-    expect(FINGERPRINT_EXCLUDED_FIELDS.length).toBe(55);
+  it('R8-3 FINGERPRINT_EXCLUDED_FIELDS（C-2 漂移绑定策略→LOD 模块·54）', () => {
+    expect(FINGERPRINT_EXCLUDED_FIELDS.length).toBe(54);
   });
 
   it('R8-4 BASE_CURRENCY 仍为 \"文\"（零重定基·向后兼容）', () => {

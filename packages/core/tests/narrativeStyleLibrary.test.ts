@@ -268,7 +268,7 @@ describe('文风库 · 守恒门', () => {
     expect(FINGERPRINT_BUNDLE_MEMBERS.length).toBe(28);
   });
   it('manifest 四组总长 = 88', () => {
-    expect(FINGERPRINT_BUNDLE_MEMBERS.length + FINGERPRINT_PRESET_FIELDS.length + FINGERPRINT_SNAPSHOT_FIELDS.length + FINGERPRINT_EXCLUDED_FIELDS.length).toBe(98);
+    expect(FINGERPRINT_BUNDLE_MEMBERS.length + FINGERPRINT_PRESET_FIELDS.length + FINGERPRINT_SNAPSHOT_FIELDS.length + FINGERPRINT_EXCLUDED_FIELDS.length).toBe(97);
   });
   it('命名空间枚举 = 32 項（含文风）', () => {
     expect(命名空间枚举.length).toBe(32);

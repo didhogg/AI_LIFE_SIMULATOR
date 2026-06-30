@@ -54,7 +54,7 @@ export function promoteNode(state, nodeKey, seed) {
  * - 离开再聚合：对该区域所有品类调用 applyDriftCandidate（P14·复用 PR-3）
  * - 写 LOD表[nodeKey].档位='粗'，清空 保温到期拍号（原子转换）
  */
-export function demoteNode(state, nodeKey, preset, economyRule) {
+export function demoteNode(state, nodeKey, economyRule) {
     if (state.LOD表?.[nodeKey]?.档位 !== '实体')
         return; // 幂等（含 undefined）
     state.LOD表 ??= {};
@@ -78,15 +78,15 @@ export function demoteNode(state, nodeKey, preset, economyRule) {
     }
 }
 // ── P4-2 · 保温滞回窗口防 thrash ──────────────────────────────────────────────
-function getWarmWindow(preset) {
-    return preset?.LOD保温窗口 ?? LOD_WARM_WINDOW_DEFAULT;
+function getWarmWindow() {
+    return LOD_WARM_WINDOW_DEFAULT;
 }
 /**
  * 起始保温窗口（in-place）。
  * 写 LOD表[nodeKey].保温到期拍号 = currentTick + warmWindow（实体态在到期拍内可复用）。
  * 节点不存在于地图 → no-op（防孤儿条目）。
  */
-export function startWarmWindow(state, nodeKey, currentTick, preset) {
+export function startWarmWindow(state, nodeKey, currentTick) {
     if (!state.地图?.地点?.[nodeKey])
         return; // guard: loc must exist
     state.LOD表 ??= {};
@@ -94,7 +94,7 @@ export function startWarmWindow(state, nodeKey, currentTick, preset) {
         const entry = { 模块键: nodeKey, 档位: '粗' };
         state.LOD表[nodeKey] = entry;
     }
-    state.LOD表[nodeKey].保温到期拍号 = currentTick + getWarmWindow(preset);
+    state.LOD表[nodeKey].保温到期拍号 = currentTick + getWarmWindow();
 }
 /**
  * 检查是否在保温窗口内（纯·只读）。
@@ -108,10 +108,10 @@ export function checkWarmWindow(state, nodeKey, currentTick) {
  * 尝试 demote（考虑保温窗口·in-place）。
  * 窗口内 → no-op（复用实体态）；超窗 → demoteNode。
  */
-export function tryDemoteNode(state, nodeKey, currentTick, preset, economyRule) {
+export function tryDemoteNode(state, nodeKey, currentTick, economyRule) {
     if (checkWarmWindow(state, nodeKey, currentTick))
         return;
-    demoteNode(state, nodeKey, preset, economyRule);
+    demoteNode(state, nodeKey, economyRule);
 }
 // ── P4-3 · 跨区自动物化/解聚 ──────────────────────────────────────────────────
 /**
@@ -133,7 +133,7 @@ export function detectCrossRegion(state, prevLocKey, curLocKey) {
  * - 对离开区域起保温窗口（不立即 demote·防抖）
  * - 只改 LOD 态指针，实体状态全保留，绝不污染预设
  */
-export function handleRegionCross(state, prevLocKey, curLocKey, seed, currentTick, preset) {
+export function handleRegionCross(state, prevLocKey, curLocKey, seed, currentTick) {
     const locs = state.地图?.地点 ?? {};
     const prevRegion = locRegion(prevLocKey, locs) ?? prevLocKey;
     const newRegion = locRegion(curLocKey, locs) ?? curLocKey;
@@ -141,7 +141,7 @@ export function handleRegionCross(state, prevLocKey, curLocKey, seed, currentTic
     promoteNode(state, newRegion, seed);
     // 对离开区域起保温窗口（不立即 demote）
     if (prevRegion !== newRegion) {
-        startWarmWindow(state, prevRegion, currentTick, preset);
+        startWarmWindow(state, prevRegion, currentTick);
     }
 }
 /**

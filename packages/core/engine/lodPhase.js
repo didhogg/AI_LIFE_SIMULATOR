@@ -120,9 +120,9 @@ export function seededSortKey(seed, tick, nodeKey) {
  * @param currentTick  当前拍计数（s._tick?.拍计数 ?? 0）
  * @param prevLocCtxs  前一拍实体位置上下文（三条件 detectLodTrigger 用）；
  *                     tick 正路传 undefined → 三条件路径退化为 no-op（无跨拍历史存储·B3+）
- * @param preset       玩法预设（可选·缺省=退化 no-op·无触发声明实体永全态）
+ * @param driftStrategy  漂移触发策略（可选·缺省=不参与漂移·实体永全态·归宿 LOD 模块·C-2）
  */
-export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
+export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, driftStrategy) {
     // ── 双保险 guard：空 LOD表 → 提前 return·零 state 写·零 RNG draw ──────
     if (Object.keys(s.LOD表 ?? {}).length === 0)
         return;
@@ -174,7 +174,7 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
             }
         }
         // 解析有效谓词（Tier A / Tier B / null = 不参与）
-        const rawStrat = preset?.漂移绑定策略?.[nodeKey] ?? preset?.漂移绑定策略?.['*'];
+        const rawStrat = driftStrategy?.[nodeKey] ?? driftStrategy?.['*'];
         const rawPred = resolveLodPredicate(rawStrat);
         if (pcPresent) {
             promoteCandidates.push({ nodeKey, sortKey });
@@ -268,7 +268,7 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
         const entry = s.LOD表[nodeKey];
         if (entry) {
             delete entry.连续偏离计数;
-            const rawStrat = preset?.漂移绑定策略?.[nodeKey] ?? preset?.漂移绑定策略?.['*'];
+            const rawStrat = driftStrategy?.[nodeKey] ?? driftStrategy?.['*'];
             const pred = resolveLodPredicate(rawStrat);
             if (pred !== null) {
                 const axes = extractDriftAxes(pred);
@@ -293,7 +293,7 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
         if (!locs[nodeKey])
             continue; // NPC/org LOD条目由 dispatchLodGenerate 管理·不独立 demote
         if (!promotedSet.has(nodeKey)) {
-            tryDemoteNode(s, nodeKey, currentTick, preset);
+            tryDemoteNode(s, nodeKey, currentTick);
         }
     }
     // ── 三条件接通（含条件④）：detectLodTrigger → handleRegionCross / promote ──
@@ -318,7 +318,7 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
             if (triggerPromoteCount >= LOD_PROMOTE_BUDGET)
                 continue; // 预算已耗尽
             if (result.condition === '跨区') {
-                handleRegionCross(s, prevCtx.locKey, curCtx.locKey, rngSeed, currentTick, preset);
+                handleRegionCross(s, prevCtx.locKey, curCtx.locKey, rngSeed, currentTick);
                 triggerPromoteCount++;
             }
             else if (result.condition === '纪元跨时代' ||
@@ -335,7 +335,7 @@ export function scheduleLodPhase(s, rngSeed, currentTick, prevLocCtxs, preset) {
                 const lodEntry = s.LOD表[pcLocKey];
                 if (lodEntry) {
                     delete lodEntry.连续偏离计数;
-                    const rawStrat = preset?.漂移绑定策略?.[pcLocKey] ?? preset?.漂移绑定策略?.['*'];
+                    const rawStrat = driftStrategy?.[pcLocKey] ?? driftStrategy?.['*'];
                     const pred = resolveLodPredicate(rawStrat);
                     if (pred !== null) {
                         const axes = extractDriftAxes(pred);
