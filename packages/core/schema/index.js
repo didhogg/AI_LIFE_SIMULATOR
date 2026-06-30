@@ -12,6 +12,7 @@ export * from './economy.js';
 export * from './memory.js';
 export * from './dollar.js';
 export * from './preset.js';
+export * from '../engine/preset/ruleLibrary.js';
 export * from './proposal.js';
 export * from './lore.js';
 export * from './verb.js';

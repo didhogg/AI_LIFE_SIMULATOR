@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import type { z } from 'zod';
 import { canonicalize } from '../engine/text/canonicalize.js';
 import { 不可逆Schema } from '../schema/verb.js';
-import { 死亡拦截器条目Schema } from '../schema/preset.js';
+import { 死亡拦截器条目Schema } from '../engine/preset/ruleLibrary.js';
 import { NpcSchema } from '../schema/actor.js';
 import type { $模型画像Schema } from '../schema/dollar.js';
 import type { 核心调用条目Type } from '../schema/memory.js';

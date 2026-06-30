@@ -36,7 +36,7 @@ import type {
 } from '../schema/verb.js';
 import type { 受治理路径Schema, 受治理句柄Schema } from '../schema/governedKeySpace.js';
 import type { 组织属性轴条目Schema } from '../schema/org.js';
-import type { 属性轴表Schema } from '../schema/preset.js';
+import type { 属性轴表Schema } from '../engine/preset/ruleLibrary.js';
 
 describe('P0-1x Stub: CombatResolver（6.63·三段·未实装）', () => {
   it('init 签名抛出「未实装」', () => {
