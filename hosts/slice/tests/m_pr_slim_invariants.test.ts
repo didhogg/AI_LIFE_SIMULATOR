@@ -101,7 +101,6 @@ describe('预设瘦身不变量 3：玩法预设骨架字段校验', () => {
     expect(p.作者).toBe('');
     expect(p.描述).toBe('');
     expect(p.migration_version).toBe(0);
-    expect(p.packs).toEqual([]);
   });
 
   it('玩法预设不含已迁出的域字段', () => {
@@ -112,9 +111,8 @@ describe('预设瘦身不变量 3：玩法预设骨架字段校验', () => {
     expect((shape as Record<string, unknown>)['実体模板库']).toBeUndefined();
   });
 
-  it('packs 字段支持字符串数组', () => {
-    const p = 玩法预设Schema.parse({ packs: ['pack-a', 'pack-b'] });
-    expect(p.packs).toEqual(['pack-a', 'pack-b']);
+  it('packs 已从 玩法预设Schema 删除（阶段C① · 引用包成唯一作者源）', () => {
+    expect((玩法预设Schema.shape as Record<string, unknown>)['packs']).toBeUndefined();
   });
 
   it('migration_version 最小值 0·负数拒绝', () => {
@@ -170,14 +168,14 @@ describe('预设瘦身不变量 5：swapPreset 旧格式预设 migration 探测'
   }) as unknown as RootState;
 
   it('新格式预设（无额外键）→ presetMigrated=false·effectiveMigrationVersion=0', () => {
-    const freshPreset = { 预设ID: 'slim_v1', packs: [] };
+    const freshPreset = { 预设ID: 'slim_v1' };
     const r = swapPreset(baseState, freshPreset, { domainId: 'main', engineVersion: 'v1' });
     expect(r.presetMigrated).toBe(false);
     expect(r.effectiveMigrationVersion).toBe(0);
   });
 
   it('旧格式预设（含已删域字段）→ presetMigrated=true·effectiveMigrationVersion=1', () => {
-    const legacyPreset = { 预设ID: 'fat_v0', packs: [], 叙事分发表: {}, 母题词汇表: {} };
+    const legacyPreset = { 预设ID: 'fat_v0', 叙事分发表: {}, 母题词汇表: {} };
     const r = swapPreset(baseState, legacyPreset, { domainId: 'main', engineVersion: 'v1' });
     expect(r.presetMigrated).toBe(true);
     expect(r.effectiveMigrationVersion).toBe(1);

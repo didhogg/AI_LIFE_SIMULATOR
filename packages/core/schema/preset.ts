@@ -27,8 +27,7 @@ export const 玩法预设Schema = z.object({
   作者: z.string().default(''),
   描述: z.string().default(''),
   migration_version: z.number().int().min(0).default(0),
-  // ── 薄清单（装配层·指向内容包库+规则库·由 resolve() 处理）─────────────────────
-  packs: z.array(z.string()).default([]),   // 内容包引用列表（按顺序·后列覆盖先列）
+  // ── 薄清单（装配层·规则引用·由 resolve() 处理）─────────────────────────────────
   rules: z.array(z.string()).optional(),    // 规则引用列表（按顺序·后列覆盖先载）
   // ── PR-0 · 预设元数据 v2（additive·空跑·消费留 G2 / PR-1~5）───────────────────
   父预设: z.string().optional(),
@@ -42,7 +41,7 @@ export const 玩法预设Schema = z.object({
   })).optional(),
   // 局部覆盖（additive·内容层·稀疏覆盖引用包种子·剥 superRefine 取内层 deepPartial·不接线·不进引擎指纹·缺省=不覆盖）
   局部覆盖: 内容包内容ShapeSchema.deepPartial().optional(),
-  // PR-8 R-c · 引用包（additive·结构化 pack_id@semver·双轨并存·semver dormant 不接线·缺省=不参与·packs 旧写法继续可用）
+  // PR-8 R-c · 引用包（additive·结构化 pack_id@semver·semver dormant 不接线·缺省=不参与·旧档 raw packs 经 shim 路径兼容）
   引用包: z.array(包引用Schema).optional(),
   // ── ③C STOPPED（DSL 版本·常量不匹配·待用户拍板后删）──────────────────────────
   DSL文法版本: z.string().default('1.0'),

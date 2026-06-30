@@ -2,7 +2,7 @@
 //   C1-残 · 玩法预设Schema 残留断言：已迁13个规则字段均不在 .shape
 //   C2   · shimThickPreset + resolve() 规则成品 round-trip 等价
 //   C4   · 开局装配数据Schema 不含家境装配包
-//   manifest · packs/rules 字段在 玩法预设Schema.shape
+//   manifest · rules 字段在 玩法预设Schema.shape · packs 已删（→ 引用包成唯一作者源）
 // 纯函数·无副作用·禁 Date.now/Math.random
 
 import { describe, it, expect } from 'vitest';
@@ -26,8 +26,8 @@ describe('C1 · 玩法预设Schema 规则字段残留断言', () => {
     });
   }
 
-  it('薄清单字段 packs 在 玩法预设Schema.shape', () => {
-    expect(Object.prototype.hasOwnProperty.call(shape, 'packs')).toBe(true);
+  it('packs 已从 玩法预设Schema.shape 删除（阶段C① · 引用包成唯一作者源）', () => {
+    expect(Object.prototype.hasOwnProperty.call(shape, 'packs')).toBe(false);
   });
 
   it('薄清单字段 rules 在 玩法预设Schema.shape', () => {
@@ -102,22 +102,12 @@ describe('C2 · shimThickPreset round-trip 等价', () => {
   });
 });
 
-// ── C1 · 玩法预设Schema packs 默认值 ────────────────────────────────────────────
+// ── C1 · 玩法预设Schema rules 字段默认值（packs 已删·引用包成唯一作者源）─────────
 
-describe('C1 · 薄清单字段默认值', () => {
-  it('packs 默认值为 [] (空数组)', () => {
-    const res = 玩法预设Schema.parse({});
-    expect(res.packs).toEqual([]);
-  });
-
+describe('C1 · 玩法预设Schema rules 字段默认值', () => {
   it('rules 默认值为 undefined (optional)', () => {
     const res = 玩法预设Schema.parse({});
     expect(res.rules).toBeUndefined();
-  });
-
-  it('packs 可传字符串数组', () => {
-    const res = 玩法预设Schema.parse({ packs: ['pack_a', 'pack_b'] });
-    expect(res.packs).toEqual(['pack_a', 'pack_b']);
   });
 
   it('rules 可传字符串数组', () => {
