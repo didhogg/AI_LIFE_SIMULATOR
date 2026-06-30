@@ -8,7 +8,6 @@ import {
   投影种族模板库,
 } from '../schema/raceTemplateLibrary.js';
 import type { 种族模板库Type } from '../schema/raceTemplateLibrary.js';
-import { 种族模板Schema } from '../schema/preset.js';
 import { resolve } from '../engine/preset/resolve.js';
 import { 命名空间枚举 } from '../schema/governedKeySpace.js';
 import { 冰箱绑定表 } from '../engine/preset/refBinding.js';
@@ -38,12 +37,6 @@ const SNAPSHOT_BASE = {
   暴击映射:             '关' as '关',
   钳制表:               {},
   预设数值面域上下界:   {},
-};
-
-// 标准种族定义（旧格式·含 defaults）
-const RACE_RAW = {
-  human:  { 寿命基准: 80,  衰老系数: 1.0, 发育阶段表: [{ 阶段名: '童年', 起始年龄分钟: 0, 结束年龄分钟: 960_000 }], 遗传参数: { 力量: 0.5 }, 最小生育年龄分钟: 600_000 },
-  elvish: { 寿命基准: 500, 衰老系数: 0.2, 发育阶段表: [], 遗传参数: {}, 最小生育年龄分钟: 0 },
 };
 
 describe('种族模板库 · 剥离③', () => {
@@ -90,69 +83,26 @@ describe('种族模板库 · 剥离③', () => {
     })).not.toThrow();
   });
 
-  // 断言④ 等价金测：投影 deepEqual 旧格式
-  it('④ 等价金测：投影种族模板库 deepEqual 旧 种族模板Schema.parse()', () => {
-    const 旧格式 = 种族模板Schema.parse(RACE_RAW);
+  // 脚手架随 preset 删除·等价由 golden 保证
 
-    const lib: 种族模板库Type = 种族模板库Schema.parse({
-      human: {
-        名称: '人类',
-        寿命基准: 80, 衰老系数: 1.0,
-        发育阶段表: [{ 阶段名: '童年', 起始年龄分钟: 0, 结束年龄分钟: 960_000 }],
-        遗传参数: { 力量: 0.5 }, 最小生育年龄分钟: 600_000,
-      },
-      elvish: {
-        名称: '精灵',
-        寿命基准: 500, 衰老系数: 0.2,
-        发育阶段表: [], 遗传参数: {}, 最小生育年龄分钟: 0,
-      },
-    });
-
-    const projected = 投影种族模板库(lib);
-    expect(projected).toEqual(旧格式);
-  });
-
-  // 断言⑤ 指纹金测·0 重定基
-  it('⑤ hashCanonical(投影) === hashCanonical(旧格式)', () => {
-    const 旧格式 = 种族模板Schema.parse(RACE_RAW);
-    const lib: 种族模板库Type = 种族模板库Schema.parse({
-      human: {
-        名称: '人类', 寿命基准: 80, 衰老系数: 1.0,
-        发育阶段表: [{ 阶段名: '童年', 起始年龄分钟: 0, 结束年龄分钟: 960_000 }],
-        遗传参数: { 力量: 0.5 }, 最小生育年龄分钟: 600_000,
-      },
-      elvish: { 名称: '精灵', 寿命基准: 500, 衰老系数: 0.2, 发育阶段表: [], 遗传参数: {}, 最小生育年龄分钟: 0 },
-    });
-    const projected = 投影种族模板库(lib);
-    expect(hashCanonical(projected)).toBe(hashCanonical(旧格式));
-  });
-
-  it('⑤ hashJudgmentBundle：投影路径 === 旧路径（指纹不变）', () => {
-    const 旧格式 = 种族模板Schema.parse(RACE_RAW);
+  it('⑤ hashJudgmentBundle：投影路径格式正确', () => {
     const lib: 种族模板库Type = 种族模板库Schema.parse({
       human: { 名称: '人类', 寿命基准: 80, 衰老系数: 1.0, 发育阶段表: [{ 阶段名: '童年', 起始年龄分钟: 0, 结束年龄分钟: 960_000 }], 遗传参数: { 力量: 0.5 }, 最小生育年龄分钟: 600_000 },
       elvish: { 名称: '精灵', 寿命基准: 500, 衰老系数: 0.2, 发育阶段表: [], 遗传参数: {}, 最小生育年龄分钟: 0 },
     });
     const projected = 投影种族模板库(lib);
-
-    const hb_旧 = hashJudgmentBundle({ ...JUDGMENT_BASE, 种族模板: 旧格式 });
     const hb_新 = hashJudgmentBundle({ ...JUDGMENT_BASE, 种族模板: projected });
-    expect(hb_旧).toBe(hb_新);
-    expect(hb_旧).toMatch(/^[0-9a-f]{8}$/);
+    expect(hb_新).toMatch(/^[0-9a-f]{8}$/);
   });
 
-  it('⑤ hashPresetFingerprint 迁移前后逐位恒等（0 重定基）', () => {
-    const 旧格式 = 种族模板Schema.parse(RACE_RAW);
+  it('⑤ hashPresetFingerprint 投影路径格式正确', () => {
     const lib: 种族模板库Type = 种族模板库Schema.parse({
       human: { 名称: '人类', 寿命基准: 80, 衰老系数: 1.0, 发育阶段表: [{ 阶段名: '童年', 起始年龄分钟: 0, 结束年龄分钟: 960_000 }], 遗传参数: { 力量: 0.5 }, 最小生育年龄分钟: 600_000 },
       elvish: { 名称: '精灵', 寿命基准: 500, 衰老系数: 0.2, 发育阶段表: [], 遗传参数: {}, 最小生育年龄分钟: 0 },
     });
-
     const base哈希 = resolve({ packs: [] }, {}).生效中内容包集哈希;
-    const fp_旧 = hashPresetFingerprint({ 判定面整包: hashJudgmentBundle({ ...JUDGMENT_BASE, 种族模板: 旧格式 }), 生效中内容包集哈希: base哈希, snapshot: SNAPSHOT_BASE });
     const fp_新 = hashPresetFingerprint({ 判定面整包: hashJudgmentBundle({ ...JUDGMENT_BASE, 种族模板: 投影种族模板库(lib) }), 生效中内容包集哈希: base哈希, snapshot: SNAPSHOT_BASE });
-    expect(fp_旧).toBe(fp_新);
-    expect(fp_旧).toMatch(/^[0-9a-f]{8}$/);
+    expect(fp_新).toMatch(/^[0-9a-f]{8}$/);
   });
 
   // 断言⑥ resolve 挂载

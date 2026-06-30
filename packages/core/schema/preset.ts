@@ -16,34 +16,6 @@ export const 历法皮肤Schema = z.object({
   显示模板: z.string().default(''),
 });
 
-// ── 种族模板（6.30·世代钳制） ──
-const 发育阶段Schema = z.object({
-  阶段名: z.string().default(''),
-  起始年龄分钟: z.number().int().min(0).default(0), // 相对纪元分钟
-  结束年龄分钟: z.number().int().min(0).optional(),
-  属性系数: z.record(z.string(), z.number()).default({}),
-}).superRefine((data, ctx) => {
-  // L-25 跨字段语义：结束年龄分钟须严格 > 起始年龄分钟（结构有效≠语义合法·防「零时长/逆序」阶段）
-  if (data.结束年龄分钟 !== undefined && data.结束年龄分钟 <= data.起始年龄分钟) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['结束年龄分钟'],
-      message: `发育阶段: 结束年龄分钟 (${data.结束年龄分钟}) 须 > 起始年龄分钟 (${data.起始年龄分钟})`,
-    });
-  }
-});
-
-export const 种族模板Schema = z.record(
-  z.string(), // 种族键
-  z.object({
-    寿命基准: z.number().int().min(1).default(75),        // 以纪元分钟表示的自然年
-    衰老系数: z.number().min(0).max(10).default(1),
-    发育阶段表: z.array(发育阶段Schema).default([]),
-    遗传参数: z.record(z.string(), z.number()).default({}),
-    最小生育年龄分钟: z.number().int().min(0).default(0),  // 6.30 世代钳制
-  }),
-).default({});
-
 // ── 粒度模板覆盖 ──
 const 粒度模板条目Schema = z.object({
   跨度分钟: z.number().int().min(1).default(1440),
@@ -125,17 +97,6 @@ const 派生量配方条目Schema = z.object({
 }).strip();
 
 export const 派生量配方Schema = z.record(z.string(), 派生量配方条目Schema).default({});
-
-// ── 母题配额（6.14） ──
-export const 母题配额Schema = z.record(
-  z.string(), // 母题键
-  z.object({
-    基础权重: z.number().min(0).default(1),
-    每游戏年上限: z.number().int().min(0).default(0), // 0 = 不限
-    互斥组: z.string().default(''),
-  }),
-).default({});
-
 
 // ── 财富分档参数 ──
 export const 财富分档参数Schema = z.object({
@@ -240,23 +201,6 @@ export const 检定骰面Schema = z.object({
   显骰: z.boolean().default(false),
   暴击映射: 暴击映射Schema.default('关'),
 });
-
-// 1b. 媒介登记表（6.44）— 键 = 媒介键（报纸/个人日记/告示板/论坛/书信…）
-const 媒介登记条目Schema = z.object({
-  模板正文: z.string().max(叙事模板正文长度上限), // 6.41⑦ 注入面防护
-  必填槽位: z.array(z.string()).default([]),
-  引擎槽位: z.array(z.string()).default([]),
-  文风键引用: z.string().optional(),
-  禁词表引用: z.string().optional(),
-  渠道标签: z.string().optional(),
-  配图意图: z.string().optional(),
-  渲染缓存上限: z.number().int().min(0).optional(),
-  // G2-2 传播面（进 BUNDLE 指纹 via hashJudgmentBundle 媒介传播面参数·非叙事面）
-  是否传播: z.boolean().optional(),           // true = 可发起社会传播; false/undefined = 叙事专用·零贡献
-  传播系数: z.number().min(0).max(10).optional(), // Bass p_external 权重 [0-10]
-});
-
-export const 媒介登记表Schema = z.record(z.string(), 媒介登记条目Schema).default({});
 
 // 1b-2. 叙事分发表（6.44）— 键 = 场景锚点（行动名/设施类型/事件标签）
 // 多锚点可指同一媒介；优先序 行动名＞设施＞事件标签，同级平局按键字典序（6.41②）

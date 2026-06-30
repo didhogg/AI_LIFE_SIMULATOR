@@ -8,7 +8,6 @@ import {
   投影母题配额库,
 } from '../schema/motifQuotaLibrary.js';
 import type { 母题配额库Type } from '../schema/motifQuotaLibrary.js';
-import { 母题配额Schema } from '../schema/preset.js';
 import { resolve } from '../engine/preset/resolve.js';
 import { 命名空间枚举 } from '../schema/governedKeySpace.js';
 import { 冰箱绑定表 } from '../engine/preset/refBinding.js';
@@ -38,12 +37,6 @@ const SNAPSHOT_BASE = {
   暴击映射:             '关' as '关',
   钳制表:               {},
   预设数值面域上下界:   {},
-};
-
-// 标准母题配额（旧格式）
-const QUOTA_RAW = {
-  romance: { 基础权重: 2,   每游戏年上限: 3, 互斥组: 'love' },
-  war:     { 基础权重: 1.5, 每游戏年上限: 0, 互斥组: '' },
 };
 
 describe('母题配额库 · 剥离③', () => {
@@ -97,56 +90,26 @@ describe('母题配额库 · 剥离③', () => {
     })).not.toThrow();
   });
 
-  // 断言④ 等价金测：投影 deepEqual 旧格式
-  it('④ 等价金测：投影母题配额库 deepEqual 旧 母题配额Schema.parse()', () => {
-    const 旧格式 = 母题配额Schema.parse(QUOTA_RAW);
+  // 脚手架随 preset 删除·等价由 golden 保证
 
-    const lib: 母题配额库Type = 母题配额库Schema.parse({
-      romance: { 名称: '爱情', 基础权重: 2,   每游戏年上限: 3, 互斥组: 'love' },
-      war:     { 名称: '战争', 基础权重: 1.5, 每游戏年上限: 0, 互斥组: '' },
-    });
-
-    const projected = 投影母题配额库(lib);
-    expect(projected).toEqual(旧格式);
-  });
-
-  // 断言⑤ 指纹金测·0 重定基
-  it('⑤ hashCanonical(投影) === hashCanonical(旧格式)', () => {
-    const 旧格式 = 母题配额Schema.parse(QUOTA_RAW);
+  it('⑤ hashJudgmentBundle：投影路径格式正确', () => {
     const lib: 母题配额库Type = 母题配额库Schema.parse({
       romance: { 名称: '爱情', 基础权重: 2,   每游戏年上限: 3, 互斥组: 'love' },
       war:     { 名称: '战争', 基础权重: 1.5, 每游戏年上限: 0, 互斥组: '' },
     });
     const projected = 投影母题配额库(lib);
-    expect(hashCanonical(projected)).toBe(hashCanonical(旧格式));
-  });
-
-  it('⑤ hashJudgmentBundle：投影路径 === 旧路径（指纹不变）', () => {
-    const 旧格式 = 母题配额Schema.parse(QUOTA_RAW);
-    const lib: 母题配额库Type = 母题配额库Schema.parse({
-      romance: { 名称: '爱情', 基础权重: 2,   每游戏年上限: 3, 互斥组: 'love' },
-      war:     { 名称: '战争', 基础权重: 1.5, 每游戏年上限: 0, 互斥组: '' },
-    });
-    const projected = 投影母题配额库(lib);
-
-    const hb_旧 = hashJudgmentBundle({ ...JUDGMENT_BASE, 母题配额: 旧格式 });
     const hb_新 = hashJudgmentBundle({ ...JUDGMENT_BASE, 母题配额: projected });
-    expect(hb_旧).toBe(hb_新);
-    expect(hb_旧).toMatch(/^[0-9a-f]{8}$/);
+    expect(hb_新).toMatch(/^[0-9a-f]{8}$/);
   });
 
-  it('⑤ hashPresetFingerprint 迁移前后逐位恒等（0 重定基）', () => {
-    const 旧格式 = 母题配额Schema.parse(QUOTA_RAW);
+  it('⑤ hashPresetFingerprint 投影路径格式正确', () => {
     const lib: 母题配额库Type = 母题配额库Schema.parse({
       romance: { 名称: '爱情', 基础权重: 2,   每游戏年上限: 3, 互斥组: 'love' },
       war:     { 名称: '战争', 基础权重: 1.5, 每游戏年上限: 0, 互斥组: '' },
     });
-
     const base哈希 = resolve({ packs: [] }, {}).生效中内容包集哈希;
-    const fp_旧 = hashPresetFingerprint({ 判定面整包: hashJudgmentBundle({ ...JUDGMENT_BASE, 母题配额: 旧格式 }), 生效中内容包集哈希: base哈希, snapshot: SNAPSHOT_BASE });
     const fp_新 = hashPresetFingerprint({ 判定面整包: hashJudgmentBundle({ ...JUDGMENT_BASE, 母题配额: 投影母题配额库(lib) }), 生效中内容包集哈希: base哈希, snapshot: SNAPSHOT_BASE });
-    expect(fp_旧).toBe(fp_新);
-    expect(fp_旧).toMatch(/^[0-9a-f]{8}$/);
+    expect(fp_新).toMatch(/^[0-9a-f]{8}$/);
   });
 
   // 断言⑥ resolve 挂载
