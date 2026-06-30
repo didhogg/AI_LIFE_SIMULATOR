@@ -136,31 +136,6 @@ export const 母题配额Schema = z.record(
   }),
 ).default({});
 
-// ── 媒体渠道表（6.9） ──
-export const 媒体渠道表Schema = z.record(
-  z.string(), // 渠道键
-  z.object({
-    名称: z.string().default(''),
-    受众选择器: z.string().default(''),
-    延迟分钟: z.number().int().min(0).default(0),
-    失真率: z.number().min(0).max(1).default(0),
-  }),
-).default({});
-
-// ── 战术包 ──
-const 战术条目Schema = z.object({
-  名称: z.string().default(''),
-  前置: z.object({
-    地形: z.array(z.string()).default([]),
-    兵种: z.array(z.string()).default([]),
-    情报阈值: z.number().min(0).max(100).default(0),
-  }).default({}),
-  修正包: z.record(z.string(), z.number()).default({}),
-  风险: z.string().default(''),
-  母题标签: z.array(z.string()).default([]),
-});
-
-export const 战术包Schema = z.record(z.string(), 战术条目Schema).default({});
 
 // ── 学业制式库（§三-14 迁入） ──
 const 学业制式条目Schema = z.object({
