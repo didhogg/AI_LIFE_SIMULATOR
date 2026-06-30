@@ -137,31 +137,6 @@ export const 母题配额Schema = z.record(
 ).default({});
 
 
-// ── 学业制式库（§三-14 迁入） ──
-const 学业制式条目Schema = z.object({
-  阶段名: z.string().default(''),
-  描述: z.string().default(''),
-  时长分钟: z.number().int().min(0).default(0),
-  前置条件: z.array(z.string()).default([]),
-  解锁技能: z.array(z.string()).default([]),
-  考核检定: z.string().default(''),
-});
-
-export const 学业制式库Schema = z.record(z.string(), 学业制式条目Schema).default({});
-
-// ── 职级体系库（迁入） ──
-const 职级条目Schema = z.object({
-  职级名: z.string().default(''),
-  组织类型: z.string().default(''),
-  晋升模式: z.string().default('考核制'), // 考核制/资历制/竞选制/战功制
-  前置职级: z.string().default(''),
-  晋升检定: z.string().default(''),
-  薪资系数: z.number().min(0).default(1),
-  权限标签: z.array(z.string()).default([]),
-});
-
-export const 职级体系库Schema = z.record(z.string(), 职级条目Schema).default({});
-
 // ── 财富分档参数 ──
 export const 财富分档参数Schema = z.object({
   分档列表: z.array(z.object({
