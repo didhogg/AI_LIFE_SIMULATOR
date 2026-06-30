@@ -5,6 +5,8 @@ import { v1 } from '../math/fixed.js';
 import { tryParsePred } from './parser.js';
 /** 求值器函数库版本（FINGERPRINT_PRESET_FIELDS[4]·v1={min,max,clamp,pow,sqrt}·增列超越函数时 bump） */
 export const DSL_EVALUATOR_VERSION = 'v1.0';
+/** 数值版本（归宿·C-2·对应 SaltInput.求值器函数库版本: number·v1 基线） */
+export const DSL_EVALUATOR_LIB_VERSION = 1;
 function resolvePath(parts, ctx) {
     if (parts.length === 0)
         return 0;
