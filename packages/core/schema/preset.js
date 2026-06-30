@@ -2,6 +2,7 @@
 // 校验用 schema；实际运行时由世界装配 WORLD_SETUP 注入引擎，不序列化进存档。
 import { z } from 'zod';
 import { 谓词串Schema } from './commonEntry.js';
+import { 内容包内容ShapeSchema } from './contentPackSeed.js';
 // ── 导入保真度三档（对撞·mod/卡导入检验口径）─────────────────────────────────────────
 // compat_strict = 旧版严格兼容（禁任何新字段）
 // compat_plus   = 兼容+扩展（允许已知扩展字段·禁未知字段）
@@ -44,6 +45,8 @@ export const 玩法预设Schema = z.object({
     模块绑定策略: z.record(z.string(), z.object({
         绑定: z.enum(['锁定', '建议', '自由']).default('自由'),
     })).optional(),
+    // 局部覆盖（additive·内容层·稀疏覆盖引用包种子·剥 superRefine 取内层 deepPartial·不接线·不进引擎指纹·缺省=不覆盖）
+    局部覆盖: 内容包内容ShapeSchema.deepPartial().optional(),
     // ── ③C STOPPED（DSL 版本·常量不匹配·待用户拍板后删）──────────────────────────
     DSL文法版本: z.string().default('1.0'),
     // §十A 分层方案·v1={min,max,clamp,pow,sqrt}全逐位恒等固定实现·增列超越函数时 bump

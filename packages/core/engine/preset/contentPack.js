@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { RootSchema } from '../../schema/index.js';
 import { 种子视图 } from './seedView.js';
+import { 内容包内容ShapeSchema } from '../../schema/contentPackSeed.js';
 // ── 経済生成規則（内容包裸标量·经 resolve() 聚合·Step0 迁移）────────────────────────
 export const 経済生成規則Schema = z.object({
     品类基线: z.record(z.string(), z.number()).optional(),
@@ -117,9 +118,8 @@ function 运行种子校验(seeds, ctx) {
     }
 }
 // ── 内容包内容 — 模块种子 record<模块键, 载荷> ──────────────────────────────────
-export const 内容包内容Schema = z.object({
-    模块种子: z.record(z.string(), z.unknown()).optional(),
-}).superRefine((data, ctx) => 运行种子校验(data.模块种子, ctx));
+export const 内容包内容Schema = 内容包内容ShapeSchema
+    .superRefine((data, ctx) => 运行种子校验(data.模块种子, ctx));
 // ── 内容包条目 = 元数据 + 内容（共用 运行种子校验·消除字段重复） ──────────────────
 // 剥离③ 裸标量字段（optional·last-write-wins 由 load order 决·dormant·不接 resolve）
 export const 内容包条目Schema = z.object({

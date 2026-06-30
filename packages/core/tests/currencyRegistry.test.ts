@@ -397,7 +397,7 @@ describe('R8: 守恒门', () => {
   });
 
   it('R8-3 FINGERPRINT_EXCLUDED_FIELDS 不变', () => {
-    expect(FINGERPRINT_EXCLUDED_FIELDS.length).toBe(53);
+    expect(FINGERPRINT_EXCLUDED_FIELDS.length).toBe(54);
   });
 
   it('R8-4 BASE_CURRENCY 仍为 \"文\"（零重定基·向后兼容）', () => {

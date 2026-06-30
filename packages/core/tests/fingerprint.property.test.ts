@@ -418,6 +418,8 @@ const EXCLUDED_MUTATIONS: Record<FingerprintExcludedField, unknown> = {
   模块绑定策略:        { '*': { 绑定: '建议' } },
   // 🎚️ 玩家运行态功能开关覆盖（$玩家偏好·进存档·不进判定面）
   功能开关override表:  { '认知迷雾': false, '舞台追踪': '强制开', '二审严格度': 80, '观战推进模式': '自动连播' },
+  // PR-8 R-b 内容层稀疏覆盖（additive·休眠·不影响判定面）
+  局部覆盖:            { 模块种子: { 世界: { 地名: '测试城' } } },
 };
 type _ExcludedMutationsExhaustive = typeof EXCLUDED_MUTATIONS extends Record<FingerprintExcludedField, unknown> ? true : never;
 const _checkExcluded: _ExcludedMutationsExhaustive = true;
