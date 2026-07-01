@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { 不可逆Schema } from './verb.js';
 import { 受治理句柄Schema, 是JS保留键 } from './governedKeySpace.js';
+import { 引用Schema } from '../engine/preset/ref.js';
 import { 意象条目Schema, factFragmentSchema, 谓词串Schema, 变量参数键Schema } from './commonEntry.js';
 export { 意象条目Schema } from './commonEntry.js';
 
@@ -218,7 +219,7 @@ const 学业Schema = z.object({
 });
 
 const 任职条目Schema = z.object({
-  体系ID: z.string().default(''),
+  职级体系引用: 引用Schema('职级体系').optional(),
   级序: z.number().int().min(0).default(0),
   职位: z.string().default(''),
   雇主: z.string().default(''), // 组织实体键
@@ -316,7 +317,7 @@ const NPC占位形态Schema = z.object({
   实体类型: z.string().default('NPC'),   // 开放串
   硬约束: z.array(z.string()).default([]),
   来源拍号: z.number().int().default(0),
-  _模板引用: z.string().optional(),        // K2/K3·血统只读·AI 不可改模板来源
+  _模板引用: 引用Schema('实体模板').optional(),
   _模板快照: z.unknown().optional(),       // K4·包卸载后脱包兜底·只读
 });
 

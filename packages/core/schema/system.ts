@@ -1,5 +1,6 @@
 // 4.1 系统与元数据层
 import { z } from 'zod';
+import { 引用Schema } from '../engine/preset/ref.js';
 
 // ── $临时会话草稿态（对撞⑥·快照外易失态）─────────────────────────────────────────────
 // 纪律·同 sessionStorage：
@@ -104,7 +105,7 @@ export const NarrativeSettingSchema = z.object({
   }).default({}),
   叙事偏好: z.string().default(''), // 玩家自由文本，进 prompt 组装
   // 6.42/6.44·指向文风库的键集·多选可叠加·玩家手动开关·缺包回退默认·切换落拍边界
-  启用文风键: z.array(z.string()).default([]),
+  启用文风键: z.array(引用Schema('文风')).default([]),
   叙事权限: z.object({
     // 6.76·三档决策权限（细化 6.75 两档）：玩家独占 / 模型可代写需确认 / 模型可代写自动
     玩家角色决策权限: z.enum(['玩家独占', '模型可代写·需确认', '模型可代写·自动']).default('玩家独占'),

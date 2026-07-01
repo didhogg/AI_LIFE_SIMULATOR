@@ -1,6 +1,7 @@
 // 4.5 秘密·约定·家族·全局层
 import { z } from 'zod';
 import { HISTORY_TEXT_MAX } from './constants.js';
+import { 引用Schema } from '../engine/preset/ref.js';
 
 // ── 受众选择器（开放串：实体/派系/关系/标签/血缘距离谓词） ──
 const 受众选择器 = z.string();
@@ -143,7 +144,7 @@ const 幽灵节点Schema = z.object({
   称谓: z.string().default(''),
   姓氏: z.string().default(''),
   生卒约束: z.string().default(''),          // 约束描述串（开放谓词）
-  _模板引用: z.string().optional(),        // K2/K3·血统只读·AI 不可改模板来源
+  _模板引用: 引用Schema('实体模板').optional(),
 });
 
 const 家族树Schema = z.object({

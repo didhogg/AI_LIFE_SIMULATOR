@@ -21,7 +21,8 @@ export interface Ref<N extends 命名空间Type> {
 }
 
 // ── 引用Schema(命名空间) 工厂 ──────────────────────────────────────────────────
-// 输入：裸 handle 字符串；输出：Ref<N> 对象
+// 双轨输入：裸句柄字符串（新入库/旧存档）或 {__ns,handle} 对象（序列化存档再读入）
+// 输出：Ref<N> 对象（两轨均输出同一运行时形态）
 // 复用 受治理句柄Schema 校验逻辑·禁复制正则/校验实现
 // 非法命名空间：schema 创建时 throw（TypeScript 类型守卫 + JS 调用方运行时防护）
 export function 引用Schema<N extends 命名空间Type>(ns: N) {
@@ -29,18 +30,22 @@ export function 引用Schema<N extends 命名空间Type>(ns: N) {
   if (!(命名空间枚举 as readonly string[]).includes(ns as string)) {
     throw new Error(`引用Schema: 非法命名空间「${String(ns)}」·必须 ∈ 命名空间枚举`);
   }
-  return z.string()
-    .superRefine((raw, ctx) => {
-      // 委托 受治理句柄Schema 做格式校验·不重写正则
-      const result = 受治理句柄Schema.safeParse(raw);
-      if (!result.success) {
-        for (const issue of result.error.issues) {
-          ctx.addIssue(issue);
+  // 对象轨先行：已序列化的 {__ns,handle} 直通（JSON 存档再读入路径）
+  // 字符串轨：原始句柄字符串经 受治理句柄Schema 校验后转化
+  return z.union([
+    z.object({ __ns: z.literal(ns), handle: z.string() })
+      .transform(v => v as Ref<N>),
+    z.string()
+      .superRefine((raw, ctx) => {
+        const result = 受治理句柄Schema.safeParse(raw);
+        if (!result.success) {
+          for (const issue of result.error.issues) {
+            ctx.addIssue(issue);
+          }
         }
-      }
-    })
-    .transform(handle => ({ __ns: ns, handle }) as Ref<N>)
-    .describe(`Ref<${ns}>`);
+      })
+      .transform(handle => ({ __ns: ns, handle }) as Ref<N>),
+  ]).describe(`Ref<${ns}>`);
 }
 
 // ── 创建引用 — 类型安全的 Ref<N> 构造器 ──────────────────────────────────────

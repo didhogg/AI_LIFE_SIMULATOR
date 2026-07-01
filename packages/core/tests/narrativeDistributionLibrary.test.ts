@@ -24,13 +24,13 @@ describe('叙事分发库 · 剥离③', () => {
       },
     });
     expect(result['merchant_gossip']?.名称).toBe('商人八卦');
-    expect(result['merchant_gossip']?.媒介键引用).toBe('rumor_mill');
+    expect(result['merchant_gossip']?.媒介键引用).toEqual({ __ns: '媒体', handle: 'rumor_mill' });
     expect(result['merchant_gossip']?.优先级).toBe(5);
   });
 
-  it('① 媒介键引用 default 空字符串', () => {
+  it('① 媒介键引用 缺省 undefined', () => {
     const result = 叙事分发库Schema.parse({ dist: { 名称: 'x' } });
-    expect(result['dist']?.媒介键引用).toBe('');
+    expect(result['dist']?.媒介键引用).toBeUndefined();
     expect(result['dist']?.优先级).toBeUndefined();
   });
 

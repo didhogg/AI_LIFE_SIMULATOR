@@ -3,7 +3,7 @@
 
 import { RootSchema, RootSchemaStrict, type RootState, type _mod墓碑库Type, type mod墓碑条目Type } from '../schema/index.js';
 import { normalizeRegistryKeyNames, assertGovernedKeysNormalized } from '../interfaces/keyNormalize.js'; // B5·读卡口(normalizeRegistryKeyNames) / B6·S1S1b 写卡口(assertGovernedKeysNormalized)
-import { 是JS保留键 } from '../schema/governedKeySpace.js'; // S3·写卡口 JS保留键检查
+import { 是JS保留键, type 命名空间Type } from '../schema/governedKeySpace.js'; // S3·写卡口 JS保留键检查
 import { computeLoadOrder } from '../loader/modGraph.js';
 import { deriveModAwareWhitelist } from '../loader/modWhitelist.js';
 import { coerceSemver, satisfies as semverSatisfies } from '../loader/semver.js';
@@ -545,7 +545,8 @@ function migrate主角NPC(
       任职: asArr(职业v31['任职']).map(item => {
         const it = asRec(item);
         const cy = asNum(it['入职周期']);
-        return { 体系ID: asStr(it['体系ID']), 级序: asNum(it['级序']), 职位: asStr(it['职位']), 雇主: asStr(it['雇主']), 性质: asStr(it['性质'], '主业'), 工时档: asStr(it['工时档']), 在职状态: asStr(it['在职状态'], '在职'), 报酬: asStr(it['报酬']), 绩效: asNum(it['绩效']), 入职时间: cy > 0 ? p2e(cy) : 0 };
+        const 体系串 = asStr(it['体系ID']);
+        return { ...(体系串 ? { 职级体系引用: { __ns: '职级体系' as const, handle: 体系串 } } : {}), 级序: asNum(it['级序']), 职位: asStr(it['职位']), 雇主: asStr(it['雇主']), 性质: asStr(it['性质'], '主业'), 工时档: asStr(it['工时档']), 在职状态: asStr(it['在职状态'], '在职'), 报酬: asStr(it['报酬']), 绩效: asNum(it['绩效']), 入职时间: cy > 0 ? p2e(cy) : 0 };
       }),
       职业履历: asRec(职业v31['职业履历']),
     },
@@ -1698,6 +1699,168 @@ export function checkPackIdAliases(state: RootState, log: MigLog[]): void {
   }
 }
 
+// ── migrateRefFields · within-V4.1 · 跨引用字段迁移（裸串 → Ref 对象·幂等） ────────────
+// 字段不进 hashJudgmentBundle → 不 bump migration_version
+// 二次迁移 0 变更（shape-sniff: {__ns,handle} 形式跳过·裸串/空串 → Ref/删字段）
+export function migrateRefFields(raw: Record<string, unknown>): Record<string, unknown> {
+  function isRef(v: unknown): v is { __ns: string; handle: string } {
+    if (typeof v !== 'object' || v === null) return false;
+    const o = v as Record<string, unknown>;
+    return typeof o['__ns'] === 'string' && typeof o['handle'] === 'string';
+  }
+  function toRef(ns: 命名空间Type, v: unknown): { __ns: string; handle: string } | undefined {
+    if (isRef(v)) return v;
+    if (typeof v !== 'string' || v === '') return undefined;
+    return { __ns: ns, handle: v };
+  }
+
+  const work = structuredClone(raw) as Record<string, unknown>;
+  let anyChanged = false;
+
+  // ── NPC[key] ──
+  const npcRec = work['NPC'];
+  if (typeof npcRec === 'object' && npcRec !== null) {
+    for (const npcKey of Object.keys(npcRec as object)) {
+      const npc = (npcRec as Record<string, unknown>)[npcKey];
+      if (typeof npc !== 'object' || npc === null) continue;
+      const npcObj = npc as Record<string, unknown>;
+
+      // 职业.任职[].体系ID → 职级体系引用（rename + convert）
+      const 职业 = npcObj['职业'];
+      if (typeof 职业 === 'object' && 职业 !== null) {
+        const 任职 = (职业 as Record<string, unknown>)['任职'];
+        if (Array.isArray(任职)) {
+          for (const entry of 任职) {
+            if (typeof entry !== 'object' || entry === null) continue;
+            const e = entry as Record<string, unknown>;
+            if ('体系ID' in e) {
+              const r = toRef('职级体系', e['体系ID']);
+              if (r !== undefined) e['职级体系引用'] = r;
+              delete e['体系ID'];
+              anyChanged = true;
+            }
+          }
+        }
+      }
+
+      // 占位形态._模板引用
+      const npc占位 = npcObj['占位形态'];
+      if (typeof npc占位 === 'object' && npc占位 !== null && '_模板引用' in (npc占位 as object)) {
+        const 占位 = npc占位 as Record<string, unknown>;
+        const old = 占位['_模板引用'];
+        if (!isRef(old)) {
+          const r = toRef('实体模板', old);
+          if (r !== undefined) { 占位['_模板引用'] = r; } else { delete 占位['_模板引用']; }
+          anyChanged = true;
+        }
+      }
+    }
+  }
+
+  // ── 组织实体[key] ──
+  const orgRec = work['组织实体'];
+  if (typeof orgRec === 'object' && orgRec !== null) {
+    for (const orgKey of Object.keys(orgRec as object)) {
+      const org = (orgRec as Record<string, unknown>)[orgKey];
+      if (typeof org !== 'object' || org === null) continue;
+      const orgObj = org as Record<string, unknown>;
+
+      // 治理.关联职级体系ID（type change, no rename）
+      const 治理 = orgObj['治理'];
+      if (typeof 治理 === 'object' && 治理 !== null && '关联职级体系ID' in (治理 as object)) {
+        const t = 治理 as Record<string, unknown>;
+        const old = t['关联职级体系ID'];
+        if (!isRef(old)) {
+          const r = toRef('职级体系', old);
+          if (r !== undefined) { t['关联职级体系ID'] = r; } else { delete t['关联职级体系ID']; }
+          anyChanged = true;
+        }
+      }
+
+      // 军事.部队[].战术引用
+      const 军事 = orgObj['军事'];
+      if (typeof 军事 === 'object' && 军事 !== null) {
+        const 部队 = (军事 as Record<string, unknown>)['部队'];
+        if (Array.isArray(部队)) {
+          for (const entry of 部队) {
+            if (typeof entry !== 'object' || entry === null) continue;
+            const e = entry as Record<string, unknown>;
+            if ('战术引用' in e) {
+              const old = e['战术引用'];
+              if (!isRef(old)) {
+                const r = toRef('战术包', old);
+                if (r !== undefined) { e['战术引用'] = r; } else { delete e['战术引用']; }
+                anyChanged = true;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // ── _叙事设置.启用文风键[] ──
+  const 叙事设置 = work['_叙事设置'];
+  if (typeof 叙事设置 === 'object' && 叙事设置 !== null && '启用文风键' in (叙事设置 as object)) {
+    const ns = 叙事设置 as Record<string, unknown>;
+    const old = ns['启用文风键'];
+    if (Array.isArray(old) && old.some(item => !isRef(item))) {
+      ns['启用文风键'] = old.flatMap(item => {
+        if (isRef(item)) return [item];
+        if (typeof item === 'string' && item !== '') return [{ __ns: '文风' as const, handle: item }];
+        return [];
+      });
+      anyChanged = true;
+    }
+  }
+
+  // ── LOD表[key].占位形态._模板引用 ──
+  const lodRec = work['LOD表'];
+  if (typeof lodRec === 'object' && lodRec !== null) {
+    for (const lodKey of Object.keys(lodRec as object)) {
+      const lodEntry = (lodRec as Record<string, unknown>)[lodKey];
+      if (typeof lodEntry !== 'object' || lodEntry === null) continue;
+      const lod = lodEntry as Record<string, unknown>;
+      const 占位形态 = lod['占位形态'];
+      if (typeof 占位形态 === 'object' && 占位形态 !== null && '_模板引用' in (占位形态 as object)) {
+        const 占位 = 占位形态 as Record<string, unknown>;
+        const old = 占位['_模板引用'];
+        if (!isRef(old)) {
+          const r = toRef('实体模板', old);
+          if (r !== undefined) { 占位['_模板引用'] = r; } else { delete 占位['_模板引用']; }
+          anyChanged = true;
+        }
+      }
+    }
+  }
+
+  // ── 全局.家族树.幽灵节点[key]._模板引用 ──
+  const 全局 = work['全局'];
+  if (typeof 全局 === 'object' && 全局 !== null) {
+    const 家族树 = (全局 as Record<string, unknown>)['家族树'];
+    if (typeof 家族树 === 'object' && 家族树 !== null) {
+      const 幽灵节点 = (家族树 as Record<string, unknown>)['幽灵节点'];
+      if (typeof 幽灵节点 === 'object' && 幽灵节点 !== null) {
+        for (const ghostKey of Object.keys(幽灵节点 as object)) {
+          const ghost = (幽灵节点 as Record<string, unknown>)[ghostKey];
+          if (typeof ghost !== 'object' || ghost === null) continue;
+          const g = ghost as Record<string, unknown>;
+          if ('_模板引用' in g) {
+            const old = g['_模板引用'];
+            if (!isRef(old)) {
+              const r = toRef('实体模板', old);
+              if (r !== undefined) { g['_模板引用'] = r; } else { delete g['_模板引用']; }
+              anyChanged = true;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return anyChanged ? work : raw;
+}
+
 // ── migrate (public entry) ─────────────────────────────────────────────────────
 
 export function migrate(input: unknown): MigrateResult {
@@ -1705,7 +1868,7 @@ export function migrate(input: unknown): MigrateResult {
   // buildV41Raw already emits new key names; applyPrefixRenames is a no-op here
   // but is exported for callers who load existing V4.1 saves with old key names.
   // Within-v4.1 migrations run here (after buildV41Raw v4.1 early-return path).
-  const rawMigrated = backfillLodTableNpcState(backfillLodTableMapState(backfillPhaseL1b(backfillSeedSourcePkgName(backfill货币账户PerEntity(backfillPackId(migrateS1S1b(migrate内容分级位置(raw))))))));
+  const rawMigrated = migrateRefFields(backfillLodTableNpcState(backfillLodTableMapState(backfillPhaseL1b(backfillSeedSourcePkgName(backfill货币账户PerEntity(backfillPackId(migrateS1S1b(migrate内容分级位置(raw)))))))));
   let state: RootState = RootSchema.parse(normalizeRegistryKeyNames(rawMigrated)); // S3 读卡口
 
   // Community-gate self-heal: 内容分级 !== 'community' 时强制 允许玩家覆盖=false，不 throw

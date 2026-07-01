@@ -1,6 +1,7 @@
 // 4.4 组织与约定层
 import { z } from 'zod';
 import { 受治理句柄Schema } from './governedKeySpace.js';
+import { 引用Schema } from '../engine/preset/ref.js';
 
 // ══════════════════════════════════════════
 // 公共子 schema
@@ -40,7 +41,7 @@ const 进展树领域Schema = z.object({
 const 部队条目Schema = z.object({
   编制: z.string().default(''),           // 开放串：步兵营/骑兵队/龙骑…
   姿态: z.string().default(''),           // 开放串（6.15）：强攻/死守/阻滞/佯攻/伏击…
-  战术引用: z.string().default(''),       // 战术库 mod 条目键
+  战术引用: 引用Schema('战术包').optional(),
 });
 
 // ── 派系登记条目 ────────────────────────────────────────────────────────────────
@@ -149,7 +150,7 @@ export const 组织实体条目Schema = z.object({
   治理: z.object({
     追随者规模: z.number().int().min(0).default(0),
     控制区: z.array(z.string()).default([]),  // 节点键列表
-    关联职级体系ID: z.string().default(''),
+    关联职级体系ID: 引用Schema('职级体系').optional(),
   }).optional(),
 
   // ── 军事（士气已收编出厂轴）───────────────────────────────────────────────────

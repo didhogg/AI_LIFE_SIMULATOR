@@ -4,6 +4,7 @@
 // 对应旧 preset.ts 叙事分发表Schema（FINGERPRINT_EXCLUDED_FIELDS 已列）
 // 纯 schema + 类型·无副作用·禁 Date.now / new Date / Math.random / window / document
 import { z } from 'zod';
+import { 引用Schema } from '../engine/preset/ref.js';
 
 export const 叙事分发ID正则 = /^[a-z][a-z0-9_]*$/;
 
@@ -17,7 +18,7 @@ export const 叙事分发定义条目Schema = z.object({
   描述: z.string().optional(),
   内容哈希: z.string().optional(),
   // 分发数据体（dormant·不进 hashJudgmentBundle）
-  媒介键引用: z.string().default(''),
+  媒介键引用: 引用Schema('媒体').optional(),
   优先级: z.number().int().optional(),
 });
 
