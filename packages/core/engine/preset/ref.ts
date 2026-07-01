@@ -1,6 +1,5 @@
-// PR-瘦身-指针-0 · 泛型精准引用原语（additive · dormant · 无生产消费者）
+// PR-瘦身-指针-0 · 泛型精准引用原语（9 schema 字段生产使用）
 // 基于 受治理句柄Schema + 命名空间枚举 派生 Ref<N> 类型 + 惰性解引用解析器
-// dormant: 不接 runTick · 不进 resolve 生产路径 · 不进 hashPresetFingerprint
 // 纯函数 · 无副作用 · 禁 Date.now / new Date / Math.random / window / document
 import { z } from 'zod';
 import { 受治理句柄Schema, 命名空间枚举 } from '../../schema/governedKeySpace.js';
@@ -30,11 +29,11 @@ export function 引用Schema<N extends 命名空间Type>(ns: N) {
   if (!(命名空间枚举 as readonly string[]).includes(ns as string)) {
     throw new Error(`引用Schema: 非法命名空间「${String(ns)}」·必须 ∈ 命名空间枚举`);
   }
-  // 对象轨先行：已序列化的 {__ns,handle} 直通（JSON 存档再读入路径）
+  // 对象轨先行：已序列化的 {__ns,handle} 直通（JSON 存档再读入路径）·handle 同款受治理句柄校验
   // 字符串轨：原始句柄字符串经 受治理句柄Schema 校验后转化
   return z.union([
-    z.object({ __ns: z.literal(ns), handle: z.string() })
-      .transform(v => v as Ref<N>),
+    z.object({ __ns: z.literal(ns), handle: 受治理句柄Schema })
+      .transform(v => ({ __ns: ns, handle: v.handle }) as Ref<N>),
     z.string()
       .superRefine((raw, ctx) => {
         const result = 受治理句柄Schema.safeParse(raw);

@@ -1796,6 +1796,18 @@ export function migrateRefFields(raw: Record<string, unknown>): Record<string, u
           }
         }
       }
+
+      // 占位形态._模板引用
+      const org占位 = orgObj['占位形态'];
+      if (typeof org占位 === 'object' && org占位 !== null && '_模板引用' in (org占位 as object)) {
+        const 占位 = org占位 as Record<string, unknown>;
+        const old = 占位['_模板引用'];
+        if (!isRef(old)) {
+          const r = toRef('实体模板', old);
+          if (r !== undefined) { 占位['_模板引用'] = r; } else { delete 占位['_模板引用']; }
+          anyChanged = true;
+        }
+      }
     }
   }
 

@@ -77,7 +77,7 @@ export const 组织占位形态Schema = z.object({
   实体类型: z.string().default('组织'),   // 开放串
   硬约束: z.array(z.string()).default([]),
   来源拍号: z.number().int().default(0),  // 拍计数；0=哨兵（出现时拍未知）
-  _模板引用: z.string().optional(),        // K2/K3·血统只读·AI 不可改模板来源
+  _模板引用: 引用Schema('实体模板').optional(),
   _模板快照: z.unknown().optional(),       // K4·包卸载后脱包兜底·只读
 });
 

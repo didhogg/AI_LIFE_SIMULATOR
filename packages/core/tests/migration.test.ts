@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { migrate, checkS3WriteGate, checkL3PersonGate, buildV41Raw, applyPrefixRenames, backfillPackId, backfillSeedSourcePkgName, migrateS1S1b, parseChineseDateToEpochMin, getTickMinutes, type MigLog } from '../migration/migrate.js';
+import { migrate, checkS3WriteGate, checkL3PersonGate, buildV41Raw, applyPrefixRenames, backfillPackId, backfillSeedSourcePkgName, migrateS1S1b, migrateRefFields, parseChineseDateToEpochMin, getTickMinutes, type MigLog } from '../migration/migrate.js';
 import { assertGovernedKeysNormalized } from '../interfaces/keyNormalize.js';
 import { mod墓碑原因枚举 } from '../schema/memory.js';
 import type { RootState } from '../schema/index.js';
@@ -1353,3 +1353,85 @@ describe('backfillSeedSourcePkgName — D-3 种子侧归一', () => {
     expect(srcAfter2?.['来源包']).toBe('test_pkg');
   });
 });
+
+// ── migrateRefFields · 往返幂等验收 ───────────────────────────────────────────
+describe('migrateRefFields · 往返幂等（8 存档路径·含组织占位）', () => {
+  // 构造含全 8 存档路径旧裸串 + 空串的 raw state（模拟旧格式存档）
+  function buildRaw() {
+    return {
+      NPC: {
+        npc_a: {
+          职业: {
+            任职: [
+              { 体系ID: 'rank_official', 级序: 3, 职位: '知县', 雇主: 'org_gov', 性质: '主业', 工时档: '全职', 在职状态: '在职', 报酬: '', 绩效: 0, 入职时间: 0 },
+              { 体系ID: '',              级序: 0, 职位: '',    雇主: '',       性质: '主业', 工时档: '',    在职状态: '在职', 报酬: '', 绩效: 0, 入职时间: 0 },
+            ],
+          },
+          占位形态: { _模板引用: 'tpl_npc' },
+        },
+      },
+      组织实体: {
+        org_a: {
+          治理: { 关联职级体系ID: 'rank_official', 追随者规模: 0, 控制区: [] },
+          军事: { 部队: [
+            { 战术引用: 'tactic_flank', 编制: '', 姿态: '' },
+            { 战术引用: '',             编制: '', 姿态: '' },
+          ]},
+          占位形态: { _模板引用: 'tpl_org' },
+        },
+      },
+      _叙事设置: { 启用文风键: ['武侠', '', '玄幻'] },
+      LOD表: { lod_k: { 占位形态: { _模板引用: 'tpl_lod' } } },
+      全局: { 家族树: { 幽灵节点: { ghost_1: { _模板引用: 'tpl_ghost' } } } },
+    } as Record<string, unknown>;
+  }
+
+  it('第一次迁移：裸串 → Ref·空串 → 删字段', () => {
+    const raw = buildRaw();
+    const m = migrateRefFields(raw);
+
+    // NPC 任职：体系ID rename
+    const 任职 = ((m['NPC'] as any)?.['npc_a']?.['职业']?.['任职'] as any[]);
+    expect(任职[0]['职级体系引用']).toEqual({ __ns: '职级体系', handle: 'rank_official' });
+    expect('体系ID' in 任职[0]).toBe(false);
+    expect('职级体系引用' in 任职[1]).toBe(false); // 空串 → 不设
+    expect('体系ID' in 任职[1]).toBe(false);
+
+    // NPC 占位
+    expect((m['NPC'] as any)?.['npc_a']?.['占位形态']?.['_模板引用'])
+      .toEqual({ __ns: '实体模板', handle: 'tpl_npc' });
+
+    // 组织 治理
+    expect((m['组织实体'] as any)?.['org_a']?.['治理']?.['关联职级体系ID'])
+      .toEqual({ __ns: '职级体系', handle: 'rank_official' });
+
+    // 组织 军事 部队
+    const 部队 = (m['组织实体'] as any)?.['org_a']?.['军事']?.['部队'] as any[];
+    expect(部队[0]['战术引用']).toEqual({ __ns: '战术包', handle: 'tactic_flank' });
+    expect('战术引用' in 部队[1]).toBe(false); // 空串 → 删
+
+    // 组织 占位
+    expect((m['组织实体'] as any)?.['org_a']?.['占位形态']?.['_模板引用'])
+      .toEqual({ __ns: '实体模板', handle: 'tpl_org' });
+
+    // 叙事设置 启用文风键（空串过滤）
+    expect((m['_叙事设置'] as any)?.['启用文风键'])
+      .toEqual([{ __ns: '文风', handle: '武侠' }, { __ns: '文风', handle: '玄幻' }]);
+
+    // LOD表 占位
+    expect((m['LOD表'] as any)?.['lod_k']?.['占位形态']?.['_模板引用'])
+      .toEqual({ __ns: '实体模板', handle: 'tpl_lod' });
+
+    // 全局 幽灵节点
+    expect((m['全局'] as any)?.['家族树']?.['幽灵节点']?.['ghost_1']?.['_模板引用'])
+      .toEqual({ __ns: '实体模板', handle: 'tpl_ghost' });
+  });
+
+  it('第二次迁移：幂等（0 变更·返同引用）', () => {
+    const raw = buildRaw();
+    const m1 = migrateRefFields(raw);
+    const m2 = migrateRefFields(m1);
+    expect(m2).toBe(m1); // anyChanged=false → 返原参 raw（同对象引用）
+  });
+});
+

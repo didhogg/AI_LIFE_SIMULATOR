@@ -315,3 +315,74 @@ describe('R9 · 原型链 fail-open 防护', () => {
     expect(解引用(ref, 成品)).toEqual({ pack_id: 'pack_a', 名称: '基础包' });
   });
 });
+
+// ── R8b · 引用Schema object 轨句柄格式校验（对称 R8·受治理句柄同款）─────────────────
+describe('R8b · 引用Schema object 轨句柄格式校验', () => {
+  it('object 轨 空串 handle → safeParse fail', () => {
+    const s = 引用Schema('媒体');
+    expect(s.safeParse({ __ns: '媒体', handle: '' }).success).toBe(false);
+  });
+
+  it('object 轨 含点号 handle → safeParse fail', () => {
+    const s = 引用Schema('媒体');
+    expect(s.safeParse({ __ns: '媒体', handle: 'a.b' }).success).toBe(false);
+  });
+
+  it('object 轨 JS 保留键 handle → safeParse fail', () => {
+    const s = 引用Schema('媒体');
+    expect(s.safeParse({ __ns: '媒体', handle: '__proto__' }).success).toBe(false);
+  });
+
+  it('object 轨 有效 handle → 解析成功（存档 round-trip）', () => {
+    const s = 引用Schema('媒体');
+    const ref = s.parse({ __ns: '媒体', handle: 'my_channel' });
+    expect(ref.__ns).toBe('媒体');
+    expect(ref.handle).toBe('my_channel');
+  });
+
+  it('object 轨 错误 __ns → safeParse fail', () => {
+    const s = 引用Schema('媒体');
+    expect(s.safeParse({ __ns: '文风', handle: 'my_channel' }).success).toBe(false);
+  });
+});
+
+// ── C · 解引用 smoke（5 BOUND 命名空间·前置① 迁移目标）─────────────────────────────
+describe('C · 解引用 smoke（5 BOUND 命名空间）', () => {
+  const 成品5: Record<string, unknown> = {
+    媒体库:     { chan_news:      { id: 'chan_news',      名称: '新闻频道' } },
+    文风库:     { wuxia_style:   { id: 'wuxia_style',   名称: '武侠文风' } },
+    战术包库:   { tactic_flank:  { id: 'tactic_flank',  名称: '包抄战术' } },
+    职级体系库: { rank_gov:      { id: 'rank_gov',      名称: '官僚体系' } },
+    实体模板库: { tpl_merchant:  { id: 'tpl_merchant',  名称: '商人模板' } },
+  };
+
+  it('媒体 bound → 命中返条目', () => {
+    expect(解引用(创建引用('媒体', 'chan_news'), 成品5)).toEqual({ id: 'chan_news', 名称: '新闻频道' });
+  });
+
+  it('文风 bound → 命中返条目', () => {
+    expect(解引用(创建引用('文风', 'wuxia_style'), 成品5)).toEqual({ id: 'wuxia_style', 名称: '武侠文风' });
+  });
+
+  it('战术包 bound → 命中返条目', () => {
+    expect(解引用(创建引用('战术包', 'tactic_flank'), 成品5)).toEqual({ id: 'tactic_flank', 名称: '包抄战术' });
+  });
+
+  it('职级体系 bound → 命中返条目', () => {
+    expect(解引用(创建引用('职级体系', 'rank_gov'), 成品5)).toEqual({ id: 'rank_gov', 名称: '官僚体系' });
+  });
+
+  it('实体模板 bound → 命中返条目', () => {
+    expect(解引用(创建引用('实体模板', 'tpl_merchant'), 成品5)).toEqual({ id: 'tpl_merchant', 名称: '商人模板' });
+  });
+
+  it('缺条目 → 返 null（AA3 守恒）', () => {
+    expect(解引用(创建引用('媒体', 'nonexistent_channel'), 成品5)).toBeNull();
+  });
+
+  it('optional 缺席字段 → 不构 Ref（字段 absent 时不产生引用对象）', () => {
+    // 验证 引用Schema('媒体').optional() 对 absent 字段返 undefined，不构 Ref
+    const 引用媒体Schema = 引用Schema('媒体').optional();
+    expect(引用媒体Schema.parse(undefined)).toBeUndefined();
+  });
+});
