@@ -16,7 +16,7 @@
 //   漂移 = computeRelativeDrift(cur, baseline[轴])·原始小数·不 ×100
 
 import type { RootState } from '../schema/index.js';
-import { locRegion, type LocRecord } from './tick.js';
+import { locRegion, type LocRecord } from './regionGraph.js';
 import {
   promoteNode,
   tryDemoteNode,

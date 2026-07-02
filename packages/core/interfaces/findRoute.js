@@ -1,16 +1,50 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-// P0-1x·findRoute 寻路备忘 接口冻结 stub（🔴卡 P0-7 实装）
-// findRoute(图, 起, 终, NPC过滤器) → 节点序列 | null(不可达)
-// 平局按节点键字典序（规则冻结·接线时不得更改）
+import { guidedTraverse } from '../engine/traverse.js';
+import { evalPredStr } from '../engine/dsl/eval.js';
+/** 图形状归一：Map<string,Set<string>> 或 Map<string,Edge[]> → Map<string,Edge[]>；其余形状 fail-closed 返回 null。 */
+function normalizeGraph(图) {
+    if (!(图 instanceof Map))
+        return null;
+    const out = new Map();
+    for (const [key, value] of 图) {
+        if (typeof key !== 'string')
+            return null;
+        if (value instanceof Set) {
+            out.set(key, [...value].map((to) => ({ to: to })));
+        }
+        else if (Array.isArray(value)) {
+            const edges = [];
+            for (const e of value) {
+                if (typeof e !== 'object' || e === null || typeof e.to !== 'string')
+                    return null;
+                edges.push(e);
+            }
+            out.set(key, edges);
+        }
+        else {
+            return null;
+        }
+    }
+    return out;
+}
 /**
  * 在地图图结构中寻找从起点到终点的路径。
- * @param _图 - 地图图结构（节点键→邻接表，P0-7 细化类型）
- * @param _起 - 起点节点键
- * @param _终 - 终点节点键
- * @param _NPC过滤器 - NPC 通行过滤器表达式（开放串）
+ * @param 图 - 地图图结构（节点键→邻接表；接受 Map<string,Set<string>> 或 Map<string,Edge[]>）
+ * @param 起 - 起点节点键
+ * @param 终 - 终点节点键
+ * @param NPC过滤器 - NPC 通行过滤器表达式（DSL 谓词串·开放串·空串=不过滤）
  * @returns 节点键序列（含起点和终点）；不可达时返回 null
  * @note 平局按节点键字典序排序（6.x 冻结规则）
  */
-export function findRoute(_图, _起, _终, _NPC过滤器) {
-    throw new Error('未实装');
+export function findRoute(图, 起, 终, NPC过滤器) {
+    const graph = normalizeGraph(图);
+    if (graph === null)
+        return null;
+    const filterSrc = NPC过滤器.trim();
+    const spec = filterSrc === ''
+        ? { seeds: [起], mode: 'route', goal: 终 }
+        : {
+            seeds: [起], mode: 'route', goal: 终,
+            gate: (edge) => evalPredStr(filterSrc, edge.attrs ?? {}),
+        };
+    return guidedTraverse(graph, spec);
 }

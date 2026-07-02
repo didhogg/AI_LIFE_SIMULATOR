@@ -10,7 +10,7 @@
 // 纯函数·确定性·Ring 0·六禁：禁 Date.now/new Date/Math.random/localeCompare/裸 JSON.stringify/NFC
 // 红线：gate.ts/rng.ts/conservation.ts/computeDelta.ts/fixed.ts/propagateRipple 函数体零 diff
 import { 穿越契约Schema } from './preset/contentPack.js';
-import { locRegion, buildRegionGraph, bfsRegionHops } from './tick.js';
+import { locRegion } from './regionGraph.js';
 import { materializeCoarseNode } from './lodEngine.js';
 import { applyDriftCandidate } from './economyEngine.js';
 // ── 常量 ─────────────────────────────────────────────────────────────────────
@@ -263,5 +263,3 @@ export function isCrossDomainAccess(sourceDomain, currentDomainId) {
         return false;
     return sourceDomain !== currentDomainId;
 }
-// ── 辅助：获取区域图（复用 C1 buildRegionGraph·只读）────────────────────────
-export { locRegion, buildRegionGraph, bfsRegionHops };

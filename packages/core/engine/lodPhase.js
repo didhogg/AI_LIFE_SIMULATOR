@@ -14,7 +14,7 @@
 //   Tier B: 监测轴 + 触发阈值（合成 '漂移.{监测轴} {触发阈值}'）
 //   轴值经 LOD挂载注册表[模块键].读数值轴 读取（零 switch·零枚举）
 //   漂移 = computeRelativeDrift(cur, baseline[轴])·原始小数·不 ×100
-import { locRegion } from './tick.js';
+import { locRegion } from './regionGraph.js';
 import { promoteNode, tryDemoteNode, handleRegionCross, detectLodTrigger, } from './lodScheduler.js';
 import { dispatchLodGenerate, getLodMount } from './lodMount.js';
 import { evalPredStr } from './dsl/eval.js';

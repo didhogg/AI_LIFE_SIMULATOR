@@ -25,6 +25,7 @@ import { intervention_pack_delta条目Schema } from '../schema/memory.js';
 import { deriveVerbDelta } from './proposal/verbDelta.js';
 import { executeActionOption } from './aohpExecutor.js';
 import { scheduleLodPhase } from './lodPhase.js';
+import { locRegion, buildRegionGraph, bfsRegionHops, type LocRecord, type RegionGraph } from './regionGraph.js';
 import { evalPredStr } from './dsl/eval.js';
 import { resolveEffectivePredicate, readGlobalDslSwitch } from './dsl/aiPredControl.js';
 import { projectStateCtx } from './dsl/stateCtx.js';
@@ -762,66 +763,9 @@ export function runTick(state: RootState, input: TickInput): TickResult {
 
 // ── 涟漪引擎 ──────────────────────────────────────────────────────────────────
 
-// ── 空间层辅助（G1·区域图跳数 + 人口密度调制） ────────────────────────────────
-
-export type LocRecord = NonNullable<RootState['地图']>['地点'];
-export type RegionGraph = Map<string, Set<string>>;
-
-/** 给定地点键，沿父节点链（最多 16 层）找最近「区域级」祖先节点键；含自身。 */
-export function locRegion(locKey: string, locs: LocRecord): string | undefined {
-  let cur = locKey;
-  for (let d = 0; d < 16; d++) {
-    const loc = locs[cur];
-    if (!loc) return undefined;
-    if (loc.类别 === '区域级') return cur;
-    if (!loc.父节点) return undefined;
-    cur = loc.父节点;
-  }
-  return undefined;
-}
-
-/**
- * 从全量 地点.相邻 推导区域级无向邻接图。
- * 若两个地点的相邻边两端解析到不同区域，则添加一条区域间边（双向）。
- */
-export function buildRegionGraph(locs: LocRecord): RegionGraph {
-  const graph: RegionGraph = new Map();
-  for (const [locKey, loc] of Object.entries(locs)) {
-    const src = locRegion(locKey, locs);
-    if (!src) continue;
-    if (!graph.has(src)) graph.set(src, new Set());
-    for (const adj of loc.相邻) {
-      if (!adj.目标 || adj.目标 === locKey) continue;
-      const dst = locRegion(adj.目标, locs);
-      if (!dst || dst === src) continue;
-      graph.get(src)!.add(dst);
-      if (!graph.has(dst)) graph.set(dst, new Set());
-      graph.get(dst)!.add(src);
-    }
-  }
-  return graph;
-}
-
-/** BFS 求区域图最短跳数；不可达返回 -1。使用数组下标代替 shift() 防 O(n²)。 */
-export function bfsRegionHops(from: string, to: string, graph: RegionGraph): number {
-  if (from === to) return 0;
-  const visited = new Set<string>([from]);
-  const queue: [string, number][] = [[from, 0]];
-  let qi = 0;
-  while (qi < queue.length) {
-    const [cur, hops] = queue[qi++]!;
-    const neighbors = graph.get(cur);
-    if (!neighbors) continue;
-    for (const nxt of neighbors) {
-      if (nxt === to) return hops + 1;
-      if (!visited.has(nxt)) {
-        visited.add(nxt);
-        queue.push([nxt, hops + 1]);
-      }
-    }
-  }
-  return -1;
-}
+// ── 空间层辅助（G1·区域图跳数 + 人口密度调制·前置②剥离到 regionGraph.ts） ─────
+export type { LocRecord, RegionGraph } from './regionGraph.js';
+export { locRegion, buildRegionGraph, bfsRegionHops } from './regionGraph.js';
 
 /**
  * 计算二跳空间衰减因子：区域图跳数 × 人口密度调制（目标区域）。

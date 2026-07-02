@@ -15,7 +15,7 @@ import type { 経済生成規則Type } from './preset/contentPack.js';
 import type { LOD态条目 } from '../schema/lodTable.js';
 import { 穿越契约Schema } from './preset/contentPack.js';
 import type { z } from 'zod';
-import { locRegion, buildRegionGraph, bfsRegionHops, type LocRecord } from './tick.js';
+import { locRegion, type LocRecord } from './regionGraph.js';
 import { materializeCoarseNode } from './lodEngine.js';
 import { applyDriftCandidate } from './economyEngine.js';
 
@@ -348,6 +348,3 @@ export function isCrossDomainAccess(
   if (sourceDomain === undefined) return false;
   return sourceDomain !== currentDomainId;
 }
-
-// ── 辅助：获取区域图（复用 C1 buildRegionGraph·只读）────────────────────────
-export { locRegion, buildRegionGraph, bfsRegionHops };

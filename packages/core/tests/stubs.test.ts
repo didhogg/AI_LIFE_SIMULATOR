@@ -1,5 +1,8 @@
 // P0-1x·接口冻结 stub 验收测试
 import { describe, it, expect, expectTypeOf } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ActionOptionSchema, ActionOptionListSchema } from '../schema/proposal.js';
 import type { ActionOptionType } from '../schema/proposal.js';
 import { replayIrreversible, assertNoRerollOnIrreversible } from '../interfaces/irreversibleGuard.js';
@@ -38,6 +41,8 @@ import type { 受治理路径Schema, 受治理句柄Schema } from '../schema/gov
 import type { 组织属性轴条目Schema } from '../schema/org.js';
 import type { 属性轴表Schema } from '../engine/preset/ruleLibrary.js';
 
+const CORE_ROOT = join(fileURLToPath(import.meta.url), '..', '..'); // packages/core/
+
 describe('P0-1x Stub: CombatResolver（6.63·三段·未实装）', () => {
   it('init 签名抛出「未实装」', () => {
     expect(() => CombatResolver.init(['npc_a', 'npc_b'], '书房', 42)).toThrow('未实装');
@@ -71,9 +76,53 @@ describe('P0-1x Stub: 离场补结（6.66·三段·未实装）', () => {
   });
 });
 
-describe('P0-1x Stub: findRoute（寻路备忘·未实装）', () => {
-  it('findRoute 签名抛出「未实装」', () => {
-    expect(() => findRoute({}, '节点_书房', '节点_城门', '全NPC')).toThrow('未实装');
+describe('P0-1x findRoute（前置②·route 模式薄 wrapper·已实装）', () => {
+  it('不可达 → 返回 null（非 throw、非字符串）', () => {
+    const graph = new Map<string, Set<string>>([
+      ['节点_书房', new Set(['节点_走廊'])],
+      ['节点_走廊', new Set()],
+      ['节点_城门', new Set(['节点_护城河'])],
+      ['节点_护城河', new Set()],
+    ]);
+    expect(findRoute(graph, '节点_书房', '节点_城门', '')).toBeNull();
+  });
+
+  it('平局按节点键字典序：两条等长路径取键小者', () => {
+    const graph = new Map<string, Set<string>>([
+      ['S', new Set(['B', 'A'])], // 插入序故意反字典序·验证平局判定不依赖迭代序
+      ['A', new Set(['Z'])],
+      ['B', new Set(['Z'])],
+      ['Z', new Set()],
+    ]);
+    expect(findRoute(graph, 'S', 'Z', '')).toEqual(['S', 'A', 'Z']);
+  });
+
+  it('非法图形状 fail-closed 返回 null（不抛错）', () => {
+    expect(findRoute({}, '节点_书房', '节点_城门', '全NPC')).toBeNull();
+  });
+
+  it('数组值非 Edge 对象（裸 string[]）→ fail-closed 返回 null（P1 修复：逐元素校验替代裸断言）', () => {
+    const graph = new Map<string, string[]>([
+      ['节点_书房', ['节点_走廊']],
+      ['节点_走廊', []],
+    ]);
+    expect(findRoute(graph, '节点_书房', '节点_走廊', '')).toBeNull();
+  });
+
+  it('全仓唯一 findRoute 定义（engine/index.ts 孤儿第二实现已删）', () => {
+    const hits: string[] = [];
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) { walk(full); continue; }
+        if (!entry.name.endsWith('.ts') || entry.name.endsWith('.test.ts')) continue;
+        const src = readFileSync(full, 'utf-8');
+        if (/\bfunction\s+findRoute\s*\(/.test(src)) hits.push(full);
+      }
+    };
+    walk(CORE_ROOT);
+    expect(hits).toEqual([join(CORE_ROOT, 'interfaces', 'findRoute.ts')]);
   });
 });
 
