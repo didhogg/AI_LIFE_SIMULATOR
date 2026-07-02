@@ -8,7 +8,7 @@
 // 红线：rng.ts/gate.ts/conservation.ts/computeDelta.ts/fixed.ts 函数体零 diff。
 // schemaKeys=54 守恒（不新增顶层 key）。
 import { rngFor } from './rng.js';
-import { writeImpressionMax } from './tick.js';
+import { writeImpressionMax } from './ripple.js';
 import { resolveFormula } from './formulaRegistry.js';
 // ── 四元盐：seed·tick=0·channel·rerollSalt=0
 // tick=0: 粗节点实体化与拍号无关（幂等·跨存档一致）

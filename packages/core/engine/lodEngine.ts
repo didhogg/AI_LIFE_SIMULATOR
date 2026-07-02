@@ -10,7 +10,7 @@
 
 import type { RootState } from '../schema/index.js';
 import { rngFor } from './rng.js';
-import { writeImpressionMax, type ImpressionEntry } from './tick.js';
+import { writeImpressionMax, type ImpressionEntry } from './ripple.js';
 import { resolveFormula, type FormulaResolveConfig } from './formulaRegistry.js';
 
 // ── 四元盐：seed·tick=0·channel·rerollSalt=0
